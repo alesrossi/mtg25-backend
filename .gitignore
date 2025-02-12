@@ -1,0 +1,78 @@
+# Default ignored files
+/shelf/
+/workspace.xml
+# Rider ignored files
+/projectSettingsUpdater.xml
+/contentModel.xml
+/.idea.mtg25-backend.iml
+/modules.xml
+# Editor-based HTTP Client requests
+/httpRequests/
+# Datasource local storage ignored files
+/dataSources/
+/dataSources.local.xml
+
+
+# Build and release folders
+bin/
+obj/
+out/
+
+# Rider-specific
+.idea/
+*.sln.iml
+
+# .NET Core
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Avoid uploading database, secrets, and sensitive configuration files
+appsettings*.json
+!appsettings.json
+*.log
+
+# User-specific files
+*.user
+*.swp
+*.suo
+*.userosscache
+*.userprefs
+
+# Rider Editor Derived
+.idea*/ 
+
+# Logs and database files
+/*.db
+/*.dsn
+*.nuget/
+
+#Temp notes
+Below is a continuation of a correctly formatted and detailed `.gitignore` file for a .NET project. This file ensures that temporary files, build results, relevant IDE-specific files, and sensitive configurations are excluded:
+
+```gitignore
+# Build Folders
+bin/
+obj/
+out/
+
+# Debug and Release folders
+*.log
+*.vspscc
+*.vssscc
+
+# User-specific files
+*.user
+*.suo
+*.rsuser
+*.sln.docstates
+
+# Visual Studio Code
+.vscode/
+.vscode/settings.json
+
+# Visual Studio
+.vs/
+*.tfstate
+
+# nuget settings related Network

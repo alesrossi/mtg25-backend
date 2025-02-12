@@ -1,0 +1,6 @@
+@mtg25_backend_HostAddress = http://localhost:5286
+
+GET {{mtg25_backend_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
