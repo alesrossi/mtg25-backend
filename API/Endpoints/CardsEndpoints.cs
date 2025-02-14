@@ -1,3 +1,6 @@
+using System.Text.Json;
+using API.Dtos;
+using API.Scryfall;
 using Core.Interfaces;
 using Core.Models;
 using Infrastructure.Data;
@@ -7,16 +10,22 @@ namespace API.Endpoints;
 
 public static class CardsEndpoints
 {
+    
     public static void MapCardsEndpoints(this WebApplication app)
     {
-
-        app.MapGet("/card/{id}", async (MainContext context, int id) =>
+        app.Services.GetService(typeof(Dictionary<string, OracleCardDto>));
+        app.MapGet("/generate-bulk", async () =>
         {
-            IUnitOfWork unit = new UnitOfWork(context);
-            //var context = app.Services.GetRequiredService<MainContext>();
-            var card = await unit.Repository<Card>().GetByIdAsync(id);
-            if (card == null) return Results.NotFound();
-            return Results.Ok(card);
+            
+            return Results.Ok("Generated");
+            
+        });
+        
+        app.MapGet("/cards/{id}",  (string id, CardDataService cds) =>
+        {
+            var cardList = cds.CardData;
+            
+            return Results.Ok(cardList[id]);
             
         });
         
