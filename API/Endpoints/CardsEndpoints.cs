@@ -1,10 +1,8 @@
-using System.Text.Json;
 using API.Dtos;
 using API.Scryfall;
 using Core.Interfaces;
 using Core.Models;
 using Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
 
 namespace API.Endpoints;
 
@@ -13,27 +11,40 @@ public static class CardsEndpoints
     
     public static void MapCardsEndpoints(this WebApplication app)
     {
-        app.Services.GetService(typeof(Dictionary<string, OracleCardDto>));
-        app.MapGet("/generate-bulk", async () =>
-        {
-            
-            return Results.Ok("Generated");
-            
-        });
+        //app.Services.GetService(typeof(Dictionary<string, OracleCardDto>));
         
-        app.MapGet("/cards/{id}",  (string id, CardDataService cds) =>
+        app.MapGet("/cards/{id}", (string id, CardDataService cds) =>
         {
-            var cardList = cds.CardData;
-            
-            return Results.Ok(cardList[id]);
-            
+            if (cds.CardData.TryGetValue(id, out var card))
+            {
+                return Results.Ok(card); // Return the requested card
+            }
+            return Results.NotFound("Card not found"); // Return 404 if missing
         });
+
         
-        app.MapPost("/card", async (MainContext context, Card card) =>
+        app.MapPost("/cards", async (IUnitOfWork unit, InternalCardDto cardDto) =>
         {
-            IUnitOfWork unit = new UnitOfWork(context);
-            //var context = app.Services.GetRequiredService<MainContext>();
+            var collection = await unit.Repository<Collection>().GetByIdAsync(cardDto.CollectionId);
+            if (collection == null)
+            {
+                return Results.NotFound("Collection not found");
+            }
+
+            var card = new Card
+            {
+                Name = cardDto.Name,
+                Collection = collection,
+                Quantity = cardDto.Quantity,
+                Language = cardDto.Language,
+                Version = cardDto.Version,
+                Condition = Condition.NearMint,
+                IsFoil = cardDto.IsFoil,
+                PurchasePrice = cardDto.PurchasePrice
+            };
+
             unit.Repository<Card>().Add(card);
+            await unit.Complete();
             return Results.Ok(card);
         });
     }

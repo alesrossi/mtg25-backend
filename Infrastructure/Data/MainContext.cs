@@ -11,6 +11,7 @@ public class MainContext : DbContext
     }
 
     public DbSet<Card> Cards { get; set; }
+    public DbSet<Collection> Collections { get; set; }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
