@@ -7,7 +7,7 @@ namespace API.Scryfall;
 
 public static class ScryfallUtility
 {
-    public static async Task<Dictionary<string, OracleCardDto>> FetchCardListObjectAsync(string bulkBasePath, string endpoint)
+    public static async Task<List<OracleCardDto>> FetchCardListObjectAsync(string bulkBasePath, string endpoint)
     {
         //var filePath = "/home/dev/programming/dotnet/mtg25-backend/bulk-data/today.json";
         var filePath = await GetOracleBulkDataAsync(bulkBasePath, endpoint);
@@ -18,10 +18,10 @@ public static class ScryfallUtility
             PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
             PropertyNameCaseInsensitive = true
         };
-        var obj = JsonSerializer.Deserialize<List<OracleCardDto>>(fileContents, options)!;
+        return JsonSerializer.Deserialize<List<OracleCardDto>>(fileContents, options)!;
 
-        var dict = obj.ToDictionary(x => x.Id);
-        return dict;
+        // var dict = obj.ToDictionary(x => x.Id);
+        // return dict;
     }
     
     private static async Task<string> GetOracleBulkDataAsync(string basePath, string endpoint)

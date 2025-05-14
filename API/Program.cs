@@ -1,9 +1,12 @@
 using System.Text.Json;
 using API.Configuration;
 using API.Endpoints;
+using API.Extensions;
 using API.Scryfall;
 using Core.Interfaces;
 using Infrastructure.Data;
+using Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace API;
@@ -38,14 +41,35 @@ public class Program
             }
             options.UseNpgsql(connectionString);
         });
+        
+        builder.Services.AddDbContext<AppIdentityDbContext>(options =>
+                {
+                    var connectionString = builder.Configuration.GetConnectionString("IdentityConnection");
+                    if (string.IsNullOrEmpty(connectionString))
+                    {
+                        throw new InvalidOperationException("Connection string 'IdentityConnection' not found.");
+                    }
+                    options.UseNpgsql(connectionString);
+                });
 
         // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
         builder.Services.AddOpenApi();
         
+        // Add CORS policy
+        builder.Services.AddCors(options =>
+        {
+            options.AddDefaultPolicy(policy =>
+            {
+                policy.AllowAnyOrigin()
+                    .AllowAnyMethod()
+                    .AllowAnyHeader();
+            });
+        });
+        
         // Add CardDataService as a singleton
         builder.Services.AddSingleton<CardDataService>();
         builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-
+        builder.Services.AddIdentityServices(builder.Configuration);
 
         var app = builder.Build();
         
@@ -91,8 +115,10 @@ using (var scope = app.Services.CreateScope())
         app.UseHttpsRedirection();
 
         app.UseAuthorization();
+        app.UseCors();
         
         app.MapCardsEndpoints();
+        app.MapAccountEndpoints();
         app.MapCollectionsEndpoints();
 
         app.Run();
