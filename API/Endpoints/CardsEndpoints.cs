@@ -43,10 +43,7 @@ public static class CardsEndpoints
         app.MapPost("/cards", async (IUnitOfWork unit, CardDataService cds, InternalCardDto cardDto) =>
         {
             var collection = await unit.Repository<Collection>().GetByIdAsync(cardDto.CollectionId);
-            if (collection == null)
-            {
-                return Results.NotFound("Collection not found");
-            }
+
             var oracleCard = cds.CardDataById[cardDto.OracleId];
             if (!Enum.TryParse(cardDto.Condition, out Condition myEnum))
             {
@@ -64,11 +61,33 @@ public static class CardsEndpoints
                 IsFoil = cardDto.IsFoil,
                 PurchasePrice = cardDto.PurchasePrice,
                 ImageUrl = oracleCard.ImageUris.Normal,
+                PurchasePriceCurrency = cardDto.PurchasePriceCurrency,
+                SetCode = oracleCard.SetId,
+                SetName = oracleCard.SetName,
+                CollectorNumber = oracleCard.CollectorNumber,
+                Rarity = oracleCard.Rarity,
+                IsMisprint = cardDto.IsMisprint,
+                IsAltered = cardDto.IsAltered,
+
             };
 
             unit.Repository<Card>().Add(card);
             await unit.Complete();
             return Results.Ok(card);
+        });
+        
+        app.MapPost("/cards/card-list", async (CardDataService cds, CardListDto cardListDto) =>
+        {
+            var oracleCardList = new LinkedList<OracleCardDto>();
+            
+            var cardList = cardListDto.CardList.Trim().Split('\n').Select(p => p.Trim());
+            foreach (var inputCard in cardList)
+            {
+                oracleCardList.AddLast(cds.CardDataByName[inputCard]);
+            }
+            
+
+            return Results.Ok(oracleCardList);
         });
     }
 }
