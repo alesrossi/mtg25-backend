@@ -1,3 +1,4 @@
+using API.Dtos;
 using API.Helpers;
 using Core.Interfaces;
 using Core.Models;
@@ -37,8 +38,15 @@ public static class CollectionEnpoints
         });
 
         
-        app.MapPost("/collections", async (IUnitOfWork unitOfWork, Collection collection) =>
+        app.MapPost("/collections", async (IUnitOfWork unitOfWork, NewCollectionDto collectionDto) =>
         {
+            var collection = new Collection
+            {
+                Name = collectionDto.Name,
+                Color = collectionDto.Color,
+                NumberOfCards = 0,
+                TotalPrice = 0
+            };
             unitOfWork.Repository<Collection>().Add(collection);
             await unitOfWork.Complete();
             return Results.Ok(collection);
