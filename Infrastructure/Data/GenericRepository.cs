@@ -48,6 +48,11 @@ namespace Infrastructure.Data
         {
             _context.Set<T>().Add(entity);
         }
+        
+        public void Add(IList<T> listEntity)
+        {
+            _context.Set<T>().AddRange(listEntity);
+        }
 
         public void Update(T entity)
         {

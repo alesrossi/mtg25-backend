@@ -1,11 +1,9 @@
 using API.Dtos;
 using API.Helpers;
+using API.Scryfall;
 using Core.Interfaces;
 using Core.Models;
 using Core.Specifications;
-using Infrastructure.Data;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace API.Endpoints;
 
@@ -51,5 +49,33 @@ public static class CollectionEnpoints
             await unitOfWork.Complete();
             return Results.Ok(collection);
         });
+        
+        app.MapPost("/collections/{id}/import", async (IUnitOfWork unitOfWork, CardDataService cds, IFormFile file, int id) =>
+        {
+            try
+            {
+                if (file.Length <= 0) return Results.BadRequest("No file uploaded");
+
+                if (!file.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)) return Results.BadRequest("File must be csv");
+                
+                if (file.Length > 10 * 1024 * 1024) return Results.BadRequest("File is too large");
+
+                var records = await CollectionHelpers.ProcessCsvFIle(file, cds, id);
+
+                var col = await unitOfWork.Repository<Collection>().GetByIdAsync(id);
+                col.NumberOfCards += records.Count;
+                
+                unitOfWork.Repository<Card>().Add(records);
+                unitOfWork.Repository<Collection>().Update(col);
+                await unitOfWork.Complete();
+                
+                return Results.Ok(records);
+            }
+            catch (Exception e)
+            {
+                return Results.StatusCode(500);
+            }
+        }).DisableAntiforgery();
     }
+    
 }

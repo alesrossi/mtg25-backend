@@ -97,7 +97,7 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while checking/applying migrations.");
+        logger.LogError(ex, "An error occurred while checking/applying migrations");
         throw;
     }
 }
@@ -120,7 +120,7 @@ using (var scope = app.Services.CreateScope())
         app.MapCardsEndpoints();
         app.MapAccountEndpoints();
         app.MapCollectionsEndpoints();
-
+        
         app.Run();
     }
 }
