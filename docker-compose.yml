@@ -1,5 +1,16 @@
 services:
 
+  api:
+    image: alesrossi/mtg25-backend:latest
+    build:
+      context: .
+      dockerfile: API/Dockerfile
+    ports:
+      - "80:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=db;Database=postgres;Username=root;Password=supersecretlongpassword
+
   postgres:
     image: postgres
     restart: always
