@@ -45,6 +45,11 @@ jobs:
           push: true
           tags: alesrossi/mtg25-backend:latest
 
+      - name: Install Docker Compose
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker-compose
+      
       - name: Deploy to Docker
         run: |
           docker-compose down
