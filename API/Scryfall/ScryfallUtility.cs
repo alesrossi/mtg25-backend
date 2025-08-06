@@ -26,9 +26,9 @@ public static class ScryfallUtility
     
     private static async Task<string> GetOracleBulkDataAsync(string basePath, string endpoint)
     {
-        var destinationPath = Path.Combine(basePath, DateTime.Now.ToString("yyyyMMdd") + ".json");
+        var destinationPath = Path.Combine("bulk-data", DateTime.Now.ToString("yyyyMMdd") + ".json");
         var sfClient = GetClient(endpoint);
-        
+        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath));
         var response = await sfClient.GetAsync(
             "bulk-data/oracle-cards");
         if (!response.IsSuccessStatusCode) throw new Exception("Failed to get bulk data");
