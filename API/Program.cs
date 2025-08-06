@@ -2,6 +2,7 @@ using System.Text.Json;
 using API.Configuration;
 using API.Endpoints;
 using API.Extensions;
+using API.Helpers;
 using API.Scryfall;
 using Core.Interfaces;
 using Infrastructure.Data;
@@ -124,6 +125,7 @@ using (var scope = app.Services.CreateScope())
         app.MapCardsEndpoints();
         app.MapAccountEndpoints();
         app.MapCollectionsEndpoints();
+        await DbHelpers.EnsureDatabasesCreated(app);
         
         app.Run();
     }
