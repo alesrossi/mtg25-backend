@@ -7,6 +7,5 @@ namespace API.Scryfall;
 
 public static class ScryfallApiCalls
 {
-    private static readonly Uri BaseUrl = new Uri("https://api.scryfall.com/");
-    
+
 }

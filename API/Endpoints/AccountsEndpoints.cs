@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace API.Endpoints;
 
-public static class AccountEndpoints
+public static class AccountsEndpoints
 {
     public static void MapAccountEndpoints(this WebApplication app)
     {

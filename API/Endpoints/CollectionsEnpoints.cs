@@ -7,7 +7,7 @@ using Core.Specifications;
 
 namespace API.Endpoints;
 
-public static class CollectionEnpoints
+public static class CollectionsEnpoints
 {
     public static void MapCollectionsEndpoints(this WebApplication app)
     {

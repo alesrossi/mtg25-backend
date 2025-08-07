@@ -1,4 +1,24 @@
 services:
+  
+  redis:
+    image: redis:latest
+    ports:
+      - 6379:6379
+    command: [ "redis-server", "--appendonly", "yes" ]
+    volumes:
+      - redis-data:/data
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+      - HTTP_USER=root
+      - HTTP_PASSWORD=supersecretlongpassword
+    ports:
+      - 8081:8081
+    depends_on:
+      - redis
+
   postgres:
     image: postgres
     restart: always
@@ -15,7 +35,16 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-
+  
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8081:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+  
   api:
     build:
       context: .
@@ -26,15 +55,6 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Host=postgres;Database=main;Username=root;Password=supersecretlongpassword
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-  adminer:
-    image: adminer
-    restart: always
-    ports:
-      - 8081:8080
     depends_on:
       postgres:
         condition: service_healthy

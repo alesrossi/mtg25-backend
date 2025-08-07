@@ -125,6 +125,8 @@ using (var scope = app.Services.CreateScope())
         app.MapCardsEndpoints();
         app.MapAccountEndpoints();
         app.MapCollectionsEndpoints();
+        app.MapDecksEndpoints();
+        
         await DbHelpers.EnsureDatabasesCreated(app);
         
         app.Run();
