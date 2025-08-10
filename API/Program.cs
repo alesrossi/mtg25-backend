@@ -1,14 +1,19 @@
+using System.Text;
 using System.Text.Json;
 using API.Configuration;
 using API.Endpoints;
 using API.Extensions;
 using API.Helpers;
 using API.Scryfall;
+using API.Services;
 using Core.Interfaces;
+using Core.Models.Identity;
 using Infrastructure.Data;
 using Infrastructure.Identity;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 
 namespace API;
 
@@ -53,6 +58,17 @@ public class Program
                     options.UseNpgsql(connectionString);
                 });
 
+        
+        builder.Services.Configure<JwtSettings>(
+            builder.Configuration.GetSection("JWT"));
+        
+        builder.Services.AddStackExchangeRedisCache(options =>
+        {
+            options.Configuration = builder.Configuration.GetConnectionString("Redis");
+            options.InstanceName = "MTG25";
+        });
+        
+        
         // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
         builder.Services.AddOpenApi();
         builder.Services.AddEndpointsApiExplorer();
@@ -71,39 +87,83 @@ public class Program
         
         // Add CardDataService as a singleton
         builder.Services.AddSingleton<CardDataService>();
+        builder.Services.AddScoped<IJwtService, JwtService>();
         builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
         builder.Services.AddIdentityServices(builder.Configuration);
 
+        
+        // JWT Configuration
+        
+        // Configure Authentication
+        var jwtSettings = builder.Configuration.GetSection("JWT").Get<JwtSettings>()!;
+        var key = Encoding.UTF8.GetBytes(jwtSettings.SecretKey);
+
+        builder.Services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+            .AddJwtBearer(options =>
+            {
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(key),
+                    ValidateIssuer = true,
+                    ValidIssuer = jwtSettings.Issuer,
+                    ValidateAudience = true,
+                    ValidAudience = jwtSettings.Audience,
+                    ValidateLifetime = true,
+                    ClockSkew = TimeSpan.Zero
+                };
+
+                // Custom event to check Redis blacklist
+                options.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = async context =>
+                    {
+                        var jwtService = context.HttpContext.RequestServices.GetRequiredService<IJwtService>();
+                        var token = context.Request.Headers.Authorization
+                            .ToString().Replace("Bearer ", "");
+
+                        if (await jwtService.IsTokenBlacklistedAsync(token))
+                        {
+                            context.Fail("Token has been revoked");
+                        }
+                    }
+                };
+            });
+        
         var app = builder.Build();
         
-using (var scope = app.Services.CreateScope())
-{
-    var services = scope.ServiceProvider;
-    try
-    {
-        var context = services.GetRequiredService<MainContext>();
-        
-        // Check if database exists
-        if (!await context.Database.CanConnectAsync())
+        using (var scope = app.Services.CreateScope())
         {
-            await context.Database.MigrateAsync();
-        }
-        else
-        {
-            // Check if any pending migrations
-            if ((await context.Database.GetPendingMigrationsAsync()).Any())
+            var services = scope.ServiceProvider;
+            try
             {
-                await context.Database.MigrateAsync();
+                var context = services.GetRequiredService<MainContext>();
+        
+                // Check if database exists
+                if (!await context.Database.CanConnectAsync())
+                {
+                    await context.Database.MigrateAsync();
+                }
+                else
+                {
+                    // Check if any pending migrations
+                    if ((await context.Database.GetPendingMigrationsAsync()).Any())
+                    {
+                        await context.Database.MigrateAsync();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                var logger = services.GetRequiredService<ILogger<Program>>();
+                logger.LogError(ex, "An error occurred while checking/applying migrations");
+                throw;
             }
         }
-    }
-    catch (Exception ex)
-    {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while checking/applying migrations");
-        throw;
-    }
-}
         
         var cardDataService = app.Services.GetRequiredService<CardDataService>();
         await cardDataService.LoadCardDataAsync();
@@ -118,8 +178,10 @@ using (var scope = app.Services.CreateScope())
         }
 
         app.UseHttpsRedirection();
-
+        
+        app.UseAuthentication();
         app.UseAuthorization();
+        
         app.UseCors();
         
         app.MapCardsEndpoints();

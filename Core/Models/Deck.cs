@@ -8,5 +8,5 @@ public class Deck : BaseModel
     public required string Format { get; set; }
     public int NumberOfCards { get; set; }
     public double TotalPrice { get; set; }
-    public required AppUser Owner { get; set; }
+    public required string OwnerId { get; set; }
 }

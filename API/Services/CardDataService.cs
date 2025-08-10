@@ -1,8 +1,9 @@
 using API.Configuration;
 using API.Dtos;
+using API.Scryfall;
 using Microsoft.Extensions.Options;
 
-namespace API.Scryfall;
+namespace API.Services;
 
 public class CardDataService
 {

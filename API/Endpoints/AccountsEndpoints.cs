@@ -1,4 +1,5 @@
 using API.Dtos;
+using API.Services;
 using Core.Models.Identity;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
@@ -18,6 +19,10 @@ public static class AccountsEndpoints
             .WithSummary("Register new user")
             .WithDescription("Creates a new user account with the provided registration details including name, email, and password");
         group.MapPost("/login", LoginUserAsync)
+            .WithSummary("Authenticate user login")
+            .WithDescription("Authenticates a user with email and password credentials, returning user information upon successful login");
+        group.MapPost("/logout", LogoutUserAsync)
+            .RequireAuthorization()
             .WithSummary("Authenticate user login")
             .WithDescription("Authenticates a user with email and password credentials, returning user information upon successful login");
     }
@@ -40,7 +45,7 @@ public static class AccountsEndpoints
     {
         if (await CheckEmailExistsAsyncHelper(userManager, registerDto.Email))
         {
-            return Results.BadRequest("Email address is in use");
+            return Results.BadRequest("Email address already in use");
         }
     
         var user = new AppUser
@@ -65,7 +70,11 @@ public static class AccountsEndpoints
         });
     }
     
-    private static async Task<IResult> LoginUserAsync([FromServices] UserManager<AppUser> userManager, [FromServices] SignInManager<AppUser> signInManager, [FromBody] LoginDto loginDto)
+    private static async Task<IResult> LoginUserAsync(
+        [FromServices] UserManager<AppUser> userManager,
+        [FromServices] IJwtService jwtService, 
+        [FromServices] SignInManager<AppUser> signInManager, 
+        [FromBody] LoginDto loginDto)
     {
             
         var user = await userManager.FindByEmailAsync(loginDto.Email);
@@ -75,13 +84,29 @@ public static class AccountsEndpoints
         var result = await signInManager.CheckPasswordSignInAsync(user, loginDto.Password, false);
 
         if (!result.Succeeded) return Results.Unauthorized();
-
-        return Results.Ok(new UserDto
+        
+        // Generate JWT token
+        var token = await jwtService.GenerateTokenAsync(user);
+        
+        return Results.Ok(new AuthDto
         {
-            DisplayName = user.DisplayName,
-            Email = user.Email,
-            FirstName = user.FirstName,
-            LastName = user.LastName
+            Token = token,
+            ExpiryDate = DateTime.UtcNow.AddHours(1),
+            UserId = user.Id
         });
+    }
+    
+    private static async Task<IResult> LogoutUserAsync(HttpContext context, IJwtService jwtService) 
+    {
+        var token = context.Request.Headers.Authorization
+            .ToString().Replace("Bearer ", "");
+
+        if (string.IsNullOrEmpty(token))
+            return Results.Unauthorized();
+
+        // Blacklist the token for remaining expiry time
+        await jwtService.BlacklistTokenAsync(token, TimeSpan.FromHours(1));
+
+        return Results.Ok(new { message = "Logged out successfully" });
     }
 }

@@ -1,6 +1,7 @@
 using System.Globalization;
 using API.Dtos;
 using API.Scryfall;
+using API.Services;
 using Core.Models;
 using CsvHelper;
 
