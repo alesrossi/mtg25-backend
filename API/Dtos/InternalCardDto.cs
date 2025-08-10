@@ -3,7 +3,6 @@ namespace API.Dtos;
 public class InternalCardDto
 {
     public string OracleId { get; set; }
-    public required string Name { get; set; }
     public int CollectionId { get; set; }
     public int Quantity { get; set; }
     public required string Language { get; set; }

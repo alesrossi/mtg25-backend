@@ -1,11 +1,8 @@
-using System.Globalization;
 using System.Security.Claims;
 using API.Dtos;
-using API.Scryfall;
 using API.Services;
 using Core.Interfaces;
 using Core.Models;
-using Infrastructure.Data;
 
 namespace API.Endpoints;
 
