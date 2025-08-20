@@ -51,7 +51,7 @@ public static class CardsEndpoints
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId is null) return Results.Unauthorized();
 
-        var cardList = cds.CardDataById.Where(x => x.Value.Name.IndexOf(find, StringComparison.OrdinalIgnoreCase) >= 0);
+        var cardList = cds.CardDataById.Where(x => x.Value.Name.Contains(find, StringComparison.OrdinalIgnoreCase));
 
         var result = cardList.Select(card => new MinimalCardDto { Name = card.Value.Name, OracleId = card.Key, ImageUrl = card.Value.ImageUris?.Normal }).ToList();
         return result.Count == 0 ? Results.NotFound("Card not found") : Results.Ok(result);

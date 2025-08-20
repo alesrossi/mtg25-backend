@@ -53,7 +53,7 @@ public static class CollectionsEnpoints
     private static async Task<IResult>  GetCardsFromCollectionAsync(
         IUnitOfWork unitOfWork, 
         int id, 
-        [AsParameters]CardsSpecParams cardsParams,
+        [AsParameters]EntitySpecParams entityParams,
         HttpContext context)
     {
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -63,11 +63,11 @@ public static class CollectionsEnpoints
         if (collection is null) return Results.NotFound();
         if (collection.OwnerId != userId) return Results.Unauthorized();
         
-        var spec = new CardsWithParamsSpecification(cardsParams, id);
+        var spec = new CardsWithParamsSpecification(entityParams, id);
         var size = await unitOfWork.Repository<Card>().CountAsync(spec);
         var cards = await unitOfWork.Repository<Card>().ListAsync(spec);
         
-        return Results.Ok(new Pagination<Card>(cardsParams.PageIndex, cardsParams.PageSize, size, cards));
+        return Results.Ok(new Pagination<Card>(entityParams.PageIndex, entityParams.PageSize, size, cards));
 
     }
     
@@ -81,6 +81,8 @@ public static class CollectionsEnpoints
         if (userId is null) return Results.Unauthorized();
 
         var user = await userManager.FindByIdAsync(userId);
+        
+        if (collectionDto.Name == string.Empty) return Results.BadRequest("Name cannot be empty");
         
         var collection = new Collection
         {
