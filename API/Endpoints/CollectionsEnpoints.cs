@@ -29,11 +29,19 @@ public static class CollectionsEnpoints
             .RequireAuthorization()
             .WithSummary("Create new collection")
             .WithDescription("Creates a new collection with specified name and color properties, initializing card count and total price to zero");
-        group.MapPost("/{id}/import", ImportCardList)
+        group.MapPatch("/{id}/import", ImportCardList)
             .RequireAuthorization()
             .WithSummary("Import cards from CSV file")
             .WithDescription("Imports cards from a CSV file into a specific collection, processing the file and updating collection statistics")
             .DisableAntiforgery();
+        group.MapGet("/", GetAllCollectionsForUser)
+            .RequireAuthorization()
+            .WithSummary("Lists all collections for authenticated user")
+            .WithDescription("Lists all collections for authenticated user");
+        group.MapDelete("/{id}/mass-delete", MassDeleteCardsFromCollection)
+            .RequireAuthorization()
+            .WithSummary("Deletes multiple cards from a specific collection")
+            .WithDescription("Deletes multiple cards from a specific collection");
     }
     
     private static async Task<IResult> GetCollectionFromIdAsync(
@@ -131,5 +139,31 @@ public static class CollectionsEnpoints
         {
             return Results.StatusCode(500);
         }
+    }
+    
+    private static async Task<IResult> GetAllCollectionsForUser(
+        IUnitOfWork unitOfWork, 
+        HttpContext context)
+    {
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null) return Results.Unauthorized();
+        
+        var collections = await unitOfWork.Repository<Collection>().ListAsync(new CollectionWithOwnerSpecification(userId));
+        return Results.Ok(collections);
+    }
+    
+    private static async Task<IResult> MassDeleteCardsFromCollection(
+        IUnitOfWork unitOfWork, 
+        int id,
+        [FromBody] List<int> ctbd,
+        HttpContext context)
+    {
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null) return Results.Unauthorized();
+        
+        var deletedCount = await unitOfWork.Repository<Card>().Delete(ctbd);
+        await unitOfWork.Complete();
+        
+        return Results.Ok(deletedCount);
     }
 }

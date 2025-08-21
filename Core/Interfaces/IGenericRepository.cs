@@ -14,4 +14,5 @@ public interface IGenericRepository<T> where T : BaseModel
     void Add(IList<T> entity);
     void Update(T entity);
     void Delete(T entity);
+    Task<int> Delete(List<int> entitiesIds);
 }

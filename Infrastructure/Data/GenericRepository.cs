@@ -64,6 +64,13 @@ namespace Infrastructure.Data
         {
             _context.Set<T>().Remove(entity);
         }
+        
+        public async Task<int> Delete(List<int> entitiesIds)
+        {
+            var entitiesToBeDeleted = await _context.Set<T>().ToListAsync();
+            _context.Set<T>().RemoveRange(entitiesToBeDeleted.Where(x => entitiesIds.Contains(x.Id)));
+            return entitiesIds.Count;
+        }
 
         private IQueryable<T> ApplySpecification(ISpecification<T> spec)
         {

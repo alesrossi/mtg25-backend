@@ -16,6 +16,14 @@ public static class CardsEndpoints
             .RequireAuthorization()
             .WithSummary("Gets card from internal Id")
             .WithDescription("Gets card from DB from internal Id");
+        // group.MapPut("/{id}", UpdateCardFromIdAsync)
+        //     .RequireAuthorization()
+        //     .WithSummary("Update Card")
+        //     .WithDescription("Updates card from form");
+        group.MapDelete("/{id}", DeleteCardFromIdAsync)
+            .RequireAuthorization()
+            .WithSummary("Delete Card")
+            .WithDescription("Removes card from id");
         group.MapGet("/search/{find}", SearchCards)
             .RequireAuthorization()
             .WithSummary("Search cards by name")
@@ -29,18 +37,74 @@ public static class CardsEndpoints
             .RequireAuthorization()
             .WithSummary("Process card list")
             .WithDescription("Processes a list of card names and returns corresponding Oracle card data");
+        
     }
     
-    private static IResult GetCardFromId(
-        string id, 
+    private static async Task<IResult> GetCardFromId(
+        IUnitOfWork unit,
+        int id, 
         CardDataService cds, 
         HttpContext context)
     {
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId is null) return Results.Unauthorized();
+
+        var card = await unit.Repository<Card>().GetByIdAsync(id);
+        if (card is null) return Results.NotFound();
+    
+        var collection = await unit.Repository<Collection>().GetByIdAsync(card.CollectionId);
         
-        return cds.CardDataById.TryGetValue(id, out var card) ? Results.Ok(card) : // Return the requested card
-            Results.NotFound("Card not found"); // Return 404 if missing
+        return collection!.OwnerId == userId ? Results.Ok(card) : Results.Unauthorized();
+    }
+    
+    // private static IResult UpdateCardFromIdAsync(
+    //     IUnitOfWork unit,
+    //     string id, 
+    //     CardDataService cds, 
+    //     HttpContext context)
+    // {
+    //     var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    //     if (userId is null) return Results.Unauthorized();
+    //     
+    //     try
+    //     {
+    //         var card = await unit.Repository<Card>().GetByIdAsync(id);
+    //         unit.Repository<Card>().Delete(card);
+    //         await unit.Complete();
+    //         return Results.Ok();
+    //     }
+    //     catch (Exception e)
+    //     {
+    //         return Results.BadRequest(e.Message);
+    //     }
+    // }
+    
+    private static async Task<IResult> DeleteCardFromIdAsync(
+        IUnitOfWork unit,
+        int id, 
+        CardDataService cds, 
+        HttpContext context)
+    {
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null) return Results.Unauthorized();
+
+        try
+        {
+            var card = await unit.Repository<Card>().GetByIdAsync(id);
+            if (card is null) return Results.NotFound();
+            
+            var collection = await unit.Repository<Collection>().GetByIdAsync(card.CollectionId);
+            if (collection!.OwnerId != userId) return Results.Unauthorized();
+            
+            unit.Repository<Card>().Delete(card);
+            await unit.Complete();
+            return Results.Ok();
+        }
+        catch (Exception e)
+        {
+            return Results.BadRequest(e.Message);
+        }
+        
     }
     
     private static IResult SearchCards(
@@ -57,7 +121,8 @@ public static class CardsEndpoints
         return result.Count == 0 ? Results.NotFound("Card not found") : Results.Ok(result);
     }
     
-    private static async Task<IResult> AddNewCardAsync (IUnitOfWork unit,
+    private static async Task<IResult> AddNewCardAsync (
+        IUnitOfWork unit,
         CardDataService cds, 
         HttpContext context, 
         InternalCardDto cardDto)
