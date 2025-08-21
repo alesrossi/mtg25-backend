@@ -4,19 +4,19 @@ namespace Core.Specifications;
 
 public class CardsWithParamsSpecification : BaseSpecification<Card>
 {
-    public CardsWithParamsSpecification(CardsSpecParams cardParams, int collectionId)
+    public CardsWithParamsSpecification(EntitySpecParams entityParams, int collectionId)
         : base(x =>
-            (string.IsNullOrEmpty(cardParams.Search) || x.Name.Contains(cardParams.Search)) &&
+            (string.IsNullOrEmpty(entityParams.Search) || x.Name.Contains(entityParams.Search)) &&
             // Add other filtering logic here
             x.CollectionId == collectionId)
 
     {
         AddOrderBy(x => x.Name);
-        ApplyPaging(cardParams.PageSize * (cardParams.PageIndex - 1), cardParams.PageSize);
+        ApplyPaging(entityParams.PageSize * (entityParams.PageIndex - 1), entityParams.PageSize);
 
-        if (!string.IsNullOrEmpty(cardParams.Sort))
+        if (!string.IsNullOrEmpty(entityParams.Sort))
         {
-            switch (cardParams.Sort)
+            switch (entityParams.Sort)
             {
                 case "priceAsc":
                     AddOrderBy(p => p.PurchasePrice);
