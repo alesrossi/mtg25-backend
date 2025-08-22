@@ -8,5 +8,4 @@ public class Settings
     public required string Currency { get; set; }
     public required string Language { get; set; }
     public required string AppUserId { get; set; }
-    public required AppUser AppUser { get; set; }
 }

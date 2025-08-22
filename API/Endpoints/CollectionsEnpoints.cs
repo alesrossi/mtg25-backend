@@ -82,6 +82,7 @@ public static class CollectionsEnpoints
     private static async Task<IResult> AddNewCollectionAsync (
         [FromServices]IUnitOfWork unitOfWork, 
         [FromServices] UserManager<AppUser> userManager, 
+        [FromServices] IValidationService validationService,
         HttpContext context, 
         NewCollectionDto collectionDto)
     {
@@ -90,7 +91,12 @@ public static class CollectionsEnpoints
 
         var user = await userManager.FindByIdAsync(userId);
         
-        if (collectionDto.Name == string.Empty) return Results.BadRequest("Name cannot be empty");
+        // Validate the model
+        var (isValid, errors) = validationService.ValidateModel(collectionDto);
+        if (!isValid)
+        {
+            return Results.BadRequest(new { errors });
+        }
         
         var collection = new Collection
         {
@@ -148,7 +154,7 @@ public static class CollectionsEnpoints
         HttpContext context)
     {
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
         
         var collections = await unitOfWork.Repository<Collection>().ListAsync(new CollectionWithOwnerSpecification(userId));
         return Results.Ok(collections);

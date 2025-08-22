@@ -12,6 +12,7 @@ using Infrastructure.Data;
 using Infrastructure.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -85,6 +86,24 @@ public class Program
             });
         });
         
+        builder.Services.Configure<ApiBehaviorOptions>(options =>
+        {
+            options.InvalidModelStateResponseFactory = context =>
+            {
+                var errors = context.ModelState
+                    .Where(x => x.Value?.Errors.Count > 0)
+                    .ToDictionary(
+                        kvp => kvp.Key,
+                        kvp => kvp.Value?.Errors.Select(e => e.ErrorMessage).ToArray()
+                    );
+
+                return new BadRequestObjectResult(new { errors });
+            };
+        });
+
+// Add model validation
+        builder.Services.AddScoped<IValidationService, ValidationService>();
+        
         // Add CardDataService as a singleton
         builder.Services.AddSingleton<CardDataService>();
         builder.Services.AddScoped<IJwtService, JwtService>();
@@ -96,43 +115,45 @@ public class Program
         
         // Configure Authentication
         var jwtSettings = builder.Configuration.GetSection("JWT").Get<JwtSettings>()!;
-        var key = Encoding.UTF8.GetBytes(jwtSettings.SecretKey);
-
-        builder.Services.AddAuthentication(options =>
-            {
-                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-            })
-            .AddJwtBearer(options =>
-            {
-                options.TokenValidationParameters = new TokenValidationParameters
+        // Only configure JWT if not in testing environment and JWT config is available
+        if (jwtSettings != null && !builder.Environment.IsEnvironment("Testing"))
+        {
+            var key = Encoding.UTF8.GetBytes(jwtSettings.SecretKey);
+    
+            builder.Services.AddAuthentication(options =>
                 {
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(key),
-                    ValidateIssuer = true,
-                    ValidIssuer = jwtSettings.Issuer,
-                    ValidateAudience = true,
-                    ValidAudience = jwtSettings.Audience,
-                    ValidateLifetime = true,
-                    ClockSkew = TimeSpan.Zero
-                };
-
-                // Custom event to check Redis blacklist
-                options.Events = new JwtBearerEvents
+                    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                })
+                .AddJwtBearer(options =>
                 {
-                    OnTokenValidated = async context =>
+                    options.TokenValidationParameters = new TokenValidationParameters
                     {
-                        var jwtService = context.HttpContext.RequestServices.GetRequiredService<IJwtService>();
-                        var token = context.Request.Headers.Authorization
-                            .ToString().Replace("Bearer ", "");
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey = new SymmetricSecurityKey(key),
+                        ValidateIssuer = true,
+                        ValidIssuer = jwtSettings.Issuer,
+                        ValidateAudience = true,
+                        ValidAudience = jwtSettings.Audience,
+                        ValidateLifetime = true,
+                        ClockSkew = TimeSpan.Zero
+                    };
 
-                        if (await jwtService.IsTokenBlacklistedAsync(token))
+                    options.Events = new JwtBearerEvents
+                    {
+                        OnTokenValidated = async context =>
                         {
-                            context.Fail("Token has been revoked");
+                            var jwtService = context.HttpContext.RequestServices.GetRequiredService<IJwtService>();
+                            var token = context.Request.Headers.Authorization
+                                .ToString().Replace("Bearer ", "");
+                            if (await jwtService.IsTokenBlacklistedAsync(token))
+                            {
+                                context.Fail("Token has been revoked");
+                            }
                         }
-                    }
-                };
-            });
+                    };
+                });
+        }
         
         var app = builder.Build();
         
@@ -156,6 +177,22 @@ public class Program
                         await context.Database.MigrateAsync();
                     }
                 }
+                
+                // var idContext = services.GetRequiredService<AppIdentityDbContext>();
+                //
+                // // Check if database exists
+                // if (!await idContext.Database.CanConnectAsync())
+                // {
+                //     await idContext.Database.MigrateAsync();
+                // }
+                // else
+                // {
+                //     // Check if any pending migrations
+                //     if ((await idContext.Database.GetPendingMigrationsAsync()).Any())
+                //     {
+                //         await idContext.Database.MigrateAsync();
+                //     }
+                // }
             }
             catch (Exception ex)
             {
@@ -165,8 +202,11 @@ public class Program
             }
         }
         
-        var cardDataService = app.Services.GetRequiredService<CardDataService>();
-        await cardDataService.LoadCardDataAsync();
+        if (!app.Environment.IsEnvironment("Testing"))
+        {
+            var cardDataService = app.Services.GetRequiredService<CardDataService>();
+            await cardDataService.LoadCardDataAsync();
+        }
 
         
         // Configure the HTTP request pipeline.
