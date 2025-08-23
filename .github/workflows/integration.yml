@@ -93,8 +93,8 @@ jobs:
             --results-directory TestResults/ \
             -- RunConfiguration.CollectSourceInformation=true
         env:
-          ConnectionStrings__DefaultConnection: "Server=localhost;Port=5433;Database=test_main;User Id=root;Password=supersecretlongpassword;"
-          ConnectionStrings__IdentityConnection: "Server=localhost;Port=5433;Database=test_identity;User Id=root;Password=supersecretlongpassword;"
+          ConnectionStrings__DefaultConnection: "Server=postgres;Port=5433;Database=test_main;User Id=root;Password=supersecretlongpassword;"
+          ConnectionStrings__IdentityConnection: "Server=postgres;Port=5433;Database=test_identity;User Id=root;Password=supersecretlongpassword;"
           ConnectionStrings__Redis: "localhost:6379"
 
       - name: Upload test results
