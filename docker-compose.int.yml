@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  redis-int:
+    image: redis:7-alpine
+    container_name: redis-int
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-int-data:/data
+    networks:
+      - mtg-int-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  postgres-int:
+    image: postgres:15-alpine
+    container_name: postgres-int
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: supersecretlongpassword
+      POSTGRES_USER: root
+      POSTGRES_DB: main_int
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres-int-data:/var/lib/postgresql/data
+      - ./scripts/init-identity-db.sql:/docker-entrypoint-initdb.d/init-identity-db.sql
+    networks:
+      - mtg-int-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d main_int"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api-int:
+    image: ${DOCKER_USERNAME:-alesrossi}/mtg-api:${IMAGE_TAG:-int-latest}
+    container_name: api-int
+    restart: unless-stopped
+    ports:
+      - "8082:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Integration
+      - ConnectionStrings__DefaultConnection=Server=postgres-int;Port=5432;Database=main_int;User Id=root;Password=supersecretlongpassword;
+      - ConnectionStrings__IdentityConnection=Server=postgres-int;Port=5432;Database=identity_int;User Id=root;Password=supersecretlongpassword;
+      - ConnectionStrings__Redis=redis-int:6379
+      - JWT__SecretKey=A6e48opuUdbWcyLLHIwbeKVo826sEYYgepR9XtedHfRqhJ5drn7Nl85Yv1234567891234567COQvFzbxxqI3FQ2DUuf3C07Z50EaINValFi4FuuPX1pptcBHrzvl4qp
+      - JWT__Issuer=MTG25API
+      - JWT__Audience=MTG25Users
+      - JWT__ExpiryMinutes=60
+      - Scryfall__BasePath=https://api.scryfall.com/
+      - Paths__Bulk=/app/bulk-data
+    depends_on:
+      postgres-int:
+        condition: service_healthy
+      redis-int:
+        condition: service_healthy
+    networks:
+      - mtg-int-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  adminer-int:
+    image: adminer:4
+    container_name: adminer-int
+    restart: unless-stopped
+    ports:
+      - "8084:8080"
+    environment:
+      - ADMINER_DEFAULT_SERVER=postgres-int
+    depends_on:
+      - postgres-int
+    networks:
+      - mtg-int-network
+
+volumes:
+  redis-int-data:
+    name: mtg-redis-int-data
+  postgres-int-data:
+    name: mtg-postgres-int-data
+
+networks:
+  mtg-int-network:
+    name: mtg-int-network
+    driver: bridge

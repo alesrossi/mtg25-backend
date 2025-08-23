@@ -231,6 +231,23 @@ public class Program
         
         await DbHelpers.EnsureDatabasesCreated(app);
         
+        // Add health check endpoint
+        app.MapGet("/health", () => Results.Ok(new { 
+            status = "healthy", 
+            timestamp = DateTime.UtcNow,
+            environment = app.Environment.EnvironmentName,
+            version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString()
+        })).AllowAnonymous();
+
+        // Add environment-specific configuration
+        if (app.Environment.IsEnvironment("Integration"))
+        {
+            app.UseDeveloperExceptionPage();
+            app.MapOpenApi();
+            app.UseSwagger();
+            app.UseSwaggerUI();
+        }
+        
         app.Run();
     }
 }

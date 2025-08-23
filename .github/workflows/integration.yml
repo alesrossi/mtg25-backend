@@ -1,0 +1,183 @@
+name: Integration Environment CI/CD
+
+on:
+  push:
+    branches: [int]
+  pull_request:
+    branches: [int]
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: mtg-api
+  DOTNET_VERSION: '9.0.x'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Build and Test
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: supersecretlongpassword
+          POSTGRES_USER: root
+          POSTGRES_DB: test_main
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build solution
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Create test database
+        run: |
+          PGPASSWORD=supersecretlongpassword psql -h localhost -p 5433 -U root -d test_main -c "CREATE DATABASE test_identity;"
+        continue-on-error: true
+
+      - name: Wait for services
+        run: |
+          timeout 60s bash -c 'until pg_isready -h localhost -p 5433 -U root; do sleep 2; done'
+          timeout 30s bash -c 'until redis-cli -h localhost -p 6379 ping | grep PONG; do sleep 2; done'
+
+      - name: Run tests
+        run: |
+          dotnet test --no-build --configuration Release \
+            --logger "trx;LogFileName=test_results.trx" \
+            --logger "console;verbosity=detailed" \
+            --collect:"XPlat Code Coverage" \
+            --results-directory TestResults/ \
+            -- RunConfiguration.CollectSourceInformation=true
+        env:
+          ConnectionStrings__DefaultConnection: "Server=localhost;Port=5433;Database=test_main;User Id=root;Password=supersecretlongpassword;"
+          ConnectionStrings__IdentityConnection: "Server=localhost;Port=5433;Database=test_identity;User Id=root;Password=supersecretlongpassword;"
+          ConnectionStrings__Redis: "localhost:6379"
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ github.run_number }}
+          path: TestResults/
+          retention-days: 30
+
+      - name: Test Report Summary
+        if: always()
+        run: |
+          echo "## Test Results Summary 📊" >> $GITHUB_STEP_SUMMARY
+          if [ -f TestResults/test_results.trx ]; then
+            echo "✅ Test results file generated successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ No test results file found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    name: Build and Push Docker Image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/int'
+
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch,suffix=-{{sha}}
+            type=raw,value=int-latest,enable={{is_default_branch}}
+            type=raw,value=int-{{date 'YYYYMMDD-HHmmss'}}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: Build Summary
+        run: |
+          echo "## Docker Image Built Successfully 🐳" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:int-latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:** ${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Digest:** ${{ steps.build.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
+
+  deploy-notification:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    name: Deploy Notification
+    if: github.event_name == 'push' && github.ref == 'refs/heads/int'
+
+    steps:
+      - name: Integration deployment ready
+        run: |
+          echo "## 🚀 Integration Environment Ready for Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### To deploy locally:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "export IMAGE_TAG=int-latest" >> $GITHUB_STEP_SUMMARY
+          echo "./scripts/start-integration.sh" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Services will be available at:" >> $GITHUB_STEP_SUMMARY
+          echo "- **API:** http://localhost:8082" >> $GITHUB_STEP_SUMMARY
+          echo "- **API Health:** http://localhost:8082/health" >> $GITHUB_STEP_SUMMARY
+          echo "- **Swagger:** http://localhost:8082/swagger" >> $GITHUB_STEP_SUMMARY
+          echo "- **Database Admin:** http://localhost:8084" >> $GITHUB_STEP_SUMMARY
