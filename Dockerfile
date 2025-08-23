@@ -11,6 +11,7 @@ COPY Core/*.csproj ./Core/
 COPY Infrastructure/*.csproj ./Infrastructure/
 COPY IntegrationTests/*.csproj ./IntegrationTests/
 COPY TestUtilities/*.csproj ./TestUtilities/
+COPY UnitTests/*.csproj ./UnitTests/
 
 RUN dotnet restore
 
