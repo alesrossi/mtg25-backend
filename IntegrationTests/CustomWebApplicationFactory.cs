@@ -21,133 +21,123 @@ namespace IntegrationTests
         private readonly string _testMainDbName;
         private readonly string _testIdentityDbName;
 
+        // NEW: generated test-run connection strings derived from the active appsettings file
+        private readonly string _testDefaultConnection;
+        private readonly string _testIdentityConnection;
+        private readonly string _adminConnection;   // same host/port/user/pass but Database = postgres
+
         public CustomWebApplicationFactory()
         {
-            // Create unique database names for THIS factory instance
+            // keep existing unique-name logic
             var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmssffff");
-            var random = Guid.NewGuid().ToString("N")[..8];
-            var threadId = System.Threading.Thread.CurrentThread.ManagedThreadId;
-            
-            _testMainDbName = $"test_main_{timestamp}_{threadId}_{random}";
+            var random    = Guid.NewGuid().ToString("N")[..8];
+            var threadId  = System.Threading.Thread.CurrentThread.ManagedThreadId;
+
+            _testMainDbName     = $"test_main_{timestamp}_{threadId}_{random}";
             _testIdentityDbName = $"test_identity_{timestamp}_{threadId}_{random}";
+
+            /* --------------------  minimal change starts here  -------------------- */
+            // Pick the correct appsettings file based on ASPNETCORE_ENVIRONMENT
+            var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
+
+            var baseConfig = new ConfigurationBuilder()
+                                .SetBasePath(AppContext.BaseDirectory)
+                                .AddJsonFile("appsettings.json",           optional: false)
+                                .AddJsonFile($"appsettings.{env}.json",    optional: true)
+                                .AddEnvironmentVariables()
+                                .Build();
+
+            var defaultConn  = baseConfig.GetConnectionString("DefaultConnection")  ?? throw new InvalidOperationException("DefaultConnection missing");
+            var identityConn = baseConfig.GetConnectionString("IdentityConnection") ?? throw new InvalidOperationException("IdentityConnection missing");
+
+            // Swap only the Database part for this test run
+            _testDefaultConnection  = new NpgsqlConnectionStringBuilder(defaultConn)  { Database = _testMainDbName     }.ConnectionString;
+            _testIdentityConnection = new NpgsqlConnectionStringBuilder(identityConn) { Database = _testIdentityDbName }.ConnectionString;
+
+            // Admin connection (same server/port/user/pass but DB = postgres)
+            _adminConnection = new NpgsqlConnectionStringBuilder(defaultConn) { Database = "postgres" }.ConnectionString;
+            /* --------------------  minimal change ends here    -------------------- */
         }
 
-        public async Task InitializeAsync()
-        {
-            // Create test databases for this instance
-            await CreateTestDatabases();
-        }
+        public async Task InitializeAsync() => await CreateTestDatabases();
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
-            builder.ConfigureAppConfiguration((context, configBuilder) =>
+            builder.ConfigureAppConfiguration((context, cfg) =>
             {
-                // Add test configuration
-                configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+                // overwrite only the connection strings – everything else unchanged
+                cfg.AddInMemoryCollection(new Dictionary<string,string?>
                 {
-                    // Use THIS instance's unique database names
-                    ["ConnectionStrings:DefaultConnection"] = $"Server=postgres; Port=5433;Uid=root; Pwd=supersecretlongpassword; Database={_testMainDbName}",
-                    ["ConnectionStrings:IdentityConnection"] = $"Server=postgres; Port=5433;Uid=root; Pwd=supersecretlongpassword; Database={_testIdentityDbName}",
-                    ["ConnectionStrings:Redis"] = "", // Disable Redis for tests
-
-                    // JWT settings from your appsettings
-                    ["JWT:SecretKey"] = "A6e48opuUdbWcyLLHIwbeKVo826sEYYgepR9XtedHfRqhJ5drn7Nl85Yvb6WHsaYmp22gOXAsCOQvFzbxxqI3FQ2DUuf3C07Z50EaINValFi4FuuPX1pptcBHrzvl4qp",
-                    ["JWT:Issuer"] = "MTG25API",
-                    ["JWT:Audience"] = "MTG25Users",
-                    ["JWT:ExpiryMinutes"] = "60",
-
-                    // Other settings
-                    ["Scryfall:BasePath"] = "https://api.scryfall.com/",
-                    ["Paths:Bulk"] = "/tmp/test-bulk-data"
+                    ["ConnectionStrings:DefaultConnection"]  = _testDefaultConnection,
+                    ["ConnectionStrings:IdentityConnection"] = _testIdentityConnection,
+                    ["ConnectionStrings:Redis"]              = ""          // disable Redis cache
                 });
             });
 
             builder.ConfigureServices(services =>
             {
-                // Remove existing DbContexts if they exist
                 services.RemoveAll(typeof(DbContextOptions<MainContext>));
                 services.RemoveAll(typeof(DbContextOptions<AppIdentityDbContext>));
                 services.RemoveAll<MainContext>();
                 services.RemoveAll<AppIdentityDbContext>();
 
-                // Add test database contexts with unique names
-                services.AddDbContext<MainContext>(options =>
-                    options.UseNpgsql($"Server=postgres; Port=5433;Uid=root; Pwd=supersecretlongpassword; Database={_testMainDbName}"));
+                services.AddDbContext<MainContext>(o => o.UseNpgsql(_testDefaultConnection));
+                services.AddDbContext<AppIdentityDbContext>(o => o.UseNpgsql(_testIdentityConnection));
 
-                services.AddDbContext<AppIdentityDbContext>(options =>
-                    options.UseNpgsql($"Server=postgres; Port=5433;Uid=root; Pwd=supersecretlongpassword; Database={_testIdentityDbName}"));
-
-                // Replace Redis with in-memory cache
                 services.RemoveAll(typeof(IDistributedCache));
                 services.AddMemoryCache();
                 services.AddSingleton<IDistributedCache, MemoryDistributedCache>();
 
-                // Remove existing authentication services
                 services.RemoveAll<IAuthenticationSchemeProvider>();
-
-                // Add test authentication
                 services.AddAuthentication("Test")
-                    .AddScheme<TestAuthenticationSchemeOptions, TestAuthenticationHandler>("Test", options => { });
+                        .AddScheme<TestAuthenticationSchemeOptions, TestAuthenticationHandler>("Test", _ => { });
 
-                services.Configure<AuthorizationOptions>(options =>
+                services.Configure<AuthorizationOptions>(o =>
                 {
-                    options.DefaultPolicy = new AuthorizationPolicyBuilder("Test")
-                        .RequireAuthenticatedUser()
-                        .Build();
+                    o.DefaultPolicy = new AuthorizationPolicyBuilder("Test")
+                                        .RequireAuthenticatedUser()
+                                        .Build();
                 });
             });
         }
 
+        /* ----------------------  unchanged logic below  ---------------------- */
+
         private async Task CreateTestDatabases()
         {
-            // Connect to postgres database to create test databases
-            var connectionString = "Server=postgres; Port=5433;Uid=root; Pwd=supersecretlongpassword; Database=postgres";
-            using var connection = new NpgsqlConnection(connectionString);
-            await connection.OpenAsync();
+            await using var conn = new NpgsqlConnection(_adminConnection);
+            await conn.OpenAsync();
 
-            // Create main test database
-            using (var command = connection.CreateCommand())
+            await using (var cmd = conn.CreateCommand())
             {
-                command.CommandText = $"CREATE DATABASE \"{_testMainDbName}\"";
-                await command.ExecuteNonQueryAsync();
+                cmd.CommandText = $"CREATE DATABASE \"{_testMainDbName}\"";
+                await cmd.ExecuteNonQueryAsync();
+
+                cmd.CommandText = $"CREATE DATABASE \"{_testIdentityDbName}\"";
+                await cmd.ExecuteNonQueryAsync();
             }
 
-            // Create identity test database
-            using (var command = connection.CreateCommand())
-            {
-                command.CommandText = $"CREATE DATABASE \"{_testIdentityDbName}\"";
-                await command.ExecuteNonQueryAsync();
-            }
-
-            // Run migrations
             await RunMigrations();
         }
 
         private async Task RunMigrations()
         {
-            // Run migrations on main database
-            var mainConnectionString = $"Server=postgres; Port=5433;Uid=root; Pwd=supersecretlongpassword; Database={_testMainDbName}";
-            using (var context = new MainContext(new DbContextOptionsBuilder<MainContext>()
-                .UseNpgsql(mainConnectionString).Options))
+            await using (var ctx = new MainContext(new DbContextOptionsBuilder<MainContext>()
+                       .UseNpgsql(_testDefaultConnection).Options))
             {
-                await context.Database.MigrateAsync();
+                await ctx.Database.MigrateAsync();
             }
 
-            // Run migrations on identity database
-            var identityConnectionString = $"Server=postgres; Port=5433;Uid=root; Pwd=supersecretlongpassword; Database={_testIdentityDbName}";
-            using (var context = new AppIdentityDbContext(new DbContextOptionsBuilder<AppIdentityDbContext>()
-                .UseNpgsql(identityConnectionString).Options))
+            await using (var ctx = new AppIdentityDbContext(new DbContextOptionsBuilder<AppIdentityDbContext>()
+                       .UseNpgsql(_testIdentityConnection).Options))
             {
-                await context.Database.MigrateAsync();
+                await ctx.Database.MigrateAsync();
             }
         }
 
         public override async ValueTask DisposeAsync()
         {
-            // Clean up test databases first
             await DropTestDatabases();
-
-            // Then call base cleanup
             await base.DisposeAsync();
         }
 
@@ -155,32 +145,23 @@ namespace IntegrationTests
         {
             try
             {
-                var connectionString = "Server=postgres; Port=5433;Uid=root; Pwd=supersecretlongpassword; Database=postgres";
-                using var connection = new NpgsqlConnection(connectionString);
-                await connection.OpenAsync();
+                await using var conn = new NpgsqlConnection(_adminConnection);
+                await conn.OpenAsync();
 
-                // Terminate active connections
-                using (var command = connection.CreateCommand())
+                await using (var cmd = conn.CreateCommand())
                 {
-                    command.CommandText = $@"
+                    cmd.CommandText = $@"
                         SELECT pg_terminate_backend(pid)
                         FROM pg_stat_activity
                         WHERE datname IN ('{_testMainDbName}', '{_testIdentityDbName}')
-                        AND pid <> pg_backend_pid()";
-                    await command.ExecuteNonQueryAsync();
-                }
+                          AND pid <> pg_backend_pid()";
+                    await cmd.ExecuteNonQueryAsync();
 
-                // Drop databases
-                using (var command = connection.CreateCommand())
-                {
-                    command.CommandText = $"DROP DATABASE IF EXISTS \"{_testMainDbName}\"";
-                    await command.ExecuteNonQueryAsync();
-                }
+                    cmd.CommandText = $"DROP DATABASE IF EXISTS \"{_testMainDbName}\"";
+                    await cmd.ExecuteNonQueryAsync();
 
-                using (var command = connection.CreateCommand())
-                {
-                    command.CommandText = $"DROP DATABASE IF EXISTS \"{_testIdentityDbName}\"";
-                    await command.ExecuteNonQueryAsync();
+                    cmd.CommandText = $"DROP DATABASE IF EXISTS \"{_testIdentityDbName}\"";
+                    await cmd.ExecuteNonQueryAsync();
                 }
             }
             catch (Exception ex)
@@ -189,16 +170,14 @@ namespace IntegrationTests
             }
         }
 
-        // FIXED: Properly configure authentication with user details
-        public HttpClient CreateClientWithUser(string userId, string userName = "testuser", string email = "test@example.com")
+        public HttpClient CreateClientWithUser(string userId,
+                                               string userName = "testuser",
+                                               string email    = "test@example.com")
         {
             var client = CreateClient();
-            
-            // Set custom headers that the test authentication handler can read
-            client.DefaultRequestHeaders.Add("Test-UserId", userId);
+            client.DefaultRequestHeaders.Add("Test-UserId",  userId);
             client.DefaultRequestHeaders.Add("Test-UserName", userName);
-            client.DefaultRequestHeaders.Add("Test-Email", email);
-            
+            client.DefaultRequestHeaders.Add("Test-Email",   email);
             return client;
         }
     }

@@ -44,7 +44,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       - name: Install Redis CLI and PostgreSQL client
         run: |
           sudo apt-get update
@@ -79,7 +79,7 @@ jobs:
           echo "Waiting for PostgreSQL..."
           timeout 60s bash -c 'until pg_isready -h localhost -p 5433 -U root; do sleep 2; done'
           echo "PostgreSQL is ready!"
-            
+          
           echo "Waiting for Redis..."
           timeout 30s bash -c 'until redis-cli -h localhost -p 6379 ping | grep PONG; do sleep 2; done'
           echo "Redis is ready!"
@@ -93,8 +93,9 @@ jobs:
             --results-directory TestResults/ \
             -- RunConfiguration.CollectSourceInformation=true
         env:
-          ConnectionStrings__DefaultConnection: "Server=postgres;Port=5433;Database=test_main;User Id=root;Password=supersecretlongpassword;"
-          ConnectionStrings__IdentityConnection: "Server=postgres;Port=5433;Database=test_identity;User Id=root;Password=supersecretlongpassword;"
+          ASPNETCORE_ENVIRONMENT: Production
+          ConnectionStrings__DefaultConnection: "Server=localhost;Port=5433;Database=test_main;User Id=root;Password=supersecretlongpassword;"
+          ConnectionStrings__IdentityConnection: "Server=localhost;Port=5433;Database=test_identity;User Id=root;Password=supersecretlongpassword;"
           ConnectionStrings__Redis: "localhost:6379"
 
       - name: Upload test results
