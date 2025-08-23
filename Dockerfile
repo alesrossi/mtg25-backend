@@ -1,4 +1,5 @@
-﻿FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS build-env
+﻿# Build stage - Use SDK image for restore, build, and publish
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build-env
 WORKDIR /app
 
 # Copy solution file first
@@ -11,9 +12,7 @@ COPY Infrastructure/*.csproj ./Infrastructure/
 COPY IntegrationTests/*.csproj ./IntegrationTests/
 COPY TestUtilities/*.csproj ./TestUtilities/
 
-
-RUN dotnet restore 
-
+RUN dotnet restore
 
 # Copy everything else and build
 COPY . ./
@@ -22,7 +21,7 @@ WORKDIR /app/API
 # Publish the application
 RUN dotnet publish -c Release -o /app/out
 
-# Build runtime image
+# Runtime stage - Use lightweight runtime image
 FROM mcr.microsoft.com/dotnet/aspnet:9.0
 WORKDIR /app
 
