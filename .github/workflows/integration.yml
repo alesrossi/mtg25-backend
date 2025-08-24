@@ -146,7 +146,7 @@ jobs:
           images: ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch,suffix=-{{sha}}
-            type=raw,value=int-latest,enable={{is_default_branch}}
+            type=raw,value=int-latest,enable=true
             type=raw,value=int-{{date 'YYYYMMDD-HHmmss'}}
 
       - name: Build and push
@@ -168,7 +168,7 @@ jobs:
           echo "**Image:** \`${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:int-latest\`" >> $GITHUB_STEP_SUMMARY
           echo "**Tags:** ${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
           echo "**Digest:** ${{ steps.build.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
-
+  
   deploy-notification:
     needs: build-and-push
     runs-on: ubuntu-latest

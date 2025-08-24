@@ -28,7 +28,7 @@ echo ""
 
 # Stop existing containers
 echo -e "${YELLOW}🛑 Stopping existing integration containers...${NC}"
-docker-compose -f docker-compose.int.yml down --remove-orphans
+docker compose -f docker-compose.int.yml down --remove-orphans
 
 # Clean up old containers and networks
 echo -e "${YELLOW}🧹 Cleaning up old resources...${NC}"
@@ -46,7 +46,7 @@ fi
 
 # Start integration environment
 echo -e "${YELLOW}🔧 Starting integration services...${NC}"
-docker-compose -f docker-compose.int.yml up -d
+docker compose -f docker-compose.int.yml up -d
 
 echo -e "${YELLOW}⏳ Waiting for services to be ready...${NC}"
 
@@ -57,7 +57,7 @@ check_service_health() {
     local attempt=1
 
     while [ $attempt -le $max_attempts ]; do
-        if docker-compose -f docker-compose.int.yml ps $service_name | grep -q "healthy\|Up"; then
+        if docker compose -f docker-compose.int.yml ps $service_name | grep -q "healthy\|Up"; then
             return 0
         fi
         echo -e "   Attempt $attempt/$max_attempts - $service_name not ready yet..."
@@ -73,7 +73,7 @@ if check_service_health "postgres-int" 24; then
     echo -e "${GREEN}✅ PostgreSQL is ready${NC}"
 else
     echo -e "${RED}❌ PostgreSQL failed to start${NC}"
-    docker-compose -f docker-compose.int.yml logs postgres-int
+    docker compose -f docker-compose.int.yml logs postgres-int
     exit 1
 fi
 
@@ -83,7 +83,7 @@ if check_service_health "redis-int" 12; then
     echo -e "${GREEN}✅ Redis is ready${NC}"
 else
     echo -e "${RED}❌ Redis failed to start${NC}"
-    docker-compose -f docker-compose.int.yml logs redis-int
+    docker compose -f docker-compose.int.yml logs redis-int
     exit 1
 fi
 
@@ -102,7 +102,7 @@ while [ $api_attempt -le $api_attempts ]; do
     # Show API logs if it's taking too long
     if [ $api_attempt -eq 15 ]; then
         echo -e "${YELLOW}🔍 API is taking longer than expected. Recent logs:${NC}"
-        docker-compose -f docker-compose.int.yml logs --tail=10 api-int
+        docker compose -f docker-compose.int.yml logs --tail=10 api-int
     fi
     
     sleep 5
@@ -114,7 +114,7 @@ if [ $api_attempt -le $api_attempts ]; then
 else
     echo -e "${RED}❌ API failed to start properly${NC}"
     echo -e "${YELLOW}Recent API logs:${NC}"
-    docker-compose -f docker-compose.int.yml logs --tail=20 api-int
+    docker compose -f docker-compose.int.yml logs --tail=20 api-int
     exit 1
 fi
 
@@ -134,9 +134,9 @@ echo "  🗄️  Database Admin: http://localhost:8084"
 echo "  🔄 Redis Port:     localhost:6380"
 echo ""
 echo -e "${BLUE}Useful Commands:${NC}"
-echo "  View logs:    docker-compose -f docker-compose.int.yml logs -f"
+echo "  View logs:    docker compose -f docker-compose.int.yml logs -f"
 echo "  Stop env:     ./scripts/stop-integration.sh"
-echo "  Restart API:  docker-compose -f docker-compose.int.yml restart api-int"
+echo "  Restart API:  docker compose -f docker-compose.int.yml restart api-int"
 echo ""
 echo -e "${YELLOW}Database Connection (for external tools):${NC}"
 echo "  Host: localhost"
