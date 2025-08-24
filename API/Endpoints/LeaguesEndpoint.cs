@@ -14,7 +14,7 @@ public static class LeaguesEndpoint
 {
     public static void MapLeaguesEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/leagues").WithTags("Leagues");
+        var group = app.MapGroup("/api/leagues").WithTags("Leagues");
         group.MapGet("/user", GetLeaguesFromUser)
             .WithSummary("Returns all leagues for user")
             .WithDescription("Returns all leagues for user given JWT token");

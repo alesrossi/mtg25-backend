@@ -7,7 +7,7 @@ public static class DecksEndpoint
 {
     public static void MapDecksEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/decks").WithTags("Decks");
+        var group = app.MapGroup("/api/decks").WithTags("Decks");
         group.MapGet("/", GetAllDecksForUser)
             .WithSummary("Get decks for user")
             .WithDescription("Gets all decks from a given user");

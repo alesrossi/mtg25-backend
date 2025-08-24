@@ -11,7 +11,7 @@ public static class CardsEndpoints
     
     public static void MapCardsEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/cards").WithTags("Cards");
+        var group = app.MapGroup("/api/cards").WithTags("Cards");
         group.MapGet("/{id:int}", GetCardFromId)
             .RequireAuthorization()
             .WithSummary("Gets card from internal Id")

@@ -16,7 +16,7 @@ public static class CollectionsEnpoints
 {
     public static void MapCollectionsEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/collections").WithTags("Collections");
+        var group = app.MapGroup("/api/collections").WithTags("Collections");
         group.MapGet("/{id}", GetCollectionFromIdAsync)
             .RequireAuthorization()
             .WithSummary("Get collection by ID")

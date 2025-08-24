@@ -10,7 +10,7 @@ public static class AccountsEndpoints
 {
     public static void MapAccountEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/accounts").WithTags("Accounts");
+        var group = app.MapGroup("/api/accounts").WithTags("Accounts");
         group.MapGet("/emailexists/{email}", CheckEmailExistsAsync)
             .WithSummary("Check if email exists")
             .WithDescription("Verifies if an email address is already registered in the system");

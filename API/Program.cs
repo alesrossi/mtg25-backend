@@ -234,7 +234,7 @@ public class Program
         await DbHelpers.EnsureDatabasesCreated(app);
         
         // Add health check endpoint
-        app.MapGet("/health", () => Results.Ok(new { 
+        app.MapGet("/api/health", () => Results.Ok(new { 
             status = "healthy", 
             timestamp = DateTime.UtcNow,
             environment = app.Environment.EnvironmentName,
