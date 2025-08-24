@@ -9,5 +9,5 @@ public class AppUser : IdentityUser
     public required string FirstName { get; set; }
     public required string LastName { get; set; }
     [JsonIgnore]
-    public List<League> Leagues { get; set; } = [];
+    public ICollection<AppUserLeague> UserLeagues { get; set; } = new List<AppUserLeague>();
 }

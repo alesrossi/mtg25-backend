@@ -11,16 +11,25 @@ namespace Infrastructure.Identity
         }
 
         public DbSet<League> Leagues { get; set; }
+        public DbSet<AppUserLeague> UserLeagues { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
 
-            // Configure many-to-many relationship (optional customization)
-            builder.Entity<AppUser>()
-                .HasMany(u => u.Leagues)
-                .WithMany(l => l.Users)
-                .UsingEntity(j => j.ToTable("AppUserLeagues"));
+            // Configure UserLeague entity
+            builder.Entity<AppUserLeague>()
+                .HasKey(ul => new { ul.UserId, ul.LeagueId }); // Composite primary key
+
+            builder.Entity<AppUserLeague>()
+                .HasOne(ul => ul.User)
+                .WithMany(u => u.UserLeagues)
+                .HasForeignKey(ul => ul.UserId);
+
+            builder.Entity<AppUserLeague>()
+                .HasOne(ul => ul.League)
+                .WithMany(l => l.UserLeagues)
+                .HasForeignKey(ul => ul.LeagueId);
         }
     }
 }
