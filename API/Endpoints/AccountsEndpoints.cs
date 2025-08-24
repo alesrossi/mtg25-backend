@@ -1,7 +1,6 @@
 using API.Dtos;
 using API.Services;
 using Core.Models.Identity;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 
@@ -30,18 +29,24 @@ public static class AccountsEndpoints
     
     
 
-    private static async Task<bool> CheckEmailExistsAsyncHelper(UserManager<AppUser> userManager, string email)
+    private static async Task<bool> CheckEmailExistsAsyncHelper(
+        UserManager<AppUser> userManager, 
+        string email)
     {
         return await userManager.FindByEmailAsync(email) != null;
     }
     
-    private static async Task<IResult> CheckEmailExistsAsync(string email, [FromServices] UserManager<AppUser> userManager) 
+    private static async Task<IResult> CheckEmailExistsAsync(
+        string email, 
+        [FromServices] UserManager<AppUser> userManager) 
     {
         var emailExists = await CheckEmailExistsAsyncHelper(userManager, email);
         return Results.Ok(emailExists);
     }
     
-    private static async Task<IResult> RegisterUserAsync([FromServices] UserManager<AppUser> userManager, [FromBody] RegisterDto registerDto)
+    private static async Task<IResult> RegisterUserAsync(
+        [FromServices] UserManager<AppUser> userManager, 
+        [FromBody] RegisterDto registerDto)
     {
         if (await CheckEmailExistsAsyncHelper(userManager, registerDto.Email))
         {
@@ -96,7 +101,9 @@ public static class AccountsEndpoints
         });
     }
     
-    private static async Task<IResult> LogoutUserAsync(HttpContext context, IJwtService jwtService) 
+    private static async Task<IResult> LogoutUserAsync(
+        HttpContext context, 
+        IJwtService jwtService) 
     {
         var token = context.Request.Headers.Authorization
             .ToString().Replace("Bearer ", "");

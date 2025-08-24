@@ -12,7 +12,7 @@ public static class CardsEndpoints
     public static void MapCardsEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/cards").WithTags("Cards");
-        group.MapGet("/{id}", GetCardFromId)
+        group.MapGet("/{id:int}", GetCardFromId)
             .RequireAuthorization()
             .WithSummary("Gets card from internal Id")
             .WithDescription("Gets card from DB from internal Id");
@@ -20,7 +20,7 @@ public static class CardsEndpoints
         //     .RequireAuthorization()
         //     .WithSummary("Update Card")
         //     .WithDescription("Updates card from form");
-        group.MapDelete("/{id}", DeleteCardFromIdAsync)
+        group.MapDelete("/{id:int}", DeleteCardFromIdAsync)
             .RequireAuthorization()
             .WithSummary("Delete Card")
             .WithDescription("Removes card from id");

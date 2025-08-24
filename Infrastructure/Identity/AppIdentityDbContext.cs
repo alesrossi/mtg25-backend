@@ -10,9 +10,17 @@ namespace Infrastructure.Identity
         {
         }
 
+        public DbSet<League> Leagues { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
+
+            // Configure many-to-many relationship (optional customization)
+            builder.Entity<AppUser>()
+                .HasMany(u => u.Leagues)
+                .WithMany(l => l.Users)
+                .UsingEntity(j => j.ToTable("AppUserLeagues"));
         }
     }
 }

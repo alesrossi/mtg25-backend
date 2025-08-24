@@ -1,17 +1,16 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using API.Configuration;
 using API.Endpoints;
 using API.Extensions;
 using API.Helpers;
-using API.Scryfall;
 using API.Services;
 using Core.Interfaces;
 using Core.Models.Identity;
 using Infrastructure.Data;
 using Infrastructure.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -34,6 +33,8 @@ public class Program
                 // Enable built-in naming policies from System.Text.Json
                 options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
                 options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+                options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.Preserve;
+                options.JsonSerializerOptions.WriteIndented = true;
             });
         
         // Add services to the container.
@@ -227,6 +228,7 @@ public class Program
         app.MapCardsEndpoints();
         app.MapAccountEndpoints();
         app.MapCollectionsEndpoints();
+        app.MapLeaguesEndpoints();
         app.MapDecksEndpoints();
         
         await DbHelpers.EnsureDatabasesCreated(app);
