@@ -93,7 +93,7 @@ api_attempts=30
 api_attempt=1
 
 while [ $api_attempt -le $api_attempts ]; do
-    if curl -sf http://localhost:8082/health > /dev/null 2>&1; then
+    if curl -sf http://localhost:8086/health > /dev/null 2>&1; then
         break
     fi
     
@@ -120,16 +120,16 @@ fi
 
 # Test API health endpoint
 echo -e "${BLUE}🔍 Testing API health endpoint...${NC}"
-health_response=$(curl -s http://localhost:8082/health)
+health_response=$(curl -s http://localhost:8086/health)
 echo -e "${GREEN}Health Response: $health_response${NC}"
 
 echo ""
 echo -e "${GREEN}🎉 Integration environment is ready!${NC}"
 echo "=================================================="
 echo -e "${BLUE}Services:${NC}"
-echo "  🌐 API:            http://localhost:8082"
-echo "  🏥 API Health:     http://localhost:8082/health"
-echo "  📚 API Docs:       http://localhost:8082/swagger"
+echo "  🌐 API:            http://localhost:8086"
+echo "  🏥 API Health:     http://localhost:8086/health"
+echo "  📚 API Docs:       http://localhost:8086/swagger"
 echo "  🗄️  Database Admin: http://localhost:8084"
 echo "  🔄 Redis Port:     localhost:6380"
 echo ""

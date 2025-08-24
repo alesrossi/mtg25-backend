@@ -44,7 +44,7 @@ services:
     container_name: api-int
     restart: unless-stopped
     ports:
-      - "8082:8080"
+      - "8086:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Integration
       - ConnectionStrings__DefaultConnection=Server=postgres-int;Port=5432;Database=main_int;User Id=root;Password=supersecretlongpassword;

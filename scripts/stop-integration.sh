@@ -13,17 +13,17 @@ echo "==============================================="
 
 # Stop and remove containers
 echo -e "${YELLOW}🔄 Stopping services...${NC}"
-docker-compose -f docker-compose.int.yml down
+docker compose -f docker-compose.int.yml down
 
 echo -e "${YELLOW}🧹 Cleaning up containers and networks...${NC}"
-docker-compose -f docker-compose.int.yml down --remove-orphans
+docker compose -f docker-compose.int.yml down --remove-orphans
 
 # Optional: Remove volumes (uncomment if you want to reset data)
 read -p "Do you want to remove data volumes? (y/N): " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo -e "${YELLOW}🗑️  Removing data volumes...${NC}"
-    docker-compose -f docker-compose.int.yml down -v
+    docker compose -f docker-compose.int.yml down -v
     echo -e "${GREEN}✅ Data volumes removed${NC}"
 else
     echo -e "${BLUE}ℹ️  Data volumes preserved${NC}"
