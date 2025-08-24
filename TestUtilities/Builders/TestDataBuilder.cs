@@ -1,4 +1,3 @@
-using System;
 using AutoFixture;
 using Core.Models;
 using Core.Models.Identity;
@@ -35,7 +34,8 @@ public class TestDataBuilder
             .With(u => u.Email, email ?? _fixture.Create<string>() + "@test.com")
             .With(u => u.UserName, userName ?? _fixture.Create<string>())
             .With(u => u.EmailConfirmed, true)
-            .With(u => u.LockoutEnd, DateTimeOffset.UtcNow)
+            .With(u => u.LockoutEnd, DateTime.UtcNow)
+            .Without(u => u.UserLeagues)
             .Create();
         
         return user;

@@ -13,17 +13,27 @@ public static class AccountsEndpoints
         var group = app.MapGroup("/api/accounts").WithTags("Accounts");
         group.MapGet("/emailexists/{email}", CheckEmailExistsAsync)
             .WithSummary("Check if email exists")
-            .WithDescription("Verifies if an email address is already registered in the system");
+            .WithDescription("Verifies if an email address is already registered in the system")
+            .Produces<bool>();
+        
         group.MapPost("/register", RegisterUserAsync)
             .WithSummary("Register new user")
-            .WithDescription("Creates a new user account with the provided registration details including name, email, and password");
+            .WithDescription("Creates a new user account with the provided registration details including name, email, and password")
+            .Produces<UserDto>()
+            .Produces(StatusCodes.Status400BadRequest);
+        
         group.MapPost("/login", LoginUserAsync)
             .WithSummary("Authenticate user login")
-            .WithDescription("Authenticates a user with email and password credentials, returning user information upon successful login");
+            .WithDescription("Authenticates a user with email and password credentials, returning user information upon successful login")
+            .Produces<AuthDto>()
+            .Produces(StatusCodes.Status401Unauthorized);
+        
         group.MapPost("/logout", LogoutUserAsync)
             .RequireAuthorization()
             .WithSummary("Authenticate user login")
-            .WithDescription("Authenticates a user with email and password credentials, returning user information upon successful login");
+            .WithDescription("Authenticates a user with email and password credentials, returning user information upon successful login")
+            .Produces<string>()
+            .Produces(StatusCodes.Status401Unauthorized);
     }
     
     
@@ -40,8 +50,7 @@ public static class AccountsEndpoints
         string email, 
         [FromServices] UserManager<AppUser> userManager) 
     {
-        var emailExists = await CheckEmailExistsAsyncHelper(userManager, email);
-        return Results.Ok(emailExists);
+        return Results.Ok(await CheckEmailExistsAsyncHelper(userManager, email));
     }
     
     private static async Task<IResult> RegisterUserAsync(
@@ -83,7 +92,6 @@ public static class AccountsEndpoints
     {
             
         var user = await userManager.FindByEmailAsync(loginDto.Email);
-
         if (user == null) return Results.Unauthorized();
 
         var result = await signInManager.CheckPasswordSignInAsync(user, loginDto.Password, false);

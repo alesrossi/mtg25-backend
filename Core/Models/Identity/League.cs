@@ -9,7 +9,7 @@ public class League : BaseModel
     public int RoundsToConsider { get; set; }
     public int MinimumRounds { get; set; }
     public int TotalPlayers { get; set; }
-    public DateTime? EndDate { get; set; }
+    //public DateTime? EndDate { get; set; }
     public bool IsActive { get; set; } = true;
     public ICollection<AppUserLeague> UserLeagues { get; set; } = new List<AppUserLeague>();
 }

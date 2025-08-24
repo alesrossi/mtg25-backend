@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using API.Dtos;
 using API.Helpers;
-using API.Scryfall;
 using API.Services;
 using Core.Interfaces;
 using Core.Models;
@@ -12,36 +11,58 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace API.Endpoints;
 
-public static class CollectionsEnpoints
+public static class CollectionsEndpoints
 {
     public static void MapCollectionsEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/collections").WithTags("Collections");
-        group.MapGet("/{id}", GetCollectionFromIdAsync)
+        group.MapGet("/{id:int}", GetCollectionFromIdAsync)
             .RequireAuthorization()
             .WithSummary("Get collection by ID")
-            .WithDescription("Retrieves a specific collection from the database using its unique identifier");
-        group.MapGet("/{id}/cards", GetCardsFromCollectionAsync)
+            .WithDescription("Retrieves a specific collection from the database using its unique identifier")
+            .Produces<Collection>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
+        
+        group.MapGet("/{id:int}/cards", GetCardsFromCollectionAsync)
             .RequireAuthorization()
             .WithSummary("Get cards from collection")
-            .WithDescription("Retrieves paginated list of cards from a specific collection with optional filtering and sorting parameters");
+            .WithDescription("Retrieves paginated list of cards from a specific collection with optional filtering and sorting parameters")
+            .Produces<Pagination<Card>>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
+        
         group.MapPost("/", AddNewCollectionAsync)
             .RequireAuthorization()
             .WithSummary("Create new collection")
-            .WithDescription("Creates a new collection with specified name and color properties, initializing card count and total price to zero");
-        group.MapPatch("/{id}/import", ImportCardList)
+            .WithDescription("Creates a new collection with specified name and color properties, initializing card count and total price to zero")
+            .Produces<Collection>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized);
+        
+        group.MapPatch("/{id:int}/import", ImportCardList)
             .RequireAuthorization()
             .WithSummary("Import cards from CSV file")
-            .WithDescription("Imports cards from a CSV file into a specific collection, processing the file and updating collection statistics")
+            .WithDescription(
+                "Imports cards from a CSV file into a specific collection, processing the file and updating collection statistics")
+            .Produces<List<Card>>() // Returns deleted count
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
             .DisableAntiforgery();
+        
         group.MapGet("/", GetAllCollectionsForUser)
             .RequireAuthorization()
             .WithSummary("Lists all collections for authenticated user")
-            .WithDescription("Lists all collections for authenticated user");
-        group.MapDelete("/{id}/mass-delete", MassDeleteCardsFromCollection)
+            .WithDescription("Lists all collections for authenticated user")
+            .Produces<List<Collection>>()
+            .Produces(StatusCodes.Status401Unauthorized);
+        
+        group.MapDelete("/{id:int}/mass-delete", MassDeleteCardsFromCollection)
             .RequireAuthorization()
             .WithSummary("Deletes multiple cards from a specific collection")
-            .WithDescription("Deletes multiple cards from a specific collection");
+            .WithDescription("Deletes multiple cards from a specific collection")
+            .Produces<int>() // Returns deleted count
+            .Produces(StatusCodes.Status401Unauthorized);
     }
     
     private static async Task<IResult> GetCollectionFromIdAsync(

@@ -10,7 +10,7 @@ public class AppUserLeague
 
     public int Score { get; set; }  // User's score in this league
     public int RoundsPlayed { get; set; }
-    public Stack<int>? Rounds { get; set; } = [];
+    public List<int>? Rounds { get; set; } = [];
     public int BestRound { get; set; }
     public double AvgScore { get; set; }
 }

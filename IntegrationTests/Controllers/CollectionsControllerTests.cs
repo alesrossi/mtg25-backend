@@ -38,7 +38,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
         // Act
-        var response = await client.GetAsync("/collections");
+        var response = await client.GetAsync("/api/collections");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK,
@@ -60,7 +60,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         using var client = _factory.CreateClient(); // No authentication
 
         // Act
-        var response = await client.GetAsync("/collections");
+        var response = await client.GetAsync("/api/collections");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized,
@@ -75,7 +75,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
         // Act
-        var response = await client.GetAsync("/collections");
+        var response = await client.GetAsync("/api/collections");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -104,7 +104,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         // Act
-        var response = await client.PostAsync("/collections", content);
+        var response = await client.PostAsync("/api/collections", content);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK,
@@ -145,7 +145,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         // Act
-        var response = await client.PostAsync("/collections", content);
+        var response = await client.PostAsync("/api/collections", content);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest,
@@ -169,7 +169,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         // Act
-        var response = await client.PostAsync("/collections", content);
+        var response = await client.PostAsync("/api/collections", content);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest,
@@ -185,7 +185,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
         // Act
-        var response = await client.GetAsync($"/collections/{collection.Id}");
+        var response = await client.GetAsync($"/api/collections/{collection.Id}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -208,7 +208,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
         // Act
-        var response = await client.GetAsync("/collections/999999");
+        var response = await client.GetAsync("/api/collections/999999");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound,
@@ -227,7 +227,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         using var client = _factory.CreateClientWithUser(user1.Id, user1.UserName!, user1.Email!);
 
         // Act
-        var response = await client.GetAsync($"/collections/{user2Collection.Id}");
+        var response = await client.GetAsync($"/api/collections/{user2Collection.Id}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized,

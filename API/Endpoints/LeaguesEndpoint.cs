@@ -17,7 +17,10 @@ public static class LeaguesEndpoint
         var group = app.MapGroup("/api/leagues").WithTags("Leagues");
         group.MapGet("/user", GetLeaguesFromUser)
             .WithSummary("Returns all leagues for user")
-            .WithDescription("Returns all leagues for user given JWT token");
+            .WithDescription("Returns all leagues for user given JWT token")
+            .Produces<List<MinimalCardDto>>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
     }
     
     private static async Task<IResult> GetLeaguesFromUser(
@@ -44,7 +47,7 @@ public static class LeaguesEndpoint
                 Name = x.League.Name, 
                 Score = x.Score, 
                 Id = x.LeagueId,
-                EndDate = x.League.EndDate,
+                //EndDate = x.League.EndDate,
                 Format = x.League.Format,
             }));
         

@@ -15,29 +15,47 @@ public static class CardsEndpoints
         group.MapGet("/{id:int}", GetCardFromId)
             .RequireAuthorization()
             .WithSummary("Gets card from internal Id")
-            .WithDescription("Gets card from DB from internal Id");
+            .WithDescription("Gets card from DB from internal Id")
+            .Produces<Card?>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
         // group.MapPut("/{id}", UpdateCardFromIdAsync)
         //     .RequireAuthorization()
         //     .WithSummary("Update Card")
         //     .WithDescription("Updates card from form");
+        
         group.MapDelete("/{id:int}", DeleteCardFromIdAsync)
             .RequireAuthorization()
             .WithSummary("Delete Card")
-            .WithDescription("Removes card from id");
+            .WithDescription("Removes card from id")
+            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
+        
         group.MapGet("/search/{find}", SearchCards)
             .RequireAuthorization()
             .WithSummary("Search cards by name")
-            .WithDescription("Searches for cards in the database by name using case-insensitive partial matching");
+            .WithDescription("Searches for cards in the database by name using case-insensitive partial matching")
+            .Produces<List<MinimalCardDto>>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
+        
         group.MapPost("/", AddNewCardAsync)
             .RequireAuthorization()
             .WithSummary("Add a new card")
             .WithDescription("Adds a new card to a collection with specified properties like condition, language, and pricing")
-            .RequireAuthorization();
+            .Produces<Card>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status400BadRequest);
+
         group.MapPost("/card-list", AddCardListAsync)
             .RequireAuthorization()
             .WithSummary("Process card list")
-            .WithDescription("Processes a list of card names and returns corresponding Oracle card data");
-        
+            .WithDescription("Processes a list of card names and returns corresponding Oracle card data")
+            .Produces<LinkedList<OracleCardDto>>()
+            .Produces(StatusCodes.Status401Unauthorized);
+
     }
     
     private static async Task<IResult> GetCardFromId(
@@ -98,6 +116,7 @@ public static class CardsEndpoints
             
             unit.Repository<Card>().Delete(card);
             await unit.Complete();
+            
             return Results.Ok();
         }
         catch (Exception e)

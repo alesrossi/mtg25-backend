@@ -16,7 +16,7 @@ namespace Infrastructure.Identity
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
-
+            
             // Configure UserLeague entity
             builder.Entity<AppUserLeague>()
                 .HasKey(ul => new { ul.UserId, ul.LeagueId }); // Composite primary key
