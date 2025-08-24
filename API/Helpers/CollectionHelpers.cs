@@ -7,7 +7,7 @@ using CsvHelper;
 
 namespace API.Helpers;
 
-public class CollectionHelpers
+public static class CollectionHelpers
 {
     public static async Task<List<Card>> ProcessCsvFIle(IFormFile file, CardDataService cds, int collectionId)
     {
@@ -32,7 +32,7 @@ public class CollectionHelpers
                 IsFoil = record.IsFoil,
                 PurchasePrice = record.PurchasePrice,
                 PurchasePriceCurrency = record.PurchasePriceCurrency,
-                ImageUrl = ocd.ImageUris.Large,
+                ImageUrl = ocd.ImageUris!.Large!,
                 SetCode = record.SetCode,
                 SetName = record.SetName,
                 CollectorNumber = record.CollectorNumber,

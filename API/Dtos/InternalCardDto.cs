@@ -1,13 +1,13 @@
 namespace API.Dtos;
 
-public class InternalCardDto
+public abstract class InternalCardDto
 {
-    public string OracleId { get; set; }
+    public required string OracleId { get; set; }
     public int CollectionId { get; set; }
     public int Quantity { get; set; }
     public required string Language { get; set; }
     public required string Version { get; set; } 
-    public string Condition { get; set; } 
+    public required string Condition { get; set; } 
     public bool IsFoil { get; set; }
     public double PurchasePrice { get; set; }
     public required string PurchasePriceCurrency { get; set; }

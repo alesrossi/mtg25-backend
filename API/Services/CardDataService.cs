@@ -5,17 +5,12 @@ using Microsoft.Extensions.Options;
 
 namespace API.Services;
 
-public class CardDataService
+public class CardDataService(IOptions<PathsConfig> pathsConfig, IOptions<ScryfallConfig> scryfallConfig)
 {
-    private readonly PathsConfig _pathsConfig;
-    private readonly ScryfallConfig _scryfallConfig;
+    private readonly PathsConfig _pathsConfig = pathsConfig.Value;
+    private readonly ScryfallConfig _scryfallConfig = scryfallConfig.Value;
     public Dictionary<string, OracleCardDto> CardDataById { get; private set; } = new();
     public Dictionary<string, OracleCardDto> CardDataByName { get; private set; } = new();
-    public CardDataService(IOptions<PathsConfig> pathsConfig, IOptions<ScryfallConfig> scryfallConfig)
-    {
-        _pathsConfig = pathsConfig.Value;
-        _scryfallConfig = scryfallConfig.Value;
-    }
 
     public async Task LoadCardDataAsync()
     {

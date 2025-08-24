@@ -9,20 +9,13 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace API.Services;
 
-public class JwtService : IJwtService
+public class JwtService(IOptions<JwtSettings> jwtSettings, IDistributedCache cache, UserManager<AppUser> userManager)
+    : IJwtService
 {
-    private readonly JwtSettings _jwtSettings;
-    private readonly IDistributedCache _cache;
-    private readonly UserManager<AppUser> _userManager;
+    private readonly JwtSettings _jwtSettings = jwtSettings.Value;
+    private readonly UserManager<AppUser> _userManager = userManager;
 
-    public JwtService(IOptions<JwtSettings> jwtSettings, IDistributedCache cache, UserManager<AppUser> userManager)
-    {
-        _jwtSettings = jwtSettings.Value;
-        _cache = cache;
-        _userManager = userManager;
-    }
-
-    public async Task<string> GenerateTokenAsync(AppUser user)
+    public Task<string> GenerateTokenAsync(AppUser user)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
         var key = Encoding.UTF8.GetBytes(_jwtSettings.SecretKey);
@@ -46,14 +39,14 @@ public class JwtService : IJwtService
         };
 
         var token = tokenHandler.CreateToken(tokenDescriptor);
-        return tokenHandler.WriteToken(token);
+        return Task.FromResult(tokenHandler.WriteToken(token));
     }
 
 
     public async Task<bool> IsTokenBlacklistedAsync(string token)
     {
         var key = $"blacklist_{token}";
-        var result = await _cache.GetStringAsync(key);
+        var result = await cache.GetStringAsync(key);
         return !string.IsNullOrEmpty(result);
     }
 
@@ -64,7 +57,7 @@ public class JwtService : IJwtService
         {
             AbsoluteExpirationRelativeToNow = expiry
         };
-        await _cache.SetStringAsync(key, "blacklisted", options);
+        await cache.SetStringAsync(key, "blacklisted", options);
     }
 
     public async Task<string?> ValidateTokenAsync(string token)

@@ -221,9 +221,10 @@ public class CollectionRepositoryTests : IDisposable
             .ToList();
 
         // Act - Simulate concurrent additions
-        var tasks = collections.Select(async collection =>
-        { 
+        var tasks = collections.Select(collection =>
+        {
             _repository.Add(collection);
+            return Task.CompletedTask;
         });
 
         await Task.WhenAll(tasks);

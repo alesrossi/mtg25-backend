@@ -137,6 +137,7 @@ public static class CardsEndpoints
         if (userId != collection.OwnerId)  return Results.BadRequest("Collection is not valid for logged user");
         
         var oracleCard = cds.CardDataById[cardDto.OracleId];
+
         if (!Enum.TryParse(cardDto.Condition, out Condition myEnum))
         {
             return Results.BadRequest("Invalid condition");
@@ -152,12 +153,12 @@ public static class CardsEndpoints
             Condition = myEnum,
             IsFoil = cardDto.IsFoil,
             PurchasePrice = cardDto.PurchasePrice,
-            ImageUrl = oracleCard.ImageUris.Normal,
+            ImageUrl = oracleCard.ImageUris!.Normal!,
             PurchasePriceCurrency = cardDto.PurchasePriceCurrency,
-            SetCode = oracleCard.SetId,
+            SetCode = oracleCard.SetId!,
             SetName = oracleCard.SetName,
-            CollectorNumber = oracleCard.CollectorNumber,
-            Rarity = oracleCard.Rarity,
+            CollectorNumber = oracleCard.CollectorNumber!,
+            Rarity = oracleCard.Rarity!,
             IsMisprint = cardDto.IsMisprint,
             IsAltered = cardDto.IsAltered,
 
@@ -168,13 +169,13 @@ public static class CardsEndpoints
         return Results.Ok(card);
     }
     
-    private static async Task<IResult> AddCardListAsync (
+    private static Task<IResult> AddCardListAsync (
         CardDataService cds, 
         CardListDto cardListDto, 
         HttpContext context) 
     {
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (userId is null) return Task.FromResult(Results.Unauthorized());
         
         var oracleCardList = new LinkedList<OracleCardDto>();
             
@@ -184,6 +185,6 @@ public static class CardsEndpoints
             oracleCardList.AddLast(cds.CardDataByName[inputCard]);
         }
 
-        return Results.Ok(oracleCardList);
+        return Task.FromResult(Results.Ok(oracleCardList));
     }
 }

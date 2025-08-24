@@ -2,7 +2,7 @@ namespace API.Dtos;
 
 using CsvHelper.Configuration.Attributes;
 
-public class CsvRecordDto
+public abstract class CsvRecordDto
 {
     [Name("Name")]
     public required string Name { get; set; }
@@ -28,10 +28,10 @@ public class CsvRecordDto
     public int Quantity { get; set; }
     
     [Name("ManaBox ID")]
-    public string ManaBoxId { get; set; }
+    public string? ManaBoxId { get; set; }
     
     [Name("Scryfall ID")]
-    public string ScryfallId { get; set; }
+    public required string ScryfallId { get; set; }
     
     [Name("Purchase price")]
     public double PurchasePrice { get; set; }

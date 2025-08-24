@@ -22,6 +22,6 @@ public static class DecksEndpoint
     private static async Task<IResult> GetAllDecksForUser(IUnitOfWork unit)
     {
         var decks = await unit.Repository<Deck>().ListAllAsync();
-        return decks.Count <= 0 ? Results.NotFound("No decks found") : Results.Ok(decks);
+        return decks is null || decks.Count <= 0 ? Results.NotFound("No decks found") : Results.Ok(decks);
     }
 }

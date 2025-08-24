@@ -9,7 +9,6 @@ public static class ScryfallUtility
 {
     public static async Task<List<OracleCardDto>> FetchCardListObjectAsync(string bulkBasePath, string endpoint)
     {
-        //var filePath = "/home/dev/programming/dotnet/mtg25-backend/bulk-data/today.json";
         var filePath = await GetOracleBulkDataAsync(bulkBasePath, endpoint);
 
         var fileContents = await File.ReadAllTextAsync(filePath);
@@ -19,16 +18,13 @@ public static class ScryfallUtility
             PropertyNameCaseInsensitive = true
         };
         return JsonSerializer.Deserialize<List<OracleCardDto>>(fileContents, options)!;
-
-        // var dict = obj.ToDictionary(x => x.Id);
-        // return dict;
     }
     
     private static async Task<string> GetOracleBulkDataAsync(string basePath, string endpoint)
     {
         var destinationPath = Path.Combine("bulk-data", DateTime.Now.ToString("yyyyMMdd") + ".json");
         var sfClient = GetClient(endpoint);
-        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath));
+        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
         var response = await sfClient.GetAsync(
             "bulk-data/oracle-cards");
         if (!response.IsSuccessStatusCode) throw new Exception("Failed to get bulk data");

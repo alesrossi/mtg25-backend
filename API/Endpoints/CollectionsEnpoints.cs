@@ -104,7 +104,7 @@ public static class CollectionsEnpoints
             Color = collectionDto.Color,
             NumberOfCards = 0,
             TotalPrice = 0,
-            OwnerId = user.Id
+            OwnerId = user!.Id
         };
         unitOfWork.Repository<Collection>().Add(collection);
         await unitOfWork.Complete();
@@ -143,7 +143,7 @@ public static class CollectionsEnpoints
                 
             return Results.Ok(records);
         }
-        catch (Exception e)
+        catch (Exception)
         {
             return Results.StatusCode(500);
         }
