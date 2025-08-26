@@ -71,7 +71,7 @@ public class TestDataBuilder
     /// Creates MTG cards with realistic properties.
     /// Demonstrates creating entities with complex business rules.
     /// </summary>
-    public Card CreateCard(string? name = null, double? price = null)
+    public Card CreateCard(int collectionId, string? name = null, double? price = null)
     {
         var cardNames = new[] 
         { 
@@ -80,9 +80,77 @@ public class TestDataBuilder
         };
 
         return _fixture.Build<Card>()
+            .With(c => c.CollectionId, collectionId)
             .With(c => c.Name, name ?? cardNames[_random.Next(cardNames.Length)])
             .With(c => c.PurchasePrice, price ?? _fixture.Create<double>() % 1000)
+            .With(c => c.OracleId, _fixture.Create<Guid>().ToString())
+            .With(c => c.Quantity, _random.Next(1, 10))
+            .With(c => c.Language, "English")
+            .With(c => c.Version, "Original")
+            .With(c => c.Condition, Condition.NearMint)
+            .With(c => c.IsFoil, _random.Next(10) == 0) // 10% chance of foil
+            .With(c => c.PurchasePriceCurrency, "USD")
+            .With(c => c.ImageUrl, $"https://cards.scryfall.io/normal/front/{_fixture.Create<Guid>()}.jpg")
+            .With(c => c.SetCode, GetRandomSetCode())
+            .With(c => c.SetName, GetRandomSetName())
+            .With(c => c.CollectorNumber, _random.Next(1, 400).ToString())
+            .With(c => c.Rarity, GetRandomRarity())
+            .With(c => c.IsMisprint, false)
+            .With(c => c.IsAltered, false)
             .Create();
+    }
+
+    /// <summary>
+    /// Creates a league with realistic tournament properties.
+    /// </summary>
+    public League CreateLeague(string ownerId, string? format = null)
+    {
+        var validFormats = new[] { "Standard", "Modern", "Legacy", "Commander", "Pioneer", "Draft", "Sealed" };
+        var leagueCode = GenerateLeagueCode();
+        
+        return _fixture.Build<League>()
+            .With(l => l.OwnerId, ownerId)
+            .With(l => l.Format, format ?? validFormats[_random.Next(validFormats.Length)])
+            .With(l => l.Code, leagueCode)
+            .With(l => l.TotalRounds, _random.Next(4, 9)) // 4-8 rounds
+            .With(l => l.RoundsToConsider, _random.Next(3, 6)) // Consider 3-5 rounds
+            .With(l => l.MinimumRounds, _random.Next(2, 4)) // Minimum 2-3 rounds
+            .With(l => l.TotalPlayers, new[] { 8, 16, 32, 64 }[_random.Next(4)]) // Common tournament sizes
+            .With(l => l.PointsToGive, new List<int> { 3, 1, 0 }) // Standard points system
+            .With(l => l.IsActive, true)
+            .Without(l => l.UserLeagues)
+            .Create();
+    }
+
+    private string GetRandomSetCode()
+    {
+        var setCodes = new[] { "LEA", "LEB", "ARN", "ATQ", "LEG", "DRK", "FEM", "ICE", "HML", "ALL", "MRD", "DST", "5DN" };
+        return setCodes[_random.Next(setCodes.Length)];
+    }
+
+    private string GetRandomSetName()
+    {
+        var setNames = new[] 
+        { 
+            "Limited Edition Alpha", "Limited Edition Beta", "Arabian Nights", "Antiquities", 
+            "Legends", "The Dark", "Fallen Empires", "Ice Age", "Homelands", "Alliances",
+            "Mirrodin", "Darksteel", "Fifth Dawn"
+        };
+        return setNames[_random.Next(setNames.Length)];
+    }
+
+    private string GetRandomRarity()
+    {
+        var rarities = new[] { "Common", "Uncommon", "Rare", "Mythic Rare" };
+        return rarities[_random.Next(rarities.Length)];
+    }
+
+    private string GenerateLeagueCode()
+    {
+        var prefix = new[] { "STD", "MOD", "LEG", "COM", "PIO", "DFT", "SEA" };
+        var suffix = DateTime.UtcNow.Year % 100; // Last two digits of year
+        var number = _random.Next(1, 100);
+        return $"{prefix[_random.Next(prefix.Length)]}{suffix}{number:D2}";
     }
 
     /// <summary>

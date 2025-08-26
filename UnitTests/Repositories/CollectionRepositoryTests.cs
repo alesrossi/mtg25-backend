@@ -130,6 +130,33 @@ public class CollectionRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetByUserIdAsync_WithNonExistentUserId_ReturnsEmptyList()
+    {
+        // Arrange - Use a user ID that doesn't exist in the database
+        const string nonExistentUserId = "non-existent-user-id";
+
+        // Act
+        var result = await _repository.ListAsync(new CollectionWithOwnerSpecification(nonExistentUserId));
+
+        // Assert
+        result.Should().BeEmpty("because no collections exist for non-existent user");
+        result.Should().NotBeNull("because the method should return an empty list, not null");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task GetByUserIdAsync_WithInvalidUserId_ReturnsEmptyList(string invalidUserId)
+    {
+        // Act
+        var result = await _repository.ListAsync(new CollectionWithOwnerSpecification(invalidUserId));
+
+        // Assert
+        result.Should().BeEmpty($"because '{invalidUserId}' is not a valid user ID");
+        result.Should().NotBeNull("because the method should return an empty list, not null");
+    }
+
+    [Fact]
     public async Task AddAsync_WithValidCollection_AddsToDatabase()
     {
         // Arrange
@@ -205,6 +232,115 @@ public class CollectionRepositoryTests : IDisposable
         deletedCollection.Should().BeNull("because the collection should be deleted");
     }
 
+    [Fact]
+    public async Task ListAsync_WithoutSpecification_ReturnsAllCollections()
+    {
+        // Arrange - Create collections for multiple users
+        var user1 = _testDataBuilder.CreateUser("user1@test.com", "user1");
+        var user2 = _testDataBuilder.CreateUser("user2@test.com", "user2");
+        _identityContext.Users.AddRange(user1, user2);
+        await _context.SaveChangesAsync();
+
+        var collection1 = _testDataBuilder.CreateCollection(user1.Id);
+        var collection2 = _testDataBuilder.CreateCollection(user2.Id);
+        var collection3 = _testDataBuilder.CreateCollection(user1.Id);
+        
+        _context.Collections.AddRange(collection1, collection2, collection3);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _repository.ListAllAsync();
+
+        // Assert
+        result.Should().HaveCount(3, "because there are 3 collections total");
+        result.Should().Contain(c => c.Id == collection1.Id);
+        result.Should().Contain(c => c.Id == collection2.Id);
+        result.Should().Contain(c => c.Id == collection3.Id);
+    }
+
+    [Fact]
+    public async Task AddAsync_MultipleCollections_AllPersistedCorrectly()
+    {
+        // Arrange
+        var user = _testDataBuilder.CreateUser();
+        _identityContext.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        var collections = new[]
+        {
+            _testDataBuilder.CreateCollection(user.Id),
+            _testDataBuilder.CreateCollection(user.Id),
+            _testDataBuilder.CreateCollection(user.Id)
+        };
+        
+        collections[0].Name = "Collection 1";
+        collections[1].Name = "Collection 2";
+        collections[2].Name = "Collection 3";
+
+        // Act
+        foreach (var collection in collections)
+        {
+            _repository.Add(collection);
+        }
+        await _context.SaveChangesAsync();
+
+        // Assert
+        var result = await _repository.ListAsync(new CollectionWithOwnerSpecification(user.Id));
+        result.Should().HaveCount(3, "because we added 3 collections");
+        result.Select(c => c.Name).Should().BeEquivalentTo(new[] { "Collection 1", "Collection 2", "Collection 3" });
+    }
+
+    [Fact]
+    public async Task UpdateAsync_MultipleProperties_AllUpdatedCorrectly()
+    {
+        // Arrange
+        var user = _testDataBuilder.CreateUser();
+        _identityContext.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        var collection = _testDataBuilder.CreateCollection(user.Id);
+        collection.Name = "Original Name";
+        collection.NumberOfCards = 10;
+        _context.Collections.Add(collection);
+        await _context.SaveChangesAsync();
+
+        // Act - Update multiple properties
+        collection.Name = "Updated Name";
+        collection.NumberOfCards = 25;
+        
+        _repository.Update(collection);
+        await _context.SaveChangesAsync();
+
+        // Assert
+        var updatedCollection = await _repository.GetByIdAsync(collection.Id);
+        updatedCollection.Should().NotBeNull();
+        updatedCollection!.Name.Should().Be("Updated Name", "because we updated the name");
+        updatedCollection.NumberOfCards.Should().Be(25, "because we updated the number of cards");
+        updatedCollection.OwnerId.Should().Be(user.Id, "because owner should remain unchanged");
+    }
+
+    [Fact]
+    public async Task DeleteAsync_NonExistentCollection_ThrowsDbUpdateConcurrencyException()
+    {
+        // Arrange
+        var user = _testDataBuilder.CreateUser();
+        _identityContext.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        var collection = _testDataBuilder.CreateCollection(user.Id);
+        // Note: Not adding to context, so it doesn't exist in database
+
+        // Act & Assert - Entity Framework throws when trying to delete non-existent entities
+        var act = () =>
+        {
+            _repository.Delete(collection);
+            return _context.SaveChangesAsync();
+        };
+
+        await act.Should().ThrowAsync<Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException>(
+            "because Entity Framework throws when attempting to delete entities that don't exist in the store");
+    }
+
     /// <summary>
     /// Tests concurrent access scenarios that might occur in production.
     /// </summary>
@@ -235,8 +371,47 @@ public class CollectionRepositoryTests : IDisposable
         result.Should().HaveCount(10, "because all 10 collections should be saved");
     }
 
+    [Fact]
+    public async Task Repository_WithLargeDataset_PerformsEfficiently()
+    {
+        // Arrange - Create multiple users with many collections each
+        var users = Enumerable.Range(1, 5)
+            .Select(i => _testDataBuilder.CreateUser($"user{i}@test.com", $"user{i}"))
+            .ToList();
+        _identityContext.Users.AddRange(users);
+        await _context.SaveChangesAsync();
+
+        var collections = new List<Collection>();
+        foreach (var user in users)
+        {
+            for (var i = 0; i < 20; i++)
+            {
+                var collection = _testDataBuilder.CreateCollection(user.Id);
+                collection.Name = $"Collection {i} for {user.UserName}";
+                collections.Add(collection);
+            }
+        }
+        
+        _context.Collections.AddRange(collections);
+        await _context.SaveChangesAsync();
+
+        // Act & Assert - Should handle large dataset efficiently
+        foreach (var user in users)
+        {
+            var userCollections = await _repository.ListAsync(new CollectionWithOwnerSpecification(user.Id));
+            userCollections.Should().HaveCount(20, $"because {user.UserName} should have 20 collections");
+            userCollections.Should().OnlyContain(c => c.OwnerId == user.Id, 
+                $"because all collections should belong to {user.UserName}");
+        }
+
+        // Verify total count
+        var allCollections = await _repository.ListAllAsync();
+        allCollections.Should().HaveCount(100, "because we created 5 users with 20 collections each");
+    }
+
     public void Dispose()
     {
         _context.Dispose();
+        _identityContext.Dispose();
     }
 }

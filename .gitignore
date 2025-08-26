@@ -23,6 +23,7 @@ bulk-data
 .idea/
 *.sln.iml
 
+CLAUDE.md
 # .NET Core
 project.lock.json
 project.fragment.lock.json

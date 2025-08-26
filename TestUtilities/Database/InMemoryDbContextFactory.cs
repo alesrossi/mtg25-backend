@@ -85,14 +85,16 @@ public class InMemoryDbContextFactory
         
         context.Decks.AddRange(deck1, deck2);
 
+        context.SaveChanges(); // Save collections to get IDs
+        
         // Create a shared pool of cards
         var cards = new[]
         {
-            builder.CreateCard("Lightning Bolt", 2.50),
-            builder.CreateCard("Black Lotus", 15000.00),
-            builder.CreateCard("Counterspell", 1.25),
-            builder.CreateCard("Sol Ring", 3.75),
-            builder.CreateCard("Swords to Plowshares", 4.00)
+            builder.CreateCard(collection1.Id, "Lightning Bolt", 2.50),
+            builder.CreateCard(collection1.Id, "Black Lotus", 15000.00),
+            builder.CreateCard(collection2.Id, "Counterspell", 1.25),
+            builder.CreateCard(collection2.Id, "Sol Ring", 3.75),
+            builder.CreateCard(collection2.Id, "Swords to Plowshares", 4.00)
         };
         
         context.Cards.AddRange(cards);
