@@ -25,7 +25,6 @@ public class CardTests
         var card = _testDataBuilder.CreateCard(collectionId);
 
         // Assert
-        card.Id.Should().BeGreaterThan(0, "because cards should have valid IDs");
         card.CollectionId.Should().Be(collectionId, "because card should belong to the specified collection");
         card.Name.Should().NotBeNullOrEmpty("because card name is required");
         card.OracleId.Should().NotBeNullOrEmpty("because oracle ID is required for card identification");
@@ -119,6 +118,5 @@ public class CardTests
 
         // Assert
         card.Should().BeAssignableTo<BaseModel>("because Card inherits from BaseModel");
-        card.Id.Should().BeGreaterThan(0, "because BaseModel provides Id property");
     }
 }

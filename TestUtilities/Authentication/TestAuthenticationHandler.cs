@@ -32,6 +32,12 @@ public class TestAuthenticationHandler : AuthenticationHandler<TestAuthenticatio
         var userName = Context.Request.Headers["Test-UserName"].FirstOrDefault();
         var email = Context.Request.Headers["Test-Email"].FirstOrDefault();
 
+        // If no authentication headers are present, fail authentication (for unauthenticated tests)
+        if (string.IsNullOrEmpty(userId) && string.IsNullOrEmpty(Options.UserId))
+        {
+            return Task.FromResult(AuthenticateResult.NoResult());
+        }
+
         // Use header values if available, otherwise fall back to options or defaults
         var finalUserId = userId ?? Options.UserId ?? "test-user-id";
         var finalUserName = userName ?? Options.UserName ?? "test-user";
@@ -51,10 +57,6 @@ public class TestAuthenticationHandler : AuthenticationHandler<TestAuthenticatio
         var identity = new ClaimsIdentity(claims, "Test");
         var principal = new ClaimsPrincipal(identity);
         var ticket = new AuthenticationTicket(principal, "Test");
-
-        // Log authentication for debugging
-        Logger.LogInformation("Test authentication for user {UserId} ({UserName}) with email {Email}",
-            finalUserId, finalUserName, finalEmail);
 
         return Task.FromResult(AuthenticateResult.Success(ticket));
     }

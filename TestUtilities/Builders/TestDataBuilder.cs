@@ -36,6 +36,7 @@ public class TestDataBuilder
             .With(u => u.EmailConfirmed, true)
             .With(u => u.LockoutEnd, DateTime.UtcNow)
             .Without(u => u.UserLeagues)
+            .Without(u => u.Id)  // Let Identity generate the ID
             .Create();
         
         return user;
@@ -50,6 +51,7 @@ public class TestDataBuilder
         return _fixture.Build<Collection>()
             .With(c => c.OwnerId, userId)
             .With(c => c.NumberOfCards, 0)
+            .Without(c => c.Id) // Let Entity Framework generate the ID
             .Create();
     }
 
@@ -97,6 +99,8 @@ public class TestDataBuilder
             .With(c => c.Rarity, GetRandomRarity())
             .With(c => c.IsMisprint, false)
             .With(c => c.IsAltered, false)
+            .Without(c => c.Id) // Let Entity Framework generate the ID
+            .Without(c => c.Collection) // Don't auto-generate the collection navigation property
             .Create();
     }
 

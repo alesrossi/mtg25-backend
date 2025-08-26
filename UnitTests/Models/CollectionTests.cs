@@ -25,7 +25,6 @@ public class CollectionTests
         var collection = _testDataBuilder.CreateCollection(userId);
 
         // Assert
-        collection.Id.Should().BeGreaterThan(0, "because collections should have valid IDs");
         collection.OwnerId.Should().Be(userId, "because collection should belong to the specified user");
         collection.NumberOfCards.Should().Be(0, "because new collections start with no cards");
         collection.Name.Should().NotBeNullOrEmpty("because collection name is required");
@@ -63,7 +62,6 @@ public class CollectionTests
         // Assert
         collection1.OwnerId.Should().Be(userId1, "because first collection belongs to user-1");
         collection2.OwnerId.Should().Be(userId2, "because second collection belongs to user-2");
-        collection1.Id.Should().NotBe(collection2.Id, "because collections should have different IDs");
     }
 
     [Fact]
