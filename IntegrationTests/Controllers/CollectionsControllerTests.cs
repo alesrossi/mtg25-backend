@@ -7,7 +7,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Core.Models;
 using Core.Models.Identity;
 using Infrastructure.Data;
-using Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using TestUtilities.Builders;
 
@@ -18,6 +17,7 @@ namespace IntegrationTests.Controllers;
 /// Tests the complete request/response cycle including authentication,
 /// database interactions, and business logic.
 /// </summary>
+[Collection("Integration Tests")]
 public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;
@@ -249,12 +249,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         var user = _testDataBuilder.CreateUser(uniqueEmail, uniqueUserName);
         var result = await userManager.CreateAsync(user);
 
-        if (!result.Succeeded)
-        {
-            throw new InvalidOperationException($"Failed to create test user: {string.Join(", ", result.Errors.Select(e => e.Description))}");
-        }
-
-        return user;
+        return !result.Succeeded ? throw new InvalidOperationException($"Failed to create test user: {string.Join(", ", result.Errors.Select(e => e.Description))}") : user;
     }
 
 

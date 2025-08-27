@@ -28,7 +28,7 @@ public static class AccountsEndpoints
             .Produces<AuthDto>()
             .Produces(StatusCodes.Status401Unauthorized);
         
-        group.MapPost("/logout", LogoutUserAsync)
+        group.MapGet("/logout", LogoutUserAsync)
             .RequireAuthorization()
             .WithSummary("Authenticate user login")
             .WithDescription("Authenticates a user with email and password credentials, returning user information upon successful login")
@@ -54,13 +54,21 @@ public static class AccountsEndpoints
     }
     
     private static async Task<IResult> RegisterUserAsync(
-        [FromServices] UserManager<AppUser> userManager, 
+        [FromServices] UserManager<AppUser> userManager,
+        [FromServices] IValidationService validationService,
         [FromBody] RegisterDto registerDto)
     {
         if (await CheckEmailExistsAsyncHelper(userManager, registerDto.Email))
         {
             return Results.BadRequest("Email address already in use");
         }
+        
+        var (isValid, errors) = validationService.ValidateModel(registerDto);
+        if (!isValid)
+        {
+            return Results.BadRequest(new { errors });
+        }
+        
     
         var user = new AppUser
         {

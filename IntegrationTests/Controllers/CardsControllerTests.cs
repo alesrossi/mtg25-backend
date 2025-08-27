@@ -7,7 +7,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Core.Models;
 using Core.Models.Identity;
 using Infrastructure.Data;
-using Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using TestUtilities.Builders;
 
@@ -18,6 +17,7 @@ namespace IntegrationTests.Controllers;
 /// Tests the complete request/response cycle including authentication,
 /// database interactions, and business logic.
 /// </summary>
+[Collection("Integration Tests")]
 public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;
@@ -185,8 +185,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         cards.Should().NotBeNull();
-        // Note: This test may fail if search logic is not implemented correctly
-        // cards!.Should().HaveCountGreaterThan(0, "because there should be cards matching 'Lightning'");
+        cards.Should().HaveCountGreaterThan(0, "because there should be cards matching 'Lightning'");
     }
 
     [Fact]
@@ -199,11 +198,11 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var cardRequest = new
         {
-            OracleId = Guid.NewGuid().ToString(),
+            OracleId = "4f616706-ec97-4923-bb1e-11a69fbaa1f8",
             CollectionId = collection.Id,
             Quantity = 2,
-            Language = "English",
-            Version = "Standard",
+            Language = "en",
+            Version = "dmc",
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = 1.50,
@@ -219,46 +218,38 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         var response = await client.PostAsync("/api/cards", content);
 
         // Assert
-        // Note: This test may fail if validation or card creation logic is not properly implemented
         response.StatusCode.Should().Be(HttpStatusCode.OK, "because valid card data should create a new card");
-        
-        // For now, just check that it doesn't return server error
-        // response.StatusCode.Should().NotBe(HttpStatusCode.InternalServerError,
-        //     "because the endpoint should handle the request without crashing");
     }
-
-    // Commented out tests that will likely fail due to missing implementation
-    /*
-    [Fact]
-    public async Task AddCardList_WithValidCardNames_ReturnsOracleData()
-    {
-        // Arrange
-        var user = await CreateTestUserAsync("listadder@example.com", "listadder");
-        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
-
-        var cardListRequest = new CardListDto
-        {
-            CardNames = new List<string> { "Lightning Bolt", "Black Lotus", "Ancestral Recall" }
-        };
-
-        var json = JsonSerializer.Serialize(cardListRequest);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        // Act
-        var response = await client.PostAsync("/api/cards/card-list", content);
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.OK,
-            "because valid card names should return oracle data");
-
-        var responseContent = await response.Content.ReadAsStringAsync();
-        var oracleCards = JsonSerializer.Deserialize<LinkedList<OracleCardDto>>(
-            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-        oracleCards.Should().NotBeNull();
-        oracleCards!.Should().HaveCount(3, "because we requested 3 cards");
-    }
-    */
+    
+    // [Fact]
+    // public async Task AddCardList_WithValidCardNames_ReturnsOracleData()
+    // {
+    //     // Arrange
+    //     var user = await CreateTestUserAsync("listadder@example.com", "listadder");
+    //     using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+    //
+    //     var cardListRequest = new CardListDto
+    //     {
+    //         CardNames = new List<string> { "Lightning Bolt", "Black Lotus", "Ancestral Recall" }
+    //     };
+    //
+    //     var json = JsonSerializer.Serialize(cardListRequest);
+    //     var content = new StringContent(json, Encoding.UTF8, "application/json");
+    //
+    //     // Act
+    //     var response = await client.PostAsync("/api/cards/card-list", content);
+    //
+    //     // Assert
+    //     response.StatusCode.Should().Be(HttpStatusCode.OK,
+    //         "because valid card names should return oracle data");
+    //
+    //     var responseContent = await response.Content.ReadAsStringAsync();
+    //     var oracleCards = JsonSerializer.Deserialize<LinkedList<OracleCardDto>>(
+    //         responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+    //
+    //     oracleCards.Should().NotBeNull();
+    //     oracleCards!.Should().HaveCount(3, "because we requested 3 cards");
+    // }
 
     #region Helper Methods
 
@@ -275,12 +266,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         var user = _testDataBuilder.CreateUser(uniqueEmail, uniqueUserName);
         var result = await userManager.CreateAsync(user);
 
-        if (!result.Succeeded)
-        {
-            throw new InvalidOperationException($"Failed to create test user: {string.Join(", ", result.Errors.Select(e => e.Description))}");
-        }
-
-        return user;
+        return !result.Succeeded ? throw new InvalidOperationException($"Failed to create test user: {string.Join(", ", result.Errors.Select(e => e.Description))}") : user;
     }
 
     private async Task<Collection> CreateTestCollectionAsync(string userId, string name)

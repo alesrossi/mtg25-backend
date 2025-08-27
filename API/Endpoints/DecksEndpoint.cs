@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Core.Interfaces;
 using Core.Models;
 using Core.Models.Identity;
+using Core.Specifications;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,6 +14,7 @@ public static class DecksEndpoint
     {
         var group = app.MapGroup("/api/decks").WithTags("Decks");
         group.MapGet("/", GetAllDecksForUser)
+            .RequireAuthorization()
             .WithSummary("Get decks for user")
             .WithDescription("Gets all decks from a given user")
             .Produces<IReadOnlyList<Deck>?>()
@@ -27,14 +29,17 @@ public static class DecksEndpoint
     }
     
     private static async Task<IResult> GetAllDecksForUser(
-        IUnitOfWork unit,
+        IUnitOfWork unitOfWork,
         [FromServices] UserManager<AppUser> userManager,
         HttpContext context)
     {
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId is null) return Results.Unauthorized();
         
-        var decks = await unit.Repository<Deck>().ListAllAsync();
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null)  return Results.Unauthorized();
+        
+        var decks = await unitOfWork.Repository<Deck>().ListAsync(new DecksWIthOwnerSpecification(user.Id));
         return decks is null || decks.Count <= 0 ? Results.NotFound("No decks found") : Results.Ok(decks);
     }
 }

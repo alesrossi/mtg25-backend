@@ -16,6 +16,7 @@ namespace IntegrationTests.Controllers;
 /// Integration tests for Deck endpoints.
 /// Tests deck retrieval, creation, and user-deck associations.
 /// </summary>
+[Collection("Integration Tests")]
 public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;
@@ -142,22 +143,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
                 responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
             returnedDecks.Should().NotBeNull();
-            
-            // This test will likely show that the current implementation returns decks from all users
-            // which is a security/privacy issue that should be fixed
-            if (returnedDecks!.Count >= 2)
-            {
-                // If we get both decks, this indicates the filtering by user is not working
-                var containsUser1Deck = returnedDecks.Any(d => d.Id == user1Deck.Id);
-                var containsUser2Deck = returnedDecks.Any(d => d.Id == user2Deck.Id);
-                
-                // This assertion will help identify the security issue
-                if (containsUser2Deck)
-                {
-                    // Log this as a potential security issue - user1 can see user2's decks
-                    Assert.Fail("SECURITY ISSUE: User can see other users' decks. Current endpoint returns all decks instead of filtering by user.");
-                }
-            }
+            returnedDecks.Count.Should().Be(1, "because only decks owned by user 1 should be returned");
         }
     }
 

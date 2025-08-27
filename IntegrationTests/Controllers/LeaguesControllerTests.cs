@@ -15,6 +15,7 @@ namespace IntegrationTests.Controllers;
 /// Integration tests for League endpoints.
 /// Tests league creation, retrieval, updates, and user-league associations.
 /// </summary>
+[Collection("Integration Tests")]
 public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;
@@ -200,9 +201,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         // Assert
         response.StatusCode.Should().BeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden);
     }
-
-    // Commented out tests that will likely fail due to missing implementation
-    /*
+    
     [Fact]
     public async Task UpdateLeagueFromResults_WithValidData_UpdatesResults()
     {
@@ -292,7 +291,6 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             await VerifyUserAssociatedWithLeague(joiner.Id, league.Id);
         }
     }
-    */
 
     #region Helper Methods
 
@@ -309,12 +307,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var user = _testDataBuilder.CreateUser(uniqueEmail, uniqueUserName);
         var result = await userManager.CreateAsync(user);
 
-        if (!result.Succeeded)
-        {
-            throw new InvalidOperationException($"Failed to create test user: {string.Join(", ", result.Errors.Select(e => e.Description))}");
-        }
-
-        return user;
+        return !result.Succeeded ? throw new InvalidOperationException($"Failed to create test user: {string.Join(", ", result.Errors.Select(e => e.Description))}") : user;
     }
 
     private async Task<League> CreateTestLeagueAsync(string name, string ownerId)

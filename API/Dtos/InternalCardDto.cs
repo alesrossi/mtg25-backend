@@ -1,6 +1,6 @@
 namespace API.Dtos;
 
-public abstract class InternalCardDto
+public class InternalCardDto
 {
     public required string OracleId { get; set; }
     public int CollectionId { get; set; }

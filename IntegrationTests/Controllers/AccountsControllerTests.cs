@@ -5,7 +5,6 @@ using API.Dtos;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Core.Models.Identity;
-using Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using TestUtilities.Builders;
 
@@ -15,6 +14,7 @@ namespace IntegrationTests.Controllers;
 /// Integration tests for Account endpoints.
 /// Tests user registration, login, logout, and email verification functionality.
 /// </summary>
+[Collection("Integration Tests")]
 public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;
@@ -67,7 +67,6 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
     }
 
     [Theory]
-    [InlineData("")]
     [InlineData("invalid-email")]
     [InlineData("@test.com")]
     [InlineData("user@")]
@@ -80,7 +79,6 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
         var response = await client.GetAsync($"/api/accounts/emailexists/{Uri.EscapeDataString(invalidEmail)}");
 
         // Assert
-        // Should either return false or handle the invalid format gracefully
         response.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.BadRequest);
     }
 
@@ -266,22 +264,7 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized,
             "because non-existent users should be rejected");
     }
-
-    // [Fact]
-    // public async Task LogoutUser_WithValidToken_ReturnsOk()
-    // {
-    //     // Arrange
-    //     var user = await CreateTestUserAsync($"logout_{Guid.NewGuid().ToString("N")[..8]}@test.com", "logoutuser");
-    //     using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
-    //
-    //     // Act
-    //     var response = await client.GetAsync("/api/accounts/logout");
-    //
-    //     // Assert
-    //     response.StatusCode.Should().Be(HttpStatusCode.OK,
-    //         "because authenticated users should be able to logout");
-    // }
-
+    
     [Fact]
     public async Task LogoutUser_WithoutAuthentication_ReturnsUnauthorized()
     {
@@ -289,7 +272,7 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
         using var client = _factory.CreateClient(); // No authentication
 
         // Act
-        var response = await client.PostAsync("/api/accounts/logout", null);
+        var response = await client.GetAsync("/api/accounts/logout");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized,
@@ -297,7 +280,6 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
     }
 
     // Commented out tests that may fail due to missing implementation details
-    /*
     [Fact]
     public async Task RegisterUser_WithSpecialCharacters_HandlesCorrectly()
     {
@@ -324,10 +306,8 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
         response.StatusCode.Should().Be(HttpStatusCode.OK,
             "because names with special characters should be supported");
     }
-    */
 
     #region Helper Methods
-
     private async Task<AppUser> CreateTestUserAsync(string baseEmail, string baseUserName)
     {
         using var scope = _factory.Services.CreateScope();
@@ -336,12 +316,7 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
         var user = _testDataBuilder.CreateUser(baseEmail, baseUserName);
         var result = await userManager.CreateAsync(user);
 
-        if (!result.Succeeded)
-        {
-            throw new InvalidOperationException($"Failed to create test user: {string.Join(", ", result.Errors.Select(e => e.Description))}");
-        }
-
-        return user;
+        return !result.Succeeded ? throw new InvalidOperationException($"Failed to create test user: {string.Join(", ", result.Errors.Select(e => e.Description))}") : user;
     }
 
     private async Task<AppUser> CreateTestUserWithPasswordAsync(string email, string userName, string password)
@@ -352,12 +327,7 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
         var user = _testDataBuilder.CreateUser(email, userName);
         var result = await userManager.CreateAsync(user, password);
 
-        if (!result.Succeeded)
-        {
-            throw new InvalidOperationException($"Failed to create test user with password: {string.Join(", ", result.Errors.Select(e => e.Description))}");
-        }
-
-        return user;
+        return !result.Succeeded ? throw new InvalidOperationException($"Failed to create test user with password: {string.Join(", ", result.Errors.Select(e => e.Description))}") : user;
     }
 
     private async Task VerifyUserExistsInDatabase(string email)

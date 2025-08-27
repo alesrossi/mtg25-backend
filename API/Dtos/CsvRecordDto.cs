@@ -2,7 +2,7 @@ namespace API.Dtos;
 
 using CsvHelper.Configuration.Attributes;
 
-public abstract class CsvRecordDto
+public class CsvRecordDto
 {
     [Name("Name")]
     public required string Name { get; set; }

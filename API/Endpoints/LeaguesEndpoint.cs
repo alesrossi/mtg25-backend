@@ -17,6 +17,7 @@ public static class LeaguesEndpoint
         var group = app.MapGroup("/api/leagues").WithTags("Leagues");
         
         group.MapGet("/user", GetLeaguesFromUserAsync)
+            .RequireAuthorization()
             .WithSummary("Returns all leagues for user")
             .WithDescription("Returns all leagues for user given JWT token")
             .Produces<List<MinimalCardDto>>()
@@ -30,6 +31,7 @@ public static class LeaguesEndpoint
         //     .Produces(StatusCodes.Status401Unauthorized);
         
         group.MapGet("/{id:int}", GetLeagueFromIdAsync)
+            .RequireAuthorization()
             .WithSummary("Returns all leagues")
             .WithDescription("Returns all leagues with filtering, sorting and pagination")
             .Produces<List<League>>()
@@ -37,6 +39,7 @@ public static class LeaguesEndpoint
             .Produces(StatusCodes.Status404NotFound);
         
         group.MapPut("/{id:int}", UpdateLeagueAsync)
+            .RequireAuthorization()
             .WithSummary("Returns all leagues")
             .WithDescription("Returns all leagues with filtering, sorting and pagination")
             .Produces<List<LeagueDto>>()
@@ -44,6 +47,7 @@ public static class LeaguesEndpoint
             .Produces(StatusCodes.Status404NotFound);
         
         group.MapPatch("/{id:int}/results", UpdateLeagueFromResultsAsync)
+            .RequireAuthorization()
             .WithSummary("Returns all leagues")
             .WithDescription("Returns all leagues with filtering, sorting and pagination")
             .Produces(StatusCodes.Status200OK)
@@ -51,6 +55,7 @@ public static class LeaguesEndpoint
             .Produces(StatusCodes.Status404NotFound);
         
         group.MapGet("/{id:int}/invite", GetInviteCodeAsync)
+            .RequireAuthorization()
             .WithSummary("Returns all leagues")
             .WithDescription("Returns all leagues with filtering, sorting and pagination")
             .Produces<string>()

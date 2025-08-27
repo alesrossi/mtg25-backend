@@ -145,18 +145,29 @@ namespace IntegrationTests
         {
             try
             {
+                // Clear connection pools first to prevent "database is being accessed" errors
+                NpgsqlConnection.ClearAllPools();
+                
+                // Give connections a moment to close
+                await Task.Delay(100);
+
                 await using var conn = new NpgsqlConnection(_adminConnection);
                 await conn.OpenAsync();
 
                 await using (var cmd = conn.CreateCommand())
                 {
+                    // Terminate all connections to the test databases
                     cmd.CommandText = $@"
                         SELECT pg_terminate_backend(pid)
                         FROM pg_stat_activity
                         WHERE datname IN ('{_testMainDbName}', '{_testIdentityDbName}')
                           AND pid <> pg_backend_pid()";
                     await cmd.ExecuteNonQueryAsync();
+                    
+                    // Give terminated connections time to clean up
+                    await Task.Delay(50);
 
+                    // Drop databases
                     cmd.CommandText = $"DROP DATABASE IF EXISTS \"{_testMainDbName}\"";
                     await cmd.ExecuteNonQueryAsync();
 
@@ -166,7 +177,7 @@ namespace IntegrationTests
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Warning: Failed to clean up test databases: {ex.Message}");
+                Console.WriteLine($"Warning: Failed to clean up test databases {_testMainDbName}, {_testIdentityDbName}: {ex.Message}");
             }
         }
 
