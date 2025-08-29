@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -82,6 +83,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         // Arrange
         var user = await CreateTestUserAsync("getleague@example.com", "getleague");
         var league = await CreateTestLeagueAsync("Retrievable League", user.Id);
+        await AssociateUserWithLeagueAsync(user.Id, league.Id);
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
         // Act
@@ -118,13 +120,10 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var league = await CreateTestLeagueAsync("Original League", user.Id);
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
-        var updateRequest = new LeagueDto
+        var updateRequest = new UpdateLeagueDto
         {
-            Id = league.Id,
             Name = "Updated League Name",
-            Code = league.Code,
-            Format = "Updated Format",
-            Score = 100 // This might not match the actual model structure
+            MinimumRounds = 2
         };
 
         var json = JsonSerializer.Serialize(updateRequest);
@@ -152,13 +151,9 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var user = await CreateTestUserAsync("updatebad@example.com", "updatebad");
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
-        var updateRequest = new LeagueDto
+        var updateRequest = new UpdateLeagueDto
         {
-            Id = 999999,
-            Name = "Non-existent League",
-            Code = "NE",
-            Format = "Standard",
-            Score = 100
+            Name = "Non-existent League"
         };
 
         var json = JsonSerializer.Serialize(updateRequest);
@@ -183,13 +178,9 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         // Try to update as different user
         using var client = _factory.CreateClientWithUser(otherUser.Id, otherUser.UserName!, otherUser.Email!);
 
-        var updateRequest = new LeagueDto
+        var updateRequest = new UpdateLeagueDto
         {
-            Id = league.Id,
-            Name = "Hijacked League",
-            Code = league.Code,
-            Format = "Hijacked Format",
-            Score = 100
+            Name = "Hijacked League"
         };
 
         var json = JsonSerializer.Serialize(updateRequest);
@@ -222,7 +213,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         // Act
-        var response = await client.PatchAsync($"/api/leagues/{league.Id}/results", content);
+        var response = await client.PutAsync($"/api/leagues/{league.Id}", content);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK,
@@ -236,12 +227,19 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var user = await CreateTestUserAsync("creator@example.com", "creator");
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
-        var createRequest = new LeagueDto
+        var createRequest = new NewLeagueDto
         {
             Name = "New Test League",
-            Code = "NTL",
             Format = "Standard",
-            Score = 0
+            TotalRounds = 10,
+            RoundsToConsider = 8,
+            MinimumRounds = 1,
+            PointsToGive =
+            [
+                6,
+                4,
+                2
+            ]
         };
 
         var json = JsonSerializer.Serialize(createRequest);
@@ -261,8 +259,9 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
                 responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
             createdLeague.Should().NotBeNull();
-            createdLeague!.Name.Should().Be(createRequest.Name);
+            createdLeague.Name.Should().Be(createRequest.Name);
             createdLeague.OwnerId.Should().Be(user.Id);
+            createdLeague.Code.Length.Should().Be(6);
         }
     }
 
@@ -274,13 +273,11 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var joiner = await CreateTestUserAsync("joiner@example.com", "joiner");
         var league = await CreateTestLeagueAsync("Joinable League", owner.Id);
         using var client = _factory.CreateClientWithUser(joiner.Id, joiner.UserName!, joiner.Email!);
-
-        var joinRequest = new { code = league.Code };
-        var json = JsonSerializer.Serialize(joinRequest);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        
+        var content = new StringContent("", Encoding.UTF8, "application/json");
 
         // Act
-        var response = await client.PostAsync("/api/leagues/join", content);
+        var response = await client.PatchAsync($"/api/leagues/{league.Code}/join", content);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK,
@@ -290,6 +287,24 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         {
             await VerifyUserAssociatedWithLeague(joiner.Id, league.Id);
         }
+    }
+    
+    [Fact]
+    public async Task JoinLeague_WithNonExistingLeagueCode_ReturnsNotFound()
+    {
+        // Arrange
+        var owner = await CreateTestUserAsync("leagueowner@example.com", "leagueowner");
+        var joiner = await CreateTestUserAsync("joiner@example.com", "joiner");
+        using var client = _factory.CreateClientWithUser(joiner.Id, joiner.UserName!, joiner.Email!);
+
+        var content = new StringContent("", Encoding.UTF8, "application/json");
+
+        // Act
+        var response = await client.PatchAsync($"/api/leagues/NOTEXI/join", content);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound,
+            "because code is not valid and shouldn't join a league");
     }
 
     #region Helper Methods

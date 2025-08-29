@@ -9,8 +9,9 @@ public class League : BaseModel
     public int TotalRounds { get; set; }
     public int RoundsToConsider { get; set; }
     public int MinimumRounds { get; set; }
+    public double TotalPrize { get; set; } = 0;
+    public double PrizePerPerson {  get; set; } = 0;
     public int TotalPlayers { get; set; }
-    //public DateTime? EndDate { get; set; }
     public required List<int> PointsToGive {get; set;}
     public bool IsActive { get; set; } = true;
     public ICollection<AppUserLeague> UserLeagues { get; set; } = new List<AppUserLeague>();
