@@ -209,21 +209,21 @@ public class Program
                     }
                 }
                 
-                // var idContext = services.GetRequiredService<AppIdentityDbContext>();
-                //
-                // // Check if database exists
-                // if (!await idContext.Database.CanConnectAsync())
-                // {
-                //     await idContext.Database.MigrateAsync();
-                // }
-                // else
-                // {
-                //     // Check if any pending migrations
-                //     if ((await idContext.Database.GetPendingMigrationsAsync()).Any())
-                //     {
-                //         await idContext.Database.MigrateAsync();
-                //     }
-                // }
+                var idContext = services.GetRequiredService<AppIdentityDbContext>();
+                
+                // Check if database exists
+                if (!await idContext.Database.CanConnectAsync())
+                {
+                    await idContext.Database.MigrateAsync();
+                }
+                else
+                {
+                    // Check if any pending migrations
+                    if ((await idContext.Database.GetPendingMigrationsAsync()).Any())
+                    {
+                        await idContext.Database.MigrateAsync();
+                    }
+                }
             }
             catch (Exception ex)
             {
