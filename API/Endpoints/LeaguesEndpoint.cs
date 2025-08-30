@@ -19,65 +19,68 @@ public static class LeaguesEndpoint
         
         group.MapGet("/user", GetLeaguesFromUserAsync)
             .RequireAuthorization()
-            .WithSummary("Returns all leagues for user")
-            .WithDescription("Returns all leagues for user given JWT token")
-            .Produces<List<MinimalCardDto>>()
-            .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status404NotFound);
+            .WithSummary("Get user's leagues")
+            .WithDescription("Returns all leagues the authenticated user is participating in")
+            .Produces<List<UserWithLeagueInfoDto>>()
+            .Produces(StatusCodes.Status401Unauthorized);
 
         group.MapGet("/", GetLeaguesAsync)
-            .WithSummary("Returns all leagues")
-            .WithDescription("Returns all leagues with filtering, sorting and pagination")
-            .Produces<List<League>>()
+            .RequireAuthorization()
+            .WithSummary("Get all leagues")
+            .WithDescription("Returns all available leagues with pagination")
+            .Produces<Helpers.Pagination<LeagueDto>>()
             .Produces(StatusCodes.Status401Unauthorized);
         
         group.MapGet("/{id:int}", GetLeagueFromIdAsync)
             .RequireAuthorization()
-            .WithSummary("Returns all leagues")
-            .WithDescription("Returns all leagues with filtering, sorting and pagination")
-            .Produces<List<League>>()
+            .WithSummary("Get league by ID")
+            .WithDescription("Returns specific league details by ID")
+            .Produces<LeagueDto>()
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
         
         group.MapPut("/{id:int}", UpdateLeagueAsync)
             .RequireAuthorization()
-            .WithSummary("Returns all leagues")
-            .WithDescription("Returns all leagues with filtering, sorting and pagination")
-            .Produces<List<LeagueDto>>()
+            .WithSummary("Update league")
+            .WithDescription("Updates league information such as name, description, and settings")
+            .Produces<LeagueDto>()
+            .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
         
         group.MapPatch("/{id:int}/results", UpdateLeagueFromResultsAsync)
             .RequireAuthorization()
-            .WithSummary("Returns all leagues")
-            .WithDescription("Returns all leagues with filtering, sorting and pagination")
+            .WithSummary("Update league results")
+            .WithDescription("Updates league standings and match results")
             .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
         
         group.MapGet("/{id:int}/invite", GetInviteCodeAsync)
             .RequireAuthorization()
-            .WithSummary("Returns all leagues")
-            .WithDescription("Returns all leagues with filtering, sorting and pagination")
+            .WithSummary("Get league invite code")
+            .WithDescription("Generates or retrieves invite code for league participation")
             .Produces<string>()
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
         
         group.MapPatch("/{code}/join", JoinLeagueFromCodeAsync)
             .RequireAuthorization()
-            .WithSummary("Returns all leagues")
-            .WithDescription("Returns all leagues with filtering, sorting and pagination")
+            .WithSummary("Join league by code")
+            .WithDescription("Joins authenticated user to league using invite code")
             .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
         
         group.MapPost("/", CreateNewLeagueAsync)
             .RequireAuthorization()
-            .WithSummary("Creates a new League")
-            .WithDescription("Creates a new league given all the options")
+            .WithSummary("Create new league")
+            .WithDescription("Creates new league with specified settings and options")
             .Produces<League>()
-            .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status400BadRequest) ;
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized);
     }
     
     private static async Task<IResult> GetLeaguesAsync(

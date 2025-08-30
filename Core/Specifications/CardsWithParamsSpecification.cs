@@ -7,7 +7,16 @@ public class CardsWithParamsSpecification : BaseSpecification<Card>
     public CardsWithParamsSpecification(EntitySpecParams entityParams, int collectionId)
         : base(x =>
             (string.IsNullOrEmpty(entityParams.Search) || x.Name.Contains(entityParams.Search)) &&
-            // Add other filtering logic here
+            (string.IsNullOrEmpty(entityParams.SetCode) || x.SetCode == entityParams.SetCode) &&
+            (string.IsNullOrEmpty(entityParams.SetName) || x.SetName.Contains(entityParams.SetName)) &&
+            (string.IsNullOrEmpty(entityParams.Rarity) || x.Rarity == entityParams.Rarity) &&
+            (entityParams.Condition == null || x.Condition == entityParams.Condition) &&
+            (entityParams.IsFoil == null || x.IsFoil == entityParams.IsFoil) &&
+            (entityParams.IsMisprint == null || x.IsMisprint == entityParams.IsMisprint) &&
+            (entityParams.IsAltered == null || x.IsAltered == entityParams.IsAltered) &&
+            (string.IsNullOrEmpty(entityParams.Language) || x.Language == entityParams.Language) &&
+            (entityParams.MinPrice == null || x.PurchasePrice >= entityParams.MinPrice) &&
+            (entityParams.MaxPrice == null || x.PurchasePrice <= entityParams.MaxPrice) &&
             x.CollectionId == collectionId)
 
     {
@@ -23,6 +32,30 @@ public class CardsWithParamsSpecification : BaseSpecification<Card>
                     break;
                 case "priceDesc":
                     AddOrderByDescending(p => p.PurchasePrice);
+                    break;
+                case "nameAsc":
+                    AddOrderBy(n => n.Name);
+                    break;
+                case "nameDesc":
+                    AddOrderByDescending(n => n.Name);
+                    break;
+                case "setAsc":
+                    AddOrderBy(s => s.SetName);
+                    break;
+                case "setDesc":
+                    AddOrderByDescending(s => s.SetName);
+                    break;
+                case "rarityAsc":
+                    AddOrderBy(r => r.Rarity);
+                    break;
+                case "rarityDesc":
+                    AddOrderByDescending(r => r.Rarity);
+                    break;
+                case "quantityAsc":
+                    AddOrderBy(q => q.Quantity);
+                    break;
+                case "quantityDesc":
+                    AddOrderByDescending(q => q.Quantity);
                     break;
                 default:
                     AddOrderBy(n => n.Name);

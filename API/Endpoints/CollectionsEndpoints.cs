@@ -19,7 +19,7 @@ public static class CollectionsEndpoints
         group.MapGet("/{id:int}", GetCollectionFromIdAsync)
             .RequireAuthorization()
             .WithSummary("Get collection by ID")
-            .WithDescription("Retrieves a specific collection from the database using its unique identifier")
+            .WithDescription("Retrieves specific collection by ID")
             .Produces<Collection>()
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
@@ -27,42 +27,45 @@ public static class CollectionsEndpoints
         group.MapGet("/{id:int}/cards", GetCardsFromCollectionAsync)
             .RequireAuthorization()
             .WithSummary("Get cards from collection")
-            .WithDescription("Retrieves paginated list of cards from a specific collection with optional filtering and sorting parameters")
+            .WithDescription("Retrieves paginated list of cards from a specific collection with filtering, sorting, searching, and optional grouping")
             .Produces<Pagination<Card>>()
+            .Produces<GroupedCardsPaginationDto>()
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
         
         group.MapPost("/", AddNewCollectionAsync)
             .RequireAuthorization()
             .WithSummary("Create new collection")
-            .WithDescription("Creates a new collection with specified name and color properties, initializing card count and total price to zero")
+            .WithDescription("Creates new collection with name and color")
             .Produces<Collection>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized);
         
         group.MapPatch("/{id:int}/import", ImportCardList)
             .RequireAuthorization()
-            .WithSummary("Import cards from CSV file")
-            .WithDescription(
-                "Imports cards from a CSV file into a specific collection, processing the file and updating collection statistics")
-            .Produces<List<Card>>() // Returns deleted count
+            .WithSummary("Import cards from CSV")
+            .WithDescription("Imports cards from CSV file into collection")
+            .Produces<List<Card>>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound)
             .DisableAntiforgery();
         
         group.MapGet("/", GetAllCollectionsForUser)
             .RequireAuthorization()
-            .WithSummary("Lists all collections for authenticated user")
-            .WithDescription("Lists all collections for authenticated user")
+            .WithSummary("Get user's collections")
+            .WithDescription("Returns all collections owned by authenticated user")
             .Produces<List<Collection>>()
             .Produces(StatusCodes.Status401Unauthorized);
         
         group.MapDelete("/{id:int}/mass-delete", MassDeleteCardsFromCollection)
             .RequireAuthorization()
-            .WithSummary("Deletes multiple cards from a specific collection")
-            .WithDescription("Deletes multiple cards from a specific collection")
-            .Produces<int>() // Returns deleted count
-            .Produces(StatusCodes.Status401Unauthorized);
+            .WithSummary("Mass delete cards")
+            .WithDescription("Deletes multiple cards from collection by ID list")
+            .Produces<int>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
     }
     
     private static async Task<IResult> GetCollectionFromIdAsync(
@@ -91,13 +94,18 @@ public static class CollectionsEndpoints
         var collection = await unitOfWork.Repository<Collection>().GetByIdAsync(id);
         if (collection is null) return Results.NotFound();
         if (collection.OwnerId != userId) return Results.Unauthorized();
+
+        // Handle grouping if requested
+        if (!string.IsNullOrEmpty(entityParams.GroupBy))
+        {
+            return await GetGroupedCardsFromCollectionAsync(unitOfWork, id, entityParams);
+        }
         
         var spec = new CardsWithParamsSpecification(entityParams, id);
         var size = await unitOfWork.Repository<Card>().CountAsync(spec);
         var cards = await unitOfWork.Repository<Card>().ListAsync(spec);
         
         return Results.Ok(new Pagination<Card>(entityParams.PageIndex, entityParams.PageSize, size, cards));
-
     }
     
     private static async Task<IResult> AddNewCollectionAsync (
@@ -194,5 +202,86 @@ public static class CollectionsEndpoints
         await unitOfWork.Complete();
         
         return Results.Ok(deletedCount);
+    }
+
+    private static async Task<IResult> GetGroupedCardsFromCollectionAsync(
+        IUnitOfWork unitOfWork,
+        int collectionId,
+        EntitySpecParams entityParams)
+    {
+        var spec = new CardsWithParamsSpecification(entityParams, collectionId);
+        var allCards = await unitOfWork.Repository<Card>().ListAsync(spec);
+        
+        if (allCards == null || !allCards.Any())
+        {
+            return Results.Ok(new GroupedCardsPaginationDto
+            {
+                PageIndex = entityParams.PageIndex,
+                PageSize = entityParams.PageSize,
+                TotalGroups = 0,
+                TotalCards = 0,
+                Groups = []
+            });
+        }
+        
+        var groupedCards = entityParams.GroupBy?.ToLower() switch
+        {
+            "setname" => allCards.GroupBy(c => c.SetName).Select(g => new GroupedCardsDto
+            {
+                GroupKey = g.Key,
+                Count = g.Count(),
+                Cards = g.ToList()
+            }).ToList(),
+            "setcode" => allCards.GroupBy(c => c.SetCode).Select(g => new GroupedCardsDto
+            {
+                GroupKey = g.Key,
+                Count = g.Count(),
+                Cards = g.ToList()
+            }).ToList(),
+            "rarity" => allCards.GroupBy(c => c.Rarity).Select(g => new GroupedCardsDto
+            {
+                GroupKey = g.Key,
+                Count = g.Count(),
+                Cards = g.ToList()
+            }).ToList(),
+            "condition" => allCards.GroupBy(c => c.Condition.ToString()).Select(g => new GroupedCardsDto
+            {
+                GroupKey = g.Key,
+                Count = g.Count(),
+                Cards = g.ToList()
+            }).ToList(),
+            "language" => allCards.GroupBy(c => c.Language).Select(g => new GroupedCardsDto
+            {
+                GroupKey = g.Key,
+                Count = g.Count(),
+                Cards = g.ToList()
+            }).ToList(),
+            _ => allCards.GroupBy(c => c.Name).Select(g => new GroupedCardsDto
+            {
+                GroupKey = g.Key,
+                Count = g.Count(),
+                Cards = g.ToList()
+            }).ToList()
+        };
+
+        var totalGroups = groupedCards.Count;
+        var totalCards = allCards.Count;
+        
+        // Apply pagination to groups
+        var paginatedGroups = groupedCards
+            .Skip(entityParams.PageSize * (entityParams.PageIndex - 1))
+            .Take(entityParams.PageSize)
+            .ToList();
+
+        var result = new GroupedCardsPaginationDto
+        {
+            PageIndex = entityParams.PageIndex,
+            PageSize = entityParams.PageSize,
+            TotalGroups = totalGroups,
+            TotalCards = totalCards,
+            Groups = paginatedGroups
+        };
+
+        return Results.Ok(result);
     }
 }
