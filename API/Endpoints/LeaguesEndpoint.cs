@@ -115,12 +115,17 @@ public static class LeaguesEndpoint
         res.ForEach(x => 
             leaguesDto.Add(new LeagueDto
             {
-                Code = x.League.Code, 
-                Name = x.League.Name, 
-                Score = x.Score, 
+                Code = x.League.Code,
+                Name = x.League.Name,
+                Score = x.Score,
                 Id = x.LeagueId,
-                //EndDate = x.League.EndDate,
                 Format = x.League.Format,
+                TotalRounds = x.League.TotalRounds,
+                RoundsToConsider = x.League.RoundsToConsider,
+                MinimumRounds = x.League.MinimumRounds,
+                TotalPrize = x.League.TotalPrize,
+                PrizePerPerson = x.League.PrizePerPerson,
+                TotalPlayers = x.League.TotalPlayers,
             }));
         
         return Results.Ok(new UserWithLeaguesDto
@@ -331,6 +336,9 @@ public static class LeaguesEndpoint
             PointsToGive = leagueDto.PointsToGive,
             IsActive = true,
         };
+        
+        await dbContext.AddAsync(league); 
+        await dbContext.SaveChangesAsync();
         
         return Results.Ok(league);
     }
