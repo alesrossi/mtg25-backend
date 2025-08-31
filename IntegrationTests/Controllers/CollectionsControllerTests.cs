@@ -321,5 +321,153 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         collection.Should().BeNull($"because collection {collectionId} should be deleted from database");
     }
 
+    private async Task<List<Card>> CreateTestCardsForCollectionAsync(int collectionId, int count = 5)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
+        
+        var cards = new List<Card>();
+        
+        for (int i = 1; i <= count; i++)
+        {
+            var card = _testDataBuilder.CreateCard(collectionId);
+            card.Name = $"Test Card {i}";
+            card.SetName = i <= 2 ? "Alpha" : "Beta";
+            card.SetCode = i <= 2 ? "LEA" : "LEB";
+            card.Rarity = i % 2 == 0 ? "rare" : "common";
+            card.Condition = (Condition)(i % 3);
+            card.IsFoil = i % 2 == 0;
+            card.PurchasePrice = i * 10.0;
+            card.Quantity = i;
+            cards.Add(card);
+        }
+        
+        dbContext.Cards.AddRange(cards);
+        await dbContext.SaveChangesAsync();
+        
+        return cards;
+    }
+
+    #endregion
+
+    #region Card Filtering Tests
+
+    [Fact]
+    public async Task GetCardsFromCollection_WithoutFilters_ReturnsAllCards()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync("cardsuser@example.com", "cardsuser");
+        var collection = await CreateTestCollectionAsync(user.Id, "Cards Test Collection");
+        await CreateTestCardsForCollectionAsync(collection.Id);
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        // Act
+        var response = await client.GetAsync($"/api/collections/{collection.Id}/cards?pageIndex=1&pageSize=10");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        var result = JsonSerializer.Deserialize<API.Helpers.Pagination<Card>>(
+            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        result.Should().NotBeNull();
+        result!.Data.Should().HaveCount(5, "because we created 5 test cards");
+    }
+
+    [Fact]
+    public async Task GetCardsFromCollection_WithSearchFilter_ReturnsMatchingCards()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync("searchuser@example.com", "searchuser");
+        var collection = await CreateTestCollectionAsync(user.Id, "Search Test Collection");
+        await CreateTestCardsForCollectionAsync(collection.Id);
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        // Act
+        var response = await client.GetAsync($"/api/collections/{collection.Id}/cards?search=Test%20Card%201&pageIndex=1&pageSize=10");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        var result = JsonSerializer.Deserialize<API.Helpers.Pagination<Card>>(
+            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        result.Should().NotBeNull();
+        result!.Data.Should().HaveCount(1);
+        result.Data!.First().Name.Should().Be("Test Card 1");
+    }
+
+    [Fact]
+    public async Task GetCardsFromCollection_WithSetCodeFilter_ReturnsMatchingCards()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync("setcodeuser@example.com", "setcodeuser");
+        var collection = await CreateTestCollectionAsync(user.Id, "SetCode Test Collection");
+        await CreateTestCardsForCollectionAsync(collection.Id);
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        // Act
+        var response = await client.GetAsync($"/api/collections/{collection.Id}/cards?setCode=LEA&pageIndex=1&pageSize=10");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        var result = JsonSerializer.Deserialize<API.Helpers.Pagination<Card>>(
+            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        result.Should().NotBeNull();
+        result!.Data.Should().HaveCount(2, "because 2 cards have LEA set code");
+        result.Data!.Should().OnlyContain(c => c.SetCode == "LEA");
+    }
+
+    [Fact]
+    public async Task GetCardsFromCollection_WithPriceSorting_ReturnsSortedCards()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync("sortuser@example.com", "sortuser");
+        var collection = await CreateTestCollectionAsync(user.Id, "Sort Test Collection");
+        await CreateTestCardsForCollectionAsync(collection.Id);
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        // Act
+        var response = await client.GetAsync($"/api/collections/{collection.Id}/cards?sort=priceAsc&pageIndex=1&pageSize=10");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        var result = JsonSerializer.Deserialize<API.Helpers.Pagination<Card>>(
+            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        result.Should().NotBeNull();
+        result!.Data.Should().NotBeEmpty();
+        
+        var prices = result.Data!.Select(c => c.PurchasePrice).ToList();
+        prices.Should().BeInAscendingOrder("because sort=priceAsc was specified");
+    }
+
+    [Fact]
+    public async Task GetCardsFromCollection_WithGroupBySetName_ReturnsGroupedCards()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync("groupuser@example.com", "groupuser");
+        var collection = await CreateTestCollectionAsync(user.Id, "Group Test Collection");
+        await CreateTestCardsForCollectionAsync(collection.Id);
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        // Act
+        var response = await client.GetAsync($"/api/collections/{collection.Id}/cards?groupBy=setname&pageIndex=1&pageSize=10");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        var result = JsonSerializer.Deserialize<GroupedCardsPaginationDto>(
+            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        result.Should().NotBeNull();
+        result!.Groups.Should().HaveCount(2, "because there are 2 different sets (Alpha/Beta)");
+        result.TotalCards.Should().Be(5, "because there are 5 total cards");
+        result.TotalGroups.Should().Be(2, "because there are 2 different sets");
+    }
+
     #endregion
 }

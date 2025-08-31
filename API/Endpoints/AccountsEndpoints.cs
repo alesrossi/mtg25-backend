@@ -30,8 +30,8 @@ public static class AccountsEndpoints
         
         group.MapGet("/logout", LogoutUserAsync)
             .RequireAuthorization()
-            .WithSummary("Authenticate user login")
-            .WithDescription("Authenticates a user with email and password credentials, returning user information upon successful login")
+            .WithSummary("Logout user")
+            .WithDescription("Logs out the authenticated user by blacklisting their JWT token")
             .Produces<string>()
             .Produces(StatusCodes.Status401Unauthorized);
     }

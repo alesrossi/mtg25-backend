@@ -1,3 +1,5 @@
+using Core.Models;
+
 namespace Core.Specifications;
 
 public class EntitySpecParams
@@ -12,7 +14,16 @@ public class EntitySpecParams
         set => _pageSize = (value > MaxPageSize) ? MaxPageSize : value;
     }
     public string? Sort { get; set; }
-
     public string? Search { get; set; }
-
+    public string? SetCode { get; set; }
+    public string? SetName { get; set; }
+    public string? Rarity { get; set; }
+    public Condition? Condition { get; set; }
+    public bool? IsFoil { get; set; }
+    public bool? IsMisprint { get; set; }
+    public bool? IsAltered { get; set; }
+    public string? Language { get; set; }
+    public double? MinPrice { get; set; }
+    public double? MaxPrice { get; set; }
+    public string? GroupBy { get; set; }
 }
