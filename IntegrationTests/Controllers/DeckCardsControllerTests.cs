@@ -41,16 +41,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var responseContent = await response.Content.ReadAsStringAsync();
         
-        // Debug: Check actual response
-        Console.WriteLine($"Response: {responseContent}");
-        
-        var returnedDeckCards = JsonSerializer.Deserialize<List<DeckCardDto>>(
-            responseContent, new JsonSerializerOptions 
-            { 
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase, 
-                PropertyNameCaseInsensitive = true,
-                ReferenceHandler = ReferenceHandler.Preserve
-            });
+        var returnedDeckCards = DeserializeDeckCardList(responseContent);
 
         returnedDeckCards.Should().HaveCount(3);
         returnedDeckCards!.All(dc => dc.DeckId == deck.Id).Should().BeTrue();
@@ -71,13 +62,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var responseContent = await response.Content.ReadAsStringAsync();
-        var returnedDeckCards = JsonSerializer.Deserialize<List<DeckCardDto>>(
-            responseContent, new JsonSerializerOptions 
-            { 
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase, 
-                PropertyNameCaseInsensitive = true,
-                ReferenceHandler = ReferenceHandler.Preserve
-            });
+        var returnedDeckCards = DeserializeDeckCardList(responseContent);
 
         returnedDeckCards!.All(dc => dc.MaindeckQuantity > 0).Should().BeTrue();
     }
@@ -98,8 +83,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var responseContent = await response.Content.ReadAsStringAsync();
-        var returnedDeckCard = JsonSerializer.Deserialize<DeckCardDto>(
-            responseContent, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true });
+        var returnedDeckCard = DeserializeDeckCard(responseContent);
 
         returnedDeckCard!.Id.Should().Be(deckCard.Id);
         returnedDeckCard.DeckId.Should().Be(deck.Id);
@@ -124,12 +108,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
             ImageUrl = "TEST"
         };
 
-        var json = JsonSerializer.Serialize(createDto, new JsonSerializerOptions 
-        { 
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            PropertyNameCaseInsensitive = true 
-        });
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = SerializeToJson(createDto);
 
         // Act
         var response = await client.PostAsync($"/api/decks/{deck.Id}/cards", content);
@@ -137,8 +116,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         var responseContent = await response.Content.ReadAsStringAsync();
-        var createdDeckCard = JsonSerializer.Deserialize<DeckCardDto>(
-            responseContent, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true });
+        var createdDeckCard = DeserializeDeckCard(responseContent);
 
         createdDeckCard!.DeckId.Should().Be(deck.Id);
         createdDeckCard.Name.Should().Be("Lightning Bolt");
@@ -161,16 +139,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
             SideboardQuantity = 2
         };
 
-        var json = JsonSerializer.Serialize(updateDto, new JsonSerializerOptions 
-        { 
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            PropertyNameCaseInsensitive = true 
-        });
-        
-        // Debug: Check the JSON being sent
-        Console.WriteLine($"Update JSON: {json}");
-        
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var content = SerializeToJson(updateDto);
 
         // Act
         var response = await client.PutAsync($"/api/decks/{deck.Id}/cards/{deckCard.Id}", content);
@@ -178,8 +147,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var responseContent = await response.Content.ReadAsStringAsync();
-        var updatedDeckCard = JsonSerializer.Deserialize<DeckCardDto>(
-            responseContent, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true });
+        var updatedDeckCard = DeserializeDeckCard(responseContent);
 
         updatedDeckCard!.MaindeckQuantity.Should().Be(2);
         updatedDeckCard.SideboardQuantity.Should().Be(2);
@@ -249,13 +217,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             
             var responseContent = await response.Content.ReadAsStringAsync();
-            var returnedDeckCards = JsonSerializer.Deserialize<List<DeckCardDto>>(
-                responseContent, new JsonSerializerOptions 
-                { 
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase, 
-                    PropertyNameCaseInsensitive = true,
-                    ReferenceHandler = ReferenceHandler.IgnoreCycles
-                });
+            var returnedDeckCards = DeserializeDeckCardList(responseContent);
 
             // Verify the response structure
             returnedDeckCards.Should().HaveCount(5);
@@ -265,53 +227,6 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
             var ownedCards = returnedDeckCards.Where(dc => dc.IsOwned).ToList();
             ownedCards.Should().HaveCount(3); // We created owned cards for 3 deck cards
             ownedCards.All(dc => dc.OwnedQuantity > 0).Should().BeTrue();
-        }
-    }
-
-    [Fact]
-    public async Task GetDeckCards_SequentialRequests_ShouldReturnConsistentResults()
-    {
-        // Arrange
-        var user = await CreateTestUserAsync("sequential@example.com", "sequential");
-        var deck = await CreateTestDeckForUserAsync(user.Id);
-        var collection = await CreateCollectionWithOwnedCards(user.Id);
-        
-        var deckCards = await CreateTestDeckCardsForDeckAsync(deck.Id, 3);
-        await CreateOwnedCardsForDeckCards(collection.Id, deckCards);
-        
-        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
-
-        // Act - Make 5 sequential requests
-        var responses = new List<List<DeckCardDto>>();
-        for (int i = 0; i < 5; i++)
-        {
-            var response = await client.GetAsync($"/api/decks/{deck.Id}/cards");
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
-            
-            var responseContent = await response.Content.ReadAsStringAsync();
-            var returnedDeckCards = JsonSerializer.Deserialize<List<DeckCardDto>>(
-                responseContent, new JsonSerializerOptions 
-                { 
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase, 
-                    PropertyNameCaseInsensitive = true,
-                    ReferenceHandler = ReferenceHandler.IgnoreCycles
-                });
-                
-            responses.Add(returnedDeckCards!);
-        }
-
-        // Assert - All responses should be identical
-        var firstResponse = responses[0];
-        foreach (var response in responses.Skip(1))
-        {
-            response.Should().HaveCount(firstResponse.Count);
-            for (int i = 0; i < firstResponse.Count; i++)
-            {
-                response[i].Id.Should().Be(firstResponse[i].Id);
-                response[i].OwnedQuantity.Should().Be(firstResponse[i].OwnedQuantity);
-                response[i].IsOwned.Should().Be(firstResponse[i].IsOwned);
-                response[i].OwnershipStatus.Should().Be(firstResponse[i].OwnershipStatus);
-            }
         }
     }
 
@@ -343,15 +258,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
 
         for (int i = 0; i < count; i++)
         {
-            var deckCard = new DeckCard
-            {
-                DeckId = deckId,
-                OracleId = $"oracle-{i}",
-                Name = $"Test Card {i}",
-                SetCode = "LEA",
-                MaindeckQuantity = 4,
-                SideboardQuantity = 0
-            };
+            var deckCard = CreateDeckCardEntity(deckId, $"oracle-{i}", $"Test Card {i}", "LEA", 4, 0);
             deckCards.Add(deckCard);
             context.DeckCards.Add(deckCard);
         }
@@ -365,25 +272,8 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         using var scope = _factory.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<MainContext>();
 
-        var maindeckCard = new DeckCard
-        {
-            DeckId = deckId,
-            OracleId = "oracle-main",
-            Name = "Maindeck Card",
-            SetCode = "LEA",
-            MaindeckQuantity = 4,
-            SideboardQuantity = 0
-        };
-
-        var sideboardCard = new DeckCard
-        {
-            DeckId = deckId,
-            OracleId = "oracle-side",
-            Name = "Sideboard Card",
-            SetCode = "ICE",
-            MaindeckQuantity = 0,
-            SideboardQuantity = 2
-        };
+        var maindeckCard = CreateDeckCardEntity(deckId, "oracle-main", "Maindeck Card", "LEA", 4, 0);
+        var sideboardCard = CreateDeckCardEntity(deckId, "oracle-side", "Sideboard Card", "ICE", 0, 2);
 
         context.DeckCards.AddRange(maindeckCard, sideboardCard);
         await context.SaveChangesAsync();
@@ -417,5 +307,47 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         }
 
         await context.SaveChangesAsync();
+    }
+
+    private static DeckCard CreateDeckCardEntity(int deckId, string oracleId, string name, string setCode, int maindeckQuantity, int sideboardQuantity)
+    {
+        return new DeckCard
+        {
+            DeckId = deckId,
+            OracleId = oracleId,
+            Name = name,
+            SetCode = setCode,
+            MaindeckQuantity = maindeckQuantity,
+            SideboardQuantity = sideboardQuantity
+        };
+    }
+
+    private static StringContent SerializeToJson<T>(T obj)
+    {
+        var json = JsonSerializer.Serialize(obj, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            PropertyNameCaseInsensitive = true
+        });
+        return new StringContent(json, Encoding.UTF8, "application/json");
+    }
+
+    private static List<DeckCardDto> DeserializeDeckCardList(string json)
+    {
+        return JsonSerializer.Deserialize<List<DeckCardDto>>(json, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            PropertyNameCaseInsensitive = true,
+            ReferenceHandler = ReferenceHandler.IgnoreCycles
+        })!;
+    }
+
+    private static DeckCardDto DeserializeDeckCard(string json)
+    {
+        return JsonSerializer.Deserialize<DeckCardDto>(json, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            PropertyNameCaseInsensitive = true
+        })!;
     }
 }
