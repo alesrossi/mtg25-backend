@@ -1,4 +1,4 @@
-namespace API.Dtos;
+namespace API.Dtos.Leagues;
 
 public class LeagueDto // League from User point of view
 {

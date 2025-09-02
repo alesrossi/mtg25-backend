@@ -2,7 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using API.Dtos;
+using API.Dtos.Decks;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Core.Models;

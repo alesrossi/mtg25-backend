@@ -1,8 +1,7 @@
-using System.Collections.Immutable;
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using API.Dtos;
+using API.Dtos.Leagues;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Core.Models.Identity;

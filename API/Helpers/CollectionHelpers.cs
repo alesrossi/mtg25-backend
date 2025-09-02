@@ -1,5 +1,5 @@
 using System.Globalization;
-using API.Dtos;
+using API.Dtos.Collections;
 using API.Scryfall;
 using API.Services;
 using Core.Models;

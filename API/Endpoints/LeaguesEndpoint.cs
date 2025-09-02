@@ -1,7 +1,7 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
-using API.Dtos;
+using API.Dtos.Leagues;
 using API.Services;
 using Core.Models.Identity;
 using Infrastructure.Identity;

@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace API.Dtos;
+namespace API.Dtos.Collections;
 
 public class NewCollectionDto
 {

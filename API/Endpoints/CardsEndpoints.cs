@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using API.Dtos;
+using API.Dtos.Cards;
 using API.Services;
 using Core.Interfaces;
 using Core.Models;

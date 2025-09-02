@@ -1,4 +1,4 @@
-using API.Dtos;
+using API.Dtos.Accounts;
 using API.Services;
 using Core.Models.Identity;
 using Microsoft.AspNetCore.Identity;

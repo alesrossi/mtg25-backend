@@ -1,5 +1,5 @@
 using API.Configuration;
-using API.Dtos;
+using API.Dtos.Cards;
 using API.Scryfall;
 using Microsoft.Extensions.Options;
 

@@ -1,5 +1,6 @@
 using System.Security.Claims;
-using API.Dtos;
+using API.Dtos.Cards;
+using API.Dtos.Collections;
 using API.Helpers;
 using API.Services;
 using Core.Interfaces;

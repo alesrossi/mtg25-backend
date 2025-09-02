@@ -1,4 +1,6 @@
-namespace API.Dtos;
+using API.Dtos.Cards;
+
+namespace API.Dtos.Collections;
 
 public class CollectionDto
 {

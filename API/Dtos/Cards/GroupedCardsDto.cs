@@ -1,6 +1,6 @@
 using Core.Models;
 
-namespace API.Dtos;
+namespace API.Dtos.Cards;
 
 public class GroupedCardsDto
 {

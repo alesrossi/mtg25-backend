@@ -1,0 +1,11 @@
+namespace API.Dtos.Decks;
+
+public class DeckDto
+{
+    public int Id { get; set; }
+    public required string Name { get; set; }
+    public required string Format { get; set; }
+    public int NumberOfCards { get; set; }
+    public double TotalPrice { get; set; }
+    public required string OwnerId { get; set; }
+}

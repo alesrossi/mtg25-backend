@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using API.Dtos;
+using API.Dtos.Decks;
 using API.Services;
 using Core.Interfaces;
 using Core.Models;
@@ -15,12 +15,49 @@ public static class DecksEndpoint
     public static void MapDecksEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/decks").WithTags("Decks");
+        
         group.MapGet("/", GetAllDecksForUser)
             .RequireAuthorization()
             .WithSummary("Get decks for user")
             .WithDescription("Gets all decks from a given user")
-            .Produces<IReadOnlyList<Deck>?>()
+            .Produces<IReadOnlyList<DeckDto>>()
             .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
+        
+        group.MapPost("/", CreateDeckAsync)
+            .RequireAuthorization()
+            .WithSummary("Create new deck")
+            .WithDescription("Creates a new deck for the authenticated user")
+            .Produces<DeckDto>(StatusCodes.Status201Created)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized);
+        
+        group.MapGet("/{id:int}", GetDeckByIdAsync)
+            .RequireAuthorization()
+            .WithSummary("Get deck by ID")
+            .WithDescription("Retrieves a specific deck by ID")
+            .Produces<DeckDto>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+        
+        group.MapPut("/{id:int}", UpdateDeckAsync)
+            .RequireAuthorization()
+            .WithSummary("Update deck")
+            .WithDescription("Updates deck metadata (name, format)")
+            .Produces<DeckDto>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+        
+        group.MapDelete("/{id:int}", DeleteDeckAsync)
+            .RequireAuthorization()
+            .WithSummary("Delete deck")
+            .WithDescription("Deletes a deck and all its cards")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
         
         group.MapGet("/{deckId:int}/cards", GetDeckCardsAsync)
@@ -83,7 +120,10 @@ public static class DecksEndpoint
         if (user is null)  return Results.Unauthorized();
         
         var decks = await unitOfWork.Repository<Deck>().ListAsync(new DecksWIthOwnerSpecification(user.Id));
-        return decks is null || decks.Count <= 0 ? Results.NotFound("No decks found") : Results.Ok(decks);
+        if (decks is null || decks.Count <= 0) return Results.NotFound("No decks found");
+        
+        var deckDtos = decks.Select(MapToDto).ToList();
+        return Results.Ok(deckDtos);
     }
     
     
@@ -189,5 +229,105 @@ public static class DecksEndpoint
 
         var deleted = await deckCardService.DeleteDeckCardAsync(id);
         return deleted ? Results.NoContent() : Results.NotFound();
+    }
+
+    private static async Task<IResult> CreateDeckAsync(
+        CreateDeckDto createDto,
+        IUnitOfWork unitOfWork,
+        ClaimsPrincipal user)
+    {
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null) return Results.Unauthorized();
+
+        var deck = new Deck
+        {
+            Name = createDto.Name,
+            Format = createDto.Format,
+            OwnerId = userId,
+            NumberOfCards = 0,
+            TotalPrice = 0.0
+        };
+
+        unitOfWork.Repository<Deck>().Add(deck);
+        await unitOfWork.Complete();
+
+        return Results.Created($"/api/decks/{deck.Id}", MapToDto(deck));
+    }
+
+    private static async Task<IResult> GetDeckByIdAsync(
+        int id,
+        IUnitOfWork unitOfWork,
+        ClaimsPrincipal user)
+    {
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null) return Results.Unauthorized();
+
+        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(id);
+        if (deck == null || deck.OwnerId != userId) return Results.NotFound();
+
+        return Results.Ok(MapToDto(deck));
+    }
+
+    private static async Task<IResult> UpdateDeckAsync(
+        int id,
+        UpdateDeckDto updateDto,
+        IUnitOfWork unitOfWork,
+        ClaimsPrincipal user)
+    {
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null) return Results.Unauthorized();
+
+        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(id);
+        if (deck == null || deck.OwnerId != userId) return Results.NotFound();
+
+        deck.Name = updateDto.Name;
+        deck.Format = updateDto.Format;
+
+        unitOfWork.Repository<Deck>().Update(deck);
+        await unitOfWork.Complete();
+
+        return Results.Ok(MapToDto(deck));
+    }
+
+    private static async Task<IResult> DeleteDeckAsync(
+        int id,
+        IUnitOfWork unitOfWork,
+        ClaimsPrincipal user)
+    {
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null) return Results.Unauthorized();
+
+        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(id);
+        if (deck == null || deck.OwnerId != userId) return Results.NotFound();
+
+        // Delete all deck cards first
+        var deckCardsSpec = new DeckCardsWithDeckIdSpecification(id);
+        var deckCards = await unitOfWork.Repository<DeckCard>().ListAsync(deckCardsSpec);
+        if (deckCards?.Any() == true)
+        {
+            foreach (var deckCard in deckCards)
+            {
+                unitOfWork.Repository<DeckCard>().Delete(deckCard);
+            }
+        }
+
+        // Delete the deck
+        unitOfWork.Repository<Deck>().Delete(deck);
+        await unitOfWork.Complete();
+
+        return Results.NoContent();
+    }
+
+    private static DeckDto MapToDto(Deck deck)
+    {
+        return new DeckDto
+        {
+            Id = deck.Id,
+            Name = deck.Name,
+            Format = deck.Format,
+            NumberOfCards = deck.NumberOfCards,
+            TotalPrice = deck.TotalPrice,
+            OwnerId = deck.OwnerId
+        };
     }
 }

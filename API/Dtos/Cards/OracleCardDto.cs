@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace API.Dtos;
+namespace API.Dtos.Cards;
 
 using System.Collections.Generic;
 

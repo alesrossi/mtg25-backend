@@ -1,7 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
-using API.Configuration;
-using API.Dtos;
+using API.Dtos.Cards;
+using API.Dtos.Collections;
 
 namespace API.Scryfall;
 

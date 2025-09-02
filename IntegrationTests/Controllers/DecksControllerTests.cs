@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using API.Dtos.Decks;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Core.Models;
@@ -47,7 +48,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         if (response.StatusCode == HttpStatusCode.OK)
         {
             var responseContent = await response.Content.ReadAsStringAsync();
-            var returnedDecks = JsonSerializer.Deserialize<IReadOnlyList<Deck>>(
+            var returnedDecks = JsonSerializer.Deserialize<IReadOnlyList<DeckDto>>(
                 responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
             returnedDecks.Should().NotBeNull();
@@ -103,7 +104,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
             var responseContent = await response.Content.ReadAsStringAsync();
             responseContent.Should().NotBeNullOrEmpty();
 
-            var returnedDecks = JsonSerializer.Deserialize<IReadOnlyList<Deck>>(
+            var returnedDecks = JsonSerializer.Deserialize<IReadOnlyList<DeckDto>>(
                 responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
             returnedDecks.Should().NotBeNull();
@@ -139,7 +140,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         if (response.StatusCode == HttpStatusCode.OK)
         {
             var responseContent = await response.Content.ReadAsStringAsync();
-            var returnedDecks = JsonSerializer.Deserialize<IReadOnlyList<Deck>>(
+            var returnedDecks = JsonSerializer.Deserialize<IReadOnlyList<DeckDto>>(
                 responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
             returnedDecks.Should().NotBeNull();
@@ -147,8 +148,6 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         }
     }
 
-    // Commented out tests for functionality that is not yet implemented
-    /*
     [Fact]
     public async Task CreateDeck_WithValidData_CreatesDeck()
     {
@@ -156,80 +155,175 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         var user = await CreateTestUserAsync("creator@example.com", "creator");
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
-        var createRequest = new
+        var createRequest = new CreateDeckDto
         {
             Name = "New Test Deck",
-            Format = "Standard",
-            NumberOfCards = 60,
-            TotalPrice = 100.50
+            Format = "Standard"
         };
 
-        var json = JsonSerializer.Serialize(createRequest);
+        var json = JsonSerializer.Serialize(createRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         // Act
         var response = await client.PostAsync("/api/decks", content);
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.OK,
+        response.StatusCode.Should().Be(HttpStatusCode.Created,
             "because valid deck data should create a new deck");
 
         var responseContent = await response.Content.ReadAsStringAsync();
-        var createdDeck = JsonSerializer.Deserialize<Deck>(
+        var createdDeck = JsonSerializer.Deserialize<DeckDto>(
             responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         createdDeck.Should().NotBeNull();
         createdDeck!.Name.Should().Be(createRequest.Name);
+        createdDeck.Format.Should().Be(createRequest.Format);
         createdDeck.OwnerId.Should().Be(user.Id);
+        createdDeck.NumberOfCards.Should().Be(0);
+        createdDeck.TotalPrice.Should().Be(0.0);
         
         await VerifyDeckExistsInDatabase(createdDeck.Id, user.Id);
     }
 
     [Fact]
-    public async Task CreateDeck_WithInvalidData_ReturnsBadRequest()
+    public async Task GetDeckById_WithValidId_ReturnsDeck()
     {
         // Arrange
-        var user = await CreateTestUserAsync("badeckcreator@example.com", "baddeckcreator");
+        var user = await CreateTestUserAsync("getbyid@example.com", "getbyid");
+        var deck = await CreateTestDeckAsync(user.Id, "Get By ID Test Deck", "Modern");
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
-        var createRequest = new
-        {
-            Name = "", // Invalid empty name
-            Format = "Standard",
-            NumberOfCards = 60,
-            TotalPrice = 100.50
-        };
-
-        var json = JsonSerializer.Serialize(createRequest);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-
         // Act
-        var response = await client.PostAsync("/api/decks", content);
+        var response = await client.GetAsync($"/api/decks/{deck.Id}");
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest,
-            "because invalid deck data should be rejected");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var responseContent = await response.Content.ReadAsStringAsync();
+        var returnedDeck = JsonSerializer.Deserialize<DeckDto>(
+            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        returnedDeck.Should().NotBeNull();
+        returnedDeck!.Id.Should().Be(deck.Id);
+        returnedDeck.Name.Should().Be(deck.Name);
+        returnedDeck.Format.Should().Be(deck.Format);
+        returnedDeck.OwnerId.Should().Be(user.Id);
     }
 
     [Fact]
-    public async Task PrintDeckList_WithValidDeck_ReturnsDeckList()
+    public async Task GetDeckById_WithOtherUsersDeck_ReturnsNotFound()
     {
         // Arrange
-        var user = await CreateTestUserAsync("printer@example.com", "printer");
-        var deck = await CreateTestDeckAsync(user.Id, "Printable Deck", "Standard");
+        var owner = await CreateTestUserAsync("owner@example.com", "owner");
+        var otherUser = await CreateTestUserAsync("other@example.com", "other");
+        var deck = await CreateTestDeckAsync(owner.Id, "Owner's Deck", "Standard");
+        using var client = _factory.CreateClientWithUser(otherUser.Id, otherUser.UserName!, otherUser.Email!);
+
+        // Act
+        var response = await client.GetAsync($"/api/decks/{deck.Id}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UpdateDeck_WithValidData_UpdatesDeck()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync("updater@example.com", "updater");
+        var deck = await CreateTestDeckAsync(user.Id, "Original Name", "Standard");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var updateRequest = new UpdateDeckDto
+        {
+            Name = "Updated Deck Name",
+            Format = "Modern"
+        };
+
+        var json = JsonSerializer.Serialize(updateRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        // Act
+        var response = await client.PutAsync($"/api/decks/{deck.Id}", content);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var responseContent = await response.Content.ReadAsStringAsync();
+        var updatedDeck = JsonSerializer.Deserialize<DeckDto>(
+            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        updatedDeck.Should().NotBeNull();
+        updatedDeck!.Id.Should().Be(deck.Id);
+        updatedDeck.Name.Should().Be(updateRequest.Name);
+        updatedDeck.Format.Should().Be(updateRequest.Format);
+        updatedDeck.OwnerId.Should().Be(user.Id);
+    }
+
+    [Fact]
+    public async Task UpdateDeck_WithOtherUsersDeck_ReturnsNotFound()
+    {
+        // Arrange
+        var owner = await CreateTestUserAsync("owner2@example.com", "owner2");
+        var otherUser = await CreateTestUserAsync("other2@example.com", "other2");
+        var deck = await CreateTestDeckAsync(owner.Id, "Owner's Deck", "Standard");
+        using var client = _factory.CreateClientWithUser(otherUser.Id, otherUser.UserName!, otherUser.Email!);
+
+        var updateRequest = new UpdateDeckDto
+        {
+            Name = "Hacked Name",
+            Format = "Modern"
+        };
+
+        var json = JsonSerializer.Serialize(updateRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        // Act
+        var response = await client.PutAsync($"/api/decks/{deck.Id}", content);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task DeleteDeck_WithValidId_DeletesDeck()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync("deleter@example.com", "deleter");
+        var deck = await CreateTestDeckAsync(user.Id, "To Be Deleted", "Standard");
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
         // Act
-        var response = await client.GetAsync($"/api/decks/print-deck-list?deckId={deck.Id}");
+        var response = await client.DeleteAsync($"/api/decks/{deck.Id}");
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.OK,
-            "because authenticated users should be able to print their deck lists");
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-        var responseContent = await response.Content.ReadAsStringAsync();
-        responseContent.Should().NotBeNullOrEmpty("because deck list should contain printable content");
+        // Verify deck is deleted
+        var getResponse = await client.GetAsync($"/api/decks/{deck.Id}");
+        getResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
-    */
+
+    [Fact]
+    public async Task DeleteDeck_WithOtherUsersDeck_ReturnsNotFound()
+    {
+        // Arrange
+        var owner = await CreateTestUserAsync("owner3@example.com", "owner3");
+        var otherUser = await CreateTestUserAsync("other3@example.com", "other3");
+        var deck = await CreateTestDeckAsync(owner.Id, "Protected Deck", "Standard");
+        using var client = _factory.CreateClientWithUser(otherUser.Id, otherUser.UserName!, otherUser.Email!);
+
+        // Act
+        var response = await client.DeleteAsync($"/api/decks/{deck.Id}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        // Verify deck still exists (as the owner)
+        using var ownerClient = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+        var getResponse = await ownerClient.GetAsync($"/api/decks/{deck.Id}");
+        getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
 
     #region Helper Methods
 

@@ -1,7 +1,8 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using API.Dtos;
+using API.Dtos.Cards;
+using API.Dtos.Collections;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Core.Models;

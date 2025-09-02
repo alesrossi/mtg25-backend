@@ -1,4 +1,4 @@
-using API.Dtos;
+using API.Dtos.Decks;
 using Core.Interfaces;
 using Core.Models;
 using Core.Specifications;

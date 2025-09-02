@@ -1,4 +1,4 @@
-namespace API.Dtos;
+namespace API.Dtos.Collections;
 
 public class CardsToBeDeletedDto
 {
