@@ -36,7 +36,7 @@ docker system prune -f --filter "label=com.docker.compose.project=mtg-int" || tr
 
 # Pull latest image
 echo -e "${YELLOW}📥 Pulling latest image: $DOCKER_USERNAME/mtg-api:$IMAGE_TAG${NC}"
-if ! docker pull $DOCKER_USERNAME/mtg-api:$IMAGE_TAG; then
+if ! docker pull --platform linux/amd64 $DOCKER_USERNAME/mtg-api:$IMAGE_TAG; then
     echo -e "${RED}❌ Failed to pull image. Make sure:${NC}"
     echo "  1. The image exists on DockerHub"
     echo "  2. Your DockerHub username is correct"
