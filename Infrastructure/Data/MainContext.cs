@@ -33,7 +33,7 @@ public class MainContext : DbContext
             
             // Configure relationship with Deck
             entity.HasOne(dc => dc.Deck)
-                .WithMany()
+                .WithMany(d => d.DeckCards)
                 .HasForeignKey(dc => dc.DeckId)
                 .OnDelete(DeleteBehavior.Cascade);
             

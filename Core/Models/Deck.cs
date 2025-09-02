@@ -9,4 +9,7 @@ public class Deck : BaseModel
     public int NumberOfCards { get; set; }
     public double TotalPrice { get; set; }
     public required string OwnerId { get; set; }
+    
+    // Navigation property to deck cards
+    public ICollection<DeckCard> DeckCards { get; set; } = new List<DeckCard>();
 }

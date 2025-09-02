@@ -77,4 +77,39 @@ public class DeckTests
         deck.Should().BeAssignableTo<BaseModel>("because Deck inherits from BaseModel");
         deck.Id.Should().BeGreaterThan(0, "because BaseModel provides Id property");
     }
+
+    [Fact]
+    public void Deck_WhenCreated_HasEmptyDeckCardsCollection()
+    {
+        // Arrange & Act
+        var deck = _testDataBuilder.CreateDeck("user-id");
+
+        // Assert
+        deck.DeckCards.Should().NotBeNull("because DeckCards collection should be initialized");
+        deck.DeckCards.Should().BeEmpty("because new deck should have no cards initially");
+    }
+
+    [Fact]
+    public void Deck_DeckCardsCollection_CanAddDeckCards()
+    {
+        // Arrange
+        var deck = _testDataBuilder.CreateDeck("user-id");
+        var deckCard = new DeckCard
+        {
+            DeckId = deck.Id,
+            OracleId = "12345678-1234-1234-1234-123456789012",
+            Name = "Lightning Bolt",
+            SetCode = "LEA",
+            MaindeckQuantity = 4,
+            SideboardQuantity = 0
+        };
+
+        // Act
+        deck.DeckCards.Add(deckCard);
+
+        // Assert
+        deck.DeckCards.Should().HaveCount(1, "because we added one deck card");
+        deck.DeckCards.First().Name.Should().Be("Lightning Bolt");
+        deck.DeckCards.First().DeckId.Should().Be(deck.Id);
+    }
 }

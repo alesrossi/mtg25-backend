@@ -66,6 +66,7 @@ public class TestDataBuilder
         return _fixture.Build<Deck>()
             .With(d => d.OwnerId, userId)
             .With(d => d.Format, format ?? validFormats[_random.Next(validFormats.Length)])
+            .Without(d => d.DeckCards) // Initialize as empty collection
             .Create();
     }
 
