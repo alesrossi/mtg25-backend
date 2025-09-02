@@ -13,6 +13,7 @@ public class MainContext : DbContext
     public DbSet<Card> Cards { get; set; }
     public DbSet<Collection> Collections { get; set; }
     public DbSet<Deck> Decks { get; set; }
+    public DbSet<DeckCard> DeckCards { get; set; }
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -21,7 +22,31 @@ public class MainContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id)
-                .ValueGeneratedOnAdd(); // Ensure auto-increment
+                .ValueGeneratedOnAdd();
+        });
+
+        modelBuilder.Entity<DeckCard>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id)
+                .ValueGeneratedOnAdd();
+            
+            // Configure relationship with Deck
+            entity.HasOne(dc => dc.Deck)
+                .WithMany()
+                .HasForeignKey(dc => dc.DeckId)
+                .OnDelete(DeleteBehavior.Cascade);
+            
+            // Configure optional relationship with owned Card
+            entity.HasOne(dc => dc.OwnedCard)
+                .WithMany()
+                .HasForeignKey(dc => dc.OwnedCardId)
+                .OnDelete(DeleteBehavior.SetNull);
+                
+            // Ensure required properties are not null
+            entity.Property(dc => dc.OracleId).IsRequired();
+            entity.Property(dc => dc.Name).IsRequired();
+            entity.Property(dc => dc.SetCode).IsRequired();
         });
 
     }
