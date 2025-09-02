@@ -106,6 +106,17 @@ public class TestDataBuilder
     }
 
     /// <summary>
+    /// Creates a card with a specific Oracle ID to match deck cards for ownership testing.
+    /// </summary>
+    public Card CreateCardWithOracleId(int collectionId, string oracleId, string? name = null, int quantity = 1)
+    {
+        var card = CreateCard(collectionId, name);
+        card.OracleId = oracleId;
+        card.Quantity = quantity;
+        return card;
+    }
+
+    /// <summary>
     /// Creates a league with realistic tournament properties.
     /// </summary>
     public League CreateLeague(string ownerId, string? format = null)

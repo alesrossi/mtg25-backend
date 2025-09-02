@@ -32,11 +32,18 @@ public class Program
             .AddJsonOptions(options =>
             {
                 // Enable built-in naming policies from System.Text.Json
-                options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
+                options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
                 options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
-                options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.Preserve;
+                options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
                 options.JsonSerializerOptions.WriteIndented = true;
             });
+
+        // Configure JSON for Minimal APIs
+        builder.Services.ConfigureHttpJsonOptions(options =>
+        {
+            options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+            options.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+        });
         
         // Add services to the container.
         builder.Services.AddAuthorization();
@@ -109,6 +116,7 @@ public class Program
         // Add CardDataService as a singleton
         builder.Services.AddSingleton<CardDataService>();
         builder.Services.AddScoped<IJwtService, JwtService>();
+        builder.Services.AddScoped<DeckCardService>();
         builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
         builder.Services.AddIdentityServices(builder.Configuration);
 
