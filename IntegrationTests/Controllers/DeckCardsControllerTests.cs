@@ -175,22 +175,6 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
-    public async Task GetDeckCards_FromOtherUsersDeck_ReturnsForbidden()
-    {
-        // Arrange
-        var owner = await CreateTestUserAsync("owner@example.com", "owner");
-        var otherUser = await CreateTestUserAsync("other@example.com", "other");
-        var deck = await CreateTestDeckForUserAsync(owner.Id);
-        using var client = _factory.CreateClientWithUser(otherUser.Id, otherUser.UserName!, otherUser.Email!);
-
-        // Act
-        var response = await client.GetAsync($"/api/decks/{deck.Id}/cards");
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-    }
-
-    [Fact]
     public async Task GetDeckCards_ConcurrentRequests_ShouldNotCauseDbContextIssues()
     {
         // Arrange

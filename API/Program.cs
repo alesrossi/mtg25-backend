@@ -117,6 +117,7 @@ public class Program
         builder.Services.AddSingleton<CardDataService>();
         builder.Services.AddScoped<IJwtService, JwtService>();
         builder.Services.AddScoped<DeckCardService>();
+        builder.Services.AddScoped<IDeckValidationService, DeckValidationService>();
         builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
         builder.Services.AddIdentityServices(builder.Configuration);
 

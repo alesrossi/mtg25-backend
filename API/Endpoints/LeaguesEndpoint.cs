@@ -247,7 +247,7 @@ public static class LeaguesEndpoint
         });
         
         dbContext.Update(league);
-        await dbContext.AddRangeAsync(res);
+        dbContext.UpdateRange(res);
         await dbContext.SaveChangesAsync();
         
         return Results.Ok();
