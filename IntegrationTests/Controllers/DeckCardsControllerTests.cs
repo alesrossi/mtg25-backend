@@ -193,6 +193,32 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
+    public async Task GetMissingDeckCards_ReturnsOnlyUnownedCards()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync("missingcards@example.com", "missingcards");
+        var deck = await CreateTestDeckForUserAsync(user.Id);
+        var deckCards = await CreateTestDeckCardsForDeckAsync(deck.Id, 4);
+        var collection = await CreateCollectionWithOwnedCards(user.Id);
+        await CreateOwnedCardsForDeckCards(collection.Id, deckCards.Take(2).ToList());
+
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        // Act
+        var response = await client.GetAsync($"/api/decks/{deck.Id}/missing-cards");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        var missingCards = DeserializeDeckCardList(responseContent);
+
+        missingCards.Should().HaveCount(2);
+        missingCards!.All(dc => !dc.IsOwned).Should().BeTrue();
+        var expectedOracleIds = deckCards.Skip(2).Select(dc => dc.OracleId).ToList();
+        missingCards.Select(dc => dc.OracleId).Should().BeEquivalentTo(expectedOracleIds);
+    }
+
+    [Fact]
     public async Task UpdateDeckCard_WithValidData_UpdatesDeckCard()
     {
         // Arrange

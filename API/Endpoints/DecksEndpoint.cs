@@ -79,6 +79,15 @@ public static class DecksEndpoint
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
         
+        group.MapGet("/{deckId:int}/missing-cards", GetMissingDeckCardsAsync)
+            .RequireAuthorization()
+            .WithSummary("Get missing deck cards")
+            .WithDescription("Returns deck cards that are not owned in any user collection")
+            .Produces<IEnumerable<DeckCardDto>>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+
         group.MapPost("/{deckId:int}/cards", CreateDeckCardAsync)
             .RequireAuthorization()
             .WithSummary("Add card to deck")
@@ -167,6 +176,22 @@ public static class DecksEndpoint
         if (deckCard == null || deckCard.DeckId != deckId) return Results.NotFound();
 
         return Results.Ok(deckCard);
+    }
+
+    private static async Task<IResult> GetMissingDeckCardsAsync(
+        int deckId,
+        DeckCardService deckCardService,
+        IUnitOfWork unitOfWork,
+        ClaimsPrincipal user)
+    {
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null) return Results.Unauthorized();
+
+        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
+        if (deck == null || deck.OwnerId != userId) return Results.NotFound();
+
+        var missingCards = (await deckCardService.GetDeckCardsAsync(deckId, ownedOnly: false)).ToList();
+        return Results.Ok(missingCards);
     }
 
     private static async Task<IResult> CreateDeckCardAsync(
