@@ -198,7 +198,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var cardRequest = new
         {
-            OracleId = "4f616706-ec97-4923-bb1e-11a69fbaa1f8",
+            OracleId = "97398ad2-675b-4a34-aab7-935dd6714f1c",
             CollectionId = collection.Id,
             Quantity = 2,
             Language = "en",

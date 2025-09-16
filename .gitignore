@@ -25,6 +25,8 @@ bulk-data
 
 CLAUDE.md
 DEVELOPMENT_ROADMAP.md
+AGENTS.md
+
 # .NET Core
 project.lock.json
 project.fragment.lock.json

@@ -74,11 +74,28 @@ public static class LeaguesEndpoint
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
         
+        group.MapPatch("/{id:int}/leave", LeaveLeagueAsync)
+            .RequireAuthorization()
+            .WithSummary("Leave league by id")
+            .WithDescription("User leaves league given id")
+            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
+        
         group.MapPost("/", CreateNewLeagueAsync)
             .RequireAuthorization()
             .WithSummary("Create new league")
             .WithDescription("Creates new league with specified settings and options")
             .Produces<League>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized);
+        
+        group.MapGet("/{id:int}/scores", ListLeagueWithScores)
+            .RequireAuthorization()
+            .WithSummary("List Leagues and Users scores")
+            .WithDescription("List leagues and user scores ranked from first to last")
+            .Produces<LeagueWithScoresDto>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized);
     }
@@ -129,6 +146,7 @@ public static class LeaguesEndpoint
                 TotalPrize = x.League.TotalPrize,
                 PrizePerPerson = x.League.PrizePerPerson,
                 TotalPlayers = x.League.TotalPlayers,
+                IsActive = x.IsActive
             }));
         
         return Results.Ok(new UserWithLeaguesDto
@@ -305,6 +323,79 @@ public static class LeaguesEndpoint
         return Results.Ok();
     }
     
+    private static async Task<IResult> LeaveLeagueAsync(
+        int id,
+        [FromServices] UserManager<AppUser> userManager, 
+        [FromServices] AppIdentityDbContext  dbContext,
+        HttpContext context)
+    {
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null) return Results.Unauthorized();
+        
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null) return Results.Unauthorized();
+        
+        var league = await dbContext.FindAsync<League>(id);
+        if (league is null) return Results.NotFound("League not found");
+        if (league.OwnerId == user.Id) return Results.BadRequest("You can't leave a league you created");
+        
+        var res = await dbContext.UserLeagues
+            .Where(ul => ul.LeagueId == league.Id &&  ul.UserId == userId)
+            .FirstAsync();
+
+        res.IsActive = false;
+        dbContext.Update(res);
+        await dbContext.SaveChangesAsync();
+        
+        return Results.Ok();
+    }
+    
+    private static async Task<IResult> ListLeagueWithScores(
+        int id,
+        [FromServices] UserManager<AppUser> userManager, 
+        [FromServices] AppIdentityDbContext  dbContext,
+        [FromServices] IValidationService validationService,
+        HttpContext context)
+    {
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null) return Results.Unauthorized();
+        
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null) return Results.Unauthorized();
+
+        var league = await dbContext.FindAsync<League>(id);
+        if (league is null) return Results.NotFound();
+        
+        var res = await dbContext.UserLeagues
+            .Where(ul => ul.LeagueId == league.Id)
+            .Include(ul => ul.User)
+            .ToListAsync();
+        var leagueWithScores = new LeagueWithScoresDto
+        {
+            Id = league.Id,
+            Name = league.Name
+        };
+        
+        res.ForEach(x =>
+        {
+            if (x.LeagueId == league.Id && x.IsActive)
+            {
+                leagueWithScores.Scores.Add(new Score
+                {
+                    FirstName = x.User.FirstName,
+                    LastName = x.User.LastName,
+                    UserId = x.User.Id,
+                    Points = x.Score,
+                    RoundsPlayed = x.RoundsPlayed,
+                    BestRound = x.BestRound,
+                    AvgScore = x.AvgScore
+                });
+            }
+        });
+        
+        return Results.Ok(leagueWithScores);
+    }
+    
     private static async Task<IResult> CreateNewLeagueAsync(
         [FromBody] NewLeagueDto leagueDto,
         [FromServices] UserManager<AppUser> userManager, 
@@ -367,4 +458,6 @@ public static class LeaguesEndpoint
             return result.ToString();
         }
     }
+    
+    
 }
