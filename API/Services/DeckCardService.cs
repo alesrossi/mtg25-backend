@@ -94,9 +94,10 @@ public class DeckCardService(IUnitOfWork unitOfWork)
     {
         if (string.IsNullOrWhiteSpace(createDto.OracleId) || 
             string.IsNullOrWhiteSpace(createDto.Name) || 
-            string.IsNullOrWhiteSpace(createDto.SetCode))
+            string.IsNullOrWhiteSpace(createDto.SetCode) ||
+            string.IsNullOrWhiteSpace(createDto.ImageUrl))
         {
-            throw new ArgumentException("OracleId, Name, and SetCode are required");
+            throw new ArgumentException("OracleId, Name, SetCode, and ImageUrl are required");
         }
 
         var deckCard = new DeckCard

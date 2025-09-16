@@ -124,6 +124,75 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
+    public async Task CreateDeckCard_WithMissingRequiredFields_ReturnsValidationErrors()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync("validationuser@example.com", "validationuser");
+        var deck = await CreateTestDeckForUserAsync(user.Id);
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var createDto = new CreateDeckCardDto
+        {
+            OracleId = string.Empty,
+            Name = "",
+            SetCode = "LEA",
+            ImageUrl = "https://example.com/card.png",
+            MaindeckQuantity = 1,
+            SideboardQuantity = 0
+        };
+
+        var content = SerializeToJson(createDto);
+
+        // Act
+        var response = await client.PostAsync($"/api/decks/{deck.Id}/cards", content);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        using var json = JsonDocument.Parse(responseContent);
+        var errorsElement = json.RootElement.GetProperty("errors");
+
+        errorsElement.TryGetProperty("OracleId", out var oracleErrors).Should().BeTrue();
+        oracleErrors[0].GetString().Should().Be("Oracle ID is required.");
+
+        errorsElement.TryGetProperty("Name", out var nameErrors).Should().BeTrue();
+        nameErrors[0].GetString().Should().Be("Card name is required.");
+    }
+
+    [Fact]
+    public async Task CreateDeckCard_WithZeroQuantities_ReturnsValidationError()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync("quantityuser@example.com", "quantityuser");
+        var deck = await CreateTestDeckForUserAsync(user.Id);
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var createDto = new CreateDeckCardDto
+        {
+            OracleId = "97398ad2-675b-4a34-aab7-935dd6714f1c",
+            Name = "Lightning Bolt",
+            SetCode = "LEA",
+            ImageUrl = "https://example.com/card.png",
+            MaindeckQuantity = 0,
+            SideboardQuantity = 0
+        };
+
+        var content = SerializeToJson(createDto);
+
+        // Act
+        var response = await client.PostAsync($"/api/decks/{deck.Id}/cards", content);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        using var json = JsonDocument.Parse(responseContent);
+        var errorsElement = json.RootElement.GetProperty("errors");
+
+        errorsElement.TryGetProperty("quantities", out var quantityErrors).Should().BeTrue();
+        quantityErrors[0].GetString().Should().Be("You must specify at least one card in the maindeck or sideboard.");
+    }
+
+    [Fact]
     public async Task UpdateDeckCard_WithValidData_UpdatesDeckCard()
     {
         // Arrange

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Security.Claims;
 using API.Dtos.Decks;
 using API.Services;
@@ -172,6 +173,7 @@ public static class DecksEndpoint
         int deckId,
         CreateDeckCardDto createDto,
         DeckCardService deckCardService,
+        [FromServices] IValidationService validationService,
         IUnitOfWork unitOfWork,
         ClaimsPrincipal user)
     {
@@ -181,6 +183,21 @@ public static class DecksEndpoint
         // Verify deck ownership
         var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
         if (deck == null || deck.OwnerId != userId) return Results.NotFound();
+
+        var (isValid, errors) = validationService.ValidateModel(createDto);
+        if (!isValid)
+        {
+            return Results.BadRequest(new { errors });
+        }
+
+        if (createDto.MaindeckQuantity + createDto.SideboardQuantity <= 0)
+        {
+            var quantityErrors = new Dictionary<string, string[]>
+            {
+                ["quantities"] = new[] { "You must specify at least one card in the maindeck or sideboard." }
+            };
+            return Results.BadRequest(new { errors = quantityErrors });
+        }
 
         var deckCard = await deckCardService.CreateDeckCardAsync(deckId, createDto);
         return Results.Created($"/api/decks/{deckId}/cards/{deckCard.Id}", deckCard);
