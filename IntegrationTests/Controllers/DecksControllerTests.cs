@@ -386,7 +386,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task ImportDeck_WithUnknownCard_ReturnsBadRequest()
+    public async Task ImportDeck_WithUnknownCard_ReturnsPartialSuccess()
     {
         var user = await CreateTestUserAsync("importerror@example.com", "importerror");
         await SeedCardDataAsync(new[]
@@ -413,12 +413,74 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var response = await client.PostAsync("/api/decks/import", content);
 
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var responseContent = await response.Content.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(responseContent);
+
+        var deckElement = document.RootElement.GetProperty("deck");
+        var deckId = deckElement.GetProperty("id").GetInt32();
+
+        var deckCards = document.RootElement.GetProperty("deckCards");
+        deckCards.GetArrayLength().Should().Be(1, "only valid cards should be imported");
+        deckCards.EnumerateArray().Single().GetProperty("name").GetString().Should().Be("Lightning Bolt");
+
+        var errors = document.RootElement.GetProperty("errors").EnumerateArray().Select(e => e.GetString()).ToList();
+        errors.Should().Contain(error => error!.Contains("Imaginary Card"));
+
+        document.RootElement.GetProperty("skippedLines").GetInt32().Should().Be(errors.Count);
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+        var deckCountAfter = await context.Decks.CountAsync();
+        var deckCardCountAfter = await context.DeckCards.CountAsync();
+
+        deckCountAfter.Should().Be(initialDeckCount + 1);
+        deckCardCountAfter.Should().Be(initialDeckCardCount + 1);
+
+        var createdDeck = await context.Decks.SingleAsync(d => d.Id == deckId);
+        createdDeck.NumberOfCards.Should().Be(4);
+
+        var storedDeckCard = await context.DeckCards.SingleAsync(dc => dc.DeckId == deckId);
+        storedDeckCard.Name.Should().Be("Lightning Bolt");
+        storedDeckCard.MaindeckQuantity.Should().Be(4);
+        storedDeckCard.SideboardQuantity.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ImportDeck_WithAllUnknownCards_ReturnsBadRequest()
+    {
+        var user = await CreateTestUserAsync("importallfail@example.com", "importallfail");
+        await SeedCardDataAsync([]);
+
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        await using var setupScope = _factory.Services.CreateAsyncScope();
+        var setupContext = setupScope.ServiceProvider.GetRequiredService<MainContext>();
+        var initialDeckCount = await setupContext.Decks.CountAsync();
+        var initialDeckCardCount = await setupContext.DeckCards.CountAsync();
+
+        var importRequest = new DeckImportRequestDto
+        {
+            Name = "Fully Invalid Deck",
+            Format = "Modern",
+            Decklist = "2 Imaginary Card\n3 Another Unknown"
+        };
+
+        var json = JsonSerializer.Serialize(importRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await client.PostAsync("/api/decks/import", content);
+
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
         var responseContent = await response.Content.ReadAsStringAsync();
         using var document = JsonDocument.Parse(responseContent);
         var errors = document.RootElement.GetProperty("errors").EnumerateArray().Select(e => e.GetString()).ToList();
+
         errors.Should().Contain(error => error!.Contains("Imaginary Card"));
+        errors.Should().Contain(error => error!.Contains("Another Unknown"));
+        document.RootElement.GetProperty("skippedLines").GetInt32().Should().Be(errors.Count);
 
         await using var scope = _factory.Services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<MainContext>();

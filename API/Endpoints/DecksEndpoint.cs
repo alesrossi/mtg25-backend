@@ -227,18 +227,20 @@ public static class DecksEndpoint
 
         var parseResult = await decklistParserService.ParseAsync(decklistLines);
 
-        if (parseResult.Errors.Any())
-        {
-            return Results.BadRequest(new
-            {
-                errors = parseResult.Errors,
-                deckCards = parseResult.DeckCards
-            });
-        }
+        var skippedLines = parseResult.Errors.Count;
 
         if (!parseResult.DeckCards.Any())
         {
-            return Results.BadRequest(new { errors = new[] { "Decklist did not contain any valid cards." } });
+            var errors = parseResult.Errors.Any()
+                ? parseResult.Errors
+                : new[] { "Decklist did not contain any valid cards." };
+
+            return Results.BadRequest(new
+            {
+                errors,
+                deckCards = parseResult.DeckCards,
+                skippedLines
+            });
         }
 
         var deck = new Deck
@@ -268,7 +270,8 @@ public static class DecksEndpoint
         {
             deck = MapToDto(deck),
             deckCards = createdCards,
-            errors = Array.Empty<string>()
+            errors = parseResult.Errors,
+            skippedLines
         });
     }
 
