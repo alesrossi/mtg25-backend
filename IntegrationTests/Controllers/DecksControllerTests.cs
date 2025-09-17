@@ -345,7 +345,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         {
             Name = "Imported Deck",
             Format = "Modern",
-            Decklist = "4 Lightning Bolt\n2 Opt\n\n3 Negate"
+            Decklist = "4x Lightning Bolt\n2 Opt (INV)\n\n3 Negate (M10)"
         };
 
         var json = JsonSerializer.Serialize(importRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });

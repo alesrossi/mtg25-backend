@@ -81,13 +81,19 @@ public class DecklistParserService(CardDataService cardDataService, IValidationS
             return false;
         }
 
-        if (!int.TryParse(split[0], NumberStyles.None, CultureInfo.InvariantCulture, out var quantity) || quantity <= 0)
+        var quantityToken = split[0];
+        if (quantityToken.EndsWith("x", StringComparison.OrdinalIgnoreCase))
+        {
+            quantityToken = quantityToken[..^1];
+        }
+
+        if (!int.TryParse(quantityToken, NumberStyles.None, CultureInfo.InvariantCulture, out var quantity) || quantity <= 0)
         {
             errors.Add($"Line {lineNumber}: Quantity '{split[0]}' is not a positive integer.");
             return false;
         }
 
-        var cardName = split[1].Trim();
+        var cardName = NormalizeCardName(split[1]);
         if (string.IsNullOrEmpty(cardName))
         {
             errors.Add($"Line {lineNumber}: Card name is required.");
@@ -135,5 +141,28 @@ public class DecklistParserService(CardDataService cardDataService, IValidationS
         }
 
         return true;
+    }
+
+    private static string NormalizeCardName(string rawName)
+    {
+        var trimmed = rawName.Trim();
+        if (trimmed.Length == 0)
+        {
+            return trimmed;
+        }
+
+        if (!trimmed.EndsWith(")", StringComparison.Ordinal))
+        {
+            return trimmed;
+        }
+
+        var openParenIndex = trimmed.LastIndexOf('(');
+        if (openParenIndex <= 0)
+        {
+            return trimmed;
+        }
+
+        var baseName = trimmed[..openParenIndex].Trim();
+        return baseName.Length == 0 ? trimmed : baseName;
     }
 }

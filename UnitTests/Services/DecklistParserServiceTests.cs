@@ -99,6 +99,56 @@ public class DecklistParserServiceTests
         result.DeckCards.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task ParseAsync_WithQuantitySuffix_ReturnsDeckCards()
+    {
+        // Arrange
+        var cards = new[]
+        {
+            CreateOracleCardDto("1", "oracle-1", "Lightning Bolt", "LEA", "Limited Edition Alpha")
+        };
+
+        var parser = CreateParser(cards);
+
+        var decklist = new[]
+        {
+            "4x Lightning Bolt"
+        };
+
+        // Act
+        var result = await parser.ParseAsync(decklist);
+
+        // Assert
+        result.IsSuccessful.Should().BeTrue();
+        result.DeckCards.Should().HaveCount(1);
+        result.DeckCards.Single().MaindeckQuantity.Should().Be(4);
+    }
+
+    [Fact]
+    public async Task ParseAsync_WithTrailingSetCode_IgnoresSetSpecifier()
+    {
+        // Arrange
+        var cards = new[]
+        {
+            CreateOracleCardDto("1", "oracle-1", "Lightning Bolt", "LEA", "Limited Edition Alpha")
+        };
+
+        var parser = CreateParser(cards);
+
+        var decklist = new[]
+        {
+            "4 Lightning Bolt (LEA)"
+        };
+
+        // Act
+        var result = await parser.ParseAsync(decklist);
+
+        // Assert
+        result.IsSuccessful.Should().BeTrue();
+        result.DeckCards.Should().HaveCount(1);
+        result.DeckCards.Single().MaindeckQuantity.Should().Be(4);
+    }
+
     private static DecklistParserService CreateParser(IEnumerable<OracleCardDto> cards)
     {
         var cardDataService = new CardDataService(
