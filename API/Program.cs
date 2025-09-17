@@ -118,6 +118,7 @@ public class Program
         builder.Services.AddScoped<IJwtService, JwtService>();
         builder.Services.AddScoped<DeckCardService>();
         builder.Services.AddScoped<IDeckValidationService, DeckValidationService>();
+        builder.Services.AddScoped<IDecklistParserService, DecklistParserService>();
         builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
         builder.Services.AddIdentityServices(builder.Configuration);
 

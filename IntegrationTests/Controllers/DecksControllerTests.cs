@@ -1,7 +1,9 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using API.Dtos.Cards;
 using API.Dtos.Decks;
+using API.Services;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Core.Models;
@@ -9,6 +11,7 @@ using Core.Models.Identity;
 using Infrastructure.Data;
 using Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using TestUtilities.Builders;
 
 namespace IntegrationTests.Controllers;
@@ -325,6 +328,107 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
+    [Fact]
+    public async Task ImportDeck_WithValidDecklist_CreatesDeckAndCards()
+    {
+        var user = await CreateTestUserAsync("importer@example.com", "importer");
+        await SeedCardDataAsync(new[]
+        {
+            CreateOracleCardDto("1", "oracle-1", "Lightning Bolt", "LEA", "Limited Edition Alpha"),
+            CreateOracleCardDto("2", "oracle-2", "Opt", "INV", "Invasion"),
+            CreateOracleCardDto("3", "oracle-3", "Negate", "M10", "Magic 2010")
+        });
+
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var importRequest = new DeckImportRequestDto
+        {
+            Name = "Imported Deck",
+            Format = "Modern",
+            Decklist = "4 Lightning Bolt\n2 Opt\n\n3 Negate"
+        };
+
+        var json = JsonSerializer.Serialize(importRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await client.PostAsync("/api/decks/import", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var responseContent = await response.Content.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(responseContent);
+        var deckElement = document.RootElement.GetProperty("deck");
+        var deckId = deckElement.GetProperty("id").GetInt32();
+        deckElement.GetProperty("name").GetString().Should().Be("Imported Deck");
+        deckElement.GetProperty("format").GetString().Should().Be("Modern");
+
+        var deckCards = document.RootElement.GetProperty("deckCards");
+        deckCards.GetArrayLength().Should().Be(3);
+
+        var lightningBolt = deckCards.EnumerateArray().Single(dc => dc.GetProperty("name").GetString() == "Lightning Bolt");
+        lightningBolt.GetProperty("maindeckQuantity").GetInt32().Should().Be(4);
+        lightningBolt.GetProperty("sideboardQuantity").GetInt32().Should().Be(0);
+
+        var negate = deckCards.EnumerateArray().Single(dc => dc.GetProperty("name").GetString() == "Negate");
+        negate.GetProperty("maindeckQuantity").GetInt32().Should().Be(0);
+        negate.GetProperty("sideboardQuantity").GetInt32().Should().Be(3);
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+        var importedDeck = await context.Decks.FindAsync(deckId);
+        importedDeck.Should().NotBeNull();
+        importedDeck!.NumberOfCards.Should().Be(9);
+
+        var storedDeckCards = await context.DeckCards.Where(dc => dc.DeckId == deckId).ToListAsync();
+        storedDeckCards.Should().HaveCount(3);
+        storedDeckCards.Single(dc => dc.Name == "Lightning Bolt").MaindeckQuantity.Should().Be(4);
+        storedDeckCards.Single(dc => dc.Name == "Negate").SideboardQuantity.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task ImportDeck_WithUnknownCard_ReturnsBadRequest()
+    {
+        var user = await CreateTestUserAsync("importerror@example.com", "importerror");
+        await SeedCardDataAsync(new[]
+        {
+            CreateOracleCardDto("1", "oracle-1", "Lightning Bolt", "LEA", "Limited Edition Alpha")
+        });
+
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        await using var setupScope = _factory.Services.CreateAsyncScope();
+        var setupContext = setupScope.ServiceProvider.GetRequiredService<MainContext>();
+        var initialDeckCount = await setupContext.Decks.CountAsync();
+        var initialDeckCardCount = await setupContext.DeckCards.CountAsync();
+
+        var importRequest = new DeckImportRequestDto
+        {
+            Name = "Invalid Deck",
+            Format = "Standard",
+            Decklist = "4 Lightning Bolt\n2 Imaginary Card"
+        };
+
+        var json = JsonSerializer.Serialize(importRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await client.PostAsync("/api/decks/import", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var responseContent = await response.Content.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(responseContent);
+        var errors = document.RootElement.GetProperty("errors").EnumerateArray().Select(e => e.GetString()).ToList();
+        errors.Should().Contain(error => error!.Contains("Imaginary Card"));
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+        var deckCountAfter = await context.Decks.CountAsync();
+        var deckCardCountAfter = await context.DeckCards.CountAsync();
+
+        deckCountAfter.Should().Be(initialDeckCount);
+        deckCardCountAfter.Should().Be(initialDeckCardCount);
+    }
+
     #region Helper Methods
 
     private async Task<AppUser> CreateTestUserAsync(string baseEmail, string baseUserName)
@@ -388,6 +492,82 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         await dbContext.SaveChangesAsync();
         
         return deck;
+    }
+
+    private Task SeedCardDataAsync(IEnumerable<OracleCardDto> cards)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var cardDataService = scope.ServiceProvider.GetRequiredService<CardDataService>();
+
+        var byId = cards.ToDictionary(c => c.Id);
+        var byName = cards.ToDictionary(c => c.Name, c => c, StringComparer.OrdinalIgnoreCase);
+
+        typeof(CardDataService).GetProperty(nameof(CardDataService.CardDataById))!
+            .SetValue(cardDataService, byId);
+        typeof(CardDataService).GetProperty(nameof(CardDataService.CardDataByName))!
+            .SetValue(cardDataService, byName);
+
+        return Task.CompletedTask;
+    }
+
+    private static OracleCardDto CreateOracleCardDto(string id, string oracleId, string name, string setCode, string setName)
+    {
+        var imageUrl = "https://example.com/card.png";
+
+        return new OracleCardDto(
+            Object: "card",
+            Id: id,
+            OracleId: oracleId,
+            MultiverseIds: new List<int>(),
+            MtgoId: null,
+            TcgPlayerId: null,
+            CardMarketId: null,
+            Name: name,
+            Lang: "en",
+            ReleasedAt: DateTime.UtcNow,
+            Uri: null,
+            ScryfallUri: null,
+            Layout: null,
+            HighResImage: true,
+            ImageStatus: null,
+            ImageUris: new ImageUris(imageUrl, imageUrl, imageUrl, imageUrl, imageUrl, imageUrl),
+            ManaCost: null,
+            Cmc: 1,
+            TypeLine: null,
+            OracleText: null,
+            Power: null,
+            Toughness: null,
+            Colors: new List<string?>(),
+            ColorIdentity: new List<string?>(),
+            Keywords: new List<string?>(),
+            AllParts: new List<RelatedCard?>(),
+            Legalities: new Legalities(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null),
+            Games: new List<string?> { "paper" },
+            Reserved: false,
+            GameChanger: false,
+            Foil: true,
+            NonFoil: true,
+            Finishes: new List<string?>(),
+            Oversized: false,
+            Promo: false,
+            Reprint: false,
+            Variation: false,
+            SetId: Guid.NewGuid().ToString(),
+            Set: setCode,
+            SetName: setName,
+            SetType: null,
+            SetUri: null,
+            SetSearchUri: null,
+            ScryfallSetUri: null,
+            RulingsUri: null,
+            PrintsSearchUri: null,
+            CollectorNumber: "1",
+            Digital: false,
+            Rarity: "Common",
+            Watermark: null,
+            FlavorText: null,
+            CardBackId: null
+        );
     }
 
     private async Task VerifyDeckExistsInDatabase(int deckId, string expectedUserId)

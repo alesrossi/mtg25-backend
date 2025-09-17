@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Claims;
 using API.Dtos.Decks;
 using API.Services;
@@ -79,6 +81,14 @@ public static class DecksEndpoint
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
         
+        group.MapPost("/import", ImportDeckFromDecklistAsync)
+            .RequireAuthorization()
+            .WithSummary("Import deck from text decklist")
+            .WithDescription("Parses a decklist and creates a new deck with the imported cards")
+            .Produces(StatusCodes.Status201Created)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized);
+
         group.MapGet("/{deckId:int}/missing-cards", GetMissingDeckCardsAsync)
             .RequireAuthorization()
             .WithSummary("Get missing deck cards")
@@ -192,6 +202,74 @@ public static class DecksEndpoint
 
         var missingCards = (await deckCardService.GetDeckCardsAsync(deckId, ownedOnly: false)).ToList();
         return Results.Ok(missingCards);
+    }
+
+    private static async Task<IResult> ImportDeckFromDecklistAsync(
+        DeckImportRequestDto importDto,
+        IDecklistParserService decklistParserService,
+        DeckCardService deckCardService,
+        [FromServices] IValidationService validationService,
+        IUnitOfWork unitOfWork,
+        ClaimsPrincipal user)
+    {
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null) return Results.Unauthorized();
+
+        var (isValid, validationErrors) = validationService.ValidateModel(importDto);
+        if (!isValid)
+        {
+            return Results.BadRequest(new { errors = validationErrors });
+        }
+
+        var decklistLines = importDto.Decklist
+            .Replace("\r", string.Empty)
+            .Split('\n', StringSplitOptions.None);
+
+        var parseResult = await decklistParserService.ParseAsync(decklistLines);
+
+        if (parseResult.Errors.Any())
+        {
+            return Results.BadRequest(new
+            {
+                errors = parseResult.Errors,
+                deckCards = parseResult.DeckCards
+            });
+        }
+
+        if (!parseResult.DeckCards.Any())
+        {
+            return Results.BadRequest(new { errors = new[] { "Decklist did not contain any valid cards." } });
+        }
+
+        var deck = new Deck
+        {
+            Name = importDto.Name.Trim(),
+            Format = importDto.Format.Trim(),
+            OwnerId = userId,
+            NumberOfCards = 0,
+            TotalPrice = 0
+        };
+
+        unitOfWork.Repository<Deck>().Add(deck);
+        await unitOfWork.Complete();
+
+        var createdCards = new List<DeckCardDto>();
+        foreach (var deckCardDto in parseResult.DeckCards)
+        {
+            var created = await deckCardService.CreateDeckCardAsync(deck.Id, deckCardDto);
+            createdCards.Add(created);
+        }
+
+        deck.NumberOfCards = createdCards.Sum(dc => dc.MaindeckQuantity + dc.SideboardQuantity);
+        unitOfWork.Repository<Deck>().Update(deck);
+        await unitOfWork.Complete();
+
+        return Results.Created($"/api/decks/{deck.Id}", new
+        {
+            deck = MapToDto(deck),
+            deckCards = createdCards,
+            errors = Array.Empty<string>()
+        });
     }
 
     private static async Task<IResult> CreateDeckCardAsync(

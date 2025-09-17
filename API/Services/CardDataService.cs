@@ -1,3 +1,4 @@
+using System;
 using API.Configuration;
 using API.Dtos.Cards;
 using API.Scryfall;
@@ -17,8 +18,10 @@ public class CardDataService(IOptions<PathsConfig> pathsConfig, IOptions<Scryfal
         // Fetch the card list asynchronously
         var cardList = await ScryfallUtility.FetchCardListObjectAsync(_pathsConfig.Bulk, _scryfallConfig.BasePath);
         
-        CardDataById = (cardList).ToDictionary(x => x.Id);
-        CardDataByName = (cardList).DistinctBy(x => x.Name).ToDictionary(x => x.Name, x => x);
+        CardDataById = cardList.ToDictionary(x => x.Id);
+        CardDataByName = cardList
+            .DistinctBy(x => x.Name)
+            .ToDictionary(x => x.Name, x => x, StringComparer.OrdinalIgnoreCase);
     }
 
     
