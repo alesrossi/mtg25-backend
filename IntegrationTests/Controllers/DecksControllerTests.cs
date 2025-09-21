@@ -491,6 +491,49 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         deckCardCountAfter.Should().Be(initialDeckCardCount);
     }
 
+    [Fact]
+    public async Task ExportDeck_ReturnsDecklistWithSeparatedSideboard()
+    {
+        var user = await CreateTestUserAsync("exporter@example.com", "exporter");
+        var deck = await CreateTestDeckAsync(user.Id, "Export Test Deck", "Modern");
+
+        await SeedDeckCardsAsync(deck.Id,
+            new DeckCardSeed("oracle-1", "Lightning Bolt", "LEA", 4, 0),
+            new DeckCardSeed("oracle-2", "Arc Lightning", "ICE", 3, 0),
+            new DeckCardSeed("oracle-3", "Negate", "M11", 0, 2));
+
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var response = await client.GetAsync($"/api/decks/{deck.Id}/export");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var responseContent = await response.Content.ReadAsStringAsync();
+
+        var exportedLines = JsonSerializer.Deserialize<List<string>>(
+            responseContent,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        exportedLines.Should().NotBeNull();
+        exportedLines!.Should().Equal("3 Arc Lightning", "4 Lightning Bolt", string.Empty, "2 Negate");
+    }
+
+    [Fact]
+    public async Task ExportDeck_ForOtherUsersDeck_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("export-owner@example.com", "export_owner");
+        var otherUser = await CreateTestUserAsync("export-nonowner@example.com", "export_nonowner");
+        var deck = await CreateTestDeckAsync(owner.Id, "Owner Export Deck", "Pioneer");
+
+        await SeedDeckCardsAsync(deck.Id,
+            new DeckCardSeed("oracle-10", "Lightning Strike", "THS", 4, 0));
+
+        using var client = _factory.CreateClientWithUser(otherUser.Id, otherUser.UserName!, otherUser.Email!);
+
+        var response = await client.GetAsync($"/api/decks/{deck.Id}/export");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
     #region Helper Methods
 
     private async Task<AppUser> CreateTestUserAsync(string baseEmail, string baseUserName)
@@ -641,6 +684,34 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         deck.Should().NotBeNull($"because deck {deckId} should exist in database");
         deck!.OwnerId.Should().Be(expectedUserId, "because deck should belong to the expected user");
     }
+
+    private async Task SeedDeckCardsAsync(int deckId, params DeckCardSeed[] deckCards)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
+
+        foreach (var card in deckCards)
+        {
+            dbContext.DeckCards.Add(new DeckCard
+            {
+                DeckId = deckId,
+                OracleId = card.OracleId,
+                Name = card.Name,
+                SetCode = card.SetCode,
+                MaindeckQuantity = card.MaindeckQuantity,
+                SideboardQuantity = card.SideboardQuantity
+            });
+        }
+
+        await dbContext.SaveChangesAsync();
+    }
+
+    private sealed record DeckCardSeed(
+        string OracleId,
+        string Name,
+        string SetCode,
+        int MaindeckQuantity,
+        int SideboardQuantity);
 
     #endregion
 }

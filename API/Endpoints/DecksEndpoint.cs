@@ -80,7 +80,16 @@ public static class DecksEndpoint
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
-        
+
+        group.MapGet("/{deckId:int}/export", ExportDeckAsync)
+            .RequireAuthorization()
+            .WithSummary("Export deck")
+            .WithDescription("Returns the decklist as a list of strings with maindeck and sideboard sections")
+            .Produces<IReadOnlyList<string>>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+
         group.MapPost("/import", ImportDeckFromDecklistAsync)
             .RequireAuthorization()
             .WithSummary("Import deck from text decklist")
@@ -273,6 +282,52 @@ public static class DecksEndpoint
             errors = parseResult.Errors,
             skippedLines
         });
+    }
+
+    private static async Task<IResult> ExportDeckAsync(
+        int deckId,
+        DeckCardService deckCardService,
+        IUnitOfWork unitOfWork,
+        ClaimsPrincipal user)
+    {
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null) return Results.Unauthorized();
+
+        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
+        if (deck == null || deck.OwnerId != userId) return Results.NotFound();
+
+        var deckCards = (await deckCardService.GetDeckCardsAsync(deckId)).ToList();
+
+        if (deckCards.Count == 0)
+        {
+            return Results.Ok(Array.Empty<string>());
+        }
+
+        var maindeckLines = deckCards
+            .Where(card => card.MaindeckQuantity > 0)
+            .OrderBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(card => $"{card.MaindeckQuantity} {card.Name}")
+            .ToList();
+
+        var sideboardLines = deckCards
+            .Where(card => card.SideboardQuantity > 0)
+            .OrderBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(card => $"{card.SideboardQuantity} {card.Name}")
+            .ToList();
+
+        var exportedLines = new List<string>(maindeckLines);
+
+        if (sideboardLines.Count > 0)
+        {
+            if (exportedLines.Count > 0)
+            {
+                exportedLines.Add(string.Empty);
+            }
+
+            exportedLines.AddRange(sideboardLines);
+        }
+
+        return Results.Ok(exportedLines);
     }
 
     private static async Task<IResult> CreateDeckCardAsync(
