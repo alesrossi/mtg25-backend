@@ -230,9 +230,7 @@ public static class DecksEndpoint
             return Results.BadRequest(new { errors = validationErrors });
         }
 
-        var decklistLines = importDto.Decklist
-            .Replace("\r", string.Empty)
-            .Split('\n', StringSplitOptions.None);
+        var decklistLines = FilterDecklistLines(importDto.Decklist);
 
         var parseResult = await decklistParserService.ParseAsync(decklistLines);
 
@@ -282,6 +280,38 @@ public static class DecksEndpoint
             errors = parseResult.Errors,
             skippedLines
         });
+    }
+
+    private static string[] FilterDecklistLines(string decklist)
+    {
+        var rawLines = decklist
+            .Replace("\r", string.Empty)
+            .Split('\n', StringSplitOptions.None);
+
+        var filteredLines = new List<string>();
+        var dividerAdded = false;
+
+        foreach (var rawLine in rawLines)
+        {
+            var trimmed = rawLine.Trim();
+
+            if (string.IsNullOrEmpty(trimmed))
+            {
+                if (!dividerAdded)
+                {
+                    filteredLines.Add(string.Empty);
+                    dividerAdded = true;
+                }
+                continue;
+            }
+
+            if (char.IsDigit(trimmed[0]))
+            {
+                filteredLines.Add(trimmed);
+            }
+        }
+
+        return filteredLines.ToArray();
     }
 
     private static async Task<IResult> ExportDeckAsync(

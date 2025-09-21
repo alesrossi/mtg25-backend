@@ -492,6 +492,63 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task ImportDeck_IgnoresNonNumericLinesAndKeepsSingleDivider()
+    {
+        var user = await CreateTestUserAsync("importfilter@example.com", "importfilter");
+        await SeedCardDataAsync(new[]
+        {
+            CreateOracleCardDto("1", "oracle-bolt", "Lightning Bolt", "LEA", "Limited Edition Alpha"),
+            CreateOracleCardDto("2", "oracle-guide", "Goblin Guide", "ZEN", "Zendikar"),
+            CreateOracleCardDto("3", "oracle-negate", "Negate", "M11", "Magic 2011")
+        });
+
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var importRequest = new DeckImportRequestDto
+        {
+            Name = "Filtered Deck",
+            Format = "Modern",
+            Decklist = "Maindeck\n4 Lightning Bolt\nCreatures\n2 Goblin Guide\n\nSideboard\nNotes\n1 Negate\n\nExtras"
+        };
+
+        var json = JsonSerializer.Serialize(importRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await client.PostAsync("/api/decks/import", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var responseContent = await response.Content.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(responseContent);
+
+        var errors = document.RootElement.GetProperty("errors").EnumerateArray().ToList();
+        errors.Should().BeEmpty();
+
+        document.RootElement.GetProperty("skippedLines").GetInt32().Should().Be(0);
+
+        var deckCards = document.RootElement.GetProperty("deckCards").EnumerateArray()
+            .Select(element => new
+            {
+                Name = element.GetProperty("name").GetString()!,
+                Maindeck = element.GetProperty("maindeckQuantity").GetInt32(),
+                Sideboard = element.GetProperty("sideboardQuantity").GetInt32()
+            })
+            .ToDictionary(dc => dc.Name);
+
+        deckCards.Should().ContainKey("Lightning Bolt");
+        deckCards["Lightning Bolt"].Maindeck.Should().Be(4);
+        deckCards["Lightning Bolt"].Sideboard.Should().Be(0);
+
+        deckCards.Should().ContainKey("Goblin Guide");
+        deckCards["Goblin Guide"].Maindeck.Should().Be(2);
+        deckCards["Goblin Guide"].Sideboard.Should().Be(0);
+
+        deckCards.Should().ContainKey("Negate");
+        deckCards["Negate"].Maindeck.Should().Be(0);
+        deckCards["Negate"].Sideboard.Should().Be(1);
+    }
+
+    [Fact]
     public async Task ExportDeck_ReturnsDecklistWithSeparatedSideboard()
     {
         var user = await CreateTestUserAsync("exporter@example.com", "exporter");
