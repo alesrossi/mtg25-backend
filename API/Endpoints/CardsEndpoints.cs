@@ -180,7 +180,7 @@ public static class CardsEndpoints
             Rarity = oracleCard.Rarity!,
             IsMisprint = cardDto.IsMisprint,
             IsAltered = cardDto.IsAltered,
-
+            ArtCrop = oracleCard.ImageUris!.ArtCrop!
         };
 
         unit.Repository<Card>().Add(card);

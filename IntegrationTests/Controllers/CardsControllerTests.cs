@@ -300,7 +300,8 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         {
             CollectionId = collectionId,
             Name = name,
-            OracleId = Guid.NewGuid().ToString(),
+            OracleId = Guid.NewGuid()
+                .ToString(),
             Quantity = 1,
             Language = "English",
             Version = "Original",
@@ -314,7 +315,8 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             CollectorNumber = "001",
             Rarity = "Common",
             IsMisprint = false,
-            IsAltered = false
+            IsAltered = false,
+            ArtCrop = "https://example.com/card.jpg"
         };
         
         dbContext.Cards.Add(card);

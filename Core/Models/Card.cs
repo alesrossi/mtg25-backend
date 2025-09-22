@@ -14,6 +14,7 @@ public class Card : BaseModel
     public required double PurchasePrice { get; set; }
     public required string PurchasePriceCurrency { get; set; }
     public required string ImageUrl { get; set; }
+    public required string ArtCrop { get; set; }
     public required string SetCode { get; set; }
     public required string SetName { get; set; }
     public required string CollectorNumber  { get; set; }

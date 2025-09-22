@@ -39,7 +39,8 @@ public static class CollectionHelpers
                 Rarity = record.Rarity,
                 IsMisprint = record.IsMisprint,
                 IsAltered = record.IsAltered,
-                CollectionId = collectionId
+                CollectionId = collectionId,
+                ArtCrop = ocd.ImageUris!.ArtCrop!
             });
         }
         return cardList;

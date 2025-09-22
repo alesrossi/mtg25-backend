@@ -120,7 +120,8 @@ public class DeckCardTests
             CollectorNumber = "161",
             Rarity = "common",
             IsMisprint = false,
-            IsAltered = false
+            IsAltered = false,
+            ArtCrop = "https://example.com/card.jpg"
         };
 
         var deckCard = new DeckCard
