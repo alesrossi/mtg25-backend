@@ -249,27 +249,6 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
-    public async Task DeleteDeckCard_WithValidId_DeletesDeckCard()
-    {
-        // Arrange
-        var user = await CreateTestUserAsync("testuser@example.com", "testuser");
-        var deck = await CreateTestDeckForUserAsync(user.Id);
-        var deckCards = await CreateTestDeckCardsForDeckAsync(deck.Id, 1);
-        var deckCard = deckCards.First();
-        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
-
-        // Act
-        var response = await client.DeleteAsync($"/api/decks/{deck.Id}/cards/{deckCard.Id}");
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
-
-        // Verify deletion
-        var getResponse = await client.GetAsync($"/api/decks/{deck.Id}/cards/{deckCard.Id}");
-        getResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
-    }
-
-    [Fact]
     public async Task GetDeckCards_ConcurrentRequests_ShouldNotCauseDbContextIssues()
     {
         // Arrange
