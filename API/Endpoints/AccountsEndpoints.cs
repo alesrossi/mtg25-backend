@@ -113,7 +113,10 @@ public static class AccountsEndpoints
         {
             Token = token,
             ExpiryDate = DateTime.UtcNow.AddHours(1),
-            UserId = user.Id
+            UserId = user.Id,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            DisplayName = user.DisplayName
         });
     }
     
