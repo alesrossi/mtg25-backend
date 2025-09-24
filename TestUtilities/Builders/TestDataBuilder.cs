@@ -1,3 +1,4 @@
+using System;
 using AutoFixture;
 using Core.Models;
 using Core.Models.Identity;
@@ -68,6 +69,31 @@ public class TestDataBuilder
             .With(d => d.Format, format ?? validFormats[_random.Next(validFormats.Length)])
             .Without(d => d.Id)
             .Without(d => d.DeckCards) // Initialize as empty collection
+            .Create();
+    }
+
+    public Wishlist CreateWishlist(string ownerId, bool? isPublic = null)
+    {
+        return _fixture.Build<Wishlist>()
+            .With(w => w.OwnerId, ownerId)
+            .With(w => w.IsPublic, isPublic ?? _random.Next(2) == 0)
+            .With(w => w.Name, $"Wishlist {Guid.NewGuid():N}"[..16])
+            .Without(w => w.Id)
+            .Without(w => w.WishlistCards)
+            .Create();
+    }
+
+    public WishlistCard CreateWishlistCard(int wishlistId, string? oracleId = null, string? name = null)
+    {
+        return _fixture.Build<WishlistCard>()
+            .With(c => c.WishlistId, wishlistId)
+            .With(c => c.OracleId, oracleId ?? _fixture.Create<Guid>().ToString())
+            .With(c => c.Name, name ?? $"Card {_random.Next(1, 1000)}")
+            .With(c => c.SetCode, GetRandomSetCode())
+            .With(c => c.DesiredQuantity, _random.Next(1, 5))
+            .With(c => c.IsFoil, _random.Next(10) == 0)
+            .Without(c => c.Id)
+            .Without(c => c.Wishlist)
             .Create();
     }
 

@@ -14,6 +14,8 @@ public class MainContext : DbContext
     public DbSet<Collection> Collections { get; set; }
     public DbSet<Deck> Decks { get; set; }
     public DbSet<DeckCard> DeckCards { get; set; }
+    public DbSet<Wishlist> Wishlists { get; set; }
+    public DbSet<WishlistCard> WishlistCards { get; set; }
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -23,6 +25,42 @@ public class MainContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id)
                 .ValueGeneratedOnAdd();
+        });
+
+        modelBuilder.Entity<Wishlist>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            entity.Property(e => e.Description)
+                .HasMaxLength(2000);
+
+            entity.Property(e => e.OwnerId)
+                .IsRequired();
+
+            entity.HasMany(e => e.WishlistCards)
+                .WithOne(c => c.Wishlist)
+                .HasForeignKey(c => c.WishlistId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<WishlistCard>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.OracleId).IsRequired();
+            entity.Property(e => e.Name).IsRequired();
+            entity.Property(e => e.SetCode).IsRequired();
+
+            entity.Property(e => e.DesiredQuantity)
+                .HasDefaultValue(1);
         });
 
         modelBuilder.Entity<DeckCard>(entity =>
