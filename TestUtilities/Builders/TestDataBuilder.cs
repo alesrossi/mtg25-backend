@@ -66,6 +66,7 @@ public class TestDataBuilder
         return _fixture.Build<Deck>()
             .With(d => d.OwnerId, userId)
             .With(d => d.Format, format ?? validFormats[_random.Next(validFormats.Length)])
+            .Without(d => d.Id)
             .Without(d => d.DeckCards) // Initialize as empty collection
             .Create();
     }
@@ -134,6 +135,7 @@ public class TestDataBuilder
             .With(l => l.TotalPlayers, new[] { 8, 16, 32, 64 }[_random.Next(4)]) // Common tournament sizes
             .With(l => l.PointsToGive, new List<int> { 3, 1, 0 }) // Standard points system
             .With(l => l.IsActive, true)
+            .Without(l => l.Id)
             .Without(l => l.UserLeagues)
             .Create();
     }
