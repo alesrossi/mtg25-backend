@@ -25,7 +25,7 @@ public class DeckTests
         var deck = _testDataBuilder.CreateDeck(ownerId);
 
         // Assert
-        deck.Id.Should().BeGreaterThan(0, "because decks should have valid IDs");
+        deck.Id.Should().Be(0, "because new deck entities are not persisted yet");
         deck.OwnerId.Should().Be(ownerId, "because deck should belong to the specified user");
         deck.Name.Should().NotBeNullOrEmpty("because deck name is required");
         deck.Format.Should().NotBeNullOrEmpty("because format is required");
@@ -75,7 +75,7 @@ public class DeckTests
 
         // Assert
         deck.Should().BeAssignableTo<BaseModel>("because Deck inherits from BaseModel");
-        deck.Id.Should().BeGreaterThan(0, "because BaseModel provides Id property");
+        deck.Id.Should().Be(0, "because BaseModel's identity key is assigned on persistence");
     }
 
     [Fact]

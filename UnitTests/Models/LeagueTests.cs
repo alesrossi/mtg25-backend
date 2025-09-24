@@ -26,7 +26,7 @@ public class LeagueTests
         var league = _testDataBuilder.CreateLeague(ownerId);
 
         // Assert
-        league.Id.Should().BeGreaterThan(0, "because leagues should have valid IDs");
+        league.Id.Should().Be(0, "because new leagues are assigned an ID when persisted");
         league.OwnerId.Should().Be(ownerId, "because league should belong to the specified owner");
         league.Name.Should().NotBeNullOrEmpty("because league name is required");
         league.Code.Should().NotBeNullOrEmpty("because league code is required");
@@ -152,6 +152,6 @@ public class LeagueTests
 
         // Assert
         league.Should().BeAssignableTo<BaseModel>("because League inherits from BaseModel");
-        league.Id.Should().BeGreaterThan(0, "because BaseModel provides Id property");
+        league.Id.Should().Be(0, "because BaseModel's identity key is assigned on persistence");
     }
 }
