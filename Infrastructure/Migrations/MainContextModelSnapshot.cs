@@ -253,18 +253,12 @@ namespace Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("CollectorNumber")
-                        .HasColumnType("text");
-
                     b.Property<int>("DesiredQuantity")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
                         .HasDefaultValue(1);
 
-                    b.Property<string>("ImageUrl")
-                        .HasColumnType("text");
-
-                    b.Property<bool>("IsFoil")
+                    b.Property<bool?>("IsFoil")
                         .HasColumnType("boolean");
 
                     b.Property<string>("Language")
@@ -275,20 +269,11 @@ namespace Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Notes")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("OracleId")
                         .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Rarity")
-                        .HasColumnType("text");
-
-                    b.Property<string>("SetCode")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("SetName")
                         .HasColumnType("text");
 
                     b.Property<int>("WishlistId")

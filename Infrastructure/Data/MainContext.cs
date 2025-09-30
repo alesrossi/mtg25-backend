@@ -57,7 +57,6 @@ public class MainContext : DbContext
 
             entity.Property(e => e.OracleId).IsRequired();
             entity.Property(e => e.Name).IsRequired();
-            entity.Property(e => e.SetCode).IsRequired();
 
             entity.Property(e => e.DesiredQuantity)
                 .HasDefaultValue(1);

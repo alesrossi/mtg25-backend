@@ -24,12 +24,12 @@ namespace Infrastructure.Data
             return await _context.Set<T>().ToListAsync();
         }
 
-        public Task<T> GetEntityWithSpec(ISpecification<T> spec)
+        public async Task<T?> GetEntityWithSpec(ISpecification<T> spec)
         {
-            throw new NotImplementedException();
+            return await ApplySpecification(spec).FirstOrDefaultAsync();
         }
 
-        public async Task<T> GetEntity(ISpecification<T> spec)
+        public async Task<T?> GetEntity(ISpecification<T> spec)
         {
             return await ApplySpecification(spec).FirstOrDefaultAsync();
         }

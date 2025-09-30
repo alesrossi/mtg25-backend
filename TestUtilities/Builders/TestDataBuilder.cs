@@ -89,7 +89,6 @@ public class TestDataBuilder
             .With(c => c.WishlistId, wishlistId)
             .With(c => c.OracleId, oracleId ?? _fixture.Create<Guid>().ToString())
             .With(c => c.Name, name ?? $"Card {_random.Next(1, 1000)}")
-            .With(c => c.SetCode, GetRandomSetCode())
             .With(c => c.DesiredQuantity, _random.Next(1, 5))
             .With(c => c.IsFoil, _random.Next(10) == 0)
             .Without(c => c.Id)

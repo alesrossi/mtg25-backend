@@ -268,6 +268,7 @@ public class Program
         app.MapCardsEndpoints();
         app.MapAccountEndpoints();
         app.MapCollectionsEndpoints();
+        app.MapWishlistsEndpoints();
         app.MapLeaguesEndpoints();
         app.MapDecksEndpoints();
         

@@ -38,7 +38,6 @@ public class WishlistTests
             WishlistId = wishlist.Id,
             OracleId = Guid.NewGuid().ToString(),
             Name = "Lightning Bolt",
-            SetCode = "LEA",
             DesiredQuantity = 2
         };
 
@@ -74,19 +73,12 @@ public class WishlistCardTests
             WishlistId = 1,
             OracleId = Guid.NewGuid().ToString(),
             Name = "Sol Ring",
-            SetCode = "CMM",
-            SetName = "Commander Masters",
-            ImageUrl = "https://example.com/card.png",
-            CollectorNumber = "123",
-            Rarity = "Rare",
             DesiredQuantity = 1,
             IsFoil = true,
             Language = "English",
             Notes = "Prefer etched foil"
         };
-
-        wishlistCard.SetName.Should().Be("Commander Masters");
-        wishlistCard.ImageUrl.Should().Contain("example.com");
+        
         wishlistCard.IsFoil.Should().BeTrue();
         wishlistCard.Notes.Should().Be("Prefer etched foil");
     }
