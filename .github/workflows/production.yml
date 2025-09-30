@@ -1,0 +1,229 @@
+name: Production Environment CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: mtg-api
+  DOTNET_VERSION: '9.0.x'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Build and Test
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: supersecretlongpassword
+          POSTGRES_USER: root
+          POSTGRES_DB: test_main
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Redis CLI and PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y redis-tools postgresql-client
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build solution
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Create test database
+        run: |
+          PGPASSWORD=supersecretlongpassword psql -h localhost -p 5433 -U root -d test_main -c "CREATE DATABASE test_identity;"
+        continue-on-error: true
+
+      - name: Wait for services
+        run: |
+          echo "Waiting for PostgreSQL..."
+          timeout 60s bash -c 'until pg_isready -h localhost -p 5433 -U root; do sleep 2; done'
+          echo "PostgreSQL is ready!"
+          echo "Waiting for Redis..."
+          timeout 30s bash -c 'until redis-cli -h localhost -p 6379 ping | grep PONG; do sleep 2; done'
+          echo "Redis is ready!"
+
+      - name: Run tests
+        run: |
+          dotnet test --no-build --configuration Release \
+            --logger "trx;LogFileName=test_results.trx" \
+            --logger "console;verbosity=detailed" \
+            --collect:"XPlat Code Coverage" \
+            --results-directory TestResults/ \
+            -- RunConfiguration.CollectSourceInformation=true
+        env:
+          ASPNETCORE_ENVIRONMENT: Production
+          ConnectionStrings__DefaultConnection: "Server=localhost;Port=5433;Database=test_main;User Id=root;Password=supersecretlongpassword;"
+          ConnectionStrings__IdentityConnection: "Server=localhost;Port=5433;Database=test_identity;User Id=root;Password=supersecretlongpassword;"
+          ConnectionStrings__Redis: "localhost:6379"
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ github.run_number }}
+          path: TestResults/
+          retention-days: 30
+
+      - name: Test Report Summary
+        if: always()
+        run: |
+          echo "## Test Results Summary 📊" >> $GITHUB_STEP_SUMMARY
+          if [ -f TestResults/test_results.trx ]; then
+            echo "✅ Test results file generated successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ No test results file found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    name: Build and Push Docker Image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch,suffix=-{{sha}}
+            type=raw,value=prod-latest,enable=true
+            type=raw,value=prod-{{date 'YYYYMMDD-HHmmss'}}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: Build Summary
+        run: |
+          echo "## Docker Image Built Successfully 🐳" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:prod-latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:** ${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Digest:** ${{ steps.build.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    name: Deploy to DigitalOcean Production
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production
+
+    steps:
+      - name: Deploy to DigitalOcean Droplet
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: ${{ secrets.DROPLET_USERNAME }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          port: ${{ secrets.DROPLET_PORT }}
+          script: |
+            # Navigate to application directory
+            cd /app/mtg-api
+            
+            # Pull latest changes
+            git pull origin main
+            
+            # Login to Docker Hub
+            echo "${{ secrets.DOCKER_PASSWORD }}" | docker login --username "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+            
+            # Stop and remove existing containers
+            docker compose -f docker-compose.prd.yml down
+            
+            # Pull latest image
+            docker pull ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:prod-latest
+            
+            # Update docker-compose environment variables
+            export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
+            export IMAGE_TAG=prod-latest
+            export POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            export JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
+            
+            # Start services with updated image
+            docker compose -f docker-compose.prd.yml up -d
+            
+            # Clean up old images
+            docker image prune -af
+            
+            # Wait for services to be healthy
+            sleep 30
+            
+            # Verify deployment
+            docker compose -f docker-compose.prd.yml ps
+
+      - name: Deployment Summary
+        run: |
+          echo "## 🚀 Production Deployment Completed Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployed Image:" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:prod-latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Digest:** ${{ needs.build-and-push.outputs.image-digest }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Services:" >> $GITHUB_STEP_SUMMARY
+          echo "- **API:** Deployed to production droplet" >> $GITHUB_STEP_SUMMARY
+          echo "- **PostgreSQL:** Running with persistent volumes" >> $GITHUB_STEP_SUMMARY
+          echo "- **Redis:** Running with persistent volumes" >> $GITHUB_STEP_SUMMARY
+          echo "- **Adminer:** Available for database management" >> $GITHUB_STEP_SUMMARY
