@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: mtg-api
+    namespace: mtg-prod
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: mtg-api
+    template:
+      metadata:
+        labels:
+          app: mtg-api
+      spec:
+        imagePullSecrets:
+          - name: ghcr-pull
+        containers:
+          - name: api
+            image: docker.io/alesrossi/mtg-api:latest
+            ports:
+              - containerPort: 8080
+            envFrom:
+              - secretRef:
+                  name: mtg-api-secrets
+            env:
+              - name: ASPNETCORE_ENVIRONMENT
+                value: Production
+            readinessProbe:
+              httpGet:
+                path: /api/health
+                port: 8080
+            livenessProbe:
+              httpGet:
+                path: /api/health
+                port: 8080
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
