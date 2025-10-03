@@ -81,8 +81,3 @@ out/
 *.tfstate
 
 # nuget settings related Network
-
-# Production secrets
-.env.production
-*.pem
-*.key
