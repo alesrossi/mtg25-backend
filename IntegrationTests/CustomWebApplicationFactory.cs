@@ -38,7 +38,7 @@ namespace IntegrationTests
 
             /* --------------------  minimal change starts here  -------------------- */
             // Pick the correct appsettings file based on ASPNETCORE_ENVIRONMENT
-            var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
+            var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development";
 
             var baseConfig = new ConfigurationBuilder()
                                 .SetBasePath(AppContext.BaseDirectory)

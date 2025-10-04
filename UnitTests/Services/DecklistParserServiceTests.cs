@@ -188,6 +188,7 @@ public class DecklistParserServiceTests
             HighResImage: true,
             ImageStatus: null,
             ImageUris: new ImageUris(imageUrl, imageUrl, imageUrl, imageUrl, imageUrl, imageUrl),
+            CardFaces: new List<CardFace>(),
             ManaCost: null,
             Cmc: 1,
             TypeLine: null,

@@ -11,7 +11,7 @@ public static class CardsEndpoints
     
     public static void MapCardsEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/api/cards").WithTags("Cards");
+        var group = app.MapGroup("/api/cards").WithTags("CollectionCards");
         group.MapGet("/{id:int}", GetCardFromId)
             .RequireAuthorization()
             .WithSummary("Get card by ID")
@@ -55,6 +55,22 @@ public static class CardsEndpoints
             .Produces<LinkedList<OracleCardDto>>()
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status400BadRequest);
+        
+        group.MapGet("/sf/name/{name}", GetCardFromExactName)
+            .RequireAuthorization()
+            .WithSummary("Returns Scryfall card from name")
+            .WithDescription("Returns Scryfall card with all fields, from exact name")
+            .Produces<OracleCardDto>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
+        
+        group.MapGet("/sf/id/{id}", GetCardFromOracleId)
+            .RequireAuthorization()
+            .WithSummary("Returns Scryfall card from oracle id")
+            .WithDescription("Returns Scryfall card with all fields, from oracle id")
+            .Produces<OracleCardDto>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
 
     }
     
@@ -205,5 +221,27 @@ public static class CardsEndpoints
         }
 
         return Task.FromResult(Results.Ok(oracleCardList));
+    }
+    
+    private static IResult GetCardFromExactName(
+        string name, 
+        CardDataService cds, 
+        HttpContext context)
+    {
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null) return Results.Unauthorized();
+        
+        return cds.CardDataByName.TryGetValue(name, out var card) ? Results.Ok(card) : Results.NotFound();
+    }
+    
+    private static IResult GetCardFromOracleId(
+        string id, 
+        CardDataService cds, 
+        HttpContext context)
+    {
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null) return Results.Unauthorized();
+        
+        return cds.CardDataById.TryGetValue(id, out var card) ? Results.Ok(card) : Results.NotFound();
     }
 }

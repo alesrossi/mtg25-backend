@@ -32,6 +32,7 @@ public record OracleCardDto(
     List<string?> Colors,
     List<string?> ColorIdentity,
     List<string?> Keywords,
+    List<CardFace>? CardFaces,
     List<RelatedCard?> AllParts,
     Legalities Legalities,
     List<string?> Games,
@@ -68,6 +69,20 @@ public record ImageUris(string? Small,
     string? Png, 
     string? ArtCrop, 
     string? BorderCrop
+);
+
+public record CardFace(
+    string Object,
+    string Name,
+    string ManaCost,
+    string TypeLine,
+    string OracleText,
+    List<string> Colors,
+    string FlavorText,
+    string Artist,
+    string ArtistId,
+    string IllustrationId,
+    ImageUris ImageUris
 );
 
 public record RelatedCard(
