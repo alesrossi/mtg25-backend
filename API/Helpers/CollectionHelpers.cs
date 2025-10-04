@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using API.Dtos.Collections;
 using API.Scryfall;
@@ -22,6 +23,10 @@ public static class CollectionHelpers
         foreach (var record in csv.GetRecords<CsvRecordDto>())
         {
             if (!cds.CardDataById.TryGetValue(record.ScryfallId, out var ocd)) continue;
+
+            var imageUris = cds.ResolveImageUris(ocd) ?? throw new InvalidOperationException($"Missing image data for card {ocd.Name}");
+            var imageUrl = imageUris.Large ?? imageUris.Normal ?? imageUris.Png ?? throw new InvalidOperationException($"Missing image URL for card {ocd.Name}");
+            var artCrop = imageUris.ArtCrop ?? throw new InvalidOperationException($"Missing art crop for card {ocd.Name}");
             cardList.Add(new Card
             {
                 Name = record.Name,
@@ -32,7 +37,7 @@ public static class CollectionHelpers
                 IsFoil = record.IsFoil,
                 PurchasePrice = record.PurchasePrice,
                 PurchasePriceCurrency = record.PurchasePriceCurrency,
-                ImageUrl = ocd.ImageUris!.Large!,
+                ImageUrl = imageUrl,
                 SetCode = record.SetCode,
                 SetName = record.SetName,
                 CollectorNumber = record.CollectorNumber,
@@ -40,7 +45,7 @@ public static class CollectionHelpers
                 IsMisprint = record.IsMisprint,
                 IsAltered = record.IsAltered,
                 CollectionId = collectionId,
-                ArtCrop = ocd.ImageUris!.ArtCrop!
+                ArtCrop = artCrop
             });
         }
         return cardList;

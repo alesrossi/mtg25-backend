@@ -106,7 +106,8 @@ public class DecklistParserService(CardDataService cardDataService, IValidationS
             return false;
         }
 
-        var imageUrl = cardData.ImageUris?.Normal ?? cardData.ImageUris?.Large ?? cardData.ImageUris?.Png;
+        var imageUris = cardDataService.ResolveImageUris(cardData);
+        var imageUrl = imageUris?.Normal ?? imageUris?.Large ?? imageUris?.Png;
         if (string.IsNullOrWhiteSpace(imageUrl))
         {
             errors.Add($"Line {lineNumber}: Card '{cardName}' is missing image data.");
@@ -117,7 +118,7 @@ public class DecklistParserService(CardDataService cardDataService, IValidationS
         {
             existingDto = new CreateDeckCardDto
             {
-                OracleId = cardData.OracleId,
+                OracleId = cardData.Id,
                 Name = cardData.Name,
                 SetCode = cardData.Set,
                 SetName = cardData.SetName,

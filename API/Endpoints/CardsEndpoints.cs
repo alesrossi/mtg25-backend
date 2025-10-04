@@ -1,3 +1,4 @@
+using System;
 using System.Security.Claims;
 using API.Dtos.Cards;
 using API.Services;
@@ -152,7 +153,18 @@ public static class CardsEndpoints
 
         var cardList = cds.CardDataById.Where(x => x.Value.Name.Contains(find, StringComparison.OrdinalIgnoreCase));
 
-        var result = cardList.Select(card => new MinimalCardDto { Name = card.Value.Name, OracleId = card.Key, ImageUrl = card.Value.ImageUris?.Normal }).ToList();
+        var result = cardList.Select(card =>
+        {
+            var imageUris = cds.ResolveImageUris(card.Value);
+            var imageUrl = imageUris?.Normal ?? imageUris?.Large ?? imageUris?.Png;
+
+            return new MinimalCardDto
+            {
+                Name = card.Value.Name,
+                OracleId = card.Key,
+                ImageUrl = imageUrl
+            };
+        }).ToList();
         return result.Count == 0 ? Results.NotFound("Card not found") : Results.Ok(result);
     }
     
@@ -177,6 +189,10 @@ public static class CardsEndpoints
         {
             return Results.BadRequest("Invalid condition");
         }
+        var imageUris = cds.ResolveImageUris(oracleCard) ?? throw new InvalidOperationException($"Missing image data for card {oracleCard.Name}");
+        var imageUrl = imageUris.Normal ?? imageUris.Large ?? imageUris.Png ?? throw new InvalidOperationException($"Missing image URL for card {oracleCard.Name}");
+        var artCrop = imageUris.ArtCrop ?? throw new InvalidOperationException($"Missing art crop for card {oracleCard.Name}");
+
         var card = new Card
         {
             OracleId = oracleCard.Id,
@@ -188,7 +204,7 @@ public static class CardsEndpoints
             Condition = myEnum,
             IsFoil = cardDto.IsFoil,
             PurchasePrice = cardDto.PurchasePrice,
-            ImageUrl = oracleCard.ImageUris!.Normal!,
+            ImageUrl = imageUrl,
             PurchasePriceCurrency = cardDto.PurchasePriceCurrency,
             SetCode = oracleCard.SetId!,
             SetName = oracleCard.SetName,
@@ -196,7 +212,7 @@ public static class CardsEndpoints
             Rarity = oracleCard.Rarity!,
             IsMisprint = cardDto.IsMisprint,
             IsAltered = cardDto.IsAltered,
-            ArtCrop = oracleCard.ImageUris!.ArtCrop!
+            ArtCrop = artCrop
         };
 
         unit.Repository<Card>().Add(card);
