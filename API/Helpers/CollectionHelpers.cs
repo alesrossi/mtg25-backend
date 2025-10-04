@@ -1,33 +1,75 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Threading.Tasks;
 using API.Dtos.Collections;
 using API.Scryfall;
 using API.Services;
 using Core.Models;
 using CsvHelper;
+using Microsoft.AspNetCore.Http;
 
 namespace API.Helpers;
 
 public static class CollectionHelpers
 {
-    public static async Task<List<Card>> ProcessCsvFIle(IFormFile file, CardDataService cds, int collectionId)
+    public static async Task<CollectionImportResult> ProcessCsvFIle(IFormFile file, CardDataService cds, int collectionId)
     {
         await using var stream = file.OpenReadStream();
         using var reader = new StreamReader(stream);
         using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
-        
-        
-        
-        var cardList = new List<Card>();
-        
-        foreach (var record in csv.GetRecords<CsvRecordDto>())
-        {
-            if (!cds.CardDataById.TryGetValue(record.ScryfallId, out var ocd)) continue;
 
-            var imageUris = cds.ResolveImageUris(ocd) ?? throw new InvalidOperationException($"Missing image data for card {ocd.Name}");
-            var imageUrl = imageUris.Large ?? imageUris.Normal ?? imageUris.Png ?? throw new InvalidOperationException($"Missing image URL for card {ocd.Name}");
-            var artCrop = imageUris.ArtCrop ?? throw new InvalidOperationException($"Missing art crop for card {ocd.Name}");
-            cardList.Add(new Card
+        var importedCards = new List<Card>();
+        var errors = new List<string>();
+        var skippedLines = 0;
+
+        while (csv.Read())
+        {
+            CsvRecordDto record;
+            try
+            {
+                record = csv.GetRecord<CsvRecordDto>();
+            }
+            catch (Exception ex)
+            {
+                skippedLines++;
+                errors.Add($"Line {csv.Context.Parser.Row}: {ex.Message}");
+                continue;
+            }
+
+            if (!cds.CardDataById.TryGetValue(record.ScryfallId, out var ocd))
+            {
+                skippedLines++;
+                errors.Add($"Line {csv.Context.Parser.Row}: Card with Scryfall ID '{record.ScryfallId}' was not found.");
+                continue;
+            }
+
+            var imageUris = cds.ResolveImageUris(ocd);
+            if (imageUris is null)
+            {
+                skippedLines++;
+                errors.Add($"Line {csv.Context.Parser.Row}: Card '{ocd.Name}' is missing image data.");
+                continue;
+            }
+
+            var imageUrl = imageUris.Large ?? imageUris.Normal ?? imageUris.Png;
+            var artCrop = imageUris.ArtCrop;
+
+            if (string.IsNullOrWhiteSpace(imageUrl))
+            {
+                skippedLines++;
+                errors.Add($"Line {csv.Context.Parser.Row}: Card '{ocd.Name}' is missing image URL.");
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(artCrop))
+            {
+                skippedLines++;
+                errors.Add($"Line {csv.Context.Parser.Row}: Card '{ocd.Name}' is missing art crop image.");
+                continue;
+            }
+
+            importedCards.Add(new Card
             {
                 Name = record.Name,
                 OracleId = ocd.Id,
@@ -48,6 +90,7 @@ public static class CollectionHelpers
                 ArtCrop = artCrop
             });
         }
-        return cardList;
+
+        return new CollectionImportResult(importedCards, errors, skippedLines);
     }
 }

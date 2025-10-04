@@ -147,12 +147,7 @@ public class DecklistParserService(CardDataService cardDataService, IValidationS
     private static string NormalizeCardName(string rawName)
     {
         var trimmed = rawName.Trim();
-        if (trimmed.Length == 0)
-        {
-            return trimmed;
-        }
-
-        if (!trimmed.EndsWith(")", StringComparison.Ordinal))
+        if (trimmed.Length == 0 || !trimmed.EndsWith(")", StringComparison.Ordinal))
         {
             return trimmed;
         }

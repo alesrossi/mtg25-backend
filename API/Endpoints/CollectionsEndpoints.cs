@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Security.Claims;
 using API.Dtos.Cards;
 using API.Dtos.Collections;
@@ -159,19 +161,38 @@ public static class CollectionsEndpoints
                 
             if (file.Length > 10 * 1024 * 1024) return Results.BadRequest("File is too large");
 
-            var records = await CollectionHelpers.ProcessCsvFIle(file, cds, id);
+            var importResult = await CollectionHelpers.ProcessCsvFIle(file, cds, id);
 
             var collection = await unitOfWork.Repository<Collection>().GetByIdAsync(id);
             if (collection is null) return Results.NotFound();
             if (collection.OwnerId != userId) return Results.Unauthorized();
-            
-            collection.NumberOfCards += records.Count;
-                
-            unitOfWork.Repository<Card>().Add(records);
+
+            if (importResult.Cards.Count == 0)
+            {
+                var errors = importResult.Errors.Any()
+                    ? importResult.Errors
+                    : new List<string> { "CSV file did not contain any valid cards." };
+
+                return Results.BadRequest(new
+                {
+                    cards = importResult.Cards,
+                    errors,
+                    skippedLines = importResult.SkippedLines
+                });
+            }
+
+            collection.NumberOfCards += importResult.Cards.Count;
+
+            unitOfWork.Repository<Card>().Add(importResult.Cards);
             unitOfWork.Repository<Collection>().Update(collection);
             await unitOfWork.Complete();
-                
-            return Results.Ok(records);
+
+            return Results.Ok(new
+            {
+                cards = importResult.Cards,
+                errors = importResult.Errors,
+                skippedLines = importResult.SkippedLines
+            });
         }
         catch (Exception)
         {
