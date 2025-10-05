@@ -21,7 +21,7 @@ public static class LeaguesEndpoint
             .RequireAuthorization()
             .WithSummary("Get user's leagues")
             .WithDescription("Returns all leagues the authenticated user is participating in")
-            .Produces<List<UserWithLeagueInfoDto>>()
+            .Produces<List<UserWithLeaguesDto>>()
             .Produces(StatusCodes.Status401Unauthorized);
 
         group.MapGet("/", GetLeaguesAsync)
