@@ -44,6 +44,14 @@ public static class CollectionsEndpoints
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized);
         
+        group.MapDelete("/{id:int}", DeleteCollectionAsync)
+            .RequireAuthorization()
+            .WithSummary("Delete collection")
+            .WithDescription("Deletes collection from given id")
+            .Produces<Collection>()
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status401Unauthorized);
+        
         group.MapPatch("/{id:int}/import", ImportCardList)
             .RequireAuthorization()
             .WithSummary("Import cards from CSV")
@@ -143,6 +151,17 @@ public static class CollectionsEndpoints
         return Results.Ok(collection);
     }
     
+    private static async Task<IResult> GetAllCollectionsForUser(
+        IUnitOfWork unitOfWork, 
+        HttpContext context)
+    {
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+        
+        var collections = await unitOfWork.Repository<Collection>().ListAsync(new CollectionWithOwnerSpecification(userId));
+        return Results.Ok(collections);
+    }
+    
     private static async Task<IResult> ImportCardList(
         IUnitOfWork unitOfWork, 
         CardDataService cds, 
@@ -200,15 +219,21 @@ public static class CollectionsEndpoints
         }
     }
     
-    private static async Task<IResult> GetAllCollectionsForUser(
+    private static async Task<IResult> DeleteCollectionAsync(
+        int id,
         IUnitOfWork unitOfWork, 
         HttpContext context)
     {
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
         
-        var collections = await unitOfWork.Repository<Collection>().ListAsync(new CollectionWithOwnerSpecification(userId));
-        return Results.Ok(collections);
+        var collection = await unitOfWork.Repository<Collection>().GetByIdAsync(id);
+        if (collection is null) return Results.NotFound();
+        
+        unitOfWork.Repository<Collection>().Delete(collection);
+        await unitOfWork.Complete();
+        
+        return Results.NoContent();
     }
     
     private static async Task<IResult> MassDeleteCardsFromCollection(
