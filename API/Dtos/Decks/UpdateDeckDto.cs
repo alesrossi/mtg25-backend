@@ -2,6 +2,7 @@ namespace API.Dtos.Decks;
 
 public class UpdateDeckDto
 {
-    public required string Name { get; set; }
-    public required string Format { get; set; }
+    public string? Name { get; set; }
+    public string? Format { get; set; }
+    public string? Image { get; set; }
 }

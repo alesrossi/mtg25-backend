@@ -492,6 +492,7 @@ public static class DecksEndpoint
 
         deck.Name = updateDto.Name;
         deck.Format = updateDto.Format;
+        deck.Image = updateDto.Image;
 
         unitOfWork.Repository<Deck>().Update(deck);
         await unitOfWork.Complete();
@@ -539,7 +540,8 @@ public static class DecksEndpoint
             NumberOfMainBoardCards = deck.NumberOfMainBoardCards,
             NumberOfSideBoardCards = deck.NumberOfSideBoardCards,
             TotalPrice = deck.TotalPrice,
-            OwnerId = deck.OwnerId
+            OwnerId = deck.OwnerId,
+            Image = deck.Image
         };
     }
 }
