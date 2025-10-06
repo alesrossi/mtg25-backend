@@ -141,6 +141,7 @@ public static class LeaguesEndpoint
                 Id = x.LeagueId,
                 Format = x.League.Format,
                 TotalRounds = x.League.TotalRounds,
+                CurrentRound = x.League.CurrentRound,
                 RoundsToConsider = x.League.RoundsToConsider,
                 MinimumRounds = x.League.MinimumRounds,
                 TotalPrize = x.League.TotalPrize,
@@ -188,6 +189,7 @@ public static class LeaguesEndpoint
             Code = league.Code,
             Format = league.Format,
             TotalRounds = league.TotalRounds,
+            CurrentRound = league.CurrentRound,
             RoundsToConsider = league.RoundsToConsider,
             MinimumRounds = league.MinimumRounds,
             TotalPrize = league.TotalPrize,
@@ -261,6 +263,7 @@ public static class LeaguesEndpoint
                 x.Rounds.Add(userWithScore.Score);
                 x.AvgScore = x.Rounds.Average();
                 league.TotalPrize += league.PrizePerPerson;
+                league.CurrentRound++;
             }
         });
         
@@ -370,10 +373,12 @@ public static class LeaguesEndpoint
             .Where(ul => ul.LeagueId == league.Id)
             .Include(ul => ul.User)
             .ToListAsync();
+        
         var leagueWithScores = new LeagueWithScoresDto
         {
             Id = league.Id,
-            Name = league.Name
+            Name = league.Name,
+            CurrentRound = league.CurrentRound
         };
         
         res.ForEach(x =>

@@ -7,6 +7,7 @@ public class LeagueDto // League from User point of view
     public required string Code { get; set; }
     public required string Format { get; set; }
     public int TotalRounds { get; set; }
+    public int CurrentRound { get; set; }
     public int RoundsToConsider { get; set; }
     public int MinimumRounds { get; set; }
     public double TotalPrize { get; set; } = 0;
