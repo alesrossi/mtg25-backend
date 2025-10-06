@@ -270,6 +270,8 @@ public static class DecksEndpoint
         }
 
         deck.NumberOfCards = createdCards.Sum(dc => dc.MaindeckQuantity + dc.SideboardQuantity);
+        deck.NumberOfMainBoardCards = createdCards.Sum(dc => dc.MaindeckQuantity);
+        deck.NumberOfSideBoardCards = createdCards.Sum(dc => dc.SideboardQuantity);
         unitOfWork.Repository<Deck>().Update(deck);
         await unitOfWork.Complete();
 
@@ -534,6 +536,8 @@ public static class DecksEndpoint
             Name = deck.Name,
             Format = deck.Format,
             NumberOfCards = deck.NumberOfCards,
+            NumberOfMainBoardCards = deck.NumberOfMainBoardCards,
+            NumberOfSideBoardCards = deck.NumberOfSideBoardCards,
             TotalPrice = deck.TotalPrice,
             OwnerId = deck.OwnerId
         };
