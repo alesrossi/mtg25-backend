@@ -22,9 +22,18 @@ public static class ScryfallUtility
     
     private static async Task<string> GetOracleBulkDataAsync(string basePath, string endpoint)
     {
-        var destinationPath = Path.Combine("bulk-data", DateTime.Now.ToString("yyyyMMdd") + ".json");
+        var resolvedBasePath = ResolveBasePath(basePath);
+        Directory.CreateDirectory(resolvedBasePath);
+
+        var fileName = DateTime.Now.ToString("yyyyMMdd") + ".json";
+        var destinationPath = Path.Combine(resolvedBasePath, fileName);
+
+        if (File.Exists(destinationPath))
+        {
+            return destinationPath;
+        }
+
         var sfClient = GetClient(endpoint);
-        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
         var response = await sfClient.GetAsync(
             "bulk-data/oracle-cards");
         if (!response.IsSuccessStatusCode) throw new Exception("Failed to get bulk data");
@@ -54,6 +63,21 @@ public static class ScryfallUtility
         }
 
         return destinationPath;
+    }
+
+    private static string ResolveBasePath(string basePath)
+    {
+        if (string.IsNullOrWhiteSpace(basePath))
+        {
+            return Path.Combine(AppContext.BaseDirectory, "bulk-data");
+        }
+
+        if (Path.IsPathRooted(basePath))
+        {
+            return basePath;
+        }
+
+        return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, basePath));
     }
     
     private static HttpClient GetClient(string endpoint)
