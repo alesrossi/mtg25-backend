@@ -19,12 +19,16 @@ public class CardDataService(IOptions<PathsConfig> pathsConfig, IOptions<Scryfal
     {
         // Fetch the card list asynchronously
         var cardList = await ScryfallUtility.FetchCardListObjectAsync(_pathsConfig.Bulk, _scryfallConfig.BasePath);
-        
-        CardDataById = cardList.ToDictionary(x => x.Id);
+        var cardEntries = cardList
+            .Where(card => string.Equals(card.Object, "card", StringComparison.OrdinalIgnoreCase))
+            .Where(card => !string.Equals(card.SetType, "memorabilia", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        CardDataById = cardEntries.ToDictionary(x => x.Id);
 
         var cardsByName = new Dictionary<string, OracleCardDto>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var card in cardList)
+        foreach (var card in cardEntries)
         {
             var splitNames = card.Name.Split(" // ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
