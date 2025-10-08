@@ -35,7 +35,7 @@ public static class ScryfallUtility
 
         var sfClient = GetClient(endpoint);
         var response = await sfClient.GetAsync(
-            "bulk-data/oracle-cards");
+            "bulk-data/default_cards");
         if (!response.IsSuccessStatusCode) throw new Exception("Failed to get bulk data");
         var bulkDto = await response.Content.ReadFromJsonAsync<BulkDto>();
         if (bulkDto is null) throw new Exception("BulkDto is null");

@@ -57,6 +57,14 @@ public static class CardsEndpoints
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status400BadRequest);
         
+        group.MapGet("/{name}/versions", GetCardVersionsAsync)
+            .RequireAuthorization()
+            .WithSummary("Retrieves all versions of a card")
+            .WithDescription("Returns all card dtos for a given exact card name")
+            .Produces<List<OracleCardDto>>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
+        
         group.MapGet("/sf/name/{name}", GetCardFromExactName)
             .RequireAuthorization()
             .WithSummary("Returns Scryfall card from name")
@@ -259,5 +267,18 @@ public static class CardsEndpoints
         if (userId is null) return Results.Unauthorized();
         
         return cds.CardDataById.TryGetValue(id, out var card) ? Results.Ok(card) : Results.NotFound();
+    }
+    
+    private static IResult GetCardVersionsAsync(
+        string name, 
+        CardDataService cds, 
+        HttpContext context)
+    {
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null) return Results.Unauthorized();
+        
+        if (!cds.CardDataByName.ContainsKey(name)) return Results.NotFound();
+        
+        return Results.Ok(cds.CardDataById.Where(x => x.Value.Name.Equals(name, StringComparison.OrdinalIgnoreCase)).ToList());
     }
 }
