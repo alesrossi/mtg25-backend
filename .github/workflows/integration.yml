@@ -5,6 +5,7 @@ on:
     branches: [int]
   pull_request:
     branches: [int]
+  workflow_dispatch:
 
 env:
   REGISTRY: docker.io
@@ -83,6 +84,12 @@ jobs:
           echo "Waiting for Redis..."
           timeout 30s bash -c 'until redis-cli -h localhost -p 6379 ping | grep PONG; do sleep 2; done'
           echo "Redis is ready!"
+
+      - name: Ensure bulk-data directory
+        run: |
+          sudo mkdir -p /mtg25-backend/bulk-data
+          sudo chown "$USER":"$USER" /mtg25-backend/bulk-data
+          sudo chmod 775 /mtg25-backend/bulk-data
 
       - name: Run tests
         run: |
