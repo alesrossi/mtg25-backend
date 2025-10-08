@@ -266,6 +266,7 @@ public static class DecksEndpoint
         foreach (var deckCardDto in parseResult.DeckCards)
         {
             var created = await deckCardService.CreateDeckCardAsync(deck.Id, deckCardDto);
+            deck.ColorIdentity.AddRange(created.ColorIdentity.Except(deck.ColorIdentity));
             createdCards.Add(created);
         }
 
@@ -541,7 +542,8 @@ public static class DecksEndpoint
             NumberOfSideBoardCards = deck.NumberOfSideBoardCards,
             TotalPrice = deck.TotalPrice,
             OwnerId = deck.OwnerId,
-            Image = deck.Image
+            Image = deck.Image,
+            ColorIdentity = deck.ColorIdentity
         };
     }
 }

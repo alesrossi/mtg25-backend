@@ -8,6 +8,7 @@ public class DeckCardDto
     public string Name { get; set; } = string.Empty;
     public string SetCode { get; set; } = string.Empty;
     public string? SetName { get; set; }
+    public List<string> ColorIdentity { get; set; } = [];
     public string? ImageUrl { get; set; }
     public string? Rarity { get; set; }
     public string? CollectorNumber { get; set; }

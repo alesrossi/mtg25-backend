@@ -1,3 +1,4 @@
+using System.Linq;
 using API.Dtos.Decks;
 using Core.Interfaces;
 using Core.Models;
@@ -107,6 +108,10 @@ public class DeckCardService(IUnitOfWork unitOfWork)
             Name = createDto.Name,
             SetCode = createDto.SetCode,
             SetName = createDto.SetName,
+            ColorIdentity = (createDto.ColorIdentity ?? new List<string>())
+                .Where(ci => !string.IsNullOrWhiteSpace(ci))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList(),
             ImageUrl = createDto.ImageUrl,
             Rarity = createDto.Rarity,
             CollectorNumber = createDto.CollectorNumber,
@@ -167,6 +172,7 @@ public class DeckCardService(IUnitOfWork unitOfWork)
             Name = deckCard.Name,
             SetCode = deckCard.SetCode,
             SetName = deckCard.SetName,
+            ColorIdentity = deckCard.ColorIdentity,
             ImageUrl = deckCard.ImageUrl,
             Rarity = deckCard.Rarity,
             CollectorNumber = deckCard.CollectorNumber,
@@ -211,6 +217,7 @@ public class DeckCardService(IUnitOfWork unitOfWork)
             Name = deckCard.Name,
             SetCode = deckCard.SetCode,
             SetName = deckCard.SetName,
+            ColorIdentity = deckCard.ColorIdentity,
             ImageUrl = deckCard.ImageUrl,
             Rarity = deckCard.Rarity,
             CollectorNumber = deckCard.CollectorNumber,

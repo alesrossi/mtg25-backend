@@ -12,6 +12,7 @@ public class Deck : BaseModel
     public double TotalPrice { get; set; }
     public required string OwnerId { get; set; }
     public string? Image { get; set; }
+    public List<string> ColorIdentity { get; set; } = [];
     
     // Navigation property to deck cards
     public ICollection<DeckCard> DeckCards { get; set; } = new List<DeckCard>();

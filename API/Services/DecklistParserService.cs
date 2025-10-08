@@ -123,6 +123,11 @@ public class DecklistParserService(CardDataService cardDataService, IValidationS
                 SetCode = cardData.Set,
                 SetName = cardData.SetName,
                 ImageUrl = imageUrl,
+                ColorIdentity = cardData.ColorIdentity?
+                    .Where(ci => !string.IsNullOrWhiteSpace(ci))
+                    .Select(ci => ci!)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList() ?? new List<string>(),
                 Rarity = cardData.Rarity,
                 CollectorNumber = cardData.CollectorNumber,
                 MaindeckQuantity = 0,

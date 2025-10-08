@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(MainContext))]
-    partial class MainContextModelSnapshot : ModelSnapshot
+    [Migration("20251008105502_AddedColorIdentityToDecks")]
+    partial class AddedColorIdentityToDecks
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -187,10 +190,6 @@ namespace Infrastructure.Migrations
 
                     b.Property<string>("CollectorNumber")
                         .HasColumnType("text");
-
-                    b.PrimitiveCollection<List<string>>("ColorIdentity")
-                        .IsRequired()
-                        .HasColumnType("text[]");
 
                     b.Property<int>("DeckId")
                         .HasColumnType("integer");
