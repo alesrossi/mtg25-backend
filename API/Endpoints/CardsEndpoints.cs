@@ -158,7 +158,11 @@ public static class CardsEndpoints
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId is null) return Results.Unauthorized();
 
-        var cardList = cds.CardDataById.Where(x => x.Value.Name.Contains(find, StringComparison.OrdinalIgnoreCase));
+        var cardList = cds.CardDataById
+            .Where(x => x.Value.Name.Contains(find, StringComparison.OrdinalIgnoreCase))
+            .GroupBy(x => x.Value.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
 
         var result = cardList.Select(card =>
         {
