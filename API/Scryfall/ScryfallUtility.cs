@@ -1,5 +1,7 @@
 using System.Net.Http.Headers;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Threading;
 using API.Dtos.Cards;
 using API.Dtos.Collections;
 
@@ -7,17 +9,27 @@ namespace API.Scryfall;
 
 public static class ScryfallUtility
 {
-    public static async Task<List<OracleCardDto>> FetchCardListObjectAsync(string bulkBasePath, string endpoint)
+    public static async IAsyncEnumerable<OracleCardDto> FetchCardListStreamAsync(
+        string bulkBasePath,
+        string endpoint,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var filePath = await GetOracleBulkDataAsync(bulkBasePath, endpoint);
 
-        var fileContents = await File.ReadAllTextAsync(filePath);
+        await using var stream = File.OpenRead(filePath);
         var options = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
             PropertyNameCaseInsensitive = true
         };
-        return JsonSerializer.Deserialize<List<OracleCardDto>>(fileContents, options)!;
+
+        await foreach (var card in JsonSerializer.DeserializeAsyncEnumerable<OracleCardDto>(stream, options, cancellationToken))
+        {
+            if (card is not null)
+            {
+                yield return card;
+            }
+        }
     }
     
     private static async Task<string> GetOracleBulkDataAsync(string basePath, string endpoint)

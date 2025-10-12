@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using API.Configuration;
 using API.Dtos.Cards;
 using API.Scryfall;
@@ -15,21 +16,35 @@ public class CardDataService(IOptions<PathsConfig> pathsConfig, IOptions<Scryfal
     public Dictionary<string, OracleCardDto> CardDataById { get; private set; } = new();
     public Dictionary<string, OracleCardDto> CardDataByName { get; private set; } = new();
 
-    public async Task LoadCardDataAsync()
+    public async Task LoadCardDataAsync(CancellationToken cancellationToken = default)
     {
-        // Fetch the card list asynchronously
-        var cardList = await ScryfallUtility.FetchCardListObjectAsync(_pathsConfig.Bulk, _scryfallConfig.BasePath);
-        var cardEntries = cardList
-            .Where(card => string.Equals(card.Object, "card", StringComparison.OrdinalIgnoreCase))
-            .Where(card => !string.Equals(card.SetType, "memorabilia", StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        CardDataById = cardEntries.ToDictionary(x => x.Id);
-
+        var cardsById = new Dictionary<string, OracleCardDto>();
         var cardsByName = new Dictionary<string, OracleCardDto>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var card in cardEntries)
+        await foreach (var card in ScryfallUtility.FetchCardListStreamAsync(
+                       _pathsConfig.Bulk,
+                       _scryfallConfig.BasePath,
+                       cancellationToken))
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!string.Equals(card.Object, "card", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (string.Equals(card.SetType, "memorabilia", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(card.Id) || string.IsNullOrWhiteSpace(card.Name))
+            {
+                continue;
+            }
+
+            cardsById[card.Id] = card;
+
             var splitNames = card.Name.Split(" // ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
             if (splitNames.Length <= 1)
@@ -49,6 +64,7 @@ public class CardDataService(IOptions<PathsConfig> pathsConfig, IOptions<Scryfal
             }
         }
 
+        CardDataById = cardsById;
         CardDataByName = cardsByName;
 
         void AddIfMissing(string key, OracleCardDto value)
