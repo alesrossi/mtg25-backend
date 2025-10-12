@@ -15,4 +15,5 @@ public class LeagueDto // League from User point of view
     public int TotalPlayers { get; set; }
     public required int Score { get; set; }
     public bool IsActive { get; set; }
+    public required string OwnerId { get; set; }
 }

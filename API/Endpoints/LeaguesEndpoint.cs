@@ -147,7 +147,8 @@ public static class LeaguesEndpoint
                 TotalPrize = x.League.TotalPrize,
                 PrizePerPerson = x.League.PrizePerPerson,
                 TotalPlayers = x.League.TotalPlayers,
-                IsActive = x.IsActive
+                IsActive = x.IsActive,
+                OwnerId = x.League.OwnerId
             }));
         
         return Results.Ok(new UserWithLeaguesDto
@@ -195,7 +196,8 @@ public static class LeaguesEndpoint
             TotalPrize = league.TotalPrize,
             PrizePerPerson = league.PrizePerPerson,
             TotalPlayers = league.TotalPlayers,
-            Score = res.Score
+            Score = res.Score,
+            OwnerId = league.OwnerId
         };
         
         return Results.Ok(leagueDto);
@@ -378,7 +380,8 @@ public static class LeaguesEndpoint
         {
             Id = league.Id,
             Name = league.Name,
-            CurrentRound = league.CurrentRound
+            CurrentRound = league.CurrentRound,
+            OwnerId = league.OwnerId
         };
         
         res.ForEach(x =>
@@ -444,7 +447,7 @@ public static class LeaguesEndpoint
     
     private static class SecureCodeGenerator
     {
-        private static readonly char[] chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".ToCharArray();
+        private static readonly char[] Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".ToCharArray();
     
         public static string GenerateCode(int length = 6)
         {
@@ -457,7 +460,7 @@ public static class LeaguesEndpoint
             var result = new StringBuilder(length);
             foreach (var b in data)
             {
-                result.Append(chars[b % chars.Length]);
+                result.Append(Chars[b % Chars.Length]);
             }
 
             return result.ToString();

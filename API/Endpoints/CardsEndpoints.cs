@@ -80,7 +80,6 @@ public static class CardsEndpoints
             .Produces<OracleCardDto>()
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
-
     }
     
     private static async Task<IResult> GetCardFromId(

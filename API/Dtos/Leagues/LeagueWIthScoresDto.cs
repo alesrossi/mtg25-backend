@@ -4,8 +4,8 @@ public class LeagueWithScoresDto // League from User point of view
 {
     public int Id { get; set; }
     public required string Name { get; set; }
+    public required string OwnerId { get; set; }
     public required int CurrentRound { get; set; }
-    
     public List<Score> Scores { get; set; } = [];
 }
 
