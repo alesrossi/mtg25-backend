@@ -44,6 +44,14 @@ public static class CollectionsEndpoints
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized);
         
+        group.MapPut("/{id:int}", UpdateCollectionAsync)
+            .RequireAuthorization()
+            .WithSummary("Update existing collection")
+            .WithDescription("Updates Existing collection with name and color")
+            .Produces<Collection>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized);
+        
         group.MapDelete("/{id:int}", DeleteCollectionAsync)
             .RequireAuthorization()
             .WithSummary("Delete collection")
@@ -148,6 +156,37 @@ public static class CollectionsEndpoints
         };
         unitOfWork.Repository<Collection>().Add(collection);
         await unitOfWork.Complete();
+        return Results.Ok(collection);
+    }
+    
+    private static async Task<IResult> UpdateCollectionAsync (
+        int id,
+        [FromServices]IUnitOfWork unitOfWork, 
+        [FromServices] UserManager<AppUser> userManager, 
+        [FromServices] IValidationService validationService,
+        HttpContext context, 
+        NewCollectionDto collectionDto)
+    {
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null) return Results.Unauthorized();
+
+        var user = await userManager.FindByIdAsync(userId);
+        
+        // Validate the model
+        var (isValid, errors) = validationService.ValidateModel(collectionDto);
+        if (!isValid)
+        {
+            return Results.BadRequest(new { errors });
+        }
+
+        var collection = await unitOfWork.Repository<Collection>().GetByIdAsync(id);
+        if (collection is null) return Results.NotFound();
+        
+        collection.Name = collectionDto.Name;
+        collection.Color = collectionDto.Color;
+        unitOfWork.Repository<Collection>().Update(collection);
+        await unitOfWork.Complete();
+        
         return Results.Ok(collection);
     }
     
