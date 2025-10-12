@@ -204,36 +204,10 @@ public class Program
             try
             {
                 var context = services.GetRequiredService<MainContext>();
-        
-                // Check if database exists
-                if (!await context.Database.CanConnectAsync())
-                {
-                    await context.Database.MigrateAsync();
-                }
-                else
-                {
-                    // Check if any pending migrations
-                    if ((await context.Database.GetPendingMigrationsAsync()).Any())
-                    {
-                        await context.Database.MigrateAsync();
-                    }
-                }
-                
+                await context.Database.MigrateAsync();
+
                 var idContext = services.GetRequiredService<AppIdentityDbContext>();
-                
-                // Check if database exists
-                if (!await idContext.Database.CanConnectAsync())
-                {
-                    await idContext.Database.MigrateAsync();
-                }
-                else
-                {
-                    // Check if any pending migrations
-                    if ((await idContext.Database.GetPendingMigrationsAsync()).Any())
-                    {
-                        await idContext.Database.MigrateAsync();
-                    }
-                }
+                await idContext.Database.MigrateAsync();
             }
             catch (Exception ex)
             {
@@ -271,8 +245,6 @@ public class Program
         app.MapWishlistsEndpoints();
         app.MapLeaguesEndpoints();
         app.MapDecksEndpoints();
-        
-        await DbHelpers.EnsureDatabasesCreated(app);
         
         // Add health check endpoint
         app.MapGet("/api/health", () => Results.Ok(new { 
