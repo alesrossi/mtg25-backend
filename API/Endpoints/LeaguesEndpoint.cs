@@ -98,6 +98,15 @@ public static class LeaguesEndpoint
             .Produces<LeagueWithScoresDto>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized);
+        
+        group.MapPatch("/{id:int}/join", JoinAsPlayerAsync)
+            .RequireAuthorization()
+            .WithSummary("Owner of league joins as player")
+            .WithDescription("Owner of league joins as player")
+            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized);
     }
     
     private static async Task<IResult> GetLeaguesAsync(
@@ -308,6 +317,41 @@ public static class LeaguesEndpoint
         
         var league = await dbContext.Set<League>().Where(x => x.Code == code).FirstOrDefaultAsync();
         if (league is null) return Results.NotFound("League not found");
+        league.TotalPlayers++;
+        
+        await dbContext.AddAsync(new AppUserLeague
+        {
+            UserId = user.Id,
+            User = user,
+            LeagueId = league.Id,
+            League = league,
+            Score = 0,
+            RoundsPlayed = 0,
+            Rounds = [],
+            BestRound = 0,
+            AvgScore = 0
+        });
+        dbContext.Update(league);
+        await dbContext.SaveChangesAsync();
+        
+        return Results.Ok();
+    }
+    
+    private static async Task<IResult> JoinAsPlayerAsync(
+        int id,
+        [FromServices] UserManager<AppUser> userManager, 
+        [FromServices] AppIdentityDbContext  dbContext,
+        HttpContext context)
+    {
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null) return Results.Unauthorized();
+        
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null) return Results.Unauthorized();
+        
+        var league = await dbContext.Set<League>().Where(x => x.Id == id).FirstOrDefaultAsync();
+        if (league is null) return Results.NotFound("League not found");
+        if (league.OwnerId != userId || !league.IsActive) return Results.BadRequest();
         league.TotalPlayers++;
         
         await dbContext.AddAsync(new AppUserLeague
