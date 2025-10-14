@@ -16,6 +16,8 @@ public class MainContext : DbContext
     public DbSet<DeckCard> DeckCards { get; set; }
     public DbSet<Wishlist> Wishlists { get; set; }
     public DbSet<WishlistCard> WishlistCards { get; set; }
+    public DbSet<TradeBinder> TradeBinders { get; set; }
+    public DbSet<BinderCard> BinderCards { get; set; }
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -84,6 +86,50 @@ public class MainContext : DbContext
             entity.Property(dc => dc.OracleId).IsRequired();
             entity.Property(dc => dc.Name).IsRequired();
             entity.Property(dc => dc.SetCode).IsRequired();
+        });
+
+        modelBuilder.Entity<TradeBinder>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            entity.Property(e => e.OwnerId)
+                .IsRequired();
+
+            entity.Property(e => e.Description)
+                .HasMaxLength(2000);
+
+            entity.HasMany(e => e.BinderCards)
+                .WithOne(bc => bc.TradeBinder)
+                .HasForeignKey(bc => bc.TradeBinderId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<BinderCard>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            entity.Property(e => e.QuantityToTrade)
+                .HasDefaultValue(0);
+
+            entity.Property(e => e.CardId)
+                .IsRequired();
+
+            entity.HasOne(e => e.Card)
+                .WithMany()
+                .HasForeignKey(e => e.CardId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
     }
