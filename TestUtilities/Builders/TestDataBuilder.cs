@@ -96,6 +96,34 @@ public class TestDataBuilder
             .Create();
     }
 
+    public TradeBinder CreateTradeBinder(string ownerId, bool? isPublic = null)
+    {
+        return _fixture.Build<TradeBinder>()
+            .With(tb => tb.OwnerId, ownerId)
+            .With(tb => tb.IsPublic, isPublic ?? _random.Next(2) == 0)
+            .With(tb => tb.Name, $"Trade Binder {Guid.NewGuid():N}"[..16])
+            .Without(tb => tb.Id)
+            .Without(tb => tb.BinderCards)
+            .Create();
+    }
+
+    public BinderCard CreateBinderCard(
+        int tradeBinderId,
+        int? cardId = null,
+        string? name = null,
+        int? quantityToTrade = null)
+    {
+        return _fixture.Build<BinderCard>()
+            .With(bc => bc.TradeBinderId, tradeBinderId)
+            .With(bc => bc.CardId, cardId ?? 0)
+            .With(bc => bc.Name, name ?? $"Binder Card {_random.Next(1, 1000)}")
+            .With(bc => bc.QuantityToTrade, quantityToTrade ?? _random.Next(0, 5))
+            .Without(bc => bc.Id)
+            .Without(bc => bc.TradeBinder)
+            .Without(bc => bc.Card)
+            .Create();
+    }
+
     /// <summary>
     /// Creates MTG cards with realistic properties.
     /// Demonstrates creating entities with complex business rules.
