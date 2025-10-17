@@ -114,6 +114,8 @@ public class DecklistParserService(CardDataService cardDataService, IValidationS
             return false;
         }
 
+        var artCrop = imageUris?.ArtCrop;
+
         if (!deckCards.TryGetValue(cardData.OracleId, out var existingDto))
         {
             existingDto = new CreateDeckCardDto
@@ -123,6 +125,7 @@ public class DecklistParserService(CardDataService cardDataService, IValidationS
                 SetCode = cardData.Set,
                 SetName = cardData.SetName,
                 ImageUrl = imageUrl,
+                ArtCrop = artCrop!,
                 ColorIdentity = cardData.ColorIdentity?
                     .Where(ci => !string.IsNullOrWhiteSpace(ci))
                     .Select(ci => ci!)

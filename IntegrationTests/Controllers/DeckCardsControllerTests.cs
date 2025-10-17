@@ -105,7 +105,8 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
             SetName = "Limited Edition Alpha",
             MaindeckQuantity = 4,
             SideboardQuantity = 0,
-            ImageUrl = "TEST"
+            ImageUrl = "TEST",
+            ArtCrop = "TEST"
         };
 
         var content = SerializeToJson(createDto);
@@ -137,6 +138,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
             Name = "",
             SetCode = "LEA",
             ImageUrl = "https://example.com/card.png",
+            ArtCrop = "https://example.com/card.png",
             MaindeckQuantity = 1,
             SideboardQuantity = 0
         };
@@ -173,6 +175,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
             Name = "Lightning Bolt",
             SetCode = "LEA",
             ImageUrl = "https://example.com/card.png",
+            ArtCrop = "https://example.com/card.png",
             MaindeckQuantity = 0,
             SideboardQuantity = 0
         };
