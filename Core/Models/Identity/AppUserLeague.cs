@@ -11,5 +11,5 @@ public class AppUserLeague
     public List<int> Rounds { get; set; } = [];
     public int BestRound { get; set; }
     public double AvgScore { get; set; }
-    public bool IsActive {get; set; } = true;
+    public bool IsPlaying {get; set; } = true;
 }

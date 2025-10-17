@@ -140,9 +140,8 @@ public static class LeaguesEndpoint
             .Include(ul => ul.League)
             .ToListAsync();
 
-        List<LeagueDto> leaguesDto = [];
-        res.ForEach(x => 
-            leaguesDto.Add(new LeagueDto
+        var leaguesById = res
+            .Select(x => new LeagueDto
             {
                 Code = x.League.Code,
                 Name = x.League.Name,
@@ -156,10 +155,40 @@ public static class LeaguesEndpoint
                 TotalPrize = x.League.TotalPrize,
                 PrizePerPerson = x.League.PrizePerPerson,
                 TotalPlayers = x.League.TotalPlayers,
-                IsActive = x.IsActive,
+                IsActive = x.League.IsActive,
+                IsPlaying = x.IsPlaying,
                 OwnerId = x.League.OwnerId
-            }));
-        
+            })
+            .ToDictionary(league => league.Id);
+
+        var ownedLeagues = await dbContext.Leagues
+            .Where(l => l.OwnerId == userId)
+            .Select(league => new LeagueDto
+            {
+                Code = league.Code,
+                Name = league.Name,
+                Score = 0,
+                Id = league.Id,
+                Format = league.Format,
+                TotalRounds = league.TotalRounds,
+                CurrentRound = league.CurrentRound,
+                RoundsToConsider = league.RoundsToConsider,
+                MinimumRounds = league.MinimumRounds,
+                TotalPrize = league.TotalPrize,
+                PrizePerPerson = league.PrizePerPerson,
+                TotalPlayers = league.TotalPlayers,
+                IsActive = league.IsActive,
+                IsPlaying = false,
+                OwnerId = league.OwnerId
+            })
+            .ToListAsync();
+
+        foreach (var league in ownedLeagues)
+        {
+            leaguesById.TryAdd(league.Id, league);
+        }
+
+        var leaguesDto = leaguesById.Values.ToList();
         return Results.Ok(new UserWithLeaguesDto
         {
             Id = user.Id,
@@ -206,7 +235,8 @@ public static class LeaguesEndpoint
             PrizePerPerson = league.PrizePerPerson,
             TotalPlayers = league.TotalPlayers,
             Score = res.Score,
-            OwnerId = league.OwnerId
+            OwnerId = league.OwnerId,
+            IsActive = league.IsActive
         };
         
         return Results.Ok(leagueDto);
@@ -386,13 +416,13 @@ public static class LeaguesEndpoint
         
         var league = await dbContext.FindAsync<League>(id);
         if (league is null) return Results.NotFound("League not found");
-        if (league.OwnerId == user.Id) return Results.BadRequest("You can't leave a league you created");
+        // if (league.OwnerId == user.Id) return Results.BadRequest("You can't leave a league you created");
         
         var res = await dbContext.UserLeagues
             .Where(ul => ul.LeagueId == league.Id &&  ul.UserId == userId)
             .FirstAsync();
 
-        res.IsActive = false;
+        res.IsPlaying = false;
         dbContext.Update(res);
         await dbContext.SaveChangesAsync();
         
@@ -430,7 +460,7 @@ public static class LeaguesEndpoint
         
         res.ForEach(x =>
         {
-            if (x.LeagueId == league.Id && x.IsActive)
+            if (x.LeagueId == league.Id && x.IsPlaying)
             {
                 leagueWithScores.Scores.Add(new Score
                 {
