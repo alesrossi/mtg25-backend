@@ -341,13 +341,16 @@ public static class WishlistsEndpoint
 
     private static WishlistSummaryDto MapToSummaryDto(Wishlist wishlist)
     {
+        var cards = wishlist.WishlistCards ?? new List<WishlistCard>();
+
         return new WishlistSummaryDto
         {
             Id = wishlist.Id,
             Name = wishlist.Name,
             Description = wishlist.Description,
             IsPublic = wishlist.IsPublic,
-            CardsCount = wishlist.WishlistCards?.Count ?? 0
+            CardsCount = cards.Sum(c => c.DesiredQuantity),
+            IndividualCardsCount = cards.Count
         };
     }
 
@@ -362,7 +365,8 @@ public static class WishlistsEndpoint
             Description = wishlist.Description,
             IsPublic = wishlist.IsPublic,
             OwnerId = wishlist.OwnerId,
-            CardsCount = cards.Count,
+            CardsCount = cards.Sum(c => c.DesiredQuantity),
+            IndividualCardsCount = cards.Count,
             Cards = cards
         };
     }

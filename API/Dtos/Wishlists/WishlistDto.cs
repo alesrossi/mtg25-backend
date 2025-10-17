@@ -10,5 +10,6 @@ public class WishlistDto
     public bool IsPublic { get; set; }
     public string OwnerId { get; set; } = string.Empty;
     public int CardsCount { get; set; }
+    public int IndividualCardsCount { get; set; }
     public IReadOnlyList<WishlistCardDto> Cards { get; set; } = Array.Empty<WishlistCardDto>();
 }

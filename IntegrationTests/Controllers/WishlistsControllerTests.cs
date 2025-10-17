@@ -52,6 +52,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         wishlist.IsPublic.Should().BeTrue();
         wishlist.OwnerId.Should().Be(user.Id);
         wishlist.CardsCount.Should().Be(0);
+        wishlist.IndividualCardsCount.Should().Be(0);
     }
 
     [Fact]
@@ -84,6 +85,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         var wishlists = JsonSerializer.Deserialize<List<WishlistSummaryDto>>(responseContent, JsonOptions);
         wishlists.Should().NotBeNull();
         wishlists!.Should().HaveCount(2);
+        wishlists.Should().OnlyContain(w => w.CardsCount == 0 && w.IndividualCardsCount == 0);
     }
 
     [Fact]
@@ -119,6 +121,8 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         updatedWishlist!.Name.Should().Be(request.Name);
         updatedWishlist.Description.Should().Be(request.Description);
         updatedWishlist.IsPublic.Should().BeTrue();
+        updatedWishlist.CardsCount.Should().Be(0);
+        updatedWishlist.IndividualCardsCount.Should().Be(0);
     }
 
     [Fact]
@@ -265,6 +269,14 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         createdCardList.Should().NotBeNull();
         createdCardList[0].Name.Should().Be("Force of Will");
 
+        var wishlistResponse = await client.GetAsync($"/api/wishlists/{wishlist.Id}");
+        wishlistResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var wishlistPayload = await wishlistResponse.Content.ReadAsStringAsync();
+        var wishlistDto = JsonSerializer.Deserialize<WishlistDto>(wishlistPayload, JsonOptions);
+        wishlistDto.Should().NotBeNull();
+        wishlistDto!.CardsCount.Should().Be(createCardDto.DesiredQuantity);
+        wishlistDto.IndividualCardsCount.Should().Be(1);
+
         var listResponse = await client.GetAsync($"/api/wishlists/{wishlist.Id}/cards");
         listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var listPayload = await listResponse.Content.ReadAsStringAsync();
@@ -274,6 +286,14 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
 
         var deleteResponse = await client.DeleteAsync($"/api/wishlists/{wishlist.Id}/cards/{createdCardList[0].Id}");
         deleteResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var emptyWishlistResponse = await client.GetAsync($"/api/wishlists/{wishlist.Id}");
+        emptyWishlistResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var emptyWishlistPayload = await emptyWishlistResponse.Content.ReadAsStringAsync();
+        var emptyWishlistDto = JsonSerializer.Deserialize<WishlistDto>(emptyWishlistPayload, JsonOptions);
+        emptyWishlistDto.Should().NotBeNull();
+        emptyWishlistDto!.CardsCount.Should().Be(0);
+        emptyWishlistDto.IndividualCardsCount.Should().Be(0);
 
         var confirmResponse = await client.GetAsync($"/api/wishlists/{wishlist.Id}/cards");
         var confirmPayload = await confirmResponse.Content.ReadAsStringAsync();

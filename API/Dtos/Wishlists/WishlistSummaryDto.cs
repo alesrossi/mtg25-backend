@@ -7,4 +7,5 @@ public class WishlistSummaryDto
     public string? Description { get; set; }
     public bool IsPublic { get; set; }
     public int CardsCount { get; set; }
+    public int IndividualCardsCount { get; set; }
 }
