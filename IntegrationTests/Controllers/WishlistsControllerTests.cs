@@ -147,6 +147,93 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
+    public async Task UpdateWishlistCard_WithValidData_ReturnsUpdatedCard()
+    {
+        var owner = await CreateTestUserAsync("wishlist-card-update@test.com", "wishlist_card_update");
+        Wishlist wishlist;
+        WishlistCard wishlistCard;
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+            wishlist = _testDataBuilder.CreateWishlist(owner.Id, isPublic: false);
+            context.Wishlists.Add(wishlist);
+            await context.SaveChangesAsync();
+
+            wishlistCard = _testDataBuilder.CreateWishlistCard(wishlist.Id, oracleId: Guid.NewGuid().ToString(), name: "Original Card");
+            wishlistCard.Notes = "Original notes";
+            context.WishlistCards.Add(wishlistCard);
+            await context.SaveChangesAsync();
+        }
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var request = new UpdateWishlistCardDto
+        {
+            Name = "Updated Card Name",
+            SetCode = "SET",
+            SetName = "Updated Set",
+            ImageUrl = "https://example.com/updated-card.jpg",
+            CollectorNumber = "123",
+            Rarity = "Rare",
+            DesiredQuantity = 3,
+            IsFoil = true,
+            Language = "es",
+            Notes = "Updated notes"
+        };
+
+        var response = await client.PutAsync($"/api/wishlists/{wishlist.Id}/cards/{wishlistCard.Id}", Serialize(request));
+        var payload = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK, payload);
+        var updatedCard = JsonSerializer.Deserialize<WishlistCardDto>(payload, JsonOptions);
+
+        updatedCard.Should().NotBeNull();
+        updatedCard!.Id.Should().Be(wishlistCard.Id);
+        updatedCard.Name.Should().Be(request.Name);
+        updatedCard.DesiredQuantity.Should().Be(request.DesiredQuantity);
+        updatedCard.IsFoil.Should().BeTrue();
+        updatedCard.Language.Should().Be(request.Language);
+        updatedCard.Notes.Should().Be(request.Notes);
+    }
+
+    [Fact]
+    public async Task UpdateWishlistCard_WhenUserDoesNotOwnWishlist_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("wishlist-card-owner@test.com", "wishlist_card_owner");
+        var intruder = await CreateTestUserAsync("wishlist-card-intruder@test.com", "wishlist_card_intruder");
+        Wishlist wishlist;
+        WishlistCard wishlistCard;
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+            wishlist = _testDataBuilder.CreateWishlist(owner.Id, isPublic: false);
+            context.Wishlists.Add(wishlist);
+            await context.SaveChangesAsync();
+
+            wishlistCard = _testDataBuilder.CreateWishlistCard(wishlist.Id, oracleId: Guid.NewGuid().ToString(), name: "Protected Card");
+            wishlistCard.Notes = "Protected notes";
+            context.WishlistCards.Add(wishlistCard);
+            await context.SaveChangesAsync();
+        }
+
+        using var client = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
+
+        var request = new UpdateWishlistCardDto
+        {
+            Name = "Intruder Update",
+            SetCode = "SET",
+            DesiredQuantity = 2,
+            IsFoil = false
+        };
+
+        var response = await client.PutAsync($"/api/wishlists/{wishlist.Id}/cards/{wishlistCard.Id}", Serialize(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task WishlistCards_FullCrudFlow_Works()
     {
         var owner = await CreateTestUserAsync("wishlist-card@test.com", "wishlist_card");

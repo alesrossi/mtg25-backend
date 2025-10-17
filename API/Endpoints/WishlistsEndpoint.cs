@@ -74,6 +74,14 @@ public static class WishlistsEndpoint
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
 
+        group.MapPut("/{wishlistId:int}/cards/{cardId:int}", UpdateWishlistCardAsync)
+            .RequireAuthorization()
+            .WithSummary("Update wishlist card")
+            .Produces<WishlistCardDto>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
+
         group.MapDelete("/{wishlistId:int}/cards/{cardId:int}", DeleteWishlistCardAsync)
             .RequireAuthorization()
             .WithSummary("Delete wishlist card")
@@ -264,6 +272,38 @@ public static class WishlistsEndpoint
         await unitOfWork.Complete();
 
         return Results.Ok(cardList);
+    }
+
+    private static async Task<IResult> UpdateWishlistCardAsync(
+        int wishlistId,
+        int cardId,
+        UpdateWishlistCardDto updateDto,
+        IValidationService validationService,
+        IUnitOfWork unitOfWork,
+        ClaimsPrincipal user)
+    {
+        var ownershipResult = await EnsureWishlistOwnershipAsync(wishlistId, unitOfWork, user);
+        if (ownershipResult.Result != null) return ownershipResult.Result;
+
+        var (isValid, errors) = validationService.ValidateModel(updateDto);
+        if (!isValid)
+        {
+            return Results.BadRequest(new { errors });
+        }
+
+        var wishlistCard = await unitOfWork.Repository<WishlistCard>().GetByIdAsync(cardId);
+        if (wishlistCard == null || wishlistCard.WishlistId != wishlistId) return Results.NotFound();
+
+        wishlistCard.Name = updateDto.Name.Trim();
+        wishlistCard.DesiredQuantity = updateDto.DesiredQuantity;
+        wishlistCard.IsFoil = updateDto.IsFoil;
+        wishlistCard.Language = string.IsNullOrWhiteSpace(updateDto.Language) ? null : updateDto.Language.Trim();
+        wishlistCard.Notes = updateDto.Notes?.Trim() ?? string.Empty;
+
+        unitOfWork.Repository<WishlistCard>().Update(wishlistCard);
+        await unitOfWork.Complete();
+
+        return Results.Ok(MapToDto(wishlistCard));
     }
 
     private static async Task<IResult> DeleteWishlistCardAsync(
