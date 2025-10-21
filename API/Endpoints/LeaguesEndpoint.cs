@@ -382,21 +382,37 @@ public static class LeaguesEndpoint
         var league = await dbContext.Set<League>().Where(x => x.Id == id).FirstOrDefaultAsync();
         if (league is null) return Results.NotFound("League not found");
         if (league.OwnerId != userId || !league.IsActive) return Results.BadRequest();
-        league.TotalPlayers++;
         
-        await dbContext.AddAsync(new AppUserLeague
+        // Check if user is already in the league
+        var existingUserLeague = await dbContext.Set<AppUserLeague>()
+            .Where(x => x.UserId == userId && x.LeagueId == id)
+            .FirstOrDefaultAsync();
+        
+        if (existingUserLeague != null) 
         {
-            UserId = user.Id,
-            User = user,
-            LeagueId = league.Id,
-            League = league,
-            Score = 0,
-            RoundsPlayed = 0,
-            Rounds = [],
-            BestRound = 0,
-            AvgScore = 0
-        });
-        dbContext.Update(league);
+            existingUserLeague.IsPlaying = true;
+            dbContext.Update(existingUserLeague);
+        }
+        else 
+        {
+            league.TotalPlayers++;
+            
+            await dbContext.AddAsync(new AppUserLeague
+            {
+                UserId = user.Id,
+                User = user,
+                LeagueId = league.Id,
+                League = league,
+                Score = 0,
+                RoundsPlayed = 0,
+                Rounds = [],
+                BestRound = 0,
+                AvgScore = 0,
+                IsPlaying = true
+            });
+            dbContext.Update(league);
+        }
+        
         await dbContext.SaveChangesAsync();
         
         return Results.Ok();
