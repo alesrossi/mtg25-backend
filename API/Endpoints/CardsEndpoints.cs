@@ -139,6 +139,8 @@ public static class CardsEndpoints
             if (collection!.OwnerId != userId) return Results.Unauthorized();
             
             unit.Repository<Card>().Delete(card);
+            collection.NumberOfCards = Math.Max(0, collection.NumberOfCards - card.Quantity);
+            unit.Repository<Collection>().Update(collection);
             await unit.Complete();
             
             return Results.Ok();
@@ -227,6 +229,10 @@ public static class CardsEndpoints
         };
 
         unit.Repository<Card>().Add(card);
+
+        collection.NumberOfCards += card.Quantity;
+        unit.Repository<Collection>().Update(collection);
+
         await unit.Complete();
         return Results.Ok(card);
     }

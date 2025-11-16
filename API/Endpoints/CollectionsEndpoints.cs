@@ -239,7 +239,8 @@ public static class CollectionsEndpoints
                 });
             }
 
-            collection.NumberOfCards += importResult.Cards.Count;
+            var importedCount = importResult.Cards.Sum(card => card.Quantity);
+            collection.NumberOfCards += importedCount;
 
             unitOfWork.Repository<Card>().Add(importResult.Cards);
             unitOfWork.Repository<Collection>().Update(collection);
@@ -283,11 +284,28 @@ public static class CollectionsEndpoints
     {
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId is null) return Results.Unauthorized();
-        
-        var deletedCount = await unitOfWork.Repository<Card>().Delete(ctbd);
+
+        var collection = await unitOfWork.Repository<Collection>().GetByIdAsync(id);
+        if (collection is null) return Results.NotFound();
+        if (collection.OwnerId != userId) return Results.Unauthorized();
+
+        if (ctbd is null || ctbd.Count == 0) return Results.BadRequest("No card ids provided.");
+
+        var cardsToDelete = await unitOfWork.Repository<Card>().ListAsync(new CardsByIdsSpecification(ctbd, id));
+        if (cardsToDelete.Count == 0) return Results.NotFound();
+
+        foreach (var card in cardsToDelete)
+        {
+            unitOfWork.Repository<Card>().Delete(card);
+        }
+
+        var totalRemoved = cardsToDelete.Sum(card => card.Quantity);
+        collection.NumberOfCards = Math.Max(0, collection.NumberOfCards - totalRemoved);
+        unitOfWork.Repository<Collection>().Update(collection);
+
         await unitOfWork.Complete();
-        
-        return Results.Ok(deletedCount);
+
+        return Results.Ok(cardsToDelete.Count);
     }
 
     private static async Task<IResult> GetGroupedCardsFromCollectionAsync(

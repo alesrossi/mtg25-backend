@@ -82,9 +82,9 @@ services:
       - postgres-int
     networks:
       - mtg-int-network
-  frontend-dev:
-    image: alesrossi/mtgfe-frontend:dev
-    container_name: frontend-dev
+  frontend-int:
+    image: alesrossi/mtgfe-frontend:latest
+    container_name: frontend-int
     command: pnpm expo start --dev-client --host lan --port 8088
     environment:
       EXPO_TOKEN: "token"

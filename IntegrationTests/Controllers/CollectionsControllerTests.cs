@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using API.Dtos.Cards;
@@ -10,6 +11,7 @@ using Core.Models.Identity;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using TestUtilities.Builders;
+using System.Linq;
 
 namespace IntegrationTests.Controllers;
 
@@ -28,6 +30,38 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
     {
         _factory = factory;
         _testDataBuilder = new TestDataBuilder();
+    }
+
+    [Fact]
+    public async Task MassDeleteCardsFromCollection_UpdatesNumberOfCards()
+    {
+        var user = await CreateTestUserAsync("massdelete@example.com", "massdelete");
+        var collection = await CreateTestCollectionAsync(user.Id, "Mass Delete Collection");
+        var cards = await CreateTestCardsForCollectionAsync(collection.Id, 3);
+        var initialTotal = cards.Sum(card => card.Quantity);
+        var cardsToRemove = cards.Take(2).ToList();
+        var removedTotal = cardsToRemove.Sum(card => card.Quantity);
+
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"/api/collections/{collection.Id}/mass-delete")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(cardsToRemove.Select(card => card.Id)), Encoding.UTF8, "application/json")
+        };
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadAsStringAsync();
+        var deletedCount = JsonSerializer.Deserialize<int>(payload);
+        deletedCount.Should().Be(cardsToRemove.Count);
+
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<MainContext>();
+        var updatedCollection = await verificationContext.Collections.FindAsync(collection.Id);
+
+        updatedCollection.Should().NotBeNull();
+        updatedCollection!.NumberOfCards.Should().Be(initialTotal - removedTotal);
     }
 
     [Fact]
@@ -343,7 +377,11 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
             cards.Add(card);
         }
         
+        var collection = await dbContext.Collections.FindAsync(collectionId) ??
+            throw new InvalidOperationException($"Collection {collectionId} not found for test setup.");
+
         dbContext.Cards.AddRange(cards);
+        collection.NumberOfCards += cards.Sum(card => card.Quantity);
         await dbContext.SaveChangesAsync();
         
         return cards;

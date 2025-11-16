@@ -122,6 +122,13 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         // Verify card was actually deleted
         await VerifyCardDeletedFromDatabase(card.Id);
+
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<MainContext>();
+        var updatedCollection = await verificationContext.Collections.FindAsync(collection.Id);
+
+        updatedCollection.Should().NotBeNull();
+        updatedCollection!.NumberOfCards.Should().Be(0);
     }
 
     [Fact]
@@ -219,6 +226,13 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK, "because valid card data should create a new card");
+
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<MainContext>();
+        var updatedCollection = await verificationContext.Collections.FindAsync(collection.Id);
+
+        updatedCollection.Should().NotBeNull();
+        updatedCollection!.NumberOfCards.Should().Be(cardRequest.Quantity);
     }
     
     // [Fact]
@@ -290,7 +304,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         return collection;
     }
 
-    private async Task<Card> CreateTestCardAsync(int collectionId, string name)
+    private async Task<Card> CreateTestCardAsync(int collectionId, string name, int quantity = 1)
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
@@ -302,7 +316,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             Name = name,
             OracleId = Guid.NewGuid()
                 .ToString(),
-            Quantity = 1,
+            Quantity = quantity,
             Language = "English",
             Version = "Original",
             Condition = Condition.NearMint,
@@ -319,7 +333,11 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             ArtCrop = "https://example.com/card.jpg"
         };
         
+        var collection = await dbContext.Collections.FindAsync(collectionId) ??
+            throw new InvalidOperationException($"Collection {collectionId} not found for test setup.");
+
         dbContext.Cards.Add(card);
+        collection.NumberOfCards += card.Quantity;
         await dbContext.SaveChangesAsync();
         
         return card;
