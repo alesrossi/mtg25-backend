@@ -236,7 +236,8 @@ public static class LeaguesEndpoint
             TotalPlayers = league.TotalPlayers,
             Score = res.Score,
             OwnerId = league.OwnerId,
-            IsActive = league.IsActive
+            IsActive = league.IsActive,
+            IsPlaying = res.IsPlaying
         };
         
         return Results.Ok(leagueDto);
