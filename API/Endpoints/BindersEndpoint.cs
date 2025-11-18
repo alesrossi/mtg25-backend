@@ -436,6 +436,7 @@ public static class BindersEndpoint
             Id = card.Id,
             TradeBinderId = card.TradeBinderId,
             CardId = card.CardId,
+            Card = card.Card!,
             Name = card.Name,
             QuantityToTrade = card.QuantityToTrade,
             Notes = card.Notes,

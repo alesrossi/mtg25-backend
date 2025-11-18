@@ -129,7 +129,10 @@ public class MainContext : DbContext
             entity.HasOne(e => e.Card)
                 .WithMany()
                 .HasForeignKey(e => e.CardId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.Navigation(e => e.Card)
+                .AutoInclude();
         });
 
     }
