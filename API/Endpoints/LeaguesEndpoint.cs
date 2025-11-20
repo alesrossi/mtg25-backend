@@ -305,7 +305,7 @@ public static class LeaguesEndpoint
                 x.Rounds.Add(userWithScore.Score);
                 x.AvgScore = x.Rounds.Average();
                 league.TotalPrize += league.PrizePerPerson;
-                league.CurrentRound++;
+                if (league.CurrentRound + 1 <= league.TotalRounds) league.CurrentRound++;
             }
         });
         
