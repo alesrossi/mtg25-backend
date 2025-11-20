@@ -94,4 +94,24 @@ public class CardDataService(IOptions<PathsConfig> pathsConfig, IOptions<Scryfal
 
         return matchingFace?.ImageUris;
     }
+
+    public string? ResolveBackImageUrl(OracleCardDto card)
+    {
+        if (card.CardFaces is null || card.CardFaces.Count < 2)
+        {
+            return null;
+        }
+
+        var backFace = card.CardFaces.ElementAtOrDefault(1);
+        var backImageUris = backFace?.ImageUris;
+        if (backImageUris is null)
+        {
+            return null;
+        }
+
+        return backImageUris.Normal
+            ?? backImageUris.Large
+            ?? backImageUris.Png
+            ?? backImageUris.Small;
+    }
 }

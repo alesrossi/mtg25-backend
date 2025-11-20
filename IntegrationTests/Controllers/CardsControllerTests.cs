@@ -324,6 +324,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             PurchasePrice = 1.0,
             PurchasePriceCurrency = "USD",
             ImageUrl = "https://example.com/card.jpg",
+            BackImageUrl = null,
             SetCode = "TST",
             SetName = "Test Set",
             CollectorNumber = "001",

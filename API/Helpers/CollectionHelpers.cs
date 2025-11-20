@@ -54,6 +54,7 @@ public static class CollectionHelpers
 
             var imageUrl = imageUris.Large ?? imageUris.Normal ?? imageUris.Png;
             var artCrop = imageUris.ArtCrop;
+            var backImageUrl = cds.ResolveBackImageUrl(ocd);
 
             if (string.IsNullOrWhiteSpace(imageUrl))
             {
@@ -87,7 +88,8 @@ public static class CollectionHelpers
                 IsMisprint = record.IsMisprint,
                 IsAltered = record.IsAltered,
                 CollectionId = collectionId,
-                ArtCrop = artCrop
+                ArtCrop = artCrop,
+                BackImageUrl = backImageUrl
             });
         }
 

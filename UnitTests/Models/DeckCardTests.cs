@@ -116,6 +116,7 @@ public class DeckCardTests
             IsFoil = false,
             PurchasePriceCurrency = "USD",
             ImageUrl = "https://example.com/card.jpg",
+            BackImageUrl = null,
             SetName = "Alpha",
             CollectorNumber = "161",
             Rarity = "common",

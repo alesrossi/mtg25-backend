@@ -170,12 +170,14 @@ public static class CardsEndpoints
         {
             var imageUris = cds.ResolveImageUris(card.Value);
             var imageUrl = imageUris?.Normal ?? imageUris?.Large ?? imageUris?.Png;
+            var backImageUrl = cds.ResolveBackImageUrl(card.Value);
 
             return new MinimalCardDto
             {
                 Name = card.Value.Name,
                 OracleId = card.Key,
-                ImageUrl = imageUrl
+                ImageUrl = imageUrl,
+                BackImageUrl = backImageUrl
             };
         }).ToList();
         return result.Count == 0 ? Results.NotFound("Card not found") : Results.Ok(result);
@@ -205,6 +207,7 @@ public static class CardsEndpoints
         var imageUris = cds.ResolveImageUris(oracleCard) ?? throw new InvalidOperationException($"Missing image data for card {oracleCard.Name}");
         var imageUrl = imageUris.Normal ?? imageUris.Large ?? imageUris.Png ?? throw new InvalidOperationException($"Missing image URL for card {oracleCard.Name}");
         var artCrop = imageUris.ArtCrop ?? throw new InvalidOperationException($"Missing art crop for card {oracleCard.Name}");
+        var backImageUrl = cds.ResolveBackImageUrl(oracleCard);
 
         var card = new Card
         {
@@ -225,7 +228,8 @@ public static class CardsEndpoints
             Rarity = oracleCard.Rarity!,
             IsMisprint = cardDto.IsMisprint,
             IsAltered = cardDto.IsAltered,
-            ArtCrop = artCrop
+            ArtCrop = artCrop,
+            BackImageUrl = backImageUrl
         };
 
         unit.Repository<Card>().Add(card);

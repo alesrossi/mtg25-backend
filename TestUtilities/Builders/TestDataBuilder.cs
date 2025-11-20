@@ -148,6 +148,7 @@ public class TestDataBuilder
             .With(c => c.IsFoil, _random.Next(10) == 0) // 10% chance of foil
             .With(c => c.PurchasePriceCurrency, "USD")
             .With(c => c.ImageUrl, $"https://cards.scryfall.io/normal/front/{_fixture.Create<Guid>()}.jpg")
+            .With(c => c.BackImageUrl, _random.Next(2) == 0 ? null : $"https://cards.scryfall.io/normal/back/{_fixture.Create<Guid>()}.jpg")
             .With(c => c.SetCode, GetRandomSetCode())
             .With(c => c.SetName, GetRandomSetName())
             .With(c => c.CollectorNumber, _random.Next(1, 400).ToString())
