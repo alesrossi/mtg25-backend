@@ -4,6 +4,7 @@ using API.Dtos.Cards;
 using API.Services;
 using Core.Interfaces;
 using Core.Models;
+using Microsoft.AspNetCore.Mvc;
 
 namespace API.Endpoints;
 
@@ -13,6 +14,7 @@ public static class CardsEndpoints
     public static void MapCardsEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/cards").WithTags("CollectionCards");
+        
         group.MapGet("/{id:int}", GetCardFromId)
             .RequireAuthorization()
             .WithSummary("Get card by ID")
@@ -20,10 +22,15 @@ public static class CardsEndpoints
             .Produces<Card?>()
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
-        // group.MapPut("/{id}", UpdateCardFromIdAsync)
-        //     .RequireAuthorization()
-        //     .WithSummary("Update Card")
-        //     .WithDescription("Updates card from form");
+        
+        group.MapPut("/{id:int}", UpdateCardFromIdAsync)
+            .RequireAuthorization()
+            .WithSummary("Update Card")
+            .WithDescription("Updates card from form")
+            .Produces<Card>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
         
         group.MapDelete("/{id:int}", DeleteCardFromIdAsync)
             .RequireAuthorization()
@@ -99,27 +106,49 @@ public static class CardsEndpoints
         return collection!.OwnerId == userId ? Results.Ok(card) : Results.Unauthorized();
     }
     
-    // private static IResult UpdateCardFromIdAsync(
-    //     IUnitOfWork unit,
-    //     string id, 
-    //     CardDataService cds, 
-    //     HttpContext context)
-    // {
-    //     var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-    //     if (userId is null) return Results.Unauthorized();
-    //     
-    //     try
-    //     {
-    //         var card = await unit.Repository<Card>().GetByIdAsync(id);
-    //         unit.Repository<Card>().Delete(card);
-    //         await unit.Complete();
-    //         return Results.Ok();
-    //     }
-    //     catch (Exception e)
-    //     {
-    //         return Results.BadRequest(e.Message);
-    //     }
-    // }
+    private static async Task<IResult> UpdateCardFromIdAsync(
+        IUnitOfWork unit,
+        int id, 
+        HttpContext context,
+        [FromBody] UpdateCollectionCardDto updateDto)
+    {
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null) return Results.Unauthorized();
+
+        var card = await unit.Repository<Card>().GetByIdAsync(id);
+        if (card is null) return Results.NotFound();
+        
+        var collection = await unit.Repository<Collection>().GetByIdAsync(card.CollectionId);
+        if (collection is null || collection.OwnerId !=  userId) return Results.Unauthorized();
+        
+        try
+        {
+            if (!Enum.TryParse(updateDto.Condition, out Condition condition))
+            {
+                return Results.BadRequest("Invalid condition");
+            }
+
+            card.CollectionId = updateDto.CollectionId;
+            card.Quantity = updateDto.Quantity;
+            card.Language = updateDto.Language;
+            card.Version = updateDto.Version;
+            card.Condition = condition;
+            card.IsFoil = updateDto.IsFoil;
+            card.PurchasePrice = updateDto.PurchasePrice;
+            card.PurchasePriceCurrency = updateDto.PurchasePriceCurrency;
+            card.IsMisprint = updateDto.IsMisprint;
+            card.IsAltered = updateDto.IsAltered;
+
+            unit.Repository<Card>().Update(card);
+            await unit.Complete();
+        }
+        catch (Exception e)
+        {
+            return Results.BadRequest(e.Message);
+        }
+        
+        return Results.Ok(card);
+    }
     
     private static async Task<IResult> DeleteCardFromIdAsync(
         IUnitOfWork unit,
