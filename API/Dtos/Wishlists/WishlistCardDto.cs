@@ -10,4 +10,5 @@ public class WishlistCardDto
     public bool IsFoil { get; set; }
     public string? Language { get; set; }
     public string? Notes { get; set; }
+    public int? OriginalDeckId { get; set; }
 }

@@ -13,4 +13,5 @@ public class CreateWishlistCardDto
     public string? Language { get; set; }
     [StringLength(500)]
     public required string Notes { get; set; }
+    public int? OriginalDeckId { get; set; }
 }

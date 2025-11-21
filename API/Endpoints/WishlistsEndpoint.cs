@@ -261,8 +261,8 @@ public static class WishlistsEndpoint
                     Language = x.Language,
                     Name = card.Name,
                     OracleId = x.OracleId,
-                    Notes = x.Notes
-
+                    Notes = x.Notes,
+                    OriginalDeckId = x.OriginalDeckId
                 };
             }).ToList();
         
