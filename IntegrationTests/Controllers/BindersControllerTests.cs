@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -201,20 +202,25 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
 
-        var createDto = new CreateBinderCardDto
+        var createDtos = new List<CreateBinderCardDto>
         {
-            CardId = card.Id,
-            QuantityToTrade = 2,
-            Notes = "Spare copies"
+            new()
+            {
+                CardId = card.Id,
+                QuantityToTrade = 2,
+                Notes = "Spare copies"
+            }
         };
 
-        var createResponse = await client.PostAsync($"/api/binders/{binder.Id}/cards", Serialize(createDto));
-        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var createResponse = await client.PostAsync($"/api/binders/{binder.Id}/cards", Serialize(createDtos));
+        createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var createdPayload = await createResponse.Content.ReadAsStringAsync();
-        var createdCard = JsonSerializer.Deserialize<BinderCardDto>(createdPayload, JsonOptions);
-        createdCard.Should().NotBeNull();
-        createdCard!.Name.Should().Be(card.Name);
+        var createdCards = JsonSerializer.Deserialize<List<BinderCardDto>>(createdPayload, JsonOptions);
+        createdCards.Should().NotBeNull();
+        createdCards!.Should().ContainSingle();
+        var createdCard = createdCards.Single();
+        createdCard.Name.Should().Be(card.Name);
         createdCard.QuantityToTrade.Should().Be(2);
 
         var listResponse = await client.GetAsync($"/api/binders/{binder.Id}/cards");
@@ -230,7 +236,7 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
             Notes = "Keeping one copy"
         };
 
-        var updateResponse = await client.PutAsync($"/api/binders/{binder.Id}/cards/{createdCard!.Id}", Serialize(updateDto));
+        var updateResponse = await client.PutAsync($"/api/binders/{binder.Id}/cards/{createdCard.Id}", Serialize(updateDto));
         updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var updatedPayload = await updateResponse.Content.ReadAsStringAsync();

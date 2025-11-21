@@ -68,7 +68,7 @@ public static class BindersEndpoint
         group.MapPost("/{binderId:int}/cards", CreateBinderCardAsync)
             .RequireAuthorization()
             .WithSummary("Add card to binder")
-            .Produces<BinderCardDto>(StatusCodes.Status201Created)
+            .Produces<List<BinderCardDto>>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
@@ -242,7 +242,7 @@ public static class BindersEndpoint
 
     private static async Task<IResult> CreateBinderCardAsync(
         int binderId,
-        CreateBinderCardDto createDto,
+        List<CreateBinderCardDto> createDtoList,
         IValidationService validationService,
         IUnitOfWork unitOfWork,
         ClaimsPrincipal user)
@@ -250,51 +250,55 @@ public static class BindersEndpoint
         var (result, binder) = await EnsureBinderAccessAsync(binderId, unitOfWork, user, requireOwner: true);
         if (result != null) return result;
 
-        var (isValid, errors) = validationService.ValidateModel(createDto);
-        if (!isValid)
+        var cardList = new List<BinderCardDto>();
+        
+        foreach (var createDto in createDtoList)
         {
-            return Results.BadRequest(new { errors });
-        }
-
-        var card = await unitOfWork.Repository<Card>().GetByIdAsync(createDto.CardId);
-        if (card == null)
-        {
-            return Results.BadRequest(new { errors = new { CardId = new[] { "Card not found." } } });
-        }
-
-        var collection = await unitOfWork.Repository<Collection>().GetByIdAsync(card.CollectionId);
-        if (collection == null || collection.OwnerId != binder!.OwnerId)
-        {
-            return Results.Unauthorized();
-        }
-
-        if (createDto.QuantityToTrade > card.Quantity)
-        {
-            return Results.BadRequest(new
+            var (isValid, errors) = validationService.ValidateModel(createDto);
+            if (!isValid)
             {
-                errors = new
+                return Results.BadRequest(new { errors });
+            }
+
+            var card = await unitOfWork.Repository<Card>().GetByIdAsync(createDto.CardId);
+            if (card == null)
+            {
+                return Results.BadRequest(new { errors = new { CardId = new[] { "Card not found." } } });
+            }
+
+            var collection = await unitOfWork.Repository<Collection>().GetByIdAsync(card.CollectionId);
+            if (collection == null || collection.OwnerId != binder!.OwnerId)
+            {
+                return Results.Unauthorized();
+            }
+
+            if (createDto.QuantityToTrade > card.Quantity)
+            {
+                return Results.BadRequest(new
                 {
-                    QuantityToTrade = new[] { "Quantity to trade exceeds available card quantity." }
-                }
-            });
+                    errors = new
+                    {
+                        QuantityToTrade = new[] { "Quantity to trade exceeds available card quantity." }
+                    }
+                });
+            }
+
+            var binderCard = new BinderCard
+            {
+                TradeBinderId = binder.Id,
+                CardId = card.Id,
+                Name = card.Name,
+                QuantityToTrade = createDto.QuantityToTrade,
+                Notes = string.IsNullOrWhiteSpace(createDto.Notes) ? null : createDto.Notes.Trim()
+            };
+
+            unitOfWork.Repository<BinderCard>().Add(binderCard);
+            await unitOfWork.Complete();
+
+            cardList.Add(MapToDto(await unitOfWork.Repository<BinderCard>().GetEntityWithSpec(new BinderCardWithBinderSpecification(binderCard.Id)) ?? binderCard));
         }
 
-        var binderCard = new BinderCard
-        {
-            TradeBinderId = binder.Id,
-            CardId = card.Id,
-            Name = card.Name,
-            QuantityToTrade = createDto.QuantityToTrade,
-            Notes = string.IsNullOrWhiteSpace(createDto.Notes) ? null : createDto.Notes.Trim()
-        };
-
-        unitOfWork.Repository<BinderCard>().Add(binderCard);
-        await unitOfWork.Complete();
-
-        var created = await unitOfWork.Repository<BinderCard>()
-            .GetEntityWithSpec(new BinderCardWithBinderSpecification(binderCard.Id)) ?? binderCard;
-
-        return Results.Created($"/api/binders/{binder.Id}/cards/{created.Id}", MapToDto(created));
+        return Results.Ok(cardList);
     }
 
     private static async Task<IResult> UpdateBinderCardAsync(
