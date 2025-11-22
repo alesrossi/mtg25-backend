@@ -120,14 +120,18 @@ public static class CardsEndpoints
         
         var collection = await unit.Repository<Collection>().GetByIdAsync(card.CollectionId);
         if (collection is null || collection.OwnerId !=  userId) return Results.Unauthorized();
-        
+        if (updateDto.Quantity <= 0)
+        {
+            return Results.BadRequest("Quantity must be greater than zero");
+        }
+
         try
         {
             if (!Enum.TryParse(updateDto.Condition, out Condition condition))
             {
                 return Results.BadRequest("Invalid condition");
             }
-
+            card.Collection!.NumberOfCards = card.Collection!.NumberOfCards - card.Quantity + updateDto.Quantity;
             card.CollectionId = updateDto.CollectionId;
             card.Quantity = updateDto.Quantity;
             card.Language = updateDto.Language;
@@ -139,7 +143,10 @@ public static class CardsEndpoints
             card.IsMisprint = updateDto.IsMisprint;
             card.IsAltered = updateDto.IsAltered;
 
+            
+            
             unit.Repository<Card>().Update(card);
+            unit.Repository<Collection>().Update(card.Collection);
             await unit.Complete();
         }
         catch (Exception e)
