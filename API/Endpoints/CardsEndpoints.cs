@@ -258,7 +258,7 @@ public static class CardsEndpoints
             PurchasePrice = cardDto.PurchasePrice,
             ImageUrl = imageUrl,
             PurchasePriceCurrency = cardDto.PurchasePriceCurrency,
-            SetCode = oracleCard.SetId!,
+            SetCode = oracleCard.Set,
             SetName = oracleCard.SetName,
             CollectorNumber = oracleCard.CollectorNumber!,
             Rarity = oracleCard.Rarity!,

@@ -49,7 +49,7 @@ public class CardDataService(IOptions<PathsConfig> pathsConfig, IOptions<Scryfal
 
             if (splitNames.Length <= 1)
             {
-                AddIfMissing(splitNames.FirstOrDefault() ?? card.Name, card);
+                AddOrUpdateWithOldest(splitNames.FirstOrDefault() ?? card.Name, card);
                 continue;
             }
 
@@ -60,19 +60,45 @@ public class CardDataService(IOptions<PathsConfig> pathsConfig, IOptions<Scryfal
                     continue;
                 }
 
-                AddIfMissing(faceName, card with { Name = faceName });
+                AddOrUpdateWithOldest(faceName, card with { Name = faceName });
             }
         }
 
         CardDataById = cardsById;
         CardDataByName = cardsByName;
 
-        void AddIfMissing(string key, OracleCardDto value)
+        void AddOrUpdateWithOldest(string key, OracleCardDto candidate)
         {
-            if (!cardsByName.ContainsKey(key))
+            if (string.IsNullOrWhiteSpace(key))
             {
-                cardsByName[key] = value;
+                return;
             }
+
+            if (!cardsByName.TryGetValue(key, out var existing))
+            {
+                cardsByName[key] = candidate;
+                return;
+            }
+
+            if (IsCandidateOlder(candidate, existing))
+            {
+                cardsByName[key] = candidate;
+            }
+        }
+
+        bool IsCandidateOlder(OracleCardDto candidate, OracleCardDto existing)
+        {
+            if (candidate.ReleasedAt is null)
+            {
+                return false;
+            }
+
+            if (existing.ReleasedAt is null)
+            {
+                return true;
+            }
+
+            return candidate.ReleasedAt < existing.ReleasedAt;
         }
     }
 
