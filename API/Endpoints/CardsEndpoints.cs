@@ -149,9 +149,9 @@ public static class CardsEndpoints
             unit.Repository<Collection>().Update(card.Collection);
             await unit.Complete();
         }
-        catch (Exception e)
+        catch (Exception)
         {
-            return Results.BadRequest(e.Message);
+            return Results.StatusCode(StatusCodes.Status500InternalServerError);
         }
         
         return Results.Ok(card);
@@ -181,9 +181,9 @@ public static class CardsEndpoints
             
             return Results.NoContent();
         }
-        catch (Exception e)
+        catch (Exception)
         {
-            return Results.BadRequest(e.Message);
+            return Results.StatusCode(StatusCodes.Status500InternalServerError);
         }
         
     }
