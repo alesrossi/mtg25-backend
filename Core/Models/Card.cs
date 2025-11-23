@@ -8,7 +8,6 @@ public class Card : BaseModel
     public Collection? Collection { get; set; }
     public required int Quantity { get; set; }
     public required string Language { get; set; }
-    public required string Version { get; set; }
     public Condition Condition  { get; set; }
     public required bool IsFoil { get; set; }
     public required double PurchasePrice { get; set; }

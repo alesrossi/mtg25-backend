@@ -111,7 +111,6 @@ public class DeckCardTests
             Quantity = 1,
             PurchasePrice = 2.50,
             Language = "English",
-            Version = "Original",
             Condition = Condition.NearMint,
             IsFoil = false,
             PurchasePriceCurrency = "USD",

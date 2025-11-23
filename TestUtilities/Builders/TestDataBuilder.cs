@@ -143,7 +143,6 @@ public class TestDataBuilder
             .With(c => c.OracleId, _fixture.Create<Guid>().ToString())
             .With(c => c.Quantity, _random.Next(1, 10))
             .With(c => c.Language, "English")
-            .With(c => c.Version, "Original")
             .With(c => c.Condition, Condition.NearMint)
             .With(c => c.IsFoil, _random.Next(10) == 0) // 10% chance of foil
             .With(c => c.PurchasePriceCurrency, "USD")

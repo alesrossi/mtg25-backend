@@ -76,7 +76,6 @@ public static class CollectionHelpers
                 OracleId = ocd.Id,
                 Quantity = record.Quantity,
                 Language = record.Language,
-                Version = record.CollectorNumber,
                 IsFoil = record.IsFoil,
                 PurchasePrice = record.PurchasePrice,
                 PurchasePriceCurrency = record.PurchasePriceCurrency,

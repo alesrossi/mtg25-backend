@@ -318,7 +318,6 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
                 .ToString(),
             Quantity = quantity,
             Language = "English",
-            Version = "Original",
             Condition = Condition.NearMint,
             IsFoil = false,
             PurchasePrice = 1.0,

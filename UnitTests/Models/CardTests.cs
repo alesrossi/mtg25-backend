@@ -30,7 +30,6 @@ public class CardTests
         card.OracleId.Should().NotBeNullOrEmpty("because oracle ID is required for card identification");
         card.Quantity.Should().BeGreaterThan(0, "because quantity must be positive");
         card.Language.Should().NotBeNullOrEmpty("because language is required");
-        card.Version.Should().NotBeNullOrEmpty("because version is required");
         card.PurchasePriceCurrency.Should().NotBeNullOrEmpty("because currency is required");
         card.ImageUrl.Should().NotBeNullOrEmpty("because image URL is required");
         card.SetCode.Should().NotBeNullOrEmpty("because set code is required");

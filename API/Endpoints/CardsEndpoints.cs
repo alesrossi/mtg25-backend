@@ -135,7 +135,6 @@ public static class CardsEndpoints
             card.CollectionId = updateDto.CollectionId;
             card.Quantity = updateDto.Quantity;
             card.Language = updateDto.Language;
-            card.Version = updateDto.Version;
             card.Condition = condition;
             card.IsFoil = updateDto.IsFoil;
             card.PurchasePrice = updateDto.PurchasePrice;
@@ -252,7 +251,6 @@ public static class CardsEndpoints
             Collection = collection,
             Quantity = cardDto.Quantity,
             Language = cardDto.Language,
-            Version = cardDto.Version,
             Condition = myEnum,
             IsFoil = cardDto.IsFoil,
             PurchasePrice = cardDto.PurchasePrice,
