@@ -171,7 +171,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         var response = await client.PostAsync("/api/decks", content);
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Created,
+        response.StatusCode.Should().Be(HttpStatusCode.OK,
             "because valid deck data should create a new deck");
 
         var responseContent = await response.Content.ReadAsStringAsync();

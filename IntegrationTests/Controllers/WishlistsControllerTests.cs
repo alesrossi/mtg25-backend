@@ -42,7 +42,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         var content = Serialize(request);
         var response = await client.PostAsync("/api/wishlists", content);
 
-        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
         var responseContent = await response.Content.ReadAsStringAsync();
 
         var wishlist = JsonSerializer.Deserialize<WishlistDto>(responseContent, JsonOptions);

@@ -56,7 +56,7 @@ public static class CollectionsEndpoints
             .RequireAuthorization()
             .WithSummary("Delete collection")
             .WithDescription("Deletes collection from given id")
-            .Produces<Collection>()
+            .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status401Unauthorized);
         
@@ -138,6 +138,7 @@ public static class CollectionsEndpoints
         if (userId is null) return Results.Unauthorized();
 
         var user = await userManager.FindByIdAsync(userId);
+        if (user is null) return Results.Unauthorized();
         
         // Validate the model
         var (isValid, errors) = validationService.ValidateModel(collectionDto);
@@ -152,7 +153,7 @@ public static class CollectionsEndpoints
             Color = collectionDto.Color,
             NumberOfCards = 0,
             TotalPrice = 0,
-            OwnerId = user!.Id
+            OwnerId = user.Id
         };
         unitOfWork.Repository<Collection>().Add(collection);
         await unitOfWork.Complete();
@@ -169,8 +170,7 @@ public static class CollectionsEndpoints
     {
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId is null) return Results.Unauthorized();
-
-        var user = await userManager.FindByIdAsync(userId);
+        
         
         // Validate the model
         var (isValid, errors) = validationService.ValidateModel(collectionDto);
@@ -178,9 +178,11 @@ public static class CollectionsEndpoints
         {
             return Results.BadRequest(new { errors });
         }
+        
 
         var collection = await unitOfWork.Repository<Collection>().GetByIdAsync(id);
         if (collection is null) return Results.NotFound();
+        if (collection.OwnerId != userId) return Results.Unauthorized();
         
         collection.Name = collectionDto.Name;
         collection.Color = collectionDto.Color;
@@ -269,6 +271,7 @@ public static class CollectionsEndpoints
         
         var collection = await unitOfWork.Repository<Collection>().GetByIdAsync(id);
         if (collection is null) return Results.NotFound();
+        if (collection.OwnerId != userId) return Results.Unauthorized();
         
         unitOfWork.Repository<Collection>().Delete(collection);
         await unitOfWork.Complete();

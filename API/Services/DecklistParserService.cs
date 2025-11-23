@@ -106,7 +106,7 @@ public class DecklistParserService(CardDataService cardDataService, IValidationS
             return false;
         }
 
-        var imageUris = cardDataService.ResolveImageUris(cardData);
+        var imageUris = CardDataService.ResolveImageUris(cardData);
         var imageUrl = imageUris?.Normal ?? imageUris?.Large ?? imageUris?.Png;
         if (string.IsNullOrWhiteSpace(imageUrl))
         {

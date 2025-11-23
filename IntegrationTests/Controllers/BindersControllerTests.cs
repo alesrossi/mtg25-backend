@@ -41,7 +41,7 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var response = await client.PostAsync("/api/binders", Serialize(request));
 
-        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
         var payload = await response.Content.ReadAsStringAsync();
 
         var binder = JsonSerializer.Deserialize<BinderDto>(payload, JsonOptions);

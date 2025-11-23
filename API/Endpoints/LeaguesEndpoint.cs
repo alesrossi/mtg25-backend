@@ -43,7 +43,7 @@ public static class LeaguesEndpoint
             .RequireAuthorization()
             .WithSummary("Update league")
             .WithDescription("Updates league information such as name, description, and settings")
-            .Produces<LeagueDto>()
+            .Produces<League>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
@@ -270,7 +270,7 @@ public static class LeaguesEndpoint
         dbContext.Update(league);
         await dbContext.SaveChangesAsync();
         
-        return Results.Ok();
+        return Results.Ok(league);
     }
     
     private static async Task<IResult> UpdateLeagueFromResultsAsync(
@@ -287,7 +287,7 @@ public static class LeaguesEndpoint
         if (user is null) return Results.Unauthorized();
         
         var league = await dbContext.FindAsync<League>(id);
-        if (league is null || league.OwnerId != userId) return Results.NotFound();
+        if (league is null) return Results.NotFound();
         if (league.OwnerId != userId) return Results.Unauthorized();
         
         var res = await dbContext.UserLeagues
@@ -329,7 +329,7 @@ public static class LeaguesEndpoint
         if (user is null) return Results.Unauthorized();
         
         var league = await dbContext.FindAsync<League>(id);
-        if (league is null || league.OwnerId != userId) return Results.NotFound();
+        if (league is null) return Results.NotFound();
         
         return league.OwnerId != userId ? Results.Unauthorized() : Results.Ok(league.Code);
     }
@@ -382,7 +382,8 @@ public static class LeaguesEndpoint
         
         var league = await dbContext.Set<League>().Where(x => x.Id == id).FirstOrDefaultAsync();
         if (league is null) return Results.NotFound("League not found");
-        if (league.OwnerId != userId || !league.IsActive) return Results.BadRequest();
+        if (league.OwnerId != userId) return Results.Unauthorized();
+        if (!league.IsActive) return Results.BadRequest();
         league.TotalPlayers++;
         
         await dbContext.AddAsync(new AppUserLeague
@@ -417,11 +418,11 @@ public static class LeaguesEndpoint
         
         var league = await dbContext.FindAsync<League>(id);
         if (league is null) return Results.NotFound("League not found");
-        // if (league.OwnerId == user.Id) return Results.BadRequest("You can't leave a league you created");
+        if (league.OwnerId == user.Id) return Results.BadRequest("You can't leave a league you created");
         
-        var res = await dbContext.UserLeagues
-            .Where(ul => ul.LeagueId == league.Id &&  ul.UserId == userId)
-            .FirstAsync();
+        var res = dbContext.UserLeagues
+            .Where(ul => ul.LeagueId == league.Id &&  ul.UserId == userId).FirstOrDefault();
+        if (res is null) return Results.BadRequest("User not playing in league");
 
         res.IsPlaying = false;
         dbContext.Update(res);

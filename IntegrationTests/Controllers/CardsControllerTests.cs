@@ -117,7 +117,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         var response = await client.DeleteAsync($"/api/cards/{card.Id}");
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.OK,
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent,
             "because authenticated users should be able to delete their own cards");
 
         // Verify card was actually deleted

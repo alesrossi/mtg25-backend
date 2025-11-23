@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Security.Claims;
 using API.Dtos.Decks;
 using API.Services;
@@ -31,7 +28,7 @@ public static class DecksEndpoint
             .RequireAuthorization()
             .WithSummary("Create new deck")
             .WithDescription("Creates a new deck for the authenticated user")
-            .Produces<DeckDto>(StatusCodes.Status201Created)
+            .Produces<DeckDto>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized);
         
@@ -41,7 +38,6 @@ public static class DecksEndpoint
             .WithDescription("Retrieves a specific deck by ID")
             .Produces<DeckDto>()
             .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
         
         group.MapPut("/{id:int}", UpdateDeckAsync)
@@ -51,7 +47,6 @@ public static class DecksEndpoint
             .Produces<DeckDto>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
         
         group.MapDelete("/{id:int}", DeleteDeckAsync)
@@ -60,7 +55,6 @@ public static class DecksEndpoint
             .WithDescription("Deletes a deck and all its cards")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
         
         group.MapGet("/{deckId:int}/cards", GetDeckCardsAsync)
@@ -69,7 +63,6 @@ public static class DecksEndpoint
             .WithDescription("Retrieves all cards in a deck with optional filtering for maindeck, sideboard, and ownership status")
             .Produces<IEnumerable<DeckCardDto>>()
             .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
         
         group.MapGet("/{deckId:int}/cards/{id:int}", GetDeckCardByIdAsync)
@@ -78,7 +71,6 @@ public static class DecksEndpoint
             .WithDescription("Retrieves specific deck card by ID")
             .Produces<DeckCardDto>()
             .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
 
         group.MapGet("/{deckId:int}/export", ExportDeckAsync)
@@ -87,14 +79,13 @@ public static class DecksEndpoint
             .WithDescription("Returns the decklist as a list of strings with maindeck and sideboard sections")
             .Produces<IReadOnlyList<string>>()
             .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
 
         group.MapPost("/import", ImportDeckFromDecklistAsync)
             .RequireAuthorization()
             .WithSummary("Import deck from text decklist")
             .WithDescription("Parses a decklist and creates a new deck with the imported cards")
-            .Produces(StatusCodes.Status201Created)
+            .Produces<ImportDeckDto>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized);
 
@@ -104,7 +95,6 @@ public static class DecksEndpoint
             .WithDescription("Returns deck cards that are not owned in any user collection")
             .Produces<IEnumerable<DeckCardDto>>()
             .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
 
         group.MapPost("/{deckId:int}/cards", CreateDeckCardAsync)
@@ -114,7 +104,6 @@ public static class DecksEndpoint
             .Produces<DeckCardDto>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
         
         group.MapPut("/{deckId:int}/cards/{id:int}", UpdateDeckCardAsync)
@@ -124,7 +113,6 @@ public static class DecksEndpoint
             .Produces<DeckCardDto>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
         
         group.MapDelete("/{deckId:int}/cards/{id:int}", DeleteDeckCardAsync)
@@ -133,7 +121,6 @@ public static class DecksEndpoint
             .WithDescription("Removes a card from the deck")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
     }
     
@@ -212,7 +199,7 @@ public static class DecksEndpoint
         var missingCards = (await deckCardService.GetDeckCardsAsync(deckId, ownedOnly: false)).ToList();
         return Results.Ok(missingCards);
     }
-
+    
     private static async Task<IResult> ImportDeckFromDecklistAsync(
         DeckImportRequestDto importDto,
         IDecklistParserService decklistParserService,
@@ -276,13 +263,7 @@ public static class DecksEndpoint
         unitOfWork.Repository<Deck>().Update(deck);
         await unitOfWork.Complete();
 
-        return Results.Created($"/api/decks/{deck.Id}", new
-        {
-            deck = MapToDto(deck),
-            deckCards = createdCards,
-            errors = parseResult.Errors,
-            skippedLines
-        });
+        return Results.Created($"/api/decks/{deck.Id}", new ImportDeckDto(MapToDto(deck), createdCards, parseResult.Errors, skippedLines));
     }
 
     private static string[] FilterDecklistLines(string decklist)
@@ -462,7 +443,7 @@ public static class DecksEndpoint
         unitOfWork.Repository<Deck>().Add(deck);
         await unitOfWork.Complete();
 
-        return Results.Created($"/api/decks/{deck.Id}", MapToDto(deck));
+        return Results.Ok(MapToDto(deck));
     }
 
     private static async Task<IResult> GetDeckByIdAsync(

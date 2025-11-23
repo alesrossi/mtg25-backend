@@ -33,7 +33,7 @@ public static class WishlistsEndpoint
         group.MapPost("/", CreateWishlistAsync)
             .RequireAuthorization()
             .WithSummary("Create wishlist")
-            .Produces<WishlistDto>(StatusCodes.Status201Created)
+            .Produces<WishlistDto>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized);
 
@@ -68,7 +68,7 @@ public static class WishlistsEndpoint
 
         group.MapPost("/{wishlistId:int}/cards", CreateWishlistCardAsync)
             .RequireAuthorization()
-            .WithSummary("Add card to wishlist")
+            .WithSummary("Add card list to wishlist")
             .Produces<List<WishlistCard>>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -145,7 +145,7 @@ public static class WishlistsEndpoint
         unitOfWork.Repository<Wishlist>().Add(wishlist);
         await unitOfWork.Complete();
 
-        return Results.Created($"/api/wishlists/{wishlist.Id}", MapToDto(wishlist));
+        return Results.Ok(MapToDto(wishlist));
     }
 
     private static async Task<IResult> UpdateWishlistAsync(
@@ -223,12 +223,7 @@ public static class WishlistsEndpoint
         if (ownershipResult.Result != null) return ownershipResult.Result;
 
         var wishlistCard = await unitOfWork.Repository<WishlistCard>().GetByIdAsync(cardId);
-        if (wishlistCard == null || wishlistCard.Id != wishlistId)
-        {
-            return Results.NotFound();
-        }
-
-        return Results.Ok(MapToDto(wishlistCard));
+        return wishlistCard == null ? Results.NotFound() : Results.Ok(MapToDto(wishlistCard));
     }
 
     private static async Task<IResult> CreateWishlistCardAsync(

@@ -32,7 +32,7 @@ public static class BindersEndpoint
         group.MapPost("/", CreateBinderAsync)
             .RequireAuthorization()
             .WithSummary("Create binder")
-            .Produces<BinderDto>(StatusCodes.Status201Created)
+            .Produces<BinderDto>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized);
 
@@ -152,7 +152,7 @@ public static class BindersEndpoint
         unitOfWork.Repository<TradeBinder>().Add(binder);
         await unitOfWork.Complete();
 
-        return Results.Created($"/api/binders/{binder.Id}", MapToDto(binder, Array.Empty<BinderCard>()));
+        return Results.Ok(MapToDto(binder, Array.Empty<BinderCard>()));
     }
 
     private static async Task<IResult> UpdateBinderAsync(

@@ -44,7 +44,7 @@ public static class CollectionHelpers
                 continue;
             }
 
-            var imageUris = cds.ResolveImageUris(ocd);
+            var imageUris = CardDataService.ResolveImageUris(ocd);
             if (imageUris is null)
             {
                 skippedLines++;

@@ -102,23 +102,18 @@ public class CardDataService(IOptions<PathsConfig> pathsConfig, IOptions<Scryfal
         }
     }
 
-    public ImageUris? ResolveImageUris(OracleCardDto card)
+    public static ImageUris ResolveImageUris(OracleCardDto card)
     {
         if (card.ImageUris is not null)
         {
             return card.ImageUris;
         }
 
-        if (card.CardFaces is null || card.CardFaces.Count == 0)
-        {
-            return null;
-        }
-
-        var matchingFace = card.CardFaces
+        var matchingFace = card.CardFaces!
             .FirstOrDefault(face => string.Equals(face.Name, card.Name, StringComparison.OrdinalIgnoreCase))
-            ?? card.CardFaces.FirstOrDefault();
+            ?? card.CardFaces!.FirstOrDefault();
 
-        return matchingFace?.ImageUris;
+        return matchingFace?.ImageUris!;
     }
 
     public string? ResolveBackImageUrl(OracleCardDto card)

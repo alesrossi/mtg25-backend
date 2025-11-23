@@ -36,7 +36,7 @@ public static class CardsEndpoints
             .RequireAuthorization()
             .WithSummary("Delete card")
             .WithDescription("Removes card by ID from collection")
-            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
         
@@ -45,7 +45,8 @@ public static class CardsEndpoints
             .WithSummary("Search cards by name")
             .WithDescription("Searches cards by name with partial matching")
             .Produces<List<MinimalCardDto>>()
-            .Produces(StatusCodes.Status401Unauthorized);
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
         
         group.MapPost("/", AddNewCardAsync)
             .RequireAuthorization()
@@ -68,7 +69,7 @@ public static class CardsEndpoints
             .RequireAuthorization()
             .WithSummary("Retrieves all versions of a card")
             .WithDescription("Returns all card dtos for a given exact card name")
-            .Produces<List<OracleCardDto>>()
+            .Produces<List<KeyValuePair<string,OracleCardDto>>>()
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
         
@@ -178,7 +179,7 @@ public static class CardsEndpoints
             unit.Repository<Collection>().Update(collection);
             await unit.Complete();
             
-            return Results.Ok();
+            return Results.NoContent();
         }
         catch (Exception e)
         {
@@ -203,7 +204,7 @@ public static class CardsEndpoints
 
         var result = cardList.Select(card =>
         {
-            var imageUris = cds.ResolveImageUris(card.Value);
+            var imageUris = CardDataService.ResolveImageUris(card.Value);
             var imageUrl = imageUris?.Normal ?? imageUris?.Large ?? imageUris?.Png;
             var backImageUrl = cds.ResolveBackImageUrl(card.Value);
 
@@ -233,13 +234,13 @@ public static class CardsEndpoints
         
         if (userId != collection.OwnerId)  return Results.BadRequest("Collection is not valid for logged user");
         
-        var oracleCard = cds.CardDataById[cardDto.OracleId];
+        if (!cds.CardDataById.TryGetValue(cardDto.OracleId, out var oracleCard)) return Results.BadRequest("Card not found for oracleId");
 
         if (!Enum.TryParse(cardDto.Condition, out Condition myEnum))
         {
             return Results.BadRequest("Invalid condition");
         }
-        var imageUris = cds.ResolveImageUris(oracleCard) ?? throw new InvalidOperationException($"Missing image data for card {oracleCard.Name}");
+        var imageUris = CardDataService.ResolveImageUris(oracleCard);
         var imageUrl = imageUris.Normal ?? imageUris.Large ?? imageUris.Png ?? throw new InvalidOperationException($"Missing image URL for card {oracleCard.Name}");
         var artCrop = imageUris.ArtCrop ?? throw new InvalidOperationException($"Missing art crop for card {oracleCard.Name}");
         var backImageUrl = cds.ResolveBackImageUrl(oracleCard);
