@@ -12,7 +12,9 @@ using Infrastructure.Data;
 using Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using TestUtilities.Authentication;
 using TestUtilities.Builders;
+using TestUtilities.Scryfall;
 
 namespace IntegrationTests.Controllers;
 
@@ -593,26 +595,8 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
 
     #region Helper Methods
 
-    private async Task<AppUser> CreateTestUserAsync(string baseEmail, string baseUserName)
-    {
-        using var scope = _factory.Services.CreateScope();
-        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
-
-        // Create unique identifiers for this test run
-        var uniqueId = Guid.NewGuid().ToString("N")[..8];
-        var uniqueEmail = $"{baseEmail.Split('@')[0]}_{uniqueId}@{baseEmail.Split('@')[1]}";
-        var uniqueUserName = $"{baseUserName}_{uniqueId}";
-
-        var user = _testDataBuilder.CreateUser(uniqueEmail, uniqueUserName);
-        var result = await userManager.CreateAsync(user);
-
-        if (!result.Succeeded)
-        {
-            throw new InvalidOperationException($"Failed to create test user: {string.Join(", ", result.Errors.Select(e => e.Description))}");
-        }
-
-        return user;
-    }
+    private Task<AppUser> CreateTestUserAsync(string baseEmail, string baseUserName) =>
+        TestUserFactory.CreateAsync(_factory.Services, _testDataBuilder, baseEmail, baseUserName);
 
     private async Task<List<Deck>> CreateTestDecksForUserAsync(string userId, int count)
     {
@@ -620,13 +604,13 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
         
         var decks = Enumerable.Range(1, count)
-            .Select(i => new Deck
+            .Select(i =>
             {
-                Name = $"Test Deck {i}",
-                Format = i % 2 == 0 ? "Standard" : "Modern",
-                NumberOfCards = 60,
-                TotalPrice = 50.0 * i,
-                OwnerId = userId
+                var deck = _testDataBuilder.CreateDeck(userId, i % 2 == 0 ? "Standard" : "Modern");
+                deck.Name = $"Test Deck {i}";
+                deck.NumberOfCards = 60;
+                deck.TotalPrice = 50.0 * i;
+                return deck;
             })
             .ToList();
             
@@ -641,14 +625,10 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
         
-        var deck = new Deck
-        {
-            Name = name,
-            Format = format,
-            NumberOfCards = 60,
-            TotalPrice = 100.0,
-            OwnerId = userId
-        };
+        var deck = _testDataBuilder.CreateDeck(userId, format);
+        deck.Name = name;
+        deck.NumberOfCards = 60;
+        deck.TotalPrice = 100.0;
         
         dbContext.Decks.Add(deck);
         await dbContext.SaveChangesAsync();
@@ -660,78 +640,12 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         using var scope = _factory.Services.CreateScope();
         var cardDataService = scope.ServiceProvider.GetRequiredService<CardDataService>();
-
-        var byId = cards.ToDictionary(c => c.Id);
-        var byName = cards.ToDictionary(c => c.Name, c => c, StringComparer.OrdinalIgnoreCase);
-
-        typeof(CardDataService).GetProperty(nameof(CardDataService.CardDataById))!
-            .SetValue(cardDataService, byId);
-        typeof(CardDataService).GetProperty(nameof(CardDataService.CardDataByName))!
-            .SetValue(cardDataService, byName);
-
+        CardDataServiceTestHelper.Populate(cardDataService, cards);
         return Task.CompletedTask;
     }
 
-    private static OracleCardDto CreateOracleCardDto(string id, string oracleId, string name, string setCode, string setName)
-    {
-        var imageUrl = "https://example.com/card.png";
-
-        return new OracleCardDto(
-            Object: "card",
-            Id: id,
-            OracleId: oracleId,
-            MultiverseIds: new List<int>(),
-            MtgoId: null,
-            TcgPlayerId: null,
-            CardMarketId: null,
-            Name: name,
-            Lang: "en",
-            ReleasedAt: DateTime.UtcNow,
-            Uri: null,
-            ScryfallUri: null,
-            Layout: null,
-            HighResImage: true,
-            ImageStatus: null,
-            ImageUris: new ImageUris(imageUrl, imageUrl, imageUrl, imageUrl, imageUrl, imageUrl), 
-            CardFaces: new List<CardFace>(),
-            ManaCost: null,
-            Cmc: 1,
-            TypeLine: null,
-            OracleText: null,
-            Power: null,
-            Toughness: null,
-            Colors: new List<string?>(),
-            ColorIdentity: new List<string?>(),
-            Keywords: new List<string?>(),
-            AllParts: new List<RelatedCard?>(),
-            Legalities: new Legalities(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null),
-            Games: new List<string?> { "paper" },
-            Reserved: false,
-            GameChanger: false,
-            Foil: true,
-            NonFoil: true,
-            Finishes: new List<string?>(),
-            Oversized: false,
-            Promo: false,
-            Reprint: false,
-            Variation: false,
-            SetId: Guid.NewGuid().ToString(),
-            Set: setCode,
-            SetName: setName,
-            SetType: null,
-            SetUri: null,
-            SetSearchUri: null,
-            ScryfallSetUri: null,
-            RulingsUri: null,
-            PrintsSearchUri: null,
-            CollectorNumber: "1",
-            Digital: false,
-            Rarity: "Common",
-            Watermark: null,
-            FlavorText: null,
-            CardBackId: null
-        );
-    }
+    private OracleCardDto CreateOracleCardDto(string id, string oracleId, string name, string setCode, string setName) =>
+        _testDataBuilder.CreateOracleCard(id, oracleId, name, setCode, setName);
 
     private async Task VerifyDeckExistsInDatabase(int deckId, string expectedUserId)
     {
@@ -750,15 +664,14 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         foreach (var card in deckCards)
         {
-            dbContext.DeckCards.Add(new DeckCard
-            {
-                DeckId = deckId,
-                OracleId = card.OracleId,
-                Name = card.Name,
-                SetCode = card.SetCode,
-                MaindeckQuantity = card.MaindeckQuantity,
-                SideboardQuantity = card.SideboardQuantity
-            });
+            var deckCard = _testDataBuilder.CreateDeckCard(
+                deckId,
+                card.OracleId,
+                card.Name,
+                card.SetCode,
+                card.MaindeckQuantity,
+                card.SideboardQuantity);
+            dbContext.DeckCards.Add(deckCard);
         }
 
         await dbContext.SaveChangesAsync();

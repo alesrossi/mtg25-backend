@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Text;
 using System.Text.Json;
 using API.Dtos.Binders;
 using Core.Models;
@@ -10,7 +9,9 @@ using FluentAssertions;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
+using TestUtilities.Authentication;
 using TestUtilities.Builders;
+using TestUtilities.Serialization;
 
 namespace IntegrationTests.Controllers;
 
@@ -44,7 +45,7 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var payload = await response.Content.ReadAsStringAsync();
 
-        var binder = JsonSerializer.Deserialize<BinderDto>(payload, JsonOptions);
+        var binder = JsonSerializer.Deserialize<BinderDto>(payload, JsonContentHelper.DefaultOptions);
         binder.Should().NotBeNull();
         binder!.Name.Should().Be(request.Name);
         binder.Description.Should().Be(request.Description);
@@ -82,7 +83,7 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var payload = await response.Content.ReadAsStringAsync();
 
-        var binders = JsonSerializer.Deserialize<List<BinderSummaryDto>>(payload, JsonOptions);
+        var binders = JsonSerializer.Deserialize<List<BinderSummaryDto>>(payload, JsonContentHelper.DefaultOptions);
         binders.Should().NotBeNull();
         binders!.Should().HaveCount(2);
         binders.Should().NotContain(b => b.Id == otherBinder.Id);
@@ -144,7 +145,7 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var payload = await response.Content.ReadAsStringAsync();
 
-        var updated = JsonSerializer.Deserialize<BinderDto>(payload, JsonOptions);
+        var updated = JsonSerializer.Deserialize<BinderDto>(payload, JsonContentHelper.DefaultOptions);
         updated.Should().NotBeNull();
         updated!.Name.Should().Be(request.Name);
         updated.Description.Should().Be(request.Description);
@@ -216,7 +217,7 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
         createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var createdPayload = await createResponse.Content.ReadAsStringAsync();
-        var createdCards = JsonSerializer.Deserialize<List<BinderCardDto>>(createdPayload, JsonOptions);
+        var createdCards = JsonSerializer.Deserialize<List<BinderCardDto>>(createdPayload, JsonContentHelper.DefaultOptions);
         createdCards.Should().NotBeNull();
         createdCards!.Should().ContainSingle();
         var createdCard = createdCards.Single();
@@ -226,7 +227,7 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var listResponse = await client.GetAsync($"/api/binders/{binder.Id}/cards");
         listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var listPayload = await listResponse.Content.ReadAsStringAsync();
-        var cards = JsonSerializer.Deserialize<List<BinderCardDto>>(listPayload, JsonOptions);
+        var cards = JsonSerializer.Deserialize<List<BinderCardDto>>(listPayload, JsonContentHelper.DefaultOptions);
         cards.Should().NotBeNull();
         cards!.Should().HaveCount(1);
 
@@ -240,7 +241,7 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
         updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var updatedPayload = await updateResponse.Content.ReadAsStringAsync();
-        var updatedCard = JsonSerializer.Deserialize<BinderCardDto>(updatedPayload, JsonOptions);
+        var updatedCard = JsonSerializer.Deserialize<BinderCardDto>(updatedPayload, JsonContentHelper.DefaultOptions);
         updatedCard.Should().NotBeNull();
         updatedCard!.QuantityToTrade.Should().Be(1);
         updatedCard.Notes.Should().Be(updateDto.Notes);
@@ -250,7 +251,7 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var confirmResponse = await client.GetAsync($"/api/binders/{binder.Id}/cards");
         var confirmPayload = await confirmResponse.Content.ReadAsStringAsync();
-        var remainingCards = JsonSerializer.Deserialize<List<BinderCardDto>>(confirmPayload, JsonOptions);
+        var remainingCards = JsonSerializer.Deserialize<List<BinderCardDto>>(confirmPayload, JsonContentHelper.DefaultOptions);
         remainingCards.Should().NotBeNull();
         remainingCards!.Should().BeEmpty();
     }
@@ -298,7 +299,7 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var payload = await response.Content.ReadAsStringAsync();
 
-        var cards = JsonSerializer.Deserialize<List<BinderCardDto>>(payload, JsonOptions);
+        var cards = JsonSerializer.Deserialize<List<BinderCardDto>>(payload, JsonContentHelper.DefaultOptions);
         cards.Should().NotBeNull();
         cards!.Should().ContainSingle();
         cards[0].Name.Should().Be(binderCard.Name);
@@ -325,25 +326,8 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
-    private static StringContent Serialize<T>(T value)
-    {
-        var json = JsonSerializer.Serialize(value, JsonOptions);
-        return new StringContent(json, Encoding.UTF8, "application/json");
-    }
+    private static StringContent Serialize<T>(T value) => JsonContentHelper.CreateContent(value);
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true
-    };
-
-    private async Task<AppUser> CreateTestUserAsync(string email, string userName)
-    {
-        using var scope = _factory.Services.CreateScope();
-        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
-        var user = _testDataBuilder.CreateUser(email, userName);
-        var result = await userManager.CreateAsync(user, "Password123!");
-        result.Succeeded.Should().BeTrue();
-        return user;
-    }
+    private Task<AppUser> CreateTestUserAsync(string email, string userName) =>
+        TestUserFactory.CreateAsync(_factory.Services, _testDataBuilder, email, userName, requirePassword: true);
 }

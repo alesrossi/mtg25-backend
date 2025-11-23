@@ -2,26 +2,28 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using API.Configuration;
 using API.Dtos.Cards;
 using API.Services;
 using FluentAssertions;
-using Microsoft.Extensions.Options;
+using TestUtilities.Builders;
+using TestUtilities.Scryfall;
 using Xunit;
 
 namespace UnitTests.Services;
 
 public class DecklistParserServiceTests
 {
+    private readonly TestDataBuilder _builder = new();
+
     [Fact]
     public async Task ParseAsync_WithValidDecklist_ReturnsDeckCards()
     {
         // Arrange
         var cards = new[]
         {
-            CreateOracleCardDto("1", "oracle-1", "Lightning Bolt", "LEA", "Limited Edition Alpha"),
-            CreateOracleCardDto("2", "oracle-2", "Opt", "INV", "Invasion"),
-            CreateOracleCardDto("3", "oracle-3", "Negate", "M10", "Magic 2010")
+            _builder.CreateOracleCard("1", "oracle-1", "Lightning Bolt", "LEA", "Limited Edition Alpha"),
+            _builder.CreateOracleCard("2", "oracle-2", "Opt", "INV", "Invasion"),
+            _builder.CreateOracleCard("3", "oracle-3", "Negate", "M10", "Magic 2010")
         };
 
         var parser = CreateParser(cards);
@@ -56,7 +58,7 @@ public class DecklistParserServiceTests
         // Arrange
         var cards = new[]
         {
-            CreateOracleCardDto("1", "oracle-1", "Lightning Bolt", "LEA", "Limited Edition Alpha")
+            _builder.CreateOracleCard("1", "oracle-1", "Lightning Bolt", "LEA", "Limited Edition Alpha")
         };
 
         var parser = CreateParser(cards);
@@ -81,7 +83,7 @@ public class DecklistParserServiceTests
         // Arrange
         var cards = new[]
         {
-            CreateOracleCardDto("1", "oracle-1", "Lightning Bolt", "LEA", "Limited Edition Alpha")
+            _builder.CreateOracleCard("1", "oracle-1", "Lightning Bolt", "LEA", "Limited Edition Alpha")
         };
 
         var parser = CreateParser(cards);
@@ -105,7 +107,7 @@ public class DecklistParserServiceTests
         // Arrange
         var cards = new[]
         {
-            CreateOracleCardDto("1", "oracle-1", "Lightning Bolt", "LEA", "Limited Edition Alpha")
+            _builder.CreateOracleCard("1", "oracle-1", "Lightning Bolt", "LEA", "Limited Edition Alpha")
         };
 
         var parser = CreateParser(cards);
@@ -130,7 +132,7 @@ public class DecklistParserServiceTests
         // Arrange
         var cards = new[]
         {
-            CreateOracleCardDto("1", "oracle-1", "Lightning Bolt", "LEA", "Limited Edition Alpha")
+            _builder.CreateOracleCard("1", "oracle-1", "Lightning Bolt", "LEA", "Limited Edition Alpha")
         };
 
         var parser = CreateParser(cards);
@@ -151,80 +153,8 @@ public class DecklistParserServiceTests
 
     private static DecklistParserService CreateParser(IEnumerable<OracleCardDto> cards)
     {
-        var cardDataService = new CardDataService(
-            Options.Create(new PathsConfig()),
-            Options.Create(new ScryfallConfig()));
-
-        var byId = cards.ToDictionary(c => c.Id);
-        var byName = cards.ToDictionary(c => c.Name, c => c, StringComparer.OrdinalIgnoreCase);
-
-        typeof(CardDataService).GetProperty(nameof(CardDataService.CardDataById))!
-            .SetValue(cardDataService, byId);
-        typeof(CardDataService).GetProperty(nameof(CardDataService.CardDataByName))!
-            .SetValue(cardDataService, byName);
-
+        var cardDataService = CardDataServiceTestHelper.CreateWithCards(cards);
         var validationService = new ValidationService();
         return new DecklistParserService(cardDataService, validationService);
-    }
-
-    private static OracleCardDto CreateOracleCardDto(string id, string oracleId, string name, string setCode, string setName)
-    {
-        var imageUrl = "https://example.com/card.png";
-
-        return new OracleCardDto(
-            Object: "card",
-            Id: id,
-            OracleId: oracleId,
-            MultiverseIds: new List<int>(),
-            MtgoId: null,
-            TcgPlayerId: null,
-            CardMarketId: null,
-            Name: name,
-            Lang: "en",
-            ReleasedAt: DateTime.UtcNow,
-            Uri: null,
-            ScryfallUri: null,
-            Layout: null,
-            HighResImage: true,
-            ImageStatus: null,
-            ImageUris: new ImageUris(imageUrl, imageUrl, imageUrl, imageUrl, imageUrl, imageUrl),
-            CardFaces: new List<CardFace>(),
-            ManaCost: null,
-            Cmc: 1,
-            TypeLine: null,
-            OracleText: null,
-            Power: null,
-            Toughness: null,
-            Colors: new List<string?>(),
-            ColorIdentity: new List<string?>(),
-            Keywords: new List<string?>(),
-            AllParts: new List<RelatedCard?>(),
-            Legalities: new Legalities(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null),
-            Games: new List<string?> { "paper" },
-            Reserved: false,
-            GameChanger: false,
-            Foil: true,
-            NonFoil: true,
-            Finishes: new List<string?>(),
-            Oversized: false,
-            Promo: false,
-            Reprint: false,
-            Variation: false,
-            SetId: Guid.NewGuid().ToString(),
-            Set: setCode,
-            SetName: setName,
-            SetType: null,
-            SetUri: null,
-            SetSearchUri: null,
-            ScryfallSetUri: null,
-            RulingsUri: null,
-            PrintsSearchUri: null,
-            CollectorNumber: "1",
-            Digital: false,
-            Rarity: "Common",
-            Watermark: null,
-            FlavorText: null,
-            CardBackId: null
-        );
     }
 }

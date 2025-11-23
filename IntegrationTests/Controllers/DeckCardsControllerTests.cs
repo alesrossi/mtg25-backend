@@ -9,7 +9,9 @@ using Core.Models;
 using Core.Models.Identity;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
+using TestUtilities.Authentication;
 using TestUtilities.Builders;
+using TestUtilities.Serialization;
 
 namespace IntegrationTests.Controllers;
 
@@ -291,14 +293,8 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         }
     }
 
-    private async Task<AppUser> CreateTestUserAsync(string email, string userName)
-    {
-        using var scope = _factory.Services.CreateScope();
-        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
-        var user = _testDataBuilder.CreateUser(email, userName);
-        await userManager.CreateAsync(user, "Password123!");
-        return user;
-    }
+    private Task<AppUser> CreateTestUserAsync(string email, string userName) =>
+        TestUserFactory.CreateAsync(_factory.Services, _testDataBuilder, email, userName, requirePassword: true);
 
     private async Task<Deck> CreateTestDeckForUserAsync(string userId)
     {
@@ -370,28 +366,10 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         await context.SaveChangesAsync();
     }
 
-    private static DeckCard CreateDeckCardEntity(int deckId, string oracleId, string name, string setCode, int maindeckQuantity, int sideboardQuantity)
-    {
-        return new DeckCard
-        {
-            DeckId = deckId,
-            OracleId = oracleId,
-            Name = name,
-            SetCode = setCode,
-            MaindeckQuantity = maindeckQuantity,
-            SideboardQuantity = sideboardQuantity
-        };
-    }
+    private DeckCard CreateDeckCardEntity(int deckId, string oracleId, string name, string setCode, int maindeckQuantity, int sideboardQuantity) =>
+        _testDataBuilder.CreateDeckCard(deckId, oracleId, name, setCode, maindeckQuantity, sideboardQuantity);
 
-    private static StringContent SerializeToJson<T>(T obj)
-    {
-        var json = JsonSerializer.Serialize(obj, new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            PropertyNameCaseInsensitive = true
-        });
-        return new StringContent(json, Encoding.UTF8, "application/json");
-    }
+    private static StringContent SerializeToJson<T>(T obj) => JsonContentHelper.CreateContent(obj);
 
     private static List<DeckCardDto> DeserializeDeckCardList(string json)
     {

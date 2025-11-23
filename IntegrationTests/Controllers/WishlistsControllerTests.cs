@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Net;
-using System.Text;
 using System.Text.Json;
 using API.Dtos.Wishlists;
 using Core.Models;
@@ -10,7 +9,9 @@ using FluentAssertions;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
+using TestUtilities.Authentication;
 using TestUtilities.Builders;
+using TestUtilities.Serialization;
 
 namespace IntegrationTests.Controllers;
 
@@ -39,13 +40,13 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
             IsPublic = true
         };
 
-        var content = Serialize(request);
+        var content = JsonContentHelper.CreateContent(request);
         var response = await client.PostAsync("/api/wishlists", content);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var responseContent = await response.Content.ReadAsStringAsync();
 
-        var wishlist = JsonSerializer.Deserialize<WishlistDto>(responseContent, JsonOptions);
+        var wishlist = JsonSerializer.Deserialize<WishlistDto>(responseContent, JsonContentHelper.DefaultOptions);
         wishlist.Should().NotBeNull();
         wishlist!.Name.Should().Be(request.Name);
         wishlist.Description.Should().Be(request.Description);
@@ -82,7 +83,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var responseContent = await response.Content.ReadAsStringAsync();
 
-        var wishlists = JsonSerializer.Deserialize<List<WishlistSummaryDto>>(responseContent, JsonOptions);
+        var wishlists = JsonSerializer.Deserialize<List<WishlistSummaryDto>>(responseContent, JsonContentHelper.DefaultOptions);
         wishlists.Should().NotBeNull();
         wishlists!.Should().HaveCount(2);
         wishlists.Should().OnlyContain(w => w.CardsCount == 0 && w.IndividualCardsCount == 0);
@@ -111,11 +112,11 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
             IsPublic = true
         };
 
-        var response = await client.PutAsync($"/api/wishlists/{wishlist.Id}", Serialize(request));
+        var response = await client.PutAsync($"/api/wishlists/{wishlist.Id}", JsonContentHelper.CreateContent(request));
 
         var payload = await response.Content.ReadAsStringAsync();
         response.StatusCode.Should().Be(HttpStatusCode.OK, payload);
-        var updatedWishlist = JsonSerializer.Deserialize<WishlistDto>(payload, JsonOptions);
+        var updatedWishlist = JsonSerializer.Deserialize<WishlistDto>(payload, JsonContentHelper.DefaultOptions);
 
         updatedWishlist.Should().NotBeNull();
         updatedWishlist!.Name.Should().Be(request.Name);
@@ -186,11 +187,11 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
             Notes = "Updated notes"
         };
 
-        var response = await client.PutAsync($"/api/wishlists/{wishlist.Id}/cards/{wishlistCard.Id}", Serialize(request));
+        var response = await client.PutAsync($"/api/wishlists/{wishlist.Id}/cards/{wishlistCard.Id}", JsonContentHelper.CreateContent(request));
         var payload = await response.Content.ReadAsStringAsync();
 
         response.StatusCode.Should().Be(HttpStatusCode.OK, payload);
-        var updatedCard = JsonSerializer.Deserialize<WishlistCardDto>(payload, JsonOptions);
+        var updatedCard = JsonSerializer.Deserialize<WishlistCardDto>(payload, JsonContentHelper.DefaultOptions);
 
         updatedCard.Should().NotBeNull();
         updatedCard!.Id.Should().Be(wishlistCard.Id);
@@ -232,7 +233,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
             IsFoil = false
         };
 
-        var response = await client.PutAsync($"/api/wishlists/{wishlist.Id}/cards/{wishlistCard.Id}", Serialize(request));
+        var response = await client.PutAsync($"/api/wishlists/{wishlist.Id}/cards/{wishlistCard.Id}", JsonContentHelper.CreateContent(request));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -262,17 +263,17 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         };
         var list = new List<CreateWishlistCardDto> { createCardDto };
 
-        var createResponse = await client.PostAsync($"/api/wishlists/{wishlist.Id}/cards", Serialize(list));
+        var createResponse = await client.PostAsync($"/api/wishlists/{wishlist.Id}/cards", JsonContentHelper.CreateContent(list));
         createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var createdPayload = await createResponse.Content.ReadAsStringAsync();
-        var createdCardList = JsonSerializer.Deserialize<List<WishlistCard>>(createdPayload, JsonOptions);
+        var createdCardList = JsonSerializer.Deserialize<List<WishlistCard>>(createdPayload, JsonContentHelper.DefaultOptions);
         createdCardList.Should().NotBeNull();
         createdCardList[0].Name.Should().Be("Force of Will");
 
         var wishlistResponse = await client.GetAsync($"/api/wishlists/{wishlist.Id}");
         wishlistResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var wishlistPayload = await wishlistResponse.Content.ReadAsStringAsync();
-        var wishlistDto = JsonSerializer.Deserialize<WishlistDto>(wishlistPayload, JsonOptions);
+        var wishlistDto = JsonSerializer.Deserialize<WishlistDto>(wishlistPayload, JsonContentHelper.DefaultOptions);
         wishlistDto.Should().NotBeNull();
         wishlistDto!.CardsCount.Should().Be(createCardDto.DesiredQuantity);
         wishlistDto.IndividualCardsCount.Should().Be(1);
@@ -280,7 +281,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         var listResponse = await client.GetAsync($"/api/wishlists/{wishlist.Id}/cards");
         listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var listPayload = await listResponse.Content.ReadAsStringAsync();
-        var cards = JsonSerializer.Deserialize<List<WishlistCardDto>>(listPayload, JsonOptions);
+        var cards = JsonSerializer.Deserialize<List<WishlistCardDto>>(listPayload, JsonContentHelper.DefaultOptions);
         cards.Should().NotBeNull();
         cards!.Should().HaveCount(1);
 
@@ -290,37 +291,18 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         var emptyWishlistResponse = await client.GetAsync($"/api/wishlists/{wishlist.Id}");
         emptyWishlistResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var emptyWishlistPayload = await emptyWishlistResponse.Content.ReadAsStringAsync();
-        var emptyWishlistDto = JsonSerializer.Deserialize<WishlistDto>(emptyWishlistPayload, JsonOptions);
+        var emptyWishlistDto = JsonSerializer.Deserialize<WishlistDto>(emptyWishlistPayload, JsonContentHelper.DefaultOptions);
         emptyWishlistDto.Should().NotBeNull();
         emptyWishlistDto!.CardsCount.Should().Be(0);
         emptyWishlistDto.IndividualCardsCount.Should().Be(0);
 
         var confirmResponse = await client.GetAsync($"/api/wishlists/{wishlist.Id}/cards");
         var confirmPayload = await confirmResponse.Content.ReadAsStringAsync();
-        var remainingCards = JsonSerializer.Deserialize<List<WishlistCardDto>>(confirmPayload, JsonOptions);
+        var remainingCards = JsonSerializer.Deserialize<List<WishlistCardDto>>(confirmPayload, JsonContentHelper.DefaultOptions);
         remainingCards.Should().NotBeNull();
         remainingCards!.Should().BeEmpty();
     }
 
-    private static StringContent Serialize<T>(T value)
-    {
-        var json = JsonSerializer.Serialize(value, JsonOptions);
-        return new StringContent(json, Encoding.UTF8, "application/json");
-    }
-
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true
-    };
-
-    private async Task<AppUser> CreateTestUserAsync(string email, string userName)
-    {
-        using var scope = _factory.Services.CreateScope();
-        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
-        var user = _testDataBuilder.CreateUser(email, userName);
-        var result = await userManager.CreateAsync(user, "Password123!");
-        result.Succeeded.Should().BeTrue();
-        return user;
-    }
+    private Task<AppUser> CreateTestUserAsync(string email, string userName) =>
+        TestUserFactory.CreateAsync(_factory.Services, _testDataBuilder, email, userName, requirePassword: true);
 }

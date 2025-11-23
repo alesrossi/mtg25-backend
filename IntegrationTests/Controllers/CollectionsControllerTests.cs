@@ -10,6 +10,7 @@ using Core.Models;
 using Core.Models.Identity;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
+using TestUtilities.Authentication;
 using TestUtilities.Builders;
 using System.Linq;
 
@@ -271,21 +272,8 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
     
     #region Helper Methods
 
-    private async Task<AppUser> CreateTestUserAsync(string baseEmail, string baseUserName)
-    {
-        using var scope = _factory.Services.CreateScope();
-        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
-
-        // Create unique identifiers for this test run
-        var uniqueId = Guid.NewGuid().ToString("N")[..8];
-        var uniqueEmail = $"{baseEmail.Split('@')[0]}_{uniqueId}@{baseEmail.Split('@')[1]}";
-        var uniqueUserName = $"{baseUserName}_{uniqueId}";
-
-        var user = _testDataBuilder.CreateUser(uniqueEmail, uniqueUserName);
-        var result = await userManager.CreateAsync(user);
-
-        return !result.Succeeded ? throw new InvalidOperationException($"Failed to create test user: {string.Join(", ", result.Errors.Select(e => e.Description))}") : user;
-    }
+    private Task<AppUser> CreateTestUserAsync(string baseEmail, string baseUserName) =>
+        TestUserFactory.CreateAsync(_factory.Services, _testDataBuilder, baseEmail, baseUserName);
 
 
 

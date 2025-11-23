@@ -6,6 +6,7 @@ using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Core.Models.Identity;
 using Microsoft.AspNetCore.Identity;
+using TestUtilities.Authentication;
 using TestUtilities.Builders;
 
 namespace IntegrationTests.Controllers;
@@ -31,11 +32,11 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
     {
         // Arrange
         var existingEmail = $"existing_{Guid.NewGuid().ToString("N")[..8]}@test.com";
-        await CreateTestUserAsync(existingEmail, "existinguser_CheckEmailExists_WithExistingEmail_ReturnsTrue");
+        var user = await CreateTestUserAsync(existingEmail, "existinguser_CheckEmailExists_WithExistingEmail_ReturnsTrue");
         using var client = _factory.CreateClient();
 
         // Act
-        var response = await client.GetAsync($"/api/accounts/emailexists/{Uri.EscapeDataString(existingEmail)}");
+        var response = await client.GetAsync($"/api/accounts/emailexists/{Uri.EscapeDataString(user.Email!)}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK,
@@ -125,7 +126,7 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
     {
         // Arrange
         var existingEmail = $"duplicate_{Guid.NewGuid().ToString("N")[..8]}@test.com";
-        await CreateTestUserAsync(existingEmail, "existinguser");
+        var user = await CreateTestUserAsync(existingEmail, "existinguser");
         using var client = _factory.CreateClient();
 
         var registerRequest = new RegisterDto
@@ -133,7 +134,7 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
             DisplayName = "Duplicate User",
             FirstName = "Duplicate",
             LastName = "User",
-            Email = existingEmail,
+            Email = user.Email!,
             Password = "Password123!"
         };
 
@@ -189,12 +190,12 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
         // Arrange
         var email = $"loginuser_{Guid.NewGuid().ToString("N")[..8]}@test.com";
         var password = "Password123!";
-        await CreateTestUserWithPasswordAsync(email, "loginuser", password);
+        var user = await CreateTestUserWithPasswordAsync(email, "loginuser", password);
         using var client = _factory.CreateClient();
 
         var loginRequest = new LoginDto
         {
-            Email = email,
+            Email = user.Email!,
             Password = password
         };
 
@@ -308,27 +309,11 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
     }
 
     #region Helper Methods
-    private async Task<AppUser> CreateTestUserAsync(string baseEmail, string baseUserName)
-    {
-        using var scope = _factory.Services.CreateScope();
-        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+    private Task<AppUser> CreateTestUserAsync(string baseEmail, string baseUserName) =>
+        TestUserFactory.CreateAsync(_factory.Services, _testDataBuilder, baseEmail, baseUserName);
 
-        var user = _testDataBuilder.CreateUser(baseEmail, baseUserName);
-        var result = await userManager.CreateAsync(user);
-
-        return !result.Succeeded ? throw new InvalidOperationException($"Failed to create test user: {string.Join(", ", result.Errors.Select(e => e.Description))}") : user;
-    }
-
-    private async Task<AppUser> CreateTestUserWithPasswordAsync(string email, string userName, string password)
-    {
-        using var scope = _factory.Services.CreateScope();
-        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
-
-        var user = _testDataBuilder.CreateUser(email, userName);
-        var result = await userManager.CreateAsync(user, password);
-
-        return !result.Succeeded ? throw new InvalidOperationException($"Failed to create test user with password: {string.Join(", ", result.Errors.Select(e => e.Description))}") : user;
-    }
+    private Task<AppUser> CreateTestUserWithPasswordAsync(string email, string userName, string password) =>
+        TestUserFactory.CreateAsync(_factory.Services, _testDataBuilder, email, userName, requirePassword: true, password: password);
 
     private async Task VerifyUserExistsInDatabase(string email)
     {

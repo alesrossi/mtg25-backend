@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using API.Dtos.Cards;
 using AutoFixture;
 using Core.Models;
 using Core.Models.Identity;
@@ -70,6 +73,25 @@ public class TestDataBuilder
             .Without(d => d.Id)
             .Without(d => d.DeckCards) // Initialize as empty collection
             .Create();
+    }
+
+    public DeckCard CreateDeckCard(
+        int deckId,
+        string? oracleId = null,
+        string? name = null,
+        string? setCode = null,
+        int maindeckQuantity = 0,
+        int sideboardQuantity = 0)
+    {
+        return new DeckCard
+        {
+            DeckId = deckId,
+            OracleId = oracleId ?? Guid.NewGuid().ToString(),
+            Name = name ?? $"Card {_random.Next(1, 1_000)}",
+            SetCode = setCode ?? GetRandomSetCode(),
+            MaindeckQuantity = maindeckQuantity,
+            SideboardQuantity = sideboardQuantity
+        };
     }
 
     public Wishlist CreateWishlist(string ownerId, bool? isPublic = null)
@@ -168,6 +190,77 @@ public class TestDataBuilder
         card.OracleId = oracleId;
         card.Quantity = quantity;
         return card;
+    }
+
+    public OracleCardDto CreateOracleCard(
+        string? id = null,
+        string? oracleId = null,
+        string? name = null,
+        string? setCode = null,
+        string? setName = null)
+    {
+        var cardId = id ?? Guid.NewGuid().ToString();
+        var oracle = oracleId ?? Guid.NewGuid().ToString();
+        var cardName = name ?? $"Card {_random.Next(1, 1_000)}";
+        var resolvedSetCode = setCode ?? GetRandomSetCode();
+        var resolvedSetName = setName ?? GetRandomSetName();
+        var imageUrl = $"https://example.com/{cardId}.png";
+
+        return new OracleCardDto(
+            Object: "card",
+            Id: cardId,
+            OracleId: oracle,
+            MultiverseIds: new List<int>(),
+            MtgoId: null,
+            TcgPlayerId: null,
+            CardMarketId: null,
+            Name: cardName,
+            Lang: "en",
+            ReleasedAt: DateTime.UtcNow,
+            Uri: null,
+            ScryfallUri: null,
+            Layout: null,
+            HighResImage: true,
+            ImageStatus: null,
+            ImageUris: new ImageUris(imageUrl, imageUrl, imageUrl, imageUrl, imageUrl, imageUrl),
+            ManaCost: null,
+            Cmc: 1,
+            TypeLine: null,
+            OracleText: null,
+            Power: null,
+            Toughness: null,
+            Colors: new List<string?>(),
+            ColorIdentity: new List<string?>(),
+            Keywords: new List<string?>(),
+            CardFaces: new List<CardFace>(),
+            AllParts: new List<RelatedCard?>(),
+            Legalities: new Legalities(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null),
+            Games: new List<string?> { "paper" },
+            Reserved: false,
+            GameChanger: false,
+            Foil: true,
+            NonFoil: true,
+            Finishes: new List<string?>(),
+            Oversized: false,
+            Promo: false,
+            Reprint: false,
+            Variation: false,
+            SetId: Guid.NewGuid().ToString(),
+            Set: resolvedSetCode,
+            SetName: resolvedSetName,
+            SetType: null,
+            SetUri: null,
+            SetSearchUri: null,
+            ScryfallSetUri: null,
+            RulingsUri: null,
+            PrintsSearchUri: null,
+            CollectorNumber: _random.Next(1, 400).ToString(),
+            Digital: false,
+            Rarity: GetRandomRarity(),
+            Watermark: null,
+            FlavorText: null,
+            CardBackId: null
+        );
     }
 
     /// <summary>
