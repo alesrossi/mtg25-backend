@@ -236,35 +236,53 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         updatedCollection!.NumberOfCards.Should().Be(cardRequest.Quantity);
     }
     
-    // [Fact]
-    // public async Task AddCardList_WithValidCardNames_ReturnsOracleData()
-    // {
-    //     // Arrange
-    //     var user = await CreateTestUserAsync("listadder@example.com", "listadder");
-    //     using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
-    //
-    //     var cardListRequest = new CardListDto
-    //     {
-    //         CardNames = new List<string> { "Lightning Bolt", "Black Lotus", "Ancestral Recall" }
-    //     };
-    //
-    //     var json = JsonSerializer.Serialize(cardListRequest);
-    //     var content = new StringContent(json, Encoding.UTF8, "application/json");
-    //
-    //     // Act
-    //     var response = await client.PostAsync("/api/cards/card-list", content);
-    //
-    //     // Assert
-    //     response.StatusCode.Should().Be(HttpStatusCode.OK,
-    //         "because valid card names should return oracle data");
-    //
-    //     var responseContent = await response.Content.ReadAsStringAsync();
-    //     var oracleCards = JsonSerializer.Deserialize<LinkedList<OracleCardDto>>(
-    //         responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-    //
-    //     oracleCards.Should().NotBeNull();
-    //     oracleCards!.Should().HaveCount(3, "because we requested 3 cards");
-    // }
+    [Fact]
+    public async Task GetCardFromName_ReturnsCard()
+    {
+        // Arrange
+        const string cardName = "Counterspell";
+        var user = await CreateTestUserAsync("user@example.com", "user");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+        // Act
+        var response = await client.GetAsync($"/api/cards/sf/name/{cardName}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK,
+            "because counterspell exists");
+        
+        var responseContent = await response.Content.ReadAsStringAsync();
+        var returnedCard = JsonSerializer.Deserialize<OracleCardDto>(
+            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        returnedCard.Should().NotBeNull();
+        returnedCard.Name.Should().Be(cardName);
+        returnedCard.ImageUris!.Large.Should().NotBeNull();
+    }
+    
+    [Fact]
+    public async Task GetCardFromOracleId_ReturnsCard()
+    {
+        // Arrange
+        const string oracleId = "0df55e3f-14de-46ef-b6b1-616618724d9e";
+        const string cardName = "Counterspell";
+        var user = await CreateTestUserAsync("user@example.com", "user");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+        // Act
+        var response = await client.GetAsync($"/api/cards/sf/id/{oracleId}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK,
+            "because counterspell exists");
+        
+        var responseContent = await response.Content.ReadAsStringAsync();
+        var returnedCard = JsonSerializer.Deserialize<OracleCardDto>(
+            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        returnedCard.Should().NotBeNull();
+        returnedCard.Id.Should().Be(oracleId);
+        returnedCard.Name.Should().Be(cardName);
+        returnedCard.ImageUris!.Large.Should().NotBeNull();
+    }
 
     #region Helper Methods
 

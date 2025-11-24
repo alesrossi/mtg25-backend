@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Text;
 using System.Text.Json;
 using API.Dtos.Binders;
 using Core.Models;
@@ -150,6 +151,43 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
         updated!.Name.Should().Be(request.Name);
         updated.Description.Should().Be(request.Description);
         updated.IsPublic.Should().BeTrue();
+    }
+    
+
+    [Fact]
+    public async Task UpdateBinder_WithInvalidData_ReturnsBadRequest()
+    {
+        var owner = await CreateTestUserAsync("binder-update@test.com", "binder_update");
+        TradeBinder binder;
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+            binder = _testDataBuilder.CreateTradeBinder(owner.Id, isPublic: false);
+            binder.Name = "Original";
+            context.TradeBinders.Add(binder);
+            await context.SaveChangesAsync();
+        }
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        const string invalidPayload = """
+        {
+            "name": "Updated Binder",
+            "description": "Updated description",
+            "isPublic": "not-a-boolean"
+        }
+        """;
+
+        var response = await client.PutAsync(
+            $"/api/binders/{binder.Id}",
+            new StringContent(invalidPayload, Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest,
+            "because a non-boolean value for isPublic should fail model binding");
+
+        var payload = await response.Content.ReadAsStringAsync();
+        payload.Should().NotBeNullOrEmpty();
     }
 
     [Fact]

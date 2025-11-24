@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Net.Http.Headers;
 using API.Dtos.Accounts;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
@@ -216,6 +217,52 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
         authDto.Should().NotBeNull();
         authDto!.UserId.Should().NotBeNullOrEmpty();
         authDto.Token.Should().NotBeNullOrEmpty("because login should return an authentication token");
+    }
+
+    [Fact]
+    public async Task LogoutUser_WithValidAuthentication_ReturnsSuccessMessage()
+    {
+        // Arrange
+        var email = $"logoutuser_{Guid.NewGuid().ToString("N")[..8]}@test.com";
+        var password = "Password123!";
+        var user = await CreateTestUserWithPasswordAsync(email, "logoutuser", password);
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var loginRequest = new LoginDto
+        {
+            Email = user.Email,
+            Password = password
+        };
+
+        var loginJson = JsonSerializer.Serialize(loginRequest);
+        var loginContent = new StringContent(loginJson, Encoding.UTF8, "application/json");
+        var loginResponse = await client.PostAsync("/api/accounts/login", loginContent);
+
+        loginResponse.StatusCode.Should().Be(HttpStatusCode.OK,
+            "because valid credentials should allow login before logout");
+
+        var loginResponseContent = await loginResponse.Content.ReadAsStringAsync();
+        var authDto = JsonSerializer.Deserialize<AuthDto>(
+            loginResponseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        authDto.Should().NotBeNull();
+        authDto!.Token.Should().NotBeNull();
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authDto.Token);
+
+        // Act
+        var response = await client.GetAsync("/api/accounts/logout");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK,
+            "because authenticated users should be able to logout");
+
+        var responseContent = await response.Content.ReadAsStringAsync();
+        var payload = JsonSerializer.Deserialize<JsonElement>(responseContent);
+
+        payload.TryGetProperty("message", out var messageProperty).Should().BeTrue(
+            "because logout should return a confirmation message");
+        messageProperty.GetString().Should().Be("Logged out successfully");
     }
 
     [Fact]
