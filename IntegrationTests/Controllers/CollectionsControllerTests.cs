@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -63,6 +64,58 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
 
         updatedCollection.Should().NotBeNull();
         updatedCollection!.NumberOfCards.Should().Be(initialTotal - removedTotal);
+    }
+
+    [Fact]
+    public async Task MassDeleteCardsFromCollection_WithEmptyRequest_ReturnsBadRequest()
+    {
+        var user = await CreateTestUserAsync("massdelete-empty@example.com", "massdelete_empty");
+        var collection = await CreateTestCollectionAsync(user.Id, "Mass Delete Empty Collection");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"/api/collections/{collection.Id}/mass-delete")
+        {
+            Content = new StringContent("[]", Encoding.UTF8, "application/json")
+        };
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task MassDeleteCardsFromCollection_WithNonOwner_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("massdelete-owner@example.com", "massdelete_owner");
+        var intruder = await CreateTestUserAsync("massdelete-intruder@example.com", "massdelete_intruder");
+        var collection = await CreateTestCollectionAsync(owner.Id, "Owner Collection");
+        var cards = await CreateTestCardsForCollectionAsync(collection.Id, 2);
+
+        using var client = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"/api/collections/{collection.Id}/mass-delete")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(cards.Select(c => c.Id)), Encoding.UTF8, "application/json")
+        };
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task MassDeleteCardsFromCollection_WithInvalidCollection_ReturnsNotFound()
+    {
+        var user = await CreateTestUserAsync("massdelete-missing@example.com", "massdelete_missing");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"/api/collections/{int.MaxValue}/mass-delete")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(new[] { 1, 2 }), Encoding.UTF8, "application/json")
+        };
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -161,6 +214,23 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         await VerifyCollectionExistsInDatabase(createdCollection.Id, user.Id);
     }
 
+    [Fact]
+    public async Task CreateCollection_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        using var client = _factory.CreateClient();
+
+        var createRequest = new NewCollectionDto
+        {
+            Name = "Unauthorized Collection",
+            Color = "Blue"
+        };
+
+        var response = await client.PostAsync("/api/collections",
+            new StringContent(JsonSerializer.Serialize(createRequest), Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
     [Theory]
     [InlineData("", "Red")]
     [InlineData(" ", "Blue")]
@@ -210,6 +280,92 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest,
             "because collection names should have reasonable length limits");
+    }
+
+    [Fact]
+    public async Task UpdateCollection_WithValidData_ReturnsUpdatedCollection()
+    {
+        var owner = await CreateTestUserAsync("collection-update-owner@example.com", "collection_update_owner");
+        var collection = await CreateTestCollectionAsync(owner.Id, "Original Name");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var updateRequest = new NewCollectionDto
+        {
+            Name = "Updated Name",
+            Color = "Blue"
+        };
+
+        var response = await client.PutAsync($"/api/collections/{collection.Id}",
+            new StringContent(JsonSerializer.Serialize(updateRequest), Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadAsStringAsync();
+        var updatedCollection = JsonSerializer.Deserialize<Collection>(payload, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        updatedCollection.Should().NotBeNull();
+        updatedCollection!.Name.Should().Be(updateRequest.Name);
+        updatedCollection.Color.Should().Be(updateRequest.Color);
+    }
+
+    [Fact]
+    public async Task UpdateCollection_WithInvalidData_ReturnsBadRequest()
+    {
+        var owner = await CreateTestUserAsync("collection-update-invalid@example.com", "collection_update_invalid");
+        var collection = await CreateTestCollectionAsync(owner.Id, "Original Name");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var updateRequest = new NewCollectionDto
+        {
+            Name = string.Empty,
+            Color = "Green"
+        };
+
+        var response = await client.PutAsync($"/api/collections/{collection.Id}",
+            new StringContent(JsonSerializer.Serialize(updateRequest), Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task UpdateCollection_WithUnauthorizedUser_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("collection-update-owner2@example.com", "collection_update_owner2");
+        var intruder = await CreateTestUserAsync("collection-update-intruder@example.com", "collection_update_intruder");
+        var collection = await CreateTestCollectionAsync(owner.Id, "Owner Collection");
+        using var client = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
+
+        var updateRequest = new NewCollectionDto { Name = "Hacked", Color = "Black" };
+        var response = await client.PutAsync($"/api/collections/{collection.Id}",
+            new StringContent(JsonSerializer.Serialize(updateRequest), Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task UpdateCollection_WithInvalidId_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("collection-update-missing@example.com", "collection_update_missing");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var updateRequest = new NewCollectionDto { Name = "Missing", Color = "Purple" };
+        var response = await client.PutAsync($"/api/collections/{int.MaxValue}",
+            new StringContent(JsonSerializer.Serialize(updateRequest), Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UpdateCollection_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("collection-update-noauth@example.com", "collection_update_noauth");
+        var collection = await CreateTestCollectionAsync(owner.Id, "Original Name");
+        using var client = _factory.CreateClient();
+
+        var updateRequest = new NewCollectionDto { Name = "No Auth", Color = "White" };
+        var response = await client.PutAsync($"/api/collections/{collection.Id}",
+            new StringContent(JsonSerializer.Serialize(updateRequest), Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
@@ -268,6 +424,56 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized,
             "because users should not be able to access other users' collections");
+    }
+
+    [Fact]
+    public async Task DeleteCollection_WithValidId_RemovesCollection()
+    {
+        var owner = await CreateTestUserAsync("collection-delete-owner@example.com", "collection_delete_owner");
+        var collection = await CreateTestCollectionAsync(owner.Id, "Delete Me");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var response = await client.DeleteAsync($"/api/collections/{collection.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        await VerifyCollectionDeletedFromDatabase(collection.Id);
+    }
+
+    [Fact]
+    public async Task DeleteCollection_WithNonOwner_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("collection-delete-owner2@example.com", "collection_delete_owner2");
+        var intruder = await CreateTestUserAsync("collection-delete-intruder@example.com", "collection_delete_intruder");
+        var collection = await CreateTestCollectionAsync(owner.Id, "Keep Out");
+
+        using var client = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
+        var response = await client.DeleteAsync($"/api/collections/{collection.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        await VerifyCollectionExistsInDatabase(collection.Id, owner.Id);
+    }
+
+    [Fact]
+    public async Task DeleteCollection_WithInvalidId_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("collection-delete-missing@example.com", "collection_delete_missing");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var response = await client.DeleteAsync($"/api/collections/{int.MaxValue}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task DeleteCollection_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("collection-delete-noauth@example.com", "collection_delete_noauth");
+        var collection = await CreateTestCollectionAsync(owner.Id, "NoAuth Delete");
+
+        using var client = _factory.CreateClient();
+        var response = await client.DeleteAsync($"/api/collections/{collection.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
     
     #region Helper Methods
@@ -399,6 +605,43 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
 
         result.Should().NotBeNull();
         result!.Data.Should().HaveCount(5, "because we created 5 test cards");
+    }
+
+    [Fact]
+    public async Task GetCardsFromCollection_WithInvalidCollectionId_ReturnsNotFound()
+    {
+        var user = await CreateTestUserAsync("collectioncards-missing@example.com", "collectioncards_missing");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var response = await client.GetAsync($"/api/collections/{int.MaxValue}/cards?pageIndex=1&pageSize=5");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetCardsFromCollection_WithOtherUser_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("collectioncards-owner@example.com", "collectioncards_owner");
+        var intruder = await CreateTestUserAsync("collectioncards-intruder@example.com", "collectioncards_intruder");
+        var collection = await CreateTestCollectionAsync(owner.Id, "Owner Cards Collection");
+        await CreateTestCardsForCollectionAsync(collection.Id);
+
+        using var client = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
+        var response = await client.GetAsync($"/api/collections/{collection.Id}/cards?pageIndex=1&pageSize=5");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetCardsFromCollection_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var user = await CreateTestUserAsync("collectioncards-noauth@example.com", "collectioncards_noauth");
+        var collection = await CreateTestCollectionAsync(user.Id, "NoAuth Cards Collection");
+        using var client = _factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/collections/{collection.Id}/cards?pageIndex=1&pageSize=5");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]

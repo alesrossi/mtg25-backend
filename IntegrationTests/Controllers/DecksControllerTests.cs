@@ -191,6 +191,25 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task CreateDeck_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        using var client = _factory.CreateClient();
+
+        var createRequest = new CreateDeckDto
+        {
+            Name = "Unauthorized Deck",
+            Format = "Modern"
+        };
+
+        var response = await client.PostAsync("/api/decks",
+            new StringContent(JsonSerializer.Serialize(createRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }),
+                Encoding.UTF8,
+                "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task GetDeckById_WithValidId_ReturnsDeck()
     {
         // Arrange
@@ -229,6 +248,29 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetDeckById_WithInvalidId_ReturnsNotFound()
+    {
+        var user = await CreateTestUserAsync("deckid-missing@example.com", "deckid_missing");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var response = await client.GetAsync($"/api/decks/{int.MaxValue}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetDeckById_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("deckid-owner@example.com", "deckid_owner");
+        var deck = await CreateTestDeckAsync(owner.Id, "Unauthorized Deck", "Standard");
+        using var client = _factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/decks/{deck.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
@@ -291,6 +333,47 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task UpdateDeck_WithInvalidId_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("deckupdate-missing@example.com", "deckupdate_missing");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var updateRequest = new UpdateDeckDto
+        {
+            Name = "Missing Deck",
+            Format = "Modern"
+        };
+
+        var response = await client.PutAsync($"/api/decks/{int.MaxValue}",
+            new StringContent(JsonSerializer.Serialize(updateRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }),
+                Encoding.UTF8,
+                "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UpdateDeck_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("deckupdate-noauth@example.com", "deckupdate_noauth");
+        var deck = await CreateTestDeckAsync(owner.Id, "NoAuth Deck", "Standard");
+        using var client = _factory.CreateClient();
+
+        var updateRequest = new UpdateDeckDto
+        {
+            Name = "Unauthorized Update",
+            Format = "Modern"
+        };
+
+        var response = await client.PutAsync($"/api/decks/{deck.Id}",
+            new StringContent(JsonSerializer.Serialize(updateRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }),
+                Encoding.UTF8,
+                "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task DeleteDeck_WithValidId_DeletesDeck()
     {
         // Arrange
@@ -328,6 +411,29 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         using var ownerClient = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
         var getResponse = await ownerClient.GetAsync($"/api/decks/{deck.Id}");
         getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task DeleteDeck_WithInvalidId_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("deckdelete-missing@example.com", "deckdelete_missing");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var response = await client.DeleteAsync($"/api/decks/{int.MaxValue}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task DeleteDeck_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("deckdelete-noauth@example.com", "deckdelete_noauth");
+        var deck = await CreateTestDeckAsync(owner.Id, "NoAuth Delete", "Modern");
+        using var client = _factory.CreateClient();
+
+        var response = await client.DeleteAsync($"/api/decks/{deck.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
@@ -551,6 +657,30 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task ImportDeck_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        await SeedCardDataAsync(new[]
+        {
+            CreateOracleCardDto("42", "oracle-42", "Lightning Bolt", "LEA", "Limited Edition Alpha")
+        });
+
+        using var client = _factory.CreateClient();
+        var request = new DeckImportRequestDto
+        {
+            Name = "Unauthorized Import",
+            Format = "Modern",
+            Decklist = "4 Lightning Bolt"
+        };
+
+        var response = await client.PostAsync("/api/decks/import",
+            new StringContent(JsonSerializer.Serialize(request, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }),
+                Encoding.UTF8,
+                "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task ExportDeck_ReturnsDecklistWithSeparatedSideboard()
     {
         var user = await CreateTestUserAsync("exporter@example.com", "exporter");
@@ -591,6 +721,19 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         var response = await client.GetAsync($"/api/decks/{deck.Id}/export");
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task ExportDeck_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("export-noauth@example.com", "export_noauth");
+        var deck = await CreateTestDeckAsync(owner.Id, "NoAuth Export", "Standard");
+        await SeedDeckCardsAsync(deck.Id, new DeckCardSeed("oracle-20", "Shock", "M10", 4, 0));
+
+        using var client = _factory.CreateClient();
+        var response = await client.GetAsync($"/api/decks/{deck.Id}/export");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     #region Helper Methods

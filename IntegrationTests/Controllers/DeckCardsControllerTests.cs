@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -50,6 +51,30 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
+    public async Task GetDeckCards_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var user = await CreateTestUserAsync("deckcards-noauth@example.com", "deckcards_noauth");
+        var deck = await CreateTestDeckForUserAsync(user.Id);
+        await CreateTestDeckCardsForDeckAsync(deck.Id, 1);
+
+        using var client = _factory.CreateClient();
+        var response = await client.GetAsync($"/api/decks/{deck.Id}/cards");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetDeckCards_WithInvalidDeck_ReturnsNotFound()
+    {
+        var user = await CreateTestUserAsync("deckcards-missing@example.com", "deckcards_missing");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var response = await client.GetAsync($"/api/decks/{int.MaxValue}/cards");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task GetDeckCards_WithMaindeckOnly_ReturnsOnlyMaindeckCards()
     {
         // Arrange
@@ -92,6 +117,45 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
+    public async Task GetDeckCardById_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var user = await CreateTestUserAsync("deckcard-noauth@example.com", "deckcard_noauth");
+        var deck = await CreateTestDeckForUserAsync(user.Id);
+        var deckCard = (await CreateTestDeckCardsForDeckAsync(deck.Id, 1)).First();
+
+        using var client = _factory.CreateClient();
+        var response = await client.GetAsync($"/api/decks/{deck.Id}/cards/{deckCard.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetDeckCardById_WithInvalidDeck_ReturnsNotFound()
+    {
+        var user = await CreateTestUserAsync("deckcard-missingdeck@example.com", "deckcard_missingdeck");
+        var deck = await CreateTestDeckForUserAsync(user.Id);
+        var deckCard = (await CreateTestDeckCardsForDeckAsync(deck.Id, 1)).First();
+
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+        var response = await client.GetAsync($"/api/decks/{int.MaxValue}/cards/{deckCard.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetDeckCardById_WithInvalidCardId_ReturnsNotFound()
+    {
+        var user = await CreateTestUserAsync("deckcard-missingcard@example.com", "deckcard_missingcard");
+        var deck = await CreateTestDeckForUserAsync(user.Id);
+        await CreateTestDeckCardsForDeckAsync(deck.Id, 1);
+
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+        var response = await client.GetAsync($"/api/decks/{deck.Id}/cards/{int.MaxValue}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task CreateDeckCard_WithValidData_CreatesDeckCard()
     {
         // Arrange
@@ -124,6 +188,51 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         createdDeckCard!.DeckId.Should().Be(deck.Id);
         createdDeckCard.Name.Should().Be("Lightning Bolt");
         createdDeckCard.MaindeckQuantity.Should().Be(4);
+    }
+
+    [Fact]
+    public async Task CreateDeckCard_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var user = await CreateTestUserAsync("deckcard-create-noauth@example.com", "deckcard_create_noauth");
+        var deck = await CreateTestDeckForUserAsync(user.Id);
+
+        using var client = _factory.CreateClient();
+        var createDto = new CreateDeckCardDto
+        {
+            OracleId = "oracle-unauth",
+            Name = "Unauthorized",
+            SetCode = "LEA",
+            ImageUrl = "TEST",
+            ArtCrop = "TEST",
+            MaindeckQuantity = 1,
+            SideboardQuantity = 0
+        };
+
+        var response = await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(createDto));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task CreateDeckCard_WithInvalidDeck_ReturnsNotFound()
+    {
+        var user = await CreateTestUserAsync("deckcard-create-missingdeck@example.com", "deckcard_create_missingdeck");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var createDto = new CreateDeckCardDto
+        {
+            OracleId = "oracle-missing",
+            Name = "Missing Deck",
+            SetCode = "SET",
+            ImageUrl = "TEST",
+            ArtCrop = "TEST",
+            MaindeckQuantity = 1,
+            SideboardQuantity = 0
+        };
+
+        var response = await client.PostAsync($"/api/decks/{int.MaxValue}/cards", SerializeToJson(createDto));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -224,6 +333,29 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
+    public async Task GetMissingDeckCards_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("deckmissing-noauth@example.com", "deckmissing_noauth");
+        var deck = await CreateTestDeckForUserAsync(owner.Id);
+
+        using var client = _factory.CreateClient();
+        var response = await client.GetAsync($"/api/decks/{deck.Id}/missing-cards");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetMissingDeckCards_WithInvalidDeck_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("deckmissing-missingdeck@example.com", "deckmissing_missingdeck");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var response = await client.GetAsync($"/api/decks/{int.MaxValue}/missing-cards");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task UpdateDeckCard_WithValidData_UpdatesDeckCard()
     {
         // Arrange
@@ -251,6 +383,91 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
 
         updatedDeckCard!.MaindeckQuantity.Should().Be(2);
         updatedDeckCard.SideboardQuantity.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task DeleteDeckCard_WithValidData_RemovesDeckCard()
+    {
+        var owner = await CreateTestUserAsync("deckcard-delete-owner@example.com", "deckcard_delete_owner");
+        var deck = await CreateTestDeckForUserAsync(owner.Id);
+        var deckCard = (await CreateTestDeckCardsForDeckAsync(deck.Id, 1)).First();
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var response = await client.DeleteAsync($"/api/decks/{deck.Id}/cards/{deckCard.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var listResponse = await client.GetAsync($"/api/decks/{deck.Id}/cards");
+        var payload = await listResponse.Content.ReadAsStringAsync();
+        var cards = DeserializeDeckCardList(payload);
+        cards.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task DeleteDeckCard_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("deckcard-delete-noauth@example.com", "deckcard_delete_noauth");
+        var deck = await CreateTestDeckForUserAsync(owner.Id);
+        var deckCard = (await CreateTestDeckCardsForDeckAsync(deck.Id, 1)).First();
+
+        using var client = _factory.CreateClient();
+        var response = await client.DeleteAsync($"/api/decks/{deck.Id}/cards/{deckCard.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task DeleteDeckCard_WithInvalidDeck_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("deckcard-delete-missingdeck@example.com", "deckcard_delete_missingdeck");
+        var deck = await CreateTestDeckForUserAsync(owner.Id);
+        var deckCard = (await CreateTestDeckCardsForDeckAsync(deck.Id, 1)).First();
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+        var response = await client.DeleteAsync($"/api/decks/{int.MaxValue}/cards/{deckCard.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task DeleteDeckCard_WithInvalidCardId_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("deckcard-delete-missingcard@example.com", "deckcard_delete_missingcard");
+        var deck = await CreateTestDeckForUserAsync(owner.Id);
+        await CreateTestDeckCardsForDeckAsync(deck.Id, 1);
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+        var response = await client.DeleteAsync($"/api/decks/{deck.Id}/cards/{int.MaxValue}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UpdateDeckCard_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var user = await CreateTestUserAsync("deckcard-update-noauth@example.com", "deckcard_update_noauth");
+        var deck = await CreateTestDeckForUserAsync(user.Id);
+        var deckCard = (await CreateTestDeckCardsForDeckAsync(deck.Id, 1)).First();
+
+        using var client = _factory.CreateClient();
+        var updateDto = new UpdateDeckCardDto { MaindeckQuantity = 1, SideboardQuantity = 1 };
+        var response = await client.PutAsync($"/api/decks/{deck.Id}/cards/{deckCard.Id}", SerializeToJson(updateDto));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task UpdateDeckCard_WithInvalidDeck_ReturnsNotFound()
+    {
+        var user = await CreateTestUserAsync("deckcard-update-missingdeck@example.com", "deckcard_update_missingdeck");
+        var deck = await CreateTestDeckForUserAsync(user.Id);
+        var deckCard = (await CreateTestDeckCardsForDeckAsync(deck.Id, 1)).First();
+
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+        var updateDto = new UpdateDeckCardDto { MaindeckQuantity = 1, SideboardQuantity = 0 };
+        var response = await client.PutAsync($"/api/decks/{int.MaxValue}/cards/{deckCard.Id}", SerializeToJson(updateDto));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Text.Json;
 using API.Dtos.Wishlists;
@@ -57,6 +58,41 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
+    public async Task CreateWishlist_WithInvalidData_ReturnsBadRequest()
+    {
+        var user = await CreateTestUserAsync("wishlist-create-invalid@test.com", "wishlist_create_invalid");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var request = new CreateWishlistDto
+        {
+            Name = string.Empty,
+            Description = "",
+            IsPublic = false
+        };
+
+        var response = await client.PostAsync("/api/wishlists", JsonContentHelper.CreateContent(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task CreateWishlist_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        using var client = _factory.CreateClient();
+
+        var request = new CreateWishlistDto
+        {
+            Name = "No Auth Wishlist",
+            Description = "",
+            IsPublic = true
+        };
+
+        var response = await client.PostAsync("/api/wishlists", JsonContentHelper.CreateContent(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task GetWishlists_ForUser_ReturnsOwnedWishlists()
     {
         var owner = await CreateTestUserAsync("wishlist-owner@test.com", "wishlist_owner");
@@ -87,6 +123,16 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         wishlists.Should().NotBeNull();
         wishlists!.Should().HaveCount(2);
         wishlists.Should().OnlyContain(w => w.CardsCount == 0 && w.IndividualCardsCount == 0);
+    }
+
+    [Fact]
+    public async Task GetWishlists_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        using var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/wishlists");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
@@ -127,6 +173,116 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
+    public async Task UpdateWishlist_WithInvalidData_ReturnsBadRequest()
+    {
+        var owner = await CreateTestUserAsync("wishlist-update-invalid@test.com", "wishlist_update_invalid");
+        var wishlist = await CreateWishlistAsync(owner.Id);
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var request = new UpdateWishlistDto
+        {
+            Name = string.Empty,
+            Description = "",
+            IsPublic = false
+        };
+
+        var response = await client.PutAsync($"/api/wishlists/{wishlist.Id}", JsonContentHelper.CreateContent(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task UpdateWishlist_WithInvalidId_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("wishlist-update-missing@test.com", "wishlist_update_missing");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var request = new UpdateWishlistDto
+        {
+            Name = "Missing",
+            Description = "",
+            IsPublic = false
+        };
+
+        var response = await client.PutAsync($"/api/wishlists/{int.MaxValue}", JsonContentHelper.CreateContent(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UpdateWishlist_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("wishlist-update-noauth@test.com", "wishlist_update_noauth");
+        var wishlist = await CreateWishlistAsync(owner.Id);
+        using var client = _factory.CreateClient();
+
+        var request = new UpdateWishlistDto
+        {
+            Name = "Unauthorized",
+            Description = "",
+            IsPublic = true
+        };
+
+        var response = await client.PutAsync($"/api/wishlists/{wishlist.Id}", JsonContentHelper.CreateContent(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetWishlistById_WithValidData_ReturnsWishlist()
+    {
+        var owner = await CreateTestUserAsync("wishlist-get-owner@test.com", "wishlist_get_owner");
+        var wishlist = await CreateWishlistAsync(owner.Id, isPublic: false);
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var response = await client.GetAsync($"/api/wishlists/{wishlist.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadAsStringAsync();
+        var dto = JsonSerializer.Deserialize<WishlistDto>(payload, JsonContentHelper.DefaultOptions);
+
+        dto.Should().NotBeNull();
+        dto!.Id.Should().Be(wishlist.Id);
+        dto.OwnerId.Should().Be(owner.Id);
+    }
+
+    [Fact]
+    public async Task GetWishlistById_WithDifferentUser_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("wishlist-get-owner2@test.com", "wishlist_get_owner2");
+        var intruder = await CreateTestUserAsync("wishlist-get-intruder@test.com", "wishlist_get_intruder");
+        var wishlist = await CreateWishlistAsync(owner.Id, isPublic: false);
+
+        using var client = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
+        var response = await client.GetAsync($"/api/wishlists/{wishlist.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetWishlistById_WithInvalidId_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("wishlist-get-missing@test.com", "wishlist_get_missing");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var response = await client.GetAsync($"/api/wishlists/{int.MaxValue}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetWishlistById_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("wishlist-get-noauth@test.com", "wishlist_get_noauth");
+        var wishlist = await CreateWishlistAsync(owner.Id);
+        using var client = _factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/wishlists/{wishlist.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task DeleteWishlist_RemovesWishlist()
     {
         var owner = await CreateTestUserAsync("wishlist-delete@test.com", "wishlist_delete");
@@ -149,6 +305,42 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         var verificationContext = verificationScope.ServiceProvider.GetRequiredService<MainContext>();
         var deletedWishlist = await verificationContext.Wishlists.FindAsync(wishlist.Id);
         deletedWishlist.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task DeleteWishlist_WithUnauthorizedUser_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("wishlist-delete-owner2@test.com", "wishlist_delete_owner2");
+        var intruder = await CreateTestUserAsync("wishlist-delete-intruder@test.com", "wishlist_delete_intruder");
+        var wishlist = await CreateWishlistAsync(owner.Id, isPublic: false);
+
+        using var client = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
+        var response = await client.DeleteAsync($"/api/wishlists/{wishlist.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task DeleteWishlist_WithInvalidId_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("wishlist-delete-missing@test.com", "wishlist_delete_missing");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var response = await client.DeleteAsync($"/api/wishlists/{int.MaxValue}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task DeleteWishlist_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("wishlist-delete-noauth@test.com", "wishlist_delete_noauth");
+        var wishlist = await CreateWishlistAsync(owner.Id);
+        using var client = _factory.CreateClient();
+
+        var response = await client.DeleteAsync($"/api/wishlists/{wishlist.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
@@ -303,6 +495,309 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         remainingCards!.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task GetWishlistCards_WithNonOwner_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("wishlist-cards-owner@test.com", "wishlist_cards_owner");
+        var intruder = await CreateTestUserAsync("wishlist-cards-intruder@test.com", "wishlist_cards_intruder");
+        var wishlist = await CreateWishlistAsync(owner.Id, isPublic: false);
+
+        using var client = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
+        var response = await client.GetAsync($"/api/wishlists/{wishlist.Id}/cards");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetWishlistCards_WithInvalidWishlist_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("wishlist-cards-missing@test.com", "wishlist_cards_missing");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var response = await client.GetAsync($"/api/wishlists/{int.MaxValue}/cards");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetWishlistCards_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("wishlist-cards-noauth@test.com", "wishlist_cards_noauth");
+        var wishlist = await CreateWishlistAsync(owner.Id);
+        using var client = _factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/wishlists/{wishlist.Id}/cards");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetWishlistCardById_WithValidData_ReturnsCard()
+    {
+        var owner = await CreateTestUserAsync("wishlist-card-detail-owner@test.com", "wishlist_card_detail_owner");
+        var wishlist = await CreateWishlistAsync(owner.Id);
+        var card = await CreateWishlistCardEntityAsync(wishlist.Id);
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var response = await client.GetAsync($"/api/wishlists/{wishlist.Id}/cards/{card.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadAsStringAsync();
+        var dto = JsonSerializer.Deserialize<WishlistCardDto>(payload, JsonContentHelper.DefaultOptions);
+
+        dto.Should().NotBeNull();
+        dto!.Id.Should().Be(card.Id);
+        dto.WishlistId.Should().Be(wishlist.Id);
+    }
+
+    [Fact]
+    public async Task GetWishlistCardById_WithInvalidCardId_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("wishlist-card-detail-missing@test.com", "wishlist_card_detail_missing");
+        var wishlist = await CreateWishlistAsync(owner.Id);
+        await CreateWishlistCardEntityAsync(wishlist.Id);
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var response = await client.GetAsync($"/api/wishlists/{wishlist.Id}/cards/{int.MaxValue}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetWishlistCardById_WithNonOwner_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("wishlist-card-detail-owner2@test.com", "wishlist_card_detail_owner2");
+        var intruder = await CreateTestUserAsync("wishlist-card-detail-intruder@test.com", "wishlist_card_detail_intruder");
+        var wishlist = await CreateWishlistAsync(owner.Id);
+        var card = await CreateWishlistCardEntityAsync(wishlist.Id);
+
+        using var client = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
+        var response = await client.GetAsync($"/api/wishlists/{wishlist.Id}/cards/{card.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetWishlistCardById_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("wishlist-card-detail-noauth@test.com", "wishlist_card_detail_noauth");
+        var wishlist = await CreateWishlistAsync(owner.Id);
+        var card = await CreateWishlistCardEntityAsync(wishlist.Id);
+        using var client = _factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/wishlists/{wishlist.Id}/cards/{card.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task CreateWishlistCard_WithInvalidData_ReturnsBadRequest()
+    {
+        var owner = await CreateTestUserAsync("wishlist-card-create-invalid@test.com", "wishlist_card_create_invalid");
+        var wishlist = await CreateWishlistAsync(owner.Id);
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var request = new List<CreateWishlistCardDto>
+        {
+            new()
+            {
+                OracleId = string.Empty,
+                DesiredQuantity = 0,
+                Notes = string.Empty
+            }
+        };
+
+        var response = await client.PostAsync($"/api/wishlists/{wishlist.Id}/cards", JsonContentHelper.CreateContent(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task CreateWishlistCard_WithNonOwner_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("wishlist-card-create-owner@test.com", "wishlist_card_create_owner");
+        var intruder = await CreateTestUserAsync("wishlist-card-create-intruder@test.com", "wishlist_card_create_intruder");
+        var wishlist = await CreateWishlistAsync(owner.Id);
+
+        using var client = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
+        var request = new List<CreateWishlistCardDto>
+        {
+            new()
+            {
+                OracleId = "89f612d6-7c59-4a7b-a87d-45f789e88ba5",
+                DesiredQuantity = 1,
+                Notes = "test"
+            }
+        };
+
+        var response = await client.PostAsync($"/api/wishlists/{wishlist.Id}/cards", JsonContentHelper.CreateContent(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task CreateWishlistCard_WithInvalidWishlist_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("wishlist-card-create-missing@test.com", "wishlist_card_create_missing");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var request = new List<CreateWishlistCardDto>
+        {
+            new()
+            {
+                OracleId = "89f612d6-7c59-4a7b-a87d-45f789e88ba5",
+                DesiredQuantity = 1,
+                Notes = "test"
+            }
+        };
+
+        var response = await client.PostAsync($"/api/wishlists/{int.MaxValue}/cards", JsonContentHelper.CreateContent(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task CreateWishlistCard_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        using var client = _factory.CreateClient();
+        var request = new List<CreateWishlistCardDto>
+        {
+            new()
+            {
+                OracleId = "89f612d6-7c59-4a7b-a87d-45f789e88ba5",
+                DesiredQuantity = 1,
+                Notes = "test"
+            }
+        };
+
+        var response = await client.PostAsync($"/api/wishlists/{int.MaxValue}/cards", JsonContentHelper.CreateContent(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task UpdateWishlistCard_WithInvalidData_ReturnsBadRequest()
+    {
+        var owner = await CreateTestUserAsync("wishlist-card-update-invalid@test.com", "wishlist_card_update_invalid");
+        var wishlist = await CreateWishlistAsync(owner.Id);
+        var card = await CreateWishlistCardEntityAsync(wishlist.Id);
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var request = new UpdateWishlistCardDto
+        {
+            Name = string.Empty,
+            SetCode = string.Empty,
+            DesiredQuantity = 0,
+            Notes = string.Empty
+        };
+
+        var response = await client.PutAsync($"/api/wishlists/{wishlist.Id}/cards/{card.Id}", JsonContentHelper.CreateContent(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task UpdateWishlistCard_WithInvalidCardId_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("wishlist-card-update-missing@test.com", "wishlist_card_update_missing");
+        var wishlist = await CreateWishlistAsync(owner.Id);
+        await CreateWishlistCardEntityAsync(wishlist.Id);
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var request = new UpdateWishlistCardDto
+        {
+            Name = "New Name",
+            SetCode = "SET",
+            DesiredQuantity = 1,
+            Notes = "notes"
+        };
+
+        var response = await client.PutAsync($"/api/wishlists/{wishlist.Id}/cards/{int.MaxValue}", JsonContentHelper.CreateContent(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UpdateWishlistCard_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("wishlist-card-update-noauth@test.com", "wishlist_card_update_noauth");
+        var wishlist = await CreateWishlistAsync(owner.Id);
+        var card = await CreateWishlistCardEntityAsync(wishlist.Id);
+        using var client = _factory.CreateClient();
+
+        var request = new UpdateWishlistCardDto
+        {
+            Name = "New Name",
+            SetCode = "SET",
+            DesiredQuantity = 1,
+            Notes = "notes"
+        };
+
+        var response = await client.PutAsync($"/api/wishlists/{wishlist.Id}/cards/{card.Id}", JsonContentHelper.CreateContent(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task DeleteWishlistCard_WithNonOwner_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("wishlist-card-delete-owner@test.com", "wishlist_card_delete_owner");
+        var intruder = await CreateTestUserAsync("wishlist-card-delete-intruder@test.com", "wishlist_card_delete_intruder");
+        var wishlist = await CreateWishlistAsync(owner.Id);
+        var card = await CreateWishlistCardEntityAsync(wishlist.Id);
+
+        using var client = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
+        var response = await client.DeleteAsync($"/api/wishlists/{wishlist.Id}/cards/{card.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task DeleteWishlistCard_WithInvalidId_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("wishlist-card-delete-missing@test.com", "wishlist_card_delete_missing");
+        var wishlist = await CreateWishlistAsync(owner.Id);
+        await CreateWishlistCardEntityAsync(wishlist.Id);
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var response = await client.DeleteAsync($"/api/wishlists/{wishlist.Id}/cards/{int.MaxValue}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task DeleteWishlistCard_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("wishlist-card-delete-noauth@test.com", "wishlist_card_delete_noauth");
+        var wishlist = await CreateWishlistAsync(owner.Id);
+        var card = await CreateWishlistCardEntityAsync(wishlist.Id);
+        using var client = _factory.CreateClient();
+
+        var response = await client.DeleteAsync($"/api/wishlists/{wishlist.Id}/cards/{card.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
     private Task<AppUser> CreateTestUserAsync(string email, string userName) =>
         TestUserFactory.CreateAsync(_factory.Services, _testDataBuilder, email, userName, requirePassword: true);
+
+    private async Task<Wishlist> CreateWishlistAsync(string ownerId, bool isPublic = false)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+        var wishlist = _testDataBuilder.CreateWishlist(ownerId, isPublic);
+        context.Wishlists.Add(wishlist);
+        await context.SaveChangesAsync();
+        return wishlist;
+    }
+
+    private async Task<WishlistCard> CreateWishlistCardEntityAsync(int wishlistId, string? oracleId = null, string? name = null)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+        var card = _testDataBuilder.CreateWishlistCard(wishlistId, oracleId ?? Guid.NewGuid().ToString(), name ?? "Test Wishlist Card");
+        context.WishlistCards.Add(card);
+        await context.SaveChangesAsync();
+        return card;
+    }
 }

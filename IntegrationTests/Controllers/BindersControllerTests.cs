@@ -56,6 +56,41 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task CreateBinder_WithInvalidData_ReturnsBadRequest()
+    {
+        var user = await CreateTestUserAsync("binder-create-invalid@test.com", "binder_create_invalid");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var request = new CreateBinderDto
+        {
+            Name = string.Empty,
+            Description = "Missing name",
+            IsPublic = false
+        };
+
+        var response = await client.PostAsync("/api/binders", Serialize(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task CreateBinder_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        using var client = _factory.CreateClient();
+
+        var request = new CreateBinderDto
+        {
+            Name = "No Auth Binder",
+            Description = "Should fail",
+            IsPublic = false
+        };
+
+        var response = await client.PostAsync("/api/binders", Serialize(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task GetBinders_ForUser_ReturnsOwnedBinders()
     {
         var owner = await CreateTestUserAsync("binder-owner@test.com", "binder_owner");
@@ -91,6 +126,16 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task GetBinders_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        using var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/binders");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task GetBinderById_RespectsPrivacySettings()
     {
         var owner = await CreateTestUserAsync("binder-privacy-owner@test.com", "binder_privacy_owner");
@@ -116,6 +161,17 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var privateResponse = await client.GetAsync($"/api/binders/{privateBinder.Id}");
         privateResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetBinderById_WithInvalidId_ReturnsNotFound()
+    {
+        var user = await CreateTestUserAsync("binder-notfound@test.com", "binder_notfound");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var response = await client.GetAsync($"/api/binders/{int.MaxValue}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -191,6 +247,44 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task UpdateBinder_WithNonOwner_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("binder-update-owner@test.com", "binder_update_owner");
+        var intruder = await CreateTestUserAsync("binder-update-intruder@test.com", "binder_update_intruder");
+        var binder = await CreateBinderAsync(owner.Id);
+
+        using var client = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
+        var request = new UpdateBinderDto
+        {
+            Name = "Intruder Update",
+            Description = "Should fail",
+            IsPublic = true
+        };
+
+        var response = await client.PutAsync($"/api/binders/{binder.Id}", Serialize(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task UpdateBinder_WithInvalidBinderId_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("binder-update-missing@test.com", "binder_update_missing");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var request = new UpdateBinderDto
+        {
+            Name = "Missing Binder",
+            Description = "Should fail",
+            IsPublic = false
+        };
+
+        var response = await client.PutAsync($"/api/binders/{int.MaxValue}", Serialize(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task DeleteBinder_RemovesBinder()
     {
         var owner = await CreateTestUserAsync("binder-delete@test.com", "binder_delete");
@@ -213,6 +307,30 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var verificationContext = verificationScope.ServiceProvider.GetRequiredService<MainContext>();
         var deletedBinder = await verificationContext.TradeBinders.FindAsync(binder.Id);
         deletedBinder.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task DeleteBinder_WithNonOwner_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("binder-delete-owner@test.com", "binder_delete_owner");
+        var intruder = await CreateTestUserAsync("binder-delete-intruder@test.com", "binder_delete_intruder");
+        var binder = await CreateBinderAsync(owner.Id);
+
+        using var client = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
+        var response = await client.DeleteAsync($"/api/binders/{binder.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task DeleteBinder_WithInvalidId_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("binder-delete-missing@test.com", "binder_delete_missing");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var response = await client.DeleteAsync($"/api/binders/{int.MaxValue}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -295,6 +413,213 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task DeleteBinderCard_WithNonOwner_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("binder-card-delete-owner@test.com", "binder_card_delete_owner");
+        var intruder = await CreateTestUserAsync("binder-card-delete-intruder@test.com", "binder_card_delete_intruder");
+        var (binder, card) = await CreateBinderWithCardAsync(owner.Id);
+        var binderCard = await CreateBinderCardAsync(binder.Id, card.Id);
+
+        using var client = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
+        var response = await client.DeleteAsync($"/api/binders/{binder.Id}/cards/{binderCard.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task DeleteBinderCard_WithInvalidId_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("binder-card-delete-missing@test.com", "binder_card_delete_missing");
+        var (binder, card) = await CreateBinderWithCardAsync(owner.Id);
+        await CreateBinderCardAsync(binder.Id, card.Id);
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+        var response = await client.DeleteAsync($"/api/binders/{binder.Id}/cards/{int.MaxValue}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UpdateBinderCard_WithNegativeQuantity_ReturnsBadRequest()
+    {
+        var owner = await CreateTestUserAsync("binder-card-update-invalid@test.com", "binder_card_update_invalid");
+        var (binder, card) = await CreateBinderWithCardAsync(owner.Id);
+        var binderCard = await CreateBinderCardAsync(binder.Id, card.Id);
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+        var request = new UpdateBinderCardDto
+        {
+            QuantityToTrade = -1,
+            Notes = "invalid"
+        };
+
+        var response = await client.PutAsync($"/api/binders/{binder.Id}/cards/{binderCard.Id}", Serialize(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task UpdateBinderCard_WithNonOwner_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("binder-card-update-owner@test.com", "binder_card_update_owner");
+        var intruder = await CreateTestUserAsync("binder-card-update-intruder@test.com", "binder_card_update_intruder");
+        var (binder, card) = await CreateBinderWithCardAsync(owner.Id);
+        var binderCard = await CreateBinderCardAsync(binder.Id, card.Id);
+
+        using var client = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
+        var request = new UpdateBinderCardDto
+        {
+            QuantityToTrade = 1,
+            Notes = "nope"
+        };
+
+        var response = await client.PutAsync($"/api/binders/{binder.Id}/cards/{binderCard.Id}", Serialize(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task UpdateBinderCard_WithInvalidIdentifier_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("binder-card-update-missing@test.com", "binder_card_update_missing");
+        var (binder, card) = await CreateBinderWithCardAsync(owner.Id);
+        await CreateBinderCardAsync(binder.Id, card.Id);
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+        var request = new UpdateBinderCardDto
+        {
+            QuantityToTrade = 1,
+            Notes = "missing"
+        };
+
+        var response = await client.PutAsync($"/api/binders/{binder.Id}/cards/{int.MaxValue}", Serialize(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetBinderCards_WithInvalidBinderId_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("binder-cards-missing@test.com", "binder_cards_missing");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var response = await client.GetAsync($"/api/binders/{int.MaxValue}/cards");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetBinderCardById_WithValidData_ReturnsCard()
+    {
+        var owner = await CreateTestUserAsync("binder-card-detail@test.com", "binder_card_detail");
+        var (binder, card) = await CreateBinderWithCardAsync(owner.Id);
+        var binderCard = await CreateBinderCardAsync(binder.Id, card.Id, quantityToTrade: 1);
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+        var response = await client.GetAsync($"/api/binders/{binder.Id}/cards/{binderCard.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadAsStringAsync();
+        var dto = JsonSerializer.Deserialize<BinderCardDto>(payload, JsonContentHelper.DefaultOptions);
+
+        dto.Should().NotBeNull();
+        dto!.Id.Should().Be(binderCard.Id);
+        dto.TradeBinderId.Should().Be(binder.Id);
+        dto.CardId.Should().Be(card.Id);
+    }
+
+    [Fact]
+    public async Task GetBinderCardById_WithNonOwner_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("binder-card-owner2@test.com", "binder_card_owner2");
+        var intruder = await CreateTestUserAsync("binder-card-intruder@test.com", "binder_card_intruder");
+        var (binder, card) = await CreateBinderWithCardAsync(owner.Id);
+        var binderCard = await CreateBinderCardAsync(binder.Id, card.Id);
+
+        using var client = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
+        var response = await client.GetAsync($"/api/binders/{binder.Id}/cards/{binderCard.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetBinderCardById_WithInvalidId_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("binder-card-missing@test.com", "binder_card_missing");
+        var (binder, card) = await CreateBinderWithCardAsync(owner.Id);
+        await CreateBinderCardAsync(binder.Id, card.Id);
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+        var response = await client.GetAsync($"/api/binders/{binder.Id}/cards/{int.MaxValue}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task CreateBinderCards_WithQuantityExceedingInventory_ReturnsBadRequest()
+    {
+        var owner = await CreateTestUserAsync("binder-card-create-invalid@test.com", "binder_card_create_invalid");
+        var (binder, card) = await CreateBinderWithCardAsync(owner.Id, cardQuantity: 1);
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+        var request = new List<CreateBinderCardDto>
+        {
+            new()
+            {
+                CardId = card.Id,
+                QuantityToTrade = 10,
+                Notes = "too many"
+            }
+        };
+
+        var response = await client.PostAsync($"/api/binders/{binder.Id}/cards", Serialize(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task CreateBinderCards_WithNonOwner_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("binder-card-create-owner@test.com", "binder_card_create_owner");
+        var intruder = await CreateTestUserAsync("binder-card-create-intruder@test.com", "binder_card_create_intruder");
+        var (binder, card) = await CreateBinderWithCardAsync(owner.Id);
+
+        using var client = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
+        var request = new List<CreateBinderCardDto>
+        {
+            new()
+            {
+                CardId = card.Id,
+                QuantityToTrade = 1
+            }
+        };
+
+        var response = await client.PostAsync($"/api/binders/{binder.Id}/cards", Serialize(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task CreateBinderCards_WithInvalidBinder_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("binder-card-create-missing@test.com", "binder_card_create_missing");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var request = new List<CreateBinderCardDto>
+        {
+            new()
+            {
+                CardId = 123,
+                QuantityToTrade = 1
+            }
+        };
+
+        var response = await client.PostAsync($"/api/binders/{int.MaxValue}/cards", Serialize(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task BinderCards_PublicBinderVisibleToOtherUsers()
     {
         var owner = await CreateTestUserAsync("binder-public-owner@test.com", "binder_public_owner");
@@ -362,6 +687,61 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var response = await client.GetAsync($"/api/binders/{binder.Id}/cards");
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    private async Task<TradeBinder> CreateBinderAsync(string ownerId, bool isPublic = false)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+        var binder = _testDataBuilder.CreateTradeBinder(ownerId, isPublic);
+        context.TradeBinders.Add(binder);
+        await context.SaveChangesAsync();
+        return binder;
+    }
+
+    private async Task<(TradeBinder binder, Card card)> CreateBinderWithCardAsync(
+        string ownerId,
+        bool isPublic = false,
+        int cardQuantity = 4)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+
+        var binder = _testDataBuilder.CreateTradeBinder(ownerId, isPublic);
+        var collection = _testDataBuilder.CreateCollection(ownerId);
+        context.Collections.Add(collection);
+        await context.SaveChangesAsync();
+
+        var card = _testDataBuilder.CreateCard(collection.Id, name: "Trade Card", price: 1.5);
+        card.Quantity = cardQuantity;
+        context.Cards.Add(card);
+        await context.SaveChangesAsync();
+
+        context.TradeBinders.Add(binder);
+        await context.SaveChangesAsync();
+
+        return (binder, card);
+    }
+
+    private async Task<BinderCard> CreateBinderCardAsync(int binderId, int cardId, int quantityToTrade = 1)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+        var card = await context.Cards.FindAsync(cardId) ?? throw new InvalidOperationException($"Card {cardId} not found");
+
+        var binderCard = new BinderCard
+        {
+            TradeBinderId = binderId,
+            CardId = cardId,
+            Name = card.Name,
+            QuantityToTrade = quantityToTrade,
+            Notes = "Seed card",
+            Card = card
+        };
+
+        context.BinderCards.Add(binderCard);
+        await context.SaveChangesAsync();
+        return binderCard;
     }
 
     private static StringContent Serialize<T>(T value) => JsonContentHelper.CreateContent(value);

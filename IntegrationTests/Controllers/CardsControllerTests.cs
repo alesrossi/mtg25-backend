@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -106,6 +107,144 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task UpdateCard_WithValidData_ReturnsUpdatedCard()
+    {
+        var owner = await CreateTestUserAsync("cardupdate@example.com", "cardupdate");
+        var collection = await CreateTestCollectionAsync(owner.Id, "Update Collection");
+        var card = await CreateTestCardAsync(collection.Id, "Test Card");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var updateDto = new UpdateCollectionCardDto
+        {
+            CollectionId = collection.Id,
+            Quantity = card.Quantity + 2,
+            Language = "English",
+            Condition = "NearMint",
+            IsFoil = card.IsFoil,
+            PurchasePrice = card.PurchasePrice + 1,
+            PurchasePriceCurrency = "USD",
+            IsMisprint = card.IsMisprint,
+            IsAltered = card.IsAltered
+        };
+
+        var content = new StringContent(JsonSerializer.Serialize(updateDto), Encoding.UTF8, "application/json");
+        var response = await client.PutAsync($"/api/cards/{card.Id}", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadAsStringAsync();
+        var updatedCard = JsonSerializer.Deserialize<Card>(payload, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        updatedCard.Should().NotBeNull();
+        updatedCard!.Quantity.Should().Be(updateDto.Quantity);
+        updatedCard.PurchasePrice.Should().Be(updateDto.PurchasePrice);
+    }
+
+    [Fact]
+    public async Task UpdateCard_WithInvalidQuantity_ReturnsBadRequest()
+    {
+        var owner = await CreateTestUserAsync("cardupdate-invalid@example.com", "cardupdate_invalid");
+        var collection = await CreateTestCollectionAsync(owner.Id, "Invalid Update Collection");
+        var card = await CreateTestCardAsync(collection.Id, "Invalid Card");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var updateDto = new UpdateCollectionCardDto
+        {
+            CollectionId = collection.Id,
+            Quantity = 0,
+            Language = "English",
+            Condition = "NearMint",
+            IsFoil = false,
+            PurchasePrice = card.PurchasePrice,
+            PurchasePriceCurrency = "USD",
+            IsMisprint = false,
+            IsAltered = false
+        };
+
+        var content = new StringContent(JsonSerializer.Serialize(updateDto), Encoding.UTF8, "application/json");
+        var response = await client.PutAsync($"/api/cards/{card.Id}", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task UpdateCard_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("cardupdate-noauth@example.com", "cardupdate_noauth");
+        var collection = await CreateTestCollectionAsync(owner.Id, "No Auth Update Collection");
+        var card = await CreateTestCardAsync(collection.Id, "No Auth Card");
+        using var client = _factory.CreateClient();
+
+        var updateDto = new UpdateCollectionCardDto
+        {
+            CollectionId = collection.Id,
+            Quantity = card.Quantity,
+            Language = "English",
+            Condition = "NearMint",
+            IsFoil = false,
+            PurchasePrice = card.PurchasePrice,
+            PurchasePriceCurrency = "USD",
+            IsMisprint = false,
+            IsAltered = false
+        };
+
+        var response = await client.PutAsync($"/api/cards/{card.Id}", new StringContent(JsonSerializer.Serialize(updateDto), Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task UpdateCard_WithInvalidId_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("cardupdate-missing@example.com", "cardupdate_missing");
+        var collection = await CreateTestCollectionAsync(owner.Id, "Missing Update Collection");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var updateDto = new UpdateCollectionCardDto
+        {
+            CollectionId = collection.Id,
+            Quantity = 1,
+            Language = "English",
+            Condition = "NearMint",
+            IsFoil = false,
+            PurchasePrice = 1,
+            PurchasePriceCurrency = "USD",
+            IsMisprint = false,
+            IsAltered = false
+        };
+
+        var response = await client.PutAsync($"/api/cards/{int.MaxValue}", new StringContent(JsonSerializer.Serialize(updateDto), Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UpdateCard_WithOtherUsersCard_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("cardupdate-owner@example.com", "cardupdate_owner");
+        var intruder = await CreateTestUserAsync("cardupdate-intruder@example.com", "cardupdate_intruder");
+        var collection = await CreateTestCollectionAsync(owner.Id, "Owner Collection");
+        var card = await CreateTestCardAsync(collection.Id, "Owner Card");
+
+        using var client = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
+        var updateDto = new UpdateCollectionCardDto
+        {
+            CollectionId = collection.Id,
+            Quantity = card.Quantity,
+            Language = "English",
+            Condition = "NearMint",
+            IsFoil = false,
+            PurchasePrice = card.PurchasePrice,
+            PurchasePriceCurrency = "USD",
+            IsMisprint = false,
+            IsAltered = false
+        };
+
+        var response = await client.PutAsync($"/api/cards/{card.Id}", new StringContent(JsonSerializer.Serialize(updateDto), Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task DeleteCard_WithValidId_DeletesCard()
     {
         // Arrange
@@ -171,6 +310,19 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task DeleteCard_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var user = await CreateTestUserAsync("deletecard-noauth@example.com", "deletecard_noauth");
+        var collection = await CreateTestCollectionAsync(user.Id, "Delete Card NoAuth Collection");
+        var card = await CreateTestCardAsync(collection.Id, "Delete Card NoAuth");
+
+        using var client = _factory.CreateClient();
+        var response = await client.DeleteAsync($"/api/cards/{card.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task SearchCards_WithValidQuery_ReturnsMatchingCards()
     {
         // Arrange
@@ -194,6 +346,27 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         cards.Should().NotBeNull();
         cards.Should().HaveCountGreaterThan(0, "because there should be cards matching 'Lightning'");
+    }
+
+    [Fact]
+    public async Task SearchCards_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        using var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/cards/search/Lightning");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task SearchCards_WithNoMatches_ReturnsNotFound()
+    {
+        var user = await CreateTestUserAsync("searcher-nomatch@example.com", "searcher_nomatch");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var response = await client.GetAsync("/api/cards/search/NoSuchCardNameShouldExist");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -237,6 +410,116 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
     
     [Fact]
+    public async Task AddNewCard_WithInvalidCondition_ReturnsBadRequest()
+    {
+        var user = await CreateTestUserAsync("cardadder-invalid@example.com", "cardadder_invalid");
+        var collection = await CreateTestCollectionAsync(user.Id, "Invalid Card Collection");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var request = new
+        {
+            OracleId = "97398ad2-675b-4a34-aab7-935dd6714f1c",
+            CollectionId = collection.Id,
+            Quantity = 1,
+            Language = "en",
+            Condition = "InvalidCondition",
+            IsFoil = false,
+            PurchasePrice = 1.0,
+            PurchasePriceCurrency = "USD",
+            IsMisprint = false,
+            IsAltered = false
+        };
+
+        var response = await client.PostAsync("/api/cards", new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task AddNewCard_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var user = await CreateTestUserAsync("cardadder-noauth@example.com", "cardadder_noauth");
+        var collection = await CreateTestCollectionAsync(user.Id, "NoAuth Collection");
+        using var client = _factory.CreateClient();
+
+        var request = new InternalCardDto
+        {
+            OracleId = "97398ad2-675b-4a34-aab7-935dd6714f1c",
+            CollectionId = collection.Id,
+            Quantity = 1,
+            Language = "en",
+            Condition = "NearMint",
+            IsFoil = false,
+            PurchasePrice = 1.0,
+            PurchasePriceCurrency = "USD",
+            IsMisprint = false,
+            IsAltered = false
+        };
+
+        var response = await client.PostAsync("/api/cards", new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task AddNewCard_WithUnknownCollection_ReturnsNotFound()
+    {
+        var user = await CreateTestUserAsync("cardadder-missing@example.com", "cardadder_missing");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var request = new InternalCardDto
+        {
+            OracleId = "97398ad2-675b-4a34-aab7-935dd6714f1c",
+            CollectionId = int.MaxValue,
+            Quantity = 1,
+            Language = "en",
+            Condition = "NearMint",
+            IsFoil = false,
+            PurchasePrice = 1.0,
+            PurchasePriceCurrency = "USD",
+            IsMisprint = false,
+            IsAltered = false
+        };
+
+        var response = await client.PostAsync("/api/cards", new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task ProcessCardList_WithValidInput_ReturnsOracleCards()
+    {
+        var user = await CreateTestUserAsync("cardlist-user@example.com", "cardlist_user");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var request = new CardListDto
+        {
+            CardList = "Counterspell\nLightning Bolt"
+        };
+
+        var response = await client.PostAsync("/api/cards/card-list", new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadAsStringAsync();
+        var cards = JsonSerializer.Deserialize<List<OracleCardDto>>(payload, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        cards.Should().NotBeNull();
+        cards!.Should().HaveCount(2);
+        cards.Select(c => c.Name).Should().Contain(new[] { "Counterspell", "Lightning Bolt" });
+    }
+
+    [Fact]
+    public async Task ProcessCardList_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        using var client = _factory.CreateClient();
+        var request = new CardListDto { CardList = "Counterspell" };
+
+        var response = await client.PostAsync("/api/cards/card-list", new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+    
+    [Fact]
     public async Task GetCardFromName_ReturnsCard()
     {
         // Arrange
@@ -258,7 +541,28 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         returnedCard.Name.Should().Be(cardName);
         returnedCard.ImageUris!.Large.Should().NotBeNull();
     }
-    
+
+    [Fact]
+    public async Task GetCardFromName_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        using var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/cards/sf/name/Counterspell");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetCardFromName_WithUnknownCard_ReturnsNotFound()
+    {
+        var user = await CreateTestUserAsync("cardname-missing@example.com", "cardname_missing");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var response = await client.GetAsync("/api/cards/sf/name/NotARealCardName");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
     [Fact]
     public async Task GetCardFromOracleId_ReturnsCard()
     {
@@ -282,6 +586,62 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         returnedCard.Id.Should().Be(oracleId);
         returnedCard.Name.Should().Be(cardName);
         returnedCard.ImageUris!.Large.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task GetCardFromOracleId_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        using var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/cards/sf/id/0df55e3f-14de-46ef-b6b1-616618724d9e");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetCardFromOracleId_WithUnknownId_ReturnsNotFound()
+    {
+        var user = await CreateTestUserAsync("oracleid-missing@example.com", "oracleid_missing");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var response = await client.GetAsync($"/api/cards/sf/id/{Guid.NewGuid()}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetCardVersions_WithValidName_ReturnsVersions()
+    {
+        var user = await CreateTestUserAsync("versions-user@example.com", "versions_user");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var response = await client.GetAsync("/api/cards/Counterspell/versions");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadAsStringAsync();
+        using var json = JsonDocument.Parse(payload);
+        json.RootElement.GetArrayLength().Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public async Task GetCardVersions_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        using var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/cards/Counterspell/versions");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetCardVersions_WithUnknownCard_ReturnsNotFound()
+    {
+        var user = await CreateTestUserAsync("versions-missing@example.com", "versions_missing");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var response = await client.GetAsync("/api/cards/UnknownCardName/versions");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     #region Helper Methods
