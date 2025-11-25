@@ -247,6 +247,7 @@ public static class LeaguesEndpoint
         int id,
         [FromServices] UserManager<AppUser> userManager, 
         [FromServices] AppIdentityDbContext  dbContext,
+        [FromServices] IValidationService validationService,
         [FromBody] UpdateLeagueDto updateLeague,
         HttpContext context)
     {
@@ -259,6 +260,12 @@ public static class LeaguesEndpoint
         var league = await dbContext.FindAsync<League>(id);
         if (league is null) return Results.NotFound();
         if (league.OwnerId != user.Id) return Results.Unauthorized();
+
+        var (isValid, errors) = validationService.ValidateModel(updateLeague);
+        if (!isValid)
+        {
+            return Results.BadRequest(new { errors });
+        }
         
         if (updateLeague.Name != null) league.Name = updateLeague.Name;
         if (updateLeague.TotalRounds != null) league.TotalRounds = (int)updateLeague.TotalRounds;
