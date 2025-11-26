@@ -69,7 +69,7 @@ public static class WishlistsEndpoint
         group.MapPost("/{wishlistId:int}/cards", CreateWishlistCardAsync)
             .RequireAuthorization()
             .WithSummary("Add card to wishlist")
-            .Produces<List<WishlistCard>>(StatusCodes.Status200OK)
+            .Produces<List<WishlistCardDto>>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
@@ -271,7 +271,7 @@ public static class WishlistsEndpoint
         unitOfWork.Repository<WishlistCard>().Add(cardList);
         await unitOfWork.Complete();
 
-        return Results.Ok(cardList);
+        return Results.Ok(cardList.Select(MapToDto).ToList());
     }
 
     private static async Task<IResult> UpdateWishlistCardAsync(
@@ -382,7 +382,8 @@ public static class WishlistsEndpoint
             DesiredQuantity = card.DesiredQuantity,
             IsFoil = card.IsFoil ?? false,
             Language = card.Language,
-            Notes = card.Notes
+            Notes = card.Notes,
+            OriginalDeckId = card.OriginalDeckId
         };
     }
 }
