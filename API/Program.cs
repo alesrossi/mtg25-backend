@@ -14,10 +14,12 @@ using Infrastructure.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Microsoft.OpenApi.Any;
+using System.IO.Compression;
 
 namespace API;
 
@@ -131,6 +133,23 @@ public class Program
         builder.Services.AddScoped<IDecklistParserService, DecklistParserService>();
         builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
         builder.Services.AddIdentityServices(builder.Configuration);
+
+        builder.Services.AddResponseCompression(options =>
+        {
+            options.EnableForHttps = true;
+            options.Providers.Clear();
+            options.Providers.Add<BrotliCompressionProvider>();
+            options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[]
+            {
+                "application/json",
+                "application/problem+json"
+            });
+        });
+
+        builder.Services.Configure<BrotliCompressionProviderOptions>(options =>
+        {
+            options.Level = CompressionLevel.Fastest;
+        });
 
         
         // JWT Configuration
@@ -361,6 +380,8 @@ public class Program
 
         // app.UseHttpsRedirection();
         
+        app.UseResponseCompression();
+
         app.UseAuthentication();
         app.UseAuthorization();
         
