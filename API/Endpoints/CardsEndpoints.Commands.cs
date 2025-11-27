@@ -9,8 +9,6 @@ using Core.Interfaces;
 using Core.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.OpenApi.Any;
-using Microsoft.OpenApi.Models;
 
 namespace API.Endpoints;
 
@@ -26,55 +24,7 @@ public static partial class CardsEndpoints
             .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
-            .WithOpenApi(operation =>
-            {
-                SetProblemExample(operation, StatusCodes.Status400BadRequest, new OpenApiObject
-                {
-                    ["type"] = new OpenApiString("https://httpstatuses.io/400"),
-                    ["title"] = new OpenApiString("Invalid quantity"),
-                    ["status"] = new OpenApiInteger(400),
-                    ["detail"] = new OpenApiString("Quantity must be greater than zero for a card update."),
-                    ["instance"] = new OpenApiString("/api/cards/42"),
-                    ["traceId"] = new OpenApiString("00-11111111111111111111111111111111-aaaaaaaaaaaaaaaa-00"),
-                    ["errorCode"] = new OpenApiString("card-invalid-quantity")
-                });
-
-                SetProblemExample(operation, StatusCodes.Status401Unauthorized, new OpenApiObject
-                {
-                    ["type"] = new OpenApiString("https://httpstatuses.io/401"),
-                    ["title"] = new OpenApiString("Authentication required"),
-                    ["status"] = new OpenApiInteger(401),
-                    ["detail"] = new OpenApiString("You must be logged in to update cards."),
-                    ["instance"] = new OpenApiString("/api/cards/42"),
-                    ["traceId"] = new OpenApiString("00-22222222222222222222222222222222-bbbbbbbbbbbbbbbb-00"),
-                    ["errorCode"] = new OpenApiString("card-update-auth-required")
-                });
-
-                SetProblemExample(operation, StatusCodes.Status404NotFound, new OpenApiObject
-                {
-                    ["type"] = new OpenApiString("https://httpstatuses.io/404"),
-                    ["title"] = new OpenApiString("Card not found"),
-                    ["status"] = new OpenApiInteger(404),
-                    ["detail"] = new OpenApiString("No card with id 42 exists in your collections."),
-                    ["instance"] = new OpenApiString("/api/cards/42"),
-                    ["traceId"] = new OpenApiString("00-33333333333333333333333333333333-cccccccccccccccc-00"),
-                    ["errorCode"] = new OpenApiString("card-not-found")
-                });
-
-                SetProblemExample(operation, StatusCodes.Status500InternalServerError, new OpenApiObject
-                {
-                    ["type"] = new OpenApiString("https://httpstatuses.io/500"),
-                    ["title"] = new OpenApiString("Card update failed"),
-                    ["status"] = new OpenApiInteger(500),
-                    ["detail"] = new OpenApiString("An unexpected error occurred while updating the card."),
-                    ["instance"] = new OpenApiString("/api/cards/42"),
-                    ["traceId"] = new OpenApiString("00-44444444444444444444444444444444-dddddddddddddddd-00"),
-                    ["errorCode"] = new OpenApiString("card-update-error")
-                });
-
-                return operation;
-            });
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json");
 
         group.MapDelete("/{id:int}", DeleteCardFromIdAsync)
             .RequireAuthorization()
@@ -346,19 +296,4 @@ public static partial class CardsEndpoints
         return Task.FromResult(Results.Ok(oracleCardList));
     }
 
-    private static void SetProblemExample(OpenApiOperation operation, int statusCode, IOpenApiAny example)
-    {
-        var statusKey = statusCode.ToString();
-        if (!operation.Responses.TryGetValue(statusKey, out var response))
-        {
-            return;
-        }
-
-        if (!response.Content.TryGetValue("application/problem+json", out var mediaType))
-        {
-            return;
-        }
-
-        mediaType.Example = example;
-    }
 }

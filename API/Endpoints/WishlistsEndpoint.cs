@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using API.Dtos.Wishlists;
+using API.Extensions;
 using Core.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
@@ -10,7 +11,9 @@ public static partial class WishlistsEndpoint
 {
     public static void MapWishlistsEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/api/wishlists").WithTags("Wishlists");
+        var group = app.MapGroup("/api/wishlists")
+            .WithTags("Wishlists")
+            .WithProblemDetailsContract();
 
         MapWishlistQueries(group);
         MapWishlistCommands(group);

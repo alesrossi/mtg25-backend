@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using API.Configuration;
 using API.Endpoints;
 using API.Extensions;
+using API.Filters;
 using API.Helpers;
 using API.Services;
 using Core.Interfaces;
@@ -123,6 +124,7 @@ public class Program
         
         // Add CardDataService as a singleton
         builder.Services.AddSingleton<CardDataService>();
+        builder.Services.AddScoped<ProblemDetailsEndpointFilter>();
         builder.Services.AddScoped<IJwtService, JwtService>();
         builder.Services.AddScoped<DeckCardService>();
         builder.Services.AddScoped<IDeckValidationService, DeckValidationService>();
@@ -227,11 +229,11 @@ public class Program
             c.MapType<ProblemDetails>(() => new OpenApiSchema
             {
                 Type = "object",
-                Description = "Standard RFC 7807 envelope used for 401, 404, and 500 errors.",
+                Description = "Standard RFC 7807 envelope used for authentication, authorization, not found, and server errors.",
                 Required = new HashSet<string> { "type", "title", "status", "traceId" },
                 Properties = new Dictionary<string, OpenApiSchema>
                 {
-                    ["type"] = new OpenApiSchema { Type = "string", Description = "Reference URI that identifies the problem type." },
+                    ["type"] = new OpenApiSchema { Type = "string", Description = "Reference URI that identifies the problem type (e.g. https://httpstatuses.io/404)." },
                     ["title"] = new OpenApiSchema { Type = "string", Description = "Short, human-readable summary of the problem." },
                     ["status"] = new OpenApiSchema { Type = "integer", Format = "int32", Description = "HTTP status code for this occurrence." },
                     ["detail"] = new OpenApiSchema { Type = "string", Nullable = true, Description = "Detailed explanation helpful for debugging." },
@@ -241,13 +243,13 @@ public class Program
                 },
                 Example = new OpenApiObject
                 {
-                    ["type"] = new OpenApiString("https://httpstatuses.io/404"),
-                    ["title"] = new OpenApiString("Card not found"),
-                    ["status"] = new OpenApiInteger(404),
-                    ["detail"] = new OpenApiString("No card with id 42 exists in your collections."),
-                    ["instance"] = new OpenApiString("/api/cards/42"),
-                    ["traceId"] = new OpenApiString("00-3d82f6cd2f0be945b27d1d7e7c92b5ce-949a13d67f0a3d43-00"),
-                    ["errorCode"] = new OpenApiString("card-not-found")
+                    ["type"] = new OpenApiString("https://httpstatuses.io/{status}"),
+                    ["title"] = new OpenApiString("Meaningful summary of the failure"),
+                    ["status"] = new OpenApiInteger(0),
+                    ["detail"] = new OpenApiString("Optional human-readable detail about what went wrong."),
+                    ["instance"] = new OpenApiString("/api/resource/{id}"),
+                    ["traceId"] = new OpenApiString("00-TRACE_ID-HERE-00"),
+                    ["errorCode"] = new OpenApiString("application-specific-code")
                 }
             });
             

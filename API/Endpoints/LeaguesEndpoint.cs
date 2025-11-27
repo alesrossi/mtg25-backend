@@ -1,4 +1,5 @@
 using API.Dtos.Leagues;
+using API.Extensions;
 using API.Services;
 using Core.Models.Identity;
 using Infrastructure.Identity;
@@ -12,7 +13,9 @@ public static partial class LeaguesEndpoint
 {
     public static void MapLeaguesEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/api/leagues").WithTags("Leagues");
+        var group = app.MapGroup("/api/leagues")
+            .WithTags("Leagues")
+            .WithProblemDetailsContract();
 
         MapLeagueQueries(group);
         MapLeagueCommands(group);

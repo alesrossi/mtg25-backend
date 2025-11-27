@@ -1,4 +1,5 @@
 using API.Dtos.Decks;
+using API.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 
@@ -8,7 +9,9 @@ public static partial class DecksEndpoint
 {
     public static void MapDecksEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/api/decks").WithTags("Decks");
+        var group = app.MapGroup("/api/decks")
+            .WithTags("Decks")
+            .WithProblemDetailsContract();
 
         MapDeckQueries(group);
         MapDeckCommands(group);
