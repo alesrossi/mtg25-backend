@@ -3,6 +3,7 @@ using FluentAssertions;
 using Infrastructure.Data;
 using Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using TestUtilities.Builders;
 using TestUtilities.Database;
 
@@ -23,7 +24,7 @@ public class CardRepositoryTests : IDisposable
     {
         _context = InMemoryDbContextFactory.CreateMain();
         _identityContext = InMemoryDbContextFactory.CreateIdentity();
-        _repository = new GenericRepository<Card>(_context);
+        _repository = new GenericRepository<Card>(_context, NullLogger<GenericRepository<Card>>.Instance);
         _testDataBuilder = new TestDataBuilder();
     }
 

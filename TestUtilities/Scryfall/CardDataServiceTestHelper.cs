@@ -4,6 +4,7 @@ using System.Linq;
 using API.Configuration;
 using API.Dtos.Cards;
 using API.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace TestUtilities.Scryfall;
@@ -14,7 +15,8 @@ public static class CardDataServiceTestHelper
     {
         var service = new CardDataService(
             Options.Create(new PathsConfig()),
-            Options.Create(new ScryfallConfig()));
+            Options.Create(new ScryfallConfig()),
+            NullLogger<CardDataService>.Instance);
 
         Populate(service, cards);
         return service;

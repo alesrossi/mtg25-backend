@@ -2,6 +2,7 @@ using Core.Models;
 using FluentAssertions;
 using Infrastructure.Data;
 using Infrastructure.Identity;
+using Microsoft.Extensions.Logging.Abstractions;
 using TestUtilities.Builders;
 using TestUtilities.Database;
 
@@ -22,7 +23,7 @@ public class DeckRepositoryTests : IDisposable
     {
         _context = InMemoryDbContextFactory.CreateMain();
         _identityContext = InMemoryDbContextFactory.CreateIdentity();
-        _repository = new GenericRepository<Deck>(_context);
+        _repository = new GenericRepository<Deck>(_context, NullLogger<GenericRepository<Deck>>.Instance);
         _testDataBuilder = new TestDataBuilder();
     }
 

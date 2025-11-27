@@ -3,6 +3,7 @@ using Core.Specifications;
 using FluentAssertions;
 using Infrastructure.Data;
 using Infrastructure.Identity;
+using Microsoft.Extensions.Logging.Abstractions;
 using TestUtilities.Builders;
 using TestUtilities.Database;
 
@@ -24,7 +25,7 @@ public class CollectionRepositoryTests : IDisposable
         // Each test gets a fresh database context
         _context = InMemoryDbContextFactory.CreateMain();
         _identityContext = InMemoryDbContextFactory.CreateIdentity();
-        _repository = new GenericRepository<Collection>(_context);
+        _repository = new GenericRepository<Collection>(_context, NullLogger<GenericRepository<Collection>>.Instance);
         _testDataBuilder = new TestDataBuilder();
     }
 
