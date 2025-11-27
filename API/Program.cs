@@ -170,6 +170,27 @@ public class Program
                             {
                                 context.Fail("Token has been revoked");
                             }
+                        },
+                        OnChallenge = challengeContext =>
+                        {
+                            challengeContext.HandleResponse();
+                            var result = ProblemResultFactory.Create(
+                                challengeContext.HttpContext,
+                                StatusCodes.Status401Unauthorized,
+                                "Authentication required",
+                                "You must be logged in to access this resource.",
+                                "auth-required");
+                            return result.ExecuteAsync(challengeContext.HttpContext);
+                        },
+                        OnForbidden = forbiddenContext =>
+                        {
+                            var result = ProblemResultFactory.Create(
+                                forbiddenContext.HttpContext,
+                                StatusCodes.Status403Forbidden,
+                                "Forbidden",
+                                "You do not have permission to access this resource.",
+                                "auth-forbidden");
+                            return result.ExecuteAsync(forbiddenContext.HttpContext);
                         }
                     };
                 });
@@ -206,6 +227,7 @@ public class Program
             c.MapType<ProblemDetails>(() => new OpenApiSchema
             {
                 Type = "object",
+                Description = "Standard RFC 7807 envelope used for 401, 404, and 500 errors.",
                 Required = new HashSet<string> { "type", "title", "status", "traceId" },
                 Properties = new Dictionary<string, OpenApiSchema>
                 {
@@ -219,19 +241,47 @@ public class Program
                 },
                 Example = new OpenApiObject
                 {
-                    ["type"] = new OpenApiString("https://httpstatuses.io/500"),
-                    ["title"] = new OpenApiString("Card update failed"),
-                    ["status"] = new OpenApiInteger(500),
-                    ["detail"] = new OpenApiString("An unexpected error occurred while updating the card."),
+                    ["type"] = new OpenApiString("https://httpstatuses.io/404"),
+                    ["title"] = new OpenApiString("Card not found"),
+                    ["status"] = new OpenApiInteger(404),
+                    ["detail"] = new OpenApiString("No card with id 42 exists in your collections."),
                     ["instance"] = new OpenApiString("/api/cards/42"),
                     ["traceId"] = new OpenApiString("00-3d82f6cd2f0be945b27d1d7e7c92b5ce-949a13d67f0a3d43-00"),
-                    ["errorCode"] = new OpenApiString("card-update-error")
+                    ["errorCode"] = new OpenApiString("card-not-found")
+                }
+            });
+            
+            c.MapType<UnauthorizedResult>(() => new OpenApiSchema
+            {
+                Type = "object",
+                Description = "Standard RFC 7807 envelope used for 401, 404, and 500 errors.",
+                Required = new HashSet<string> { "type", "title", "status", "traceId" },
+                Properties = new Dictionary<string, OpenApiSchema>
+                {
+                    ["type"] = new OpenApiSchema { Type = "string", Description = "Reference URI that identifies the problem type." },
+                    ["title"] = new OpenApiSchema { Type = "string", Description = "Short, human-readable summary of the problem." },
+                    ["status"] = new OpenApiSchema { Type = "integer", Format = "int32", Description = "HTTP status code for this occurrence." },
+                    ["detail"] = new OpenApiSchema { Type = "string", Nullable = true, Description = "Detailed explanation helpful for debugging." },
+                    ["instance"] = new OpenApiSchema { Type = "string", Nullable = true, Description = "The request path that produced the error." },
+                    ["traceId"] = new OpenApiSchema { Type = "string", Description = "Server-generated trace identifier for correlating logs." },
+                    ["errorCode"] = new OpenApiSchema { Type = "string", Nullable = true, Description = "Stable application-specific code describing the error." }
+                },
+                Example = new OpenApiObject
+                {
+                    ["type"] = new OpenApiString("https://httpstatuses.io/401"),
+                    ["title"] = new OpenApiString("Unauthorized user access"),
+                    ["status"] = new OpenApiInteger(401),
+                    ["detail"] = new OpenApiString("Jwt token either missing, invalid or expired"),
+                    ["instance"] = new OpenApiString("/api/cards/42"),
+                    ["traceId"] = new OpenApiString("00-3d82f6cd2f0be945b27d1d7e7c92b5ce-949a13d67f0a3d43-00"),
+                    ["errorCode"] = new OpenApiString("card-unauthorized-error")
                 }
             });
 
             c.MapType<ValidationProblemDetails>(() => new OpenApiSchema
             {
                 Type = "object",
+                Description = "RFC 7807 validation payload emitted for 400 Bad Request responses.",
                 Required = new HashSet<string> { "type", "title", "status", "traceId", "errors" },
                 Properties = new Dictionary<string, OpenApiSchema>
                 {
@@ -312,6 +362,25 @@ public class Program
         app.UseAuthentication();
         app.UseAuthorization();
         
+        app.Use(async (context, next) =>
+        {
+            await next();
+
+            if (context.Response.StatusCode == StatusCodes.Status404NotFound &&
+                !context.Response.HasStarted &&
+                context.GetEndpoint() is null)
+            {
+                var result = ProblemResultFactory.Create(
+                    context,
+                    StatusCodes.Status404NotFound,
+                    "Endpoint not found",
+                    $"No endpoint matches '{context.Request.Path}'.",
+                    "endpoint-not-found");
+
+                await result.ExecuteAsync(context);
+            }
+        });
+
         app.UseCors();
         
         app.MapCardsEndpoints();
