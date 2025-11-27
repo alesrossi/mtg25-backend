@@ -1,10 +1,21 @@
+using API.Logging;
 using Core.Interfaces;
 using Core.Models;
+using Microsoft.Extensions.Logging;
 
 namespace API.Services;
 
 public class DeckValidationService : IDeckValidationService
 {
+    private readonly ILogger<DeckValidationService> logger;
+    private const string ValidateDeckOperation = "Decks.Validate";
+    private const string ValidateDeckWithCardsOperation = "Decks.ValidateWithCards";
+
+    public DeckValidationService(ILogger<DeckValidationService> logger)
+    {
+        this.logger = logger;
+    }
+
     private static readonly Dictionary<string, FormatRules> FormatRulesMap = new()
     {
         ["Standard"] = new FormatRules
@@ -74,27 +85,35 @@ public class DeckValidationService : IDeckValidationService
 
     public Task<DeckValidationResult> ValidateDeckAsync(Deck deck)
     {
+        using var scope = logger.BeginOperationScope(ValidateDeckOperation, deck.Id);
+        logger.LogOperationStart(ValidateDeckOperation, new { deck.Id, deck.Format, deck.NumberOfCards });
+
         var result = new DeckValidationResult { IsValid = true };
         
         if (!FormatRulesMap.TryGetValue(deck.Format, out var formatRules))
         {
             result.AddError($"Unknown format: {deck.Format}", ValidationErrorType.Format);
+            logger.LogOperationWarning(ValidateDeckOperation, "Unknown format", new { deck.Format });
             return Task.FromResult(result);
         }
 
         // Validate card count from deck metadata
         ValidateCardCount(deck.NumberOfCards, formatRules, result);
-        
+        logger.LogOperationSuccess(ValidateDeckOperation, new { deck.Id, result.IsValid, Errors = result.Errors.Count });
         return Task.FromResult(result);
     }
 
     public Task<DeckValidationResult> ValidateDeckWithCardsAsync(Deck deck, IEnumerable<DeckCard> deckCards)
     {
+        using var scope = logger.BeginOperationScope(ValidateDeckWithCardsOperation, deck.Id);
+        logger.LogOperationStart(ValidateDeckWithCardsOperation, new { deck.Id, deck.Format });
+
         var result = new DeckValidationResult { IsValid = true };
         
         if (!FormatRulesMap.TryGetValue(deck.Format, out var formatRules))
         {
             result.AddError($"Unknown format: {deck.Format}", ValidationErrorType.Format);
+            logger.LogOperationWarning(ValidateDeckWithCardsOperation, "Unknown format", new { deck.Format });
             return Task.FromResult(result);
         }
 
@@ -120,6 +139,15 @@ public class DeckValidationService : IDeckValidationService
             result.AddError("Deck cannot be empty", ValidationErrorType.CardCount);
         }
         
+        logger.LogOperationSuccess(ValidateDeckWithCardsOperation, new
+        {
+            deck.Id,
+            deck.Format,
+            result.IsValid,
+            Errors = result.Errors.Count,
+            Maindeck = maindeckCount,
+            Sideboard = sideboardCount
+        });
         return Task.FromResult(result);
     }
 

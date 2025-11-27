@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using API.Dtos.Decks;
+using API.Logging;
 using API.Services;
 using Core.Interfaces;
 using Core.Models;
@@ -10,6 +11,7 @@ using Core.Specifications;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
 
 namespace API.Endpoints;
 
@@ -69,32 +71,64 @@ public static partial class DecksEndpoint
     private static async Task<IResult> GetAllDecksForUser(
         IUnitOfWork unitOfWork,
         [FromServices] UserManager<AppUser> userManager,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger)
     {
+        const string operation = "Decks.List";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user identifier");
+            return Results.Unauthorized();
+        }
 
         var user = await userManager.FindByIdAsync(userId);
-        if (user is null) return Results.Unauthorized();
+        if (user is null)
+        {
+            logger.LogOperationWarning(operation, "User not found", new { userId });
+            return Results.Unauthorized();
+        }
+
+        using var scope = logger.BeginOperationScope(operation, userId);
+        logger.LogOperationStart(operation, new { userId });
 
         var decks = await unitOfWork.Repository<Deck>().ListAsync(new DecksWIthOwnerSpecification(user.Id), tracking: false);
-        if (decks is null || decks.Count <= 0) return Results.NotFound("No decks found");
+        if (decks is null || decks.Count <= 0)
+        {
+            logger.LogOperationWarning(operation, "No decks found", new { userId });
+            return Results.NotFound("No decks found");
+        }
 
         var deckDtos = decks.Select(MapToDto).ToList();
+        logger.LogOperationSuccess(operation, new { Count = deckDtos.Count });
         return Results.Ok(deckDtos);
     }
 
     private static async Task<IResult> GetDeckByIdAsync(
         int id,
         IUnitOfWork unitOfWork,
-        ClaimsPrincipal user)
+        ClaimsPrincipal user,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger)
     {
+        const string operation = "Decks.Get";
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId == null) return Results.Unauthorized();
+        if (userId == null)
+        {
+            logger.LogOperationWarning(operation, "Missing user identifier", new { id });
+            return Results.Unauthorized();
+        }
+
+        using var scope = logger.BeginOperationScope(operation, id);
+        logger.LogOperationStart(operation, new { id });
 
         var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(id, tracking: false);
-        if (deck == null || deck.OwnerId != userId) return Results.NotFound();
+        if (deck == null || deck.OwnerId != userId)
+        {
+            logger.LogOperationWarning(operation, "Deck not found or unauthorized", new { id, userId });
+            return Results.NotFound();
+        }
 
+        logger.LogOperationSuccess(operation, new { id });
         return Results.Ok(MapToDto(deck));
     }
 
@@ -105,15 +139,29 @@ public static partial class DecksEndpoint
         bool? ownedOnly = null,
         DeckCardService deckCardService = null!,
         IUnitOfWork unitOfWork = null!,
-        ClaimsPrincipal user = null!)
+        ClaimsPrincipal user = null!,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger = null!)
     {
+        const string operation = "DeckCards.Query";
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId == null) return Results.Unauthorized();
+        if (userId == null)
+        {
+            logger.LogOperationWarning(operation, "Missing user identifier", new { deckId });
+            return Results.Unauthorized();
+        }
+
+        using var scope = logger.BeginOperationScope(operation, deckId);
+        logger.LogOperationStart(operation, new { deckId, maindeckOnly, sideboardOnly, ownedOnly });
 
         var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
-        if (deck == null || deck.OwnerId != userId) return Results.NotFound();
+        if (deck == null || deck.OwnerId != userId)
+        {
+            logger.LogOperationWarning(operation, "Deck not found or unauthorized", new { deckId, userId });
+            return Results.NotFound();
+        }
 
         var deckCards = await deckCardService.GetDeckCardsAsync(deckId, maindeckOnly, sideboardOnly, ownedOnly);
+        logger.LogOperationSuccess(operation, new { deckId, Count = deckCards.Count() });
         return Results.Ok(deckCards);
     }
 
@@ -122,17 +170,35 @@ public static partial class DecksEndpoint
         int id,
         DeckCardService deckCardService,
         IUnitOfWork unitOfWork,
-        ClaimsPrincipal user)
+        ClaimsPrincipal user,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger)
     {
+        const string operation = "DeckCards.Get";
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId == null) return Results.Unauthorized();
+        if (userId == null)
+        {
+            logger.LogOperationWarning(operation, "Missing user identifier", new { deckId, id });
+            return Results.Unauthorized();
+        }
+
+        using var scope = logger.BeginOperationScope(operation, id);
+        logger.LogOperationStart(operation, new { deckId, id });
 
         var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
-        if (deck == null || deck.OwnerId != userId) return Results.NotFound();
+        if (deck == null || deck.OwnerId != userId)
+        {
+            logger.LogOperationWarning(operation, "Deck not found or unauthorized", new { deckId, userId });
+            return Results.NotFound();
+        }
 
         var deckCard = await deckCardService.GetDeckCardByIdAsync(id);
-        if (deckCard == null || deckCard.DeckId != deckId) return Results.NotFound();
+        if (deckCard == null || deckCard.DeckId != deckId)
+        {
+            logger.LogOperationWarning(operation, "Deck card not found", new { deckId, id });
+            return Results.NotFound();
+        }
 
+        logger.LogOperationSuccess(operation, new { deckId, id });
         return Results.Ok(deckCard);
     }
 
@@ -140,15 +206,29 @@ public static partial class DecksEndpoint
         int deckId,
         DeckCardService deckCardService,
         IUnitOfWork unitOfWork,
-        ClaimsPrincipal user)
+        ClaimsPrincipal user,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger)
     {
+        const string operation = "DeckCards.Missing";
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId == null) return Results.Unauthorized();
+        if (userId == null)
+        {
+            logger.LogOperationWarning(operation, "Missing user identifier", new { deckId });
+            return Results.Unauthorized();
+        }
+
+        using var scope = logger.BeginOperationScope(operation, deckId);
+        logger.LogOperationStart(operation, new { deckId });
 
         var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
-        if (deck == null || deck.OwnerId != userId) return Results.NotFound();
+        if (deck == null || deck.OwnerId != userId)
+        {
+            logger.LogOperationWarning(operation, "Deck not found or unauthorized", new { deckId, userId });
+            return Results.NotFound();
+        }
 
         var missingCards = (await deckCardService.GetDeckCardsAsync(deckId, ownedOnly: false)).ToList();
+        logger.LogOperationSuccess(operation, new { deckId, MissingCount = missingCards.Count });
         return Results.Ok(missingCards);
     }
 
@@ -156,18 +236,32 @@ public static partial class DecksEndpoint
         int deckId,
         DeckCardService deckCardService,
         IUnitOfWork unitOfWork,
-        ClaimsPrincipal user)
+        ClaimsPrincipal user,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger)
     {
+        const string operation = "Decks.Export";
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId == null) return Results.Unauthorized();
+        if (userId == null)
+        {
+            logger.LogOperationWarning(operation, "Missing user identifier", new { deckId });
+            return Results.Unauthorized();
+        }
+
+        using var scope = logger.BeginOperationScope(operation, deckId);
+        logger.LogOperationStart(operation, new { deckId });
 
         var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
-        if (deck == null || deck.OwnerId != userId) return Results.NotFound();
+        if (deck == null || deck.OwnerId != userId)
+        {
+            logger.LogOperationWarning(operation, "Deck not found or unauthorized", new { deckId, userId });
+            return Results.NotFound();
+        }
 
         var deckCards = (await deckCardService.GetDeckCardsAsync(deckId)).ToList();
 
         if (deckCards.Count == 0)
         {
+            logger.LogOperationWarning(operation, "Deck has no cards", new { deckId });
             return Results.Ok(Array.Empty<string>());
         }
 
@@ -195,6 +289,7 @@ public static partial class DecksEndpoint
             exportedLines.AddRange(sideboardLines);
         }
 
+        logger.LogOperationSuccess(operation, new { deckId, Lines = exportedLines.Count });
         return Results.Ok(exportedLines);
     }
 }

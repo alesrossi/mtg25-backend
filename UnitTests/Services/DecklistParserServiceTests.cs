@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using API.Dtos.Cards;
 using API.Services;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using TestUtilities.Builders;
 using TestUtilities.Scryfall;
 using Xunit;
@@ -155,6 +156,6 @@ public class DecklistParserServiceTests
     {
         var cardDataService = CardDataServiceTestHelper.CreateWithCards(cards);
         var validationService = new ValidationService();
-        return new DecklistParserService(cardDataService, validationService);
+        return new DecklistParserService(cardDataService, validationService, NullLogger<DecklistParserService>.Instance);
     }
 }

@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using API.Dtos.Decks;
+using API.Logging;
 using API.Services;
 using Core.Interfaces;
 using Core.Models;
 using Core.Specifications;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
 
 namespace API.Endpoints;
 
@@ -79,10 +81,19 @@ public static partial class DecksEndpoint
     private static async Task<IResult> CreateDeckAsync(
         CreateDeckDto createDto,
         IUnitOfWork unitOfWork,
-        ClaimsPrincipal user)
+        ClaimsPrincipal user,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger)
     {
+        const string operation = "Decks.Create";
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId == null) return Results.Unauthorized();
+        if (userId == null)
+        {
+            logger.LogOperationWarning(operation, "Missing user identifier");
+            return Results.Unauthorized();
+        }
+
+        using var scope = logger.BeginOperationScope(operation, userId);
+        logger.LogOperationStart(operation, new { createDto.Name, createDto.Format });
 
         var deck = new Deck
         {
@@ -96,6 +107,7 @@ public static partial class DecksEndpoint
         unitOfWork.Repository<Deck>().Add(deck);
         await unitOfWork.Complete();
 
+        logger.LogOperationSuccess(operation, new { deck.Id });
         return Results.Ok(MapToDto(deck));
     }
 
@@ -103,13 +115,26 @@ public static partial class DecksEndpoint
         int id,
         UpdateDeckDto updateDto,
         IUnitOfWork unitOfWork,
-        ClaimsPrincipal user)
+        ClaimsPrincipal user,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger)
     {
+        const string operation = "Decks.Update";
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId == null) return Results.Unauthorized();
+        if (userId == null)
+        {
+            logger.LogOperationWarning(operation, "Missing user identifier");
+            return Results.Unauthorized();
+        }
+
+        using var scope = logger.BeginOperationScope(operation, id);
+        logger.LogOperationStart(operation, new { id, updateDto.Name, updateDto.Format });
 
         var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(id);
-        if (deck == null || deck.OwnerId != userId) return Results.NotFound();
+        if (deck == null || deck.OwnerId != userId)
+        {
+            logger.LogOperationWarning(operation, "Deck not found or unauthorized", new { id, userId });
+            return Results.NotFound();
+        }
 
         deck.Name = updateDto.Name;
         deck.Format = updateDto.Format;
@@ -118,19 +143,33 @@ public static partial class DecksEndpoint
         unitOfWork.Repository<Deck>().Update(deck);
         await unitOfWork.Complete();
 
+        logger.LogOperationSuccess(operation, new { id });
         return Results.Ok(MapToDto(deck));
     }
 
     private static async Task<IResult> DeleteDeckAsync(
         int id,
         IUnitOfWork unitOfWork,
-        ClaimsPrincipal user)
+        ClaimsPrincipal user,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger)
     {
+        const string operation = "Decks.Delete";
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId == null) return Results.Unauthorized();
+        if (userId == null)
+        {
+            logger.LogOperationWarning(operation, "Missing user identifier");
+            return Results.Unauthorized();
+        }
+
+        using var scope = logger.BeginOperationScope(operation, id);
+        logger.LogOperationStart(operation, new { id });
 
         var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(id);
-        if (deck == null || deck.OwnerId != userId) return Results.NotFound();
+        if (deck == null || deck.OwnerId != userId)
+        {
+            logger.LogOperationWarning(operation, "Deck not found or unauthorized", new { id, userId });
+            return Results.NotFound();
+        }
 
         var deckCardsSpec = new DeckCardsWithDeckIdSpecification(id);
         var deckCards = await unitOfWork.Repository<DeckCard>().ListAsync(deckCardsSpec);
@@ -145,6 +184,7 @@ public static partial class DecksEndpoint
         unitOfWork.Repository<Deck>().Delete(deck);
         await unitOfWork.Complete();
 
+        logger.LogOperationSuccess(operation, new { id });
         return Results.NoContent();
     }
 
@@ -154,21 +194,36 @@ public static partial class DecksEndpoint
         DeckCardService deckCardService,
         [FromServices] IValidationService validationService,
         IUnitOfWork unitOfWork,
-        ClaimsPrincipal user)
+        ClaimsPrincipal user,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger)
     {
+        const string operation = "DeckCards.Create";
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId == null) return Results.Unauthorized();
+        if (userId == null)
+        {
+            logger.LogOperationWarning(operation, "Missing user identifier", new { deckId });
+            return Results.Unauthorized();
+        }
+
+        using var scope = logger.BeginOperationScope(operation, deckId);
+        logger.LogOperationStart(operation, new { deckId, createDto.OracleId, createDto.Name });
 
         var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
-        if (deck == null || deck.OwnerId != userId) return Results.NotFound();
+        if (deck == null || deck.OwnerId != userId)
+        {
+            logger.LogOperationWarning(operation, "Deck not found or unauthorized", new { deckId, userId });
+            return Results.NotFound();
+        }
 
         var (isValid, errors) = validationService.ValidateModel(createDto);
         if (!isValid || createDto.MaindeckQuantity + createDto.SideboardQuantity == 0)
         {
+            logger.LogOperationWarning(operation, "Validation failed", new { deckId, errors });
             return Results.BadRequest(new { errors });
         }
 
         var createdDeckCard = await deckCardService.CreateDeckCardAsync(deckId, createDto);
+        logger.LogOperationSuccess(operation, new { deckId, createdDeckCard.Id });
         return Results.Ok(createdDeckCard);
     }
 
@@ -178,18 +233,36 @@ public static partial class DecksEndpoint
         UpdateDeckCardDto updateDto,
         DeckCardService deckCardService,
         IUnitOfWork unitOfWork,
-        ClaimsPrincipal user)
+        ClaimsPrincipal user,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger)
     {
+        const string operation = "DeckCards.Update";
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId == null) return Results.Unauthorized();
+        if (userId == null)
+        {
+            logger.LogOperationWarning(operation, "Missing user identifier", new { deckId, id });
+            return Results.Unauthorized();
+        }
+
+        using var scope = logger.BeginOperationScope(operation, id);
+        logger.LogOperationStart(operation, new { deckId, id });
 
         var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
-        if (deck == null || deck.OwnerId != userId) return Results.NotFound();
+        if (deck == null || deck.OwnerId != userId)
+        {
+            logger.LogOperationWarning(operation, "Deck not found or unauthorized", new { deckId, userId });
+            return Results.NotFound();
+        }
 
         var existingDeckCard = await deckCardService.GetDeckCardByIdAsync(id);
-        if (existingDeckCard == null || existingDeckCard.DeckId != deckId) return Results.NotFound();
+        if (existingDeckCard == null || existingDeckCard.DeckId != deckId)
+        {
+            logger.LogOperationWarning(operation, "Deck card not found or mismatched deck", new { deckId, id });
+            return Results.NotFound();
+        }
 
         var updatedDeckCard = await deckCardService.UpdateDeckCardAsync(id, updateDto);
+        logger.LogOperationSuccess(operation, new { deckId, id });
         return Results.Ok(updatedDeckCard);
     }
 
@@ -198,19 +271,43 @@ public static partial class DecksEndpoint
         int id,
         DeckCardService deckCardService,
         IUnitOfWork unitOfWork,
-        ClaimsPrincipal user)
+        ClaimsPrincipal user,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger)
     {
+        const string operation = "DeckCards.Delete";
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId == null) return Results.Unauthorized();
+        if (userId == null)
+        {
+            logger.LogOperationWarning(operation, "Missing user identifier", new { deckId, id });
+            return Results.Unauthorized();
+        }
+
+        using var scope = logger.BeginOperationScope(operation, id);
+        logger.LogOperationStart(operation, new { deckId, id });
 
         var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
-        if (deck == null || deck.OwnerId != userId) return Results.NotFound();
+        if (deck == null || deck.OwnerId != userId)
+        {
+            logger.LogOperationWarning(operation, "Deck not found or unauthorized", new { deckId, userId });
+            return Results.NotFound();
+        }
 
         var existingDeckCard = await deckCardService.GetDeckCardByIdAsync(id);
-        if (existingDeckCard == null || existingDeckCard.DeckId != deckId) return Results.NotFound();
+        if (existingDeckCard == null || existingDeckCard.DeckId != deckId)
+        {
+            logger.LogOperationWarning(operation, "Deck card not found or mismatched deck", new { deckId, id });
+            return Results.NotFound();
+        }
 
         var deleted = await deckCardService.DeleteDeckCardAsync(id);
-        return deleted ? Results.NoContent() : Results.NotFound();
+        if (!deleted)
+        {
+            logger.LogOperationWarning(operation, "Deck card deletion failed", new { deckId, id });
+            return Results.NotFound();
+        }
+
+        logger.LogOperationSuccess(operation, new { deckId, id });
+        return Results.NoContent();
     }
 
     private static async Task<IResult> ImportDeckFromDecklistAsync(
@@ -219,14 +316,24 @@ public static partial class DecksEndpoint
         DeckCardService deckCardService,
         [FromServices] IValidationService validationService,
         IUnitOfWork unitOfWork,
-        ClaimsPrincipal user)
+        ClaimsPrincipal user,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger)
     {
+        const string operation = "Decks.Import";
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId == null) return Results.Unauthorized();
+        if (userId == null)
+        {
+            logger.LogOperationWarning(operation, "Missing user identifier", new { importDto.Name });
+            return Results.Unauthorized();
+        }
+
+        using var scope = logger.BeginOperationScope(operation, userId);
+        logger.LogOperationStart(operation, new { importDto.Name, importDto.Format });
 
         var (isValid, validationErrors) = validationService.ValidateModel(importDto);
         if (!isValid)
         {
+            logger.LogOperationWarning(operation, "Invalid import payload", new { validationErrors });
             return Results.BadRequest(new { errors = validationErrors });
         }
 
@@ -242,6 +349,7 @@ public static partial class DecksEndpoint
                 ? parseResult.Errors
                 : new[] { "Decklist did not contain any valid cards." };
 
+            logger.LogOperationWarning(operation, "No cards parsed", new { skippedLines, parseResult.Errors });
             return Results.BadRequest(new
             {
                 errors,
@@ -276,7 +384,9 @@ public static partial class DecksEndpoint
         unitOfWork.Repository<Deck>().Update(deck);
         await unitOfWork.Complete();
 
-        return Results.Created($"/api/decks/{deck.Id}", new ImportDeckDto(MapToDto(deck), createdCards, parseResult.Errors, skippedLines));
+        var response = new ImportDeckDto(MapToDto(deck), createdCards, parseResult.Errors, skippedLines);
+        logger.LogOperationSuccess(operation, new { deck.Id, createdCards = createdCards.Count, skippedLines });
+        return Results.Created($"/api/decks/{deck.Id}", response);
     }
 
     private static string[] FilterDecklistLines(string decklist)

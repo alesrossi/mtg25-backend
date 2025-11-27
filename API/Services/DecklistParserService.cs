@@ -4,11 +4,25 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using API.Dtos.Decks;
+using API.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace API.Services;
 
-public class DecklistParserService(CardDataService cardDataService, IValidationService validationService) : IDecklistParserService
+public class DecklistParserService : IDecklistParserService
 {
+    private readonly CardDataService cardDataService;
+    private readonly IValidationService validationService;
+    private readonly ILogger<DecklistParserService> logger;
+    private const string ParseOperation = "Decklist.Parse";
+
+    public DecklistParserService(CardDataService cardDataService, IValidationService validationService, ILogger<DecklistParserService> logger)
+    {
+        this.cardDataService = cardDataService;
+        this.validationService = validationService;
+        this.logger = logger;
+    }
+
     public Task<DecklistParseResult> ParseAsync(IEnumerable<string> decklistLines)
     {
         var errors = new List<string>();
@@ -16,13 +30,19 @@ public class DecklistParserService(CardDataService cardDataService, IValidationS
 
         if (decklistLines is null)
         {
+            logger.LogOperationWarning(ParseOperation, "Decklist null", null);
             return Task.FromResult(new DecklistParseResult(Array.Empty<CreateDeckCardDto>(), new[] { "Decklist cannot be null." }));
         }
+
+        var decklistArray = decklistLines as string[] ?? decklistLines.ToArray();
+
+        using var scope = logger.BeginOperationScope(ParseOperation, null);
+        logger.LogOperationStart(ParseOperation, new { LineCount = decklistArray.Length });
 
         var inSideboard = false;
         var lineNumber = 0;
 
-        foreach (var rawLine in decklistLines)
+        foreach (var rawLine in decklistArray)
         {
             lineNumber++;
             var line = rawLine?.Trim() ?? string.Empty;
@@ -48,6 +68,7 @@ public class DecklistParserService(CardDataService cardDataService, IValidationS
             var (isValid, validationErrors) = validationService.ValidateModel(deckCard);
             if (!isValid)
             {
+                logger.LogOperationStep(ParseOperation, "Validation failed", new { deckCard.Name, validationErrors });
                 foreach (var (_, messages) in validationErrors)
                 {
                     errors.AddRange(messages);
@@ -64,6 +85,7 @@ public class DecklistParserService(CardDataService cardDataService, IValidationS
             validDeckCards.Add(deckCard);
         }
 
+        logger.LogOperationSuccess(ParseOperation, new { ValidCards = validDeckCards.Count, ErrorCount = errors.Count });
         return Task.FromResult(new DecklistParseResult(validDeckCards, errors));
     }
 
@@ -78,6 +100,7 @@ public class DecklistParserService(CardDataService cardDataService, IValidationS
         if (split.Length < 2)
         {
             errors.Add($"Line {lineNumber}: Invalid format. Expected '<quantity> <card name>'.");
+            logger.LogOperationStep(ParseOperation, "Invalid format", new { lineNumber, line });
             return false;
         }
 
@@ -90,6 +113,7 @@ public class DecklistParserService(CardDataService cardDataService, IValidationS
         if (!int.TryParse(quantityToken, NumberStyles.None, CultureInfo.InvariantCulture, out var quantity) || quantity <= 0)
         {
             errors.Add($"Line {lineNumber}: Quantity '{split[0]}' is not a positive integer.");
+            logger.LogOperationStep(ParseOperation, "Invalid quantity", new { lineNumber, Quantity = split[0] });
             return false;
         }
 
@@ -97,12 +121,14 @@ public class DecklistParserService(CardDataService cardDataService, IValidationS
         if (string.IsNullOrEmpty(cardName))
         {
             errors.Add($"Line {lineNumber}: Card name is required.");
+            logger.LogOperationStep(ParseOperation, "Missing card name", new { lineNumber });
             return false;
         }
 
         if (!cardDataService.CardDataByName.TryGetValue(cardName, out var cardData))
         {
             errors.Add($"Line {lineNumber}: Card '{cardName}' was not found in the card database.");
+            logger.LogOperationStep(ParseOperation, "Card not found", new { lineNumber, cardName });
             return false;
         }
 
@@ -111,6 +137,7 @@ public class DecklistParserService(CardDataService cardDataService, IValidationS
         if (string.IsNullOrWhiteSpace(imageUrl))
         {
             errors.Add($"Line {lineNumber}: Card '{cardName}' is missing image data.");
+            logger.LogOperationStep(ParseOperation, "Missing image", new { lineNumber, cardName });
             return false;
         }
 
@@ -149,6 +176,7 @@ public class DecklistParserService(CardDataService cardDataService, IValidationS
             existingDto.MaindeckQuantity += quantity;
         }
 
+        logger.LogOperationStep(ParseOperation, inSideboard ? "Added sideboard card" : "Added maindeck card", new { cardName, quantity });
         return true;
     }
 

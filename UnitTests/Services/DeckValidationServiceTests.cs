@@ -2,6 +2,7 @@ using API.Services;
 using Core.Interfaces;
 using Core.Models;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace UnitTests.Services;
 
@@ -11,7 +12,7 @@ public class DeckValidationServiceTests
 
     public DeckValidationServiceTests()
     {
-        _validationService = new DeckValidationService();
+        _validationService = new DeckValidationService(NullLogger<DeckValidationService>.Instance);
     }
 
     [Theory]
