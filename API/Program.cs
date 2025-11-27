@@ -13,6 +13,7 @@ using Infrastructure.Data;
 using Infrastructure.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
@@ -397,6 +398,41 @@ public class Program
         }
 
         // app.UseHttpsRedirection();
+
+        app.UseExceptionHandler(errorApp =>
+        {
+            errorApp.Run(async context =>
+            {
+                var exceptionFeature = context.Features.Get<IExceptionHandlerFeature>();
+                var exception = exceptionFeature?.Error;
+
+                var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogError(exception, "Unhandled exception encountered while processing the request");
+
+                var statusCode = exception switch
+                {
+                    BadHttpRequestException badRequestException => badRequestException.StatusCode,
+                    JsonException => StatusCodes.Status400BadRequest,
+                    _ => StatusCodes.Status500InternalServerError
+                };
+                var problemDetails = new ProblemDetails
+                {
+                    Status = statusCode,
+                    Title = "An unexpected error occurred",
+                    Detail = app.Environment.IsDevelopment() ? exception?.Message : "An unexpected error occurred while processing the request.",
+                    Instance = context.Request.Path,
+                    Type = $"https://httpstatuses.io/{statusCode}",
+                    Extensions =
+                    {
+                        ["traceId"] = context.TraceIdentifier
+                    }
+                };
+
+                context.Response.StatusCode = statusCode;
+                context.Response.ContentType = "application/problem+json";
+                await context.Response.WriteAsJsonAsync(problemDetails);
+            });
+        });
         
         app.UseRequestLogging();
         app.UseResponseCompression();
