@@ -12,12 +12,13 @@ public static partial class WishlistsEndpoint
     private static async Task<(IResult? Result, Wishlist? Wishlist)> EnsureWishlistOwnershipAsync(
         int wishlistId,
         IUnitOfWork unitOfWork,
-        ClaimsPrincipal user)
+        ClaimsPrincipal user,
+        bool tracking = true)
     {
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userId)) return (Results.Unauthorized(), null);
 
-        var wishlist = await unitOfWork.Repository<Wishlist>().GetByIdAsync(wishlistId);
+        var wishlist = await unitOfWork.Repository<Wishlist>().GetByIdAsync(wishlistId, tracking);
         if (wishlist == null) return (Results.NotFound(), null);
         if (wishlist.OwnerId != userId) return (Results.Unauthorized(), null);
 

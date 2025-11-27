@@ -66,7 +66,9 @@ public static partial class LeaguesEndpoint
         var user = await userManager.FindByIdAsync(userId);
         if (user is null) return Results.Unauthorized();
 
-        var leagues = await dbContext.Leagues.ToListAsync();
+        var leagues = await dbContext.Leagues
+            .AsNoTracking()
+            .ToListAsync();
         return Results.Ok(leagues);
     }
 
@@ -84,6 +86,7 @@ public static partial class LeaguesEndpoint
         var res = await dbContext.UserLeagues
             .Where(ul => ul.UserId == userId)
             .Include(ul => ul.League)
+            .AsNoTracking()
             .ToListAsync();
 
         var leaguesById = res
@@ -127,6 +130,7 @@ public static partial class LeaguesEndpoint
                 IsPlaying = false,
                 OwnerId = league.OwnerId
             })
+            .AsNoTracking()
             .ToListAsync();
 
         foreach (var league in ownedLeagues)
@@ -157,12 +161,15 @@ public static partial class LeaguesEndpoint
         var user = await userManager.FindByIdAsync(userId);
         if (user is null) return Results.Unauthorized();
 
-        var league = await dbContext.FindAsync<League>(id);
+        var league = await dbContext.Leagues
+            .AsNoTracking()
+            .FirstOrDefaultAsync(l => l.Id == id);
         if (league is null) return Results.NotFound();
 
         var res = await dbContext.UserLeagues
             .Where(ul => ul.LeagueId == league.Id && ul.UserId == userId)
             .Include(ul => ul.League)
+            .AsNoTracking()
             .FirstOrDefaultAsync();
 
         if (res is null) return Results.Unauthorized();
@@ -202,12 +209,15 @@ public static partial class LeaguesEndpoint
         var user = await userManager.FindByIdAsync(userId);
         if (user is null) return Results.Unauthorized();
 
-        var league = await dbContext.FindAsync<League>(id);
+        var league = await dbContext.Leagues
+            .AsNoTracking()
+            .FirstOrDefaultAsync(l => l.Id == id);
         if (league is null) return Results.NotFound();
 
         var res = await dbContext.UserLeagues
             .Where(ul => ul.LeagueId == league.Id)
             .Include(ul => ul.User)
+            .AsNoTracking()
             .ToListAsync();
 
         var leagueWithScores = new LeagueWithScoresDto

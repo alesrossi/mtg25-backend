@@ -49,7 +49,7 @@ public static partial class BindersEndpoint
         if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
         var spec = new TradeBindersWithOwnerSpecification(userId, includeCards: true);
-        var binders = await unitOfWork.Repository<TradeBinder>().ListAsync(spec) ?? Array.Empty<TradeBinder>();
+        var binders = await unitOfWork.Repository<TradeBinder>().ListAsync(spec, tracking: false) ?? Array.Empty<TradeBinder>();
 
         var dto = binders.Select(MapToSummaryDto).ToList();
         return Results.Ok(dto);
@@ -61,7 +61,7 @@ public static partial class BindersEndpoint
         ClaimsPrincipal user)
     {
         var spec = new TradeBinderWithCardsSpecification(id);
-        var binder = await unitOfWork.Repository<TradeBinder>().GetEntityWithSpec(spec);
+        var binder = await unitOfWork.Repository<TradeBinder>().GetEntityWithSpec(spec, tracking: false);
         if (binder == null) return Results.NotFound();
 
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -73,7 +73,7 @@ public static partial class BindersEndpoint
         }
 
         var cards = await unitOfWork.Repository<BinderCard>()
-            .ListAsync(new BinderCardsWithBinderIdSpecification(binder.Id)) ?? Array.Empty<BinderCard>();
+            .ListAsync(new BinderCardsWithBinderIdSpecification(binder.Id), tracking: false) ?? Array.Empty<BinderCard>();
 
         return Results.Ok(MapToDto(binder, cards));
     }
@@ -83,11 +83,11 @@ public static partial class BindersEndpoint
         IUnitOfWork unitOfWork,
         ClaimsPrincipal user)
     {
-        var (result, binder) = await EnsureBinderAccessAsync(binderId, unitOfWork, user, allowPublic: true);
+        var (result, binder) = await EnsureBinderAccessAsync(binderId, unitOfWork, user, allowPublic: true, tracking: false);
         if (result != null) return result;
 
         var cards = await unitOfWork.Repository<BinderCard>()
-            .ListAsync(new BinderCardsWithBinderIdSpecification(binder!.Id)) ?? Array.Empty<BinderCard>();
+            .ListAsync(new BinderCardsWithBinderIdSpecification(binder!.Id), tracking: false) ?? Array.Empty<BinderCard>();
 
         var dto = cards.Select(MapToDto).ToList();
         return Results.Ok(dto);
@@ -99,10 +99,10 @@ public static partial class BindersEndpoint
         IUnitOfWork unitOfWork,
         ClaimsPrincipal user)
     {
-        var (result, binder) = await EnsureBinderAccessAsync(binderId, unitOfWork, user, allowPublic: true);
+        var (result, binder) = await EnsureBinderAccessAsync(binderId, unitOfWork, user, allowPublic: true, tracking: false);
         if (result != null) return result;
 
-        var binderCard = await unitOfWork.Repository<BinderCard>().GetEntityWithSpec(new BinderCardWithBinderSpecification(binderCardId));
+        var binderCard = await unitOfWork.Repository<BinderCard>().GetEntityWithSpec(new BinderCardWithBinderSpecification(binderCardId), tracking: false);
         if (binderCard == null || binderCard.TradeBinderId != binder!.Id)
         {
             return Results.NotFound();

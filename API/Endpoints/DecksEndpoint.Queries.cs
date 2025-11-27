@@ -77,7 +77,7 @@ public static partial class DecksEndpoint
         var user = await userManager.FindByIdAsync(userId);
         if (user is null) return Results.Unauthorized();
 
-        var decks = await unitOfWork.Repository<Deck>().ListAsync(new DecksWIthOwnerSpecification(user.Id));
+        var decks = await unitOfWork.Repository<Deck>().ListAsync(new DecksWIthOwnerSpecification(user.Id), tracking: false);
         if (decks is null || decks.Count <= 0) return Results.NotFound("No decks found");
 
         var deckDtos = decks.Select(MapToDto).ToList();
@@ -92,7 +92,7 @@ public static partial class DecksEndpoint
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId == null) return Results.Unauthorized();
 
-        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(id);
+        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(id, tracking: false);
         if (deck == null || deck.OwnerId != userId) return Results.NotFound();
 
         return Results.Ok(MapToDto(deck));
@@ -110,7 +110,7 @@ public static partial class DecksEndpoint
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId == null) return Results.Unauthorized();
 
-        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
+        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
         if (deck == null || deck.OwnerId != userId) return Results.NotFound();
 
         var deckCards = await deckCardService.GetDeckCardsAsync(deckId, maindeckOnly, sideboardOnly, ownedOnly);
@@ -127,7 +127,7 @@ public static partial class DecksEndpoint
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId == null) return Results.Unauthorized();
 
-        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
+        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
         if (deck == null || deck.OwnerId != userId) return Results.NotFound();
 
         var deckCard = await deckCardService.GetDeckCardByIdAsync(id);
@@ -145,7 +145,7 @@ public static partial class DecksEndpoint
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId == null) return Results.Unauthorized();
 
-        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
+        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
         if (deck == null || deck.OwnerId != userId) return Results.NotFound();
 
         var missingCards = (await deckCardService.GetDeckCardsAsync(deckId, ownedOnly: false)).ToList();
@@ -161,7 +161,7 @@ public static partial class DecksEndpoint
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId == null) return Results.Unauthorized();
 
-        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
+        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
         if (deck == null || deck.OwnerId != userId) return Results.NotFound();
 
         var deckCards = (await deckCardService.GetDeckCardsAsync(deckId)).ToList();

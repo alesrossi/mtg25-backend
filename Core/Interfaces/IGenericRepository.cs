@@ -5,11 +5,11 @@ namespace Core.Interfaces;
 
 public interface IGenericRepository<T> where T : BaseModel
 {
-    Task<T?> GetByIdAsync(int id);
-    Task<IReadOnlyList<T>?> ListAllAsync();
-    Task<T?> GetEntityWithSpec(ISpecification<T> spec);
-    Task<IReadOnlyList<T>?> ListAsync(ISpecification<T> spec);
-    Task<int> CountAsync(ISpecification<T> spec);
+    Task<T?> GetByIdAsync(int id, bool tracking = true);
+    Task<IReadOnlyList<T>?> ListAllAsync(bool tracking = true);
+    Task<T?> GetEntityWithSpec(ISpecification<T> spec, bool tracking = true);
+    Task<IReadOnlyList<T>?> ListAsync(ISpecification<T> spec, bool tracking = true);
+    Task<int> CountAsync(ISpecification<T> spec, bool tracking = false);
     void Add(T entity);
     void Add(IList<T> entity);
     void Update(T entity);

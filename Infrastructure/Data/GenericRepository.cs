@@ -13,35 +13,43 @@ namespace Infrastructure.Data
             _context = context;
         }
         
-        public async Task<T> GetByIdAsync(int id)
+        public async Task<T?> GetByIdAsync(int id, bool tracking = true)
         {
-            return await _context.Set<T>().FindAsync(id);
-        }
-        
+            var query = tracking
+                ? _context.Set<T>().AsQueryable()
+                : _context.Set<T>().AsNoTracking();
 
-        public async Task<IReadOnlyList<T>> ListAllAsync()
-        {
-            return await _context.Set<T>().ToListAsync();
+            return await query.FirstOrDefaultAsync(e => e.Id == id);
         }
 
-        public async Task<T?> GetEntityWithSpec(ISpecification<T> spec)
+
+        public async Task<IReadOnlyList<T>?> ListAllAsync(bool tracking = true)
         {
-            return await ApplySpecification(spec).FirstOrDefaultAsync();
+            var query = tracking
+                ? _context.Set<T>().AsQueryable()
+                : _context.Set<T>().AsNoTracking();
+
+            return await query.ToListAsync();
         }
 
-        public async Task<T?> GetEntity(ISpecification<T> spec)
+        public async Task<T?> GetEntityWithSpec(ISpecification<T> spec, bool tracking = true)
         {
-            return await ApplySpecification(spec).FirstOrDefaultAsync();
+            return await ApplySpecification(spec, tracking).FirstOrDefaultAsync();
         }
 
-        public async Task<IReadOnlyList<T>> ListAsync(ISpecification<T> spec)
+        public async Task<T?> GetEntity(ISpecification<T> spec, bool tracking = true)
         {
-            return await ApplySpecification(spec).ToListAsync();
+            return await ApplySpecification(spec, tracking).FirstOrDefaultAsync();
         }
 
-        public async Task<int> CountAsync(ISpecification<T> spec)
+        public async Task<IReadOnlyList<T>?> ListAsync(ISpecification<T> spec, bool tracking = true)
         {
-            return await ApplySpecification(spec).CountAsync();
+            return await ApplySpecification(spec, tracking).ToListAsync();
+        }
+
+        public async Task<int> CountAsync(ISpecification<T> spec, bool tracking = false)
+        {
+            return await ApplySpecification(spec, tracking).CountAsync();
         }
 
         public void Add(T entity)
@@ -72,9 +80,10 @@ namespace Infrastructure.Data
             return entitiesIds.Count;
         }
 
-        private IQueryable<T> ApplySpecification(ISpecification<T> spec)
+        private IQueryable<T> ApplySpecification(ISpecification<T> spec, bool tracking)
         {
-            return SpecificationEvaluator<T>.GetQuery(_context.Set<T>().AsQueryable(), spec);
+            var query = SpecificationEvaluator<T>.GetQuery(_context.Set<T>().AsQueryable(), spec);
+            return tracking ? query : query.AsNoTracking();
         }
     }
 }

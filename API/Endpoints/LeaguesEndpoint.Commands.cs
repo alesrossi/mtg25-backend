@@ -84,7 +84,9 @@ public static partial class LeaguesEndpoint
         var user = await userManager.FindByIdAsync(userId);
         if (user is null) return Results.Unauthorized();
 
-        var league = await dbContext.FindAsync<League>(id);
+        var league = await dbContext.Leagues
+            .AsTracking()
+            .FirstOrDefaultAsync(l => l.Id == id);
         if (league is null) return Results.NotFound();
         if (league.OwnerId != user.Id) return Results.Unauthorized();
 
@@ -120,7 +122,9 @@ public static partial class LeaguesEndpoint
         var user = await userManager.FindByIdAsync(userId);
         if (user is null) return Results.Unauthorized();
 
-        var league = await dbContext.FindAsync<League>(id);
+        var league = await dbContext.Leagues
+            .AsTracking()
+            .FirstOrDefaultAsync(l => l.Id == id);
         if (league is null) return Results.NotFound();
         if (league.OwnerId != userId) return Results.Unauthorized();
 
@@ -162,7 +166,9 @@ public static partial class LeaguesEndpoint
         var user = await userManager.FindByIdAsync(userId);
         if (user is null) return Results.Unauthorized();
 
-        var league = await dbContext.FindAsync<League>(id);
+        var league = await dbContext.Leagues
+            .AsTracking()
+            .FirstOrDefaultAsync(l => l.Id == id);
         if (league is null) return Results.NotFound();
         if (league.OwnerId != userId) return Results.Unauthorized();
 
@@ -181,7 +187,8 @@ public static partial class LeaguesEndpoint
         var user = await userManager.FindByIdAsync(userId);
         if (user is null) return Results.Unauthorized();
 
-        var league = await dbContext.Leagues.FirstOrDefaultAsync(l => l.Code == code);
+        var league = await dbContext.Leagues
+            .FirstOrDefaultAsync(l => l.Code == code);
         if (league is null) return Results.NotFound("League not found");
 
         var existingMember = await dbContext.UserLeagues
@@ -223,7 +230,9 @@ public static partial class LeaguesEndpoint
         var user = await userManager.FindByIdAsync(userId);
         if (user is null) return Results.Unauthorized();
 
-        var league = await dbContext.FindAsync<League>(id);
+        var league = await dbContext.Leagues
+            .AsNoTracking()
+            .FirstOrDefaultAsync(l => l.Id == id);
         if (league is null) return Results.NotFound("League not found");
         if (league.OwnerId == user.Id) return Results.BadRequest("You can't leave a league you created");
 

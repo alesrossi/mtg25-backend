@@ -18,10 +18,10 @@ public class DeckCardService(IUnitOfWork unitOfWork)
             _ => new DeckCardsWithDeckIdSpecification(deckId)
         };
         
-        var deckCards = await unitOfWork.Repository<DeckCard>().ListAsync(spec);
+        var deckCards = await unitOfWork.Repository<DeckCard>().ListAsync(spec, tracking: false);
         
         // Get the deck owner for collection lookup
-        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
+        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
         if (deck == null) return [];
         
         // Get all oracle IDs from deck cards
@@ -29,7 +29,7 @@ public class DeckCardService(IUnitOfWork unitOfWork)
         
         // Get user's collections
         var userCollectionsSpec = new CollectionWithOwnerSpecification(deck.OwnerId);
-        var userCollections = await unitOfWork.Repository<Collection>().ListAsync(userCollectionsSpec);
+        var userCollections = await unitOfWork.Repository<Collection>().ListAsync(userCollectionsSpec, tracking: false);
         
         // Get all owned cards for all oracle IDs in one query per collection
         var ownedCardsLookup = new Dictionary<string, List<Card>>();
@@ -39,7 +39,7 @@ public class DeckCardService(IUnitOfWork unitOfWork)
             foreach (var collection in userCollections)
             {
                 var cardsSpec = new CardsWithParamsSpecification(new EntitySpecParams(), collection.Id);
-                var collectionCards = await unitOfWork.Repository<Card>().ListAsync(cardsSpec);
+                var collectionCards = await unitOfWork.Repository<Card>().ListAsync(cardsSpec, tracking: false);
                 
                 var matchingCards = collectionCards?.Where(c => oracleIds.Contains(c.OracleId)).ToList();
                 if (matchingCards?.Any() == true)
@@ -74,7 +74,7 @@ public class DeckCardService(IUnitOfWork unitOfWork)
             ? new DeckCardsWithOracleIdSpecification(oracleId, deckId.Value)
             : new DeckCardsWithOracleIdSpecification(oracleId, userId!);
             
-        var deckCards = await unitOfWork.Repository<DeckCard>().ListAsync(spec);
+        var deckCards = await unitOfWork.Repository<DeckCard>().ListAsync(spec, tracking: false);
         
         // For this method we'll keep the old synchronous mapping since we don't have owner context
         return deckCards?.Select(MapToDto) ?? [];
@@ -82,10 +82,10 @@ public class DeckCardService(IUnitOfWork unitOfWork)
 
     public async Task<DeckCardDto?> GetDeckCardByIdAsync(int id)
     {
-        var deckCard = await unitOfWork.Repository<DeckCard>().GetByIdAsync(id);
+        var deckCard = await unitOfWork.Repository<DeckCard>().GetByIdAsync(id, tracking: false);
         if (deckCard == null) return null;
         
-        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckCard.DeckId);
+        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckCard.DeckId, tracking: false);
         if (deck == null) return null;
         
         return await MapToDtoAsync(deckCard, deck.OwnerId);
@@ -124,7 +124,7 @@ public class DeckCardService(IUnitOfWork unitOfWork)
         unitOfWork.Repository<DeckCard>().Add(deckCard);
         await unitOfWork.Complete();
 
-        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
+        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
         if (deck == null) throw new InvalidOperationException("Deck not found");
         
         return await MapToDtoAsync(deckCard, deck.OwnerId);
@@ -143,10 +143,10 @@ public class DeckCardService(IUnitOfWork unitOfWork)
         await unitOfWork.Complete();
 
         // Reload the entity to get the updated values
-        var updatedDeckCard = await unitOfWork.Repository<DeckCard>().GetByIdAsync(id);
+        var updatedDeckCard = await unitOfWork.Repository<DeckCard>().GetByIdAsync(id, tracking: false);
         if (updatedDeckCard == null) return null;
         
-        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(updatedDeckCard.DeckId);
+        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(updatedDeckCard.DeckId, tracking: false);
         if (deck == null) return null;
         
         return await MapToDtoAsync(updatedDeckCard, deck.OwnerId);
@@ -189,7 +189,7 @@ public class DeckCardService(IUnitOfWork unitOfWork)
     {
         // Find all collections owned by the user
         var userCollectionsSpec = new CollectionWithOwnerSpecification(ownerId);
-        var userCollections = await unitOfWork.Repository<Collection>().ListAsync(userCollectionsSpec);
+        var userCollections = await unitOfWork.Repository<Collection>().ListAsync(userCollectionsSpec, tracking: false);
         
         // Find all cards in those collections that match the OracleId
         var totalOwnedQuantity = 0;
@@ -200,7 +200,7 @@ public class DeckCardService(IUnitOfWork unitOfWork)
             foreach (var collection in userCollections)
             {
                 var cardsSpec = new CardsWithParamsSpecification(new EntitySpecParams(), collection.Id);
-                var collectionCards = await unitOfWork.Repository<Card>().ListAsync(cardsSpec);
+                var collectionCards = await unitOfWork.Repository<Card>().ListAsync(cardsSpec, tracking: false);
                 
                 var matchingCards = collectionCards?.Where(c => c.OracleId == deckCard.OracleId).ToList();
                 if (matchingCards?.Any() == true)

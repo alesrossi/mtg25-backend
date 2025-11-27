@@ -17,7 +17,7 @@ public static partial class WishlistsEndpoint
         if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
         var spec = new WishlistsWithOwnerSpecification(userId, includeCards: true);
-        var wishlists = await unitOfWork.Repository<Wishlist>().ListAsync(spec) ?? Array.Empty<Wishlist>();
+        var wishlists = await unitOfWork.Repository<Wishlist>().ListAsync(spec, tracking: false) ?? Array.Empty<Wishlist>();
 
         var dto = wishlists.Select(MapToSummaryDto).ToList();
         return Results.Ok(dto);
@@ -32,7 +32,7 @@ public static partial class WishlistsEndpoint
         if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
         var spec = new WishlistWithCardsSpecification(id, userId);
-        var wishlist = await unitOfWork.Repository<Wishlist>().GetEntityWithSpec(spec);
+        var wishlist = await unitOfWork.Repository<Wishlist>().GetEntityWithSpec(spec, tracking: false);
         if (wishlist == null) return Results.NotFound();
 
         return Results.Ok(MapToDto(wishlist));
@@ -43,11 +43,11 @@ public static partial class WishlistsEndpoint
         IUnitOfWork unitOfWork,
         ClaimsPrincipal user)
     {
-        var ownershipResult = await EnsureWishlistOwnershipAsync(wishlistId, unitOfWork, user);
+        var ownershipResult = await EnsureWishlistOwnershipAsync(wishlistId, unitOfWork, user, tracking: false);
         if (ownershipResult.Result != null) return ownershipResult.Result;
 
         var spec = new WishlistCardsWithWishlistIdSpecification(wishlistId);
-        var cards = await unitOfWork.Repository<WishlistCard>().ListAsync(spec) ?? Array.Empty<WishlistCard>();
+        var cards = await unitOfWork.Repository<WishlistCard>().ListAsync(spec, tracking: false) ?? Array.Empty<WishlistCard>();
 
         return Results.Ok(cards.Select(MapToDto).ToList());
     }
@@ -58,10 +58,10 @@ public static partial class WishlistsEndpoint
         IUnitOfWork unitOfWork,
         ClaimsPrincipal user)
     {
-        var ownershipResult = await EnsureWishlistOwnershipAsync(wishlistId, unitOfWork, user);
+        var ownershipResult = await EnsureWishlistOwnershipAsync(wishlistId, unitOfWork, user, tracking: false);
         if (ownershipResult.Result != null) return ownershipResult.Result;
 
-        var wishlistCard = await unitOfWork.Repository<WishlistCard>().GetByIdAsync(cardId);
+        var wishlistCard = await unitOfWork.Repository<WishlistCard>().GetByIdAsync(cardId, tracking: false);
         return wishlistCard == null ? Results.NotFound() : Results.Ok(MapToDto(wishlistCard));
     }
 }

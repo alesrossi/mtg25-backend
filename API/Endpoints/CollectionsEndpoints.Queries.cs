@@ -50,7 +50,7 @@ public static partial class CollectionsEndpoints
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId is null) return Results.Unauthorized();
 
-        var collection = await unitOfWork.Repository<Collection>().GetByIdAsync(id);
+        var collection = await unitOfWork.Repository<Collection>().GetByIdAsync(id, tracking: false);
         if (collection is null) return Results.NotFound();
 
         return collection.OwnerId != userId ? Results.Unauthorized() : Results.Ok(collection);
@@ -65,7 +65,7 @@ public static partial class CollectionsEndpoints
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId is null) return Results.Unauthorized();
 
-        var collection = await unitOfWork.Repository<Collection>().GetByIdAsync(id);
+        var collection = await unitOfWork.Repository<Collection>().GetByIdAsync(id, tracking: false);
         if (collection is null) return Results.NotFound();
         if (collection.OwnerId != userId) return Results.Unauthorized();
 
@@ -76,7 +76,7 @@ public static partial class CollectionsEndpoints
 
         var spec = new CardsWithParamsSpecification(entityParams, id);
         var size = await unitOfWork.Repository<Card>().CountAsync(spec);
-        var cards = await unitOfWork.Repository<Card>().ListAsync(spec);
+        var cards = await unitOfWork.Repository<Card>().ListAsync(spec, tracking: false);
 
         return Results.Ok(new Pagination<Card>(entityParams.PageIndex, entityParams.PageSize, size, cards));
     }
@@ -88,7 +88,7 @@ public static partial class CollectionsEndpoints
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
 
-        var collections = await unitOfWork.Repository<Collection>().ListAsync(new CollectionWithOwnerSpecification(userId));
+        var collections = await unitOfWork.Repository<Collection>().ListAsync(new CollectionWithOwnerSpecification(userId), tracking: false);
         return Results.Ok(collections);
     }
 
@@ -98,7 +98,7 @@ public static partial class CollectionsEndpoints
         EntitySpecParams entityParams)
     {
         var spec = new CardsWithParamsSpecification(entityParams, collectionId);
-        var allCards = await unitOfWork.Repository<Card>().ListAsync(spec);
+        var allCards = await unitOfWork.Repository<Card>().ListAsync(spec, tracking: false);
 
         if (allCards == null || !allCards.Any())
         {

@@ -65,10 +65,10 @@ public static partial class CardsEndpoints
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId is null) return Results.Unauthorized();
 
-        var card = await unit.Repository<Card>().GetByIdAsync(id);
+        var card = await unit.Repository<Card>().GetByIdAsync(id, tracking: false);
         if (card is null) return Results.NotFound();
 
-        var collection = await unit.Repository<Collection>().GetByIdAsync(card.CollectionId);
+        var collection = await unit.Repository<Collection>().GetByIdAsync(card.CollectionId, tracking: false);
 
         return collection!.OwnerId == userId ? Results.Ok(card) : Results.Unauthorized();
     }

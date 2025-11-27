@@ -14,9 +14,10 @@ public static partial class BindersEndpoint
         IUnitOfWork unitOfWork,
         ClaimsPrincipal user,
         bool allowPublic = false,
-        bool requireOwner = false)
+        bool requireOwner = false,
+        bool tracking = true)
     {
-        var binder = await unitOfWork.Repository<TradeBinder>().GetByIdAsync(binderId);
+        var binder = await unitOfWork.Repository<TradeBinder>().GetByIdAsync(binderId, tracking);
         if (binder == null) return (Results.NotFound(), null);
 
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
