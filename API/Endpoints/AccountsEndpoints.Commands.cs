@@ -1,10 +1,12 @@
 using System;
 using API.Dtos.Accounts;
+using API.Logging;
 using API.Services;
 using Core.Models.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
 
 namespace API.Endpoints;
 
@@ -35,16 +37,23 @@ public static partial class AccountsEndpoints
     private static async Task<IResult> RegisterUserAsync(
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] IValidationService validationService,
-        [FromBody] RegisterDto registerDto)
+        [FromBody] RegisterDto registerDto,
+        [FromServices] ILogger<AccountsEndpointLogCategory> logger)
     {
+        const string operation = "Accounts.Register";
+        using var scope = logger.BeginOperationScope(operation, registerDto.Email);
+        logger.LogOperationStart(operation, new { registerDto.Email });
+
         if (await CheckEmailExistsAsyncHelper(userManager, registerDto.Email))
         {
+            logger.LogOperationWarning(operation, "Email exists", new { registerDto.Email });
             return Results.BadRequest("Email address already in use");
         }
 
         var (isValid, errors) = validationService.ValidateModel(registerDto);
         if (!isValid)
         {
+            logger.LogOperationWarning(operation, "Validation failed", new { registerDto.Email, errors });
             return Results.BadRequest(new { errors });
         }
 
@@ -59,8 +68,13 @@ public static partial class AccountsEndpoints
 
         var result = await userManager.CreateAsync(user, registerDto.Password);
 
-        if (!result.Succeeded) return Results.BadRequest("Error in user creation");
+        if (!result.Succeeded)
+        {
+            logger.LogOperationWarning(operation, "Identity creation failed", result.Errors);
+            return Results.BadRequest("Error in user creation");
+        }
 
+        logger.LogOperationSuccess(operation, new { registerDto.Email });
         return Results.Ok(new UserDto
         {
             DisplayName = user.DisplayName,
@@ -74,17 +88,31 @@ public static partial class AccountsEndpoints
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] IJwtService jwtService,
         [FromServices] SignInManager<AppUser> signInManager,
-        [FromBody] LoginDto loginDto)
+        [FromBody] LoginDto loginDto,
+        [FromServices] ILogger<AccountsEndpointLogCategory> logger)
     {
+        const string operation = "Accounts.Login";
+        using var scope = logger.BeginOperationScope(operation, loginDto.Email);
+        logger.LogOperationStart(operation, new { loginDto.Email });
+
         var user = await userManager.FindByEmailAsync(loginDto.Email);
-        if (user == null) return Results.Unauthorized();
+        if (user == null)
+        {
+            logger.LogOperationWarning(operation, "User not found", new { loginDto.Email });
+            return Results.Unauthorized();
+        }
 
         var result = await signInManager.CheckPasswordSignInAsync(user, loginDto.Password, false);
 
-        if (!result.Succeeded) return Results.Unauthorized();
+        if (!result.Succeeded)
+        {
+            logger.LogOperationWarning(operation, "Password sign-in failed", new { loginDto.Email });
+            return Results.Unauthorized();
+        }
 
         var token = await jwtService.GenerateTokenAsync(user);
 
+        logger.LogOperationSuccess(operation, new { loginDto.Email, user.Id });
         return Results.Ok(new AuthDto
         {
             Token = token,
@@ -98,16 +126,24 @@ public static partial class AccountsEndpoints
 
     private static async Task<IResult> LogoutUserAsync(
         HttpContext context,
-        IJwtService jwtService)
+        IJwtService jwtService,
+        [FromServices] ILogger<AccountsEndpointLogCategory> logger)
     {
+        const string operation = "Accounts.Logout";
+        logger.LogOperationStart(operation);
+
         var token = context.Request.Headers.Authorization
             .ToString().Replace("Bearer ", "");
 
         if (string.IsNullOrEmpty(token))
+        {
+            logger.LogOperationWarning(operation, "Missing token");
             return Results.Unauthorized();
+        }
 
         await jwtService.BlacklistTokenAsync(token, TimeSpan.FromHours(1));
 
+        logger.LogOperationSuccess(operation);
         return Results.Ok(new { message = "Logged out successfully" });
     }
 }

@@ -4,11 +4,13 @@ using System.Linq;
 using System.Security.Claims;
 using API.Dtos.Cards;
 using API.Helpers;
+using API.Logging;
 using API.Services;
 using Core.Interfaces;
 using Core.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
 
 namespace API.Endpoints;
 
@@ -57,11 +59,14 @@ public static partial class CardsEndpoints
         IUnitOfWork unit,
         int id,
         HttpContext context,
-        [FromBody] UpdateCollectionCardDto updateDto)
+        [FromBody] UpdateCollectionCardDto updateDto,
+        [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
+        const string operation = "Cards.Update";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId is null)
         {
+            logger.LogOperationWarning(operation, "Missing user id", new { id });
             return ProblemResultFactory.Create(
                 context,
                 StatusCodes.Status401Unauthorized,
@@ -70,9 +75,12 @@ public static partial class CardsEndpoints
                 "card-update-auth-required");
         }
 
+        logger.LogOperationStart(operation, new { id });
+
         var card = await unit.Repository<Card>().GetByIdAsync(id);
         if (card is null)
         {
+            logger.LogOperationWarning(operation, "Card not found", new { id });
             return ProblemResultFactory.Create(
                 context,
                 StatusCodes.Status404NotFound,
@@ -84,6 +92,7 @@ public static partial class CardsEndpoints
         var collection = await unit.Repository<Collection>().GetByIdAsync(card.CollectionId);
         if (collection is null)
         {
+            logger.LogOperationWarning(operation, "Collection missing", new { card.CollectionId });
             return ProblemResultFactory.Create(
                 context,
                 StatusCodes.Status404NotFound,
@@ -94,6 +103,7 @@ public static partial class CardsEndpoints
 
         if (collection.OwnerId != userId)
         {
+            logger.LogOperationWarning(operation, "Unauthorized", new { collection.Id, userId });
             return ProblemResultFactory.Create(
                 context,
                 StatusCodes.Status401Unauthorized,
@@ -103,6 +113,7 @@ public static partial class CardsEndpoints
         }
         if (updateDto.Quantity <= 0)
         {
+            logger.LogOperationWarning(operation, "Invalid quantity", new { id, updateDto.Quantity });
             return ProblemResultFactory.Create(
                 context,
                 StatusCodes.Status400BadRequest,
@@ -115,6 +126,7 @@ public static partial class CardsEndpoints
         {
             if (!Enum.TryParse(updateDto.Condition, out Condition condition))
             {
+                logger.LogOperationWarning(operation, "Invalid condition", new { id, updateDto.Condition });
                 return ProblemResultFactory.Create(
                     context,
                     StatusCodes.Status400BadRequest,
@@ -138,8 +150,9 @@ public static partial class CardsEndpoints
             unit.Repository<Collection>().Update(card.Collection);
             await unit.Complete();
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            logger.LogOperationFailure(operation, ex, new { id });
             return ProblemResultFactory.Create(
                 context,
                 StatusCodes.Status500InternalServerError,
@@ -148,6 +161,7 @@ public static partial class CardsEndpoints
                 "card-update-error");
         }
 
+        logger.LogOperationSuccess(operation, new { id });
         return Results.Ok(card);
     }
 
@@ -155,11 +169,14 @@ public static partial class CardsEndpoints
         IUnitOfWork unit,
         int id,
         CardDataService cds,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
+        const string operation = "Cards.Delete";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId is null)
         {
+            logger.LogOperationWarning(operation, "Missing user id", new { id });
             return ProblemResultFactory.Create(
                 context,
                 StatusCodes.Status401Unauthorized,
@@ -170,9 +187,12 @@ public static partial class CardsEndpoints
 
         try
         {
+            logger.LogOperationStart(operation, new { id });
+
             var card = await unit.Repository<Card>().GetByIdAsync(id);
             if (card is null)
             {
+                logger.LogOperationWarning(operation, "Card not found", new { id });
                 return ProblemResultFactory.Create(
                     context,
                     StatusCodes.Status404NotFound,
@@ -184,6 +204,7 @@ public static partial class CardsEndpoints
             var collection = await unit.Repository<Collection>().GetByIdAsync(card.CollectionId);
             if (collection is null)
             {
+                logger.LogOperationWarning(operation, "Collection missing", new { card.CollectionId });
                 return ProblemResultFactory.Create(
                     context,
                     StatusCodes.Status404NotFound,
@@ -194,6 +215,7 @@ public static partial class CardsEndpoints
 
             if (collection.OwnerId != userId)
             {
+                logger.LogOperationWarning(operation, "Unauthorized", new { collection.Id, userId });
                 return ProblemResultFactory.Create(
                     context,
                     StatusCodes.Status401Unauthorized,
@@ -207,10 +229,12 @@ public static partial class CardsEndpoints
             unit.Repository<Collection>().Update(collection);
             await unit.Complete();
 
+            logger.LogOperationSuccess(operation, new { id });
             return Results.NoContent();
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            logger.LogOperationFailure(operation, ex, new { id });
             return ProblemResultFactory.Create(
                 context,
                 StatusCodes.Status500InternalServerError,
@@ -224,16 +248,34 @@ public static partial class CardsEndpoints
         IUnitOfWork unit,
         CardDataService cds,
         HttpContext context,
-        InternalCardDto cardDto)
+        InternalCardDto cardDto,
+        [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
+        const string operation = "Cards.AddInternal";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id");
+            return Results.Unauthorized();
+        }
 
         var collection = await unit.Repository<Collection>().GetByIdAsync(cardDto.CollectionId);
-        if (collection is null) return Results.NotFound();
-        if (collection.OwnerId != userId) return Results.Unauthorized();
+        if (collection is null)
+        {
+            logger.LogOperationWarning(operation, "Collection not found", new { cardDto.CollectionId });
+            return Results.NotFound();
+        }
+        if (collection.OwnerId != userId)
+        {
+            logger.LogOperationWarning(operation, "Unauthorized", new { cardDto.CollectionId, userId });
+            return Results.Unauthorized();
+        }
 
-        if (userId != collection.OwnerId) return Results.BadRequest("Collection is not valid for logged user");
+        if (userId != collection.OwnerId)
+        {
+            logger.LogOperationWarning(operation, "Collection mismatch", new { cardDto.CollectionId, userId });
+            return Results.BadRequest("Collection is not valid for logged user");
+        }
 
         if (!cds.CardDataById.TryGetValue(cardDto.OracleId, out var oracleCard)) return Results.BadRequest("Card not found for oracleId");
 
@@ -274,25 +316,38 @@ public static partial class CardsEndpoints
         unit.Repository<Collection>().Update(collection);
 
         await unit.Complete();
+        logger.LogOperationSuccess(operation, new { card.Id, card.CollectionId });
         return Results.Ok(card);
     }
 
     private static Task<IResult> AddCardListAsync(
         CardDataService cds,
         CardListDto cardListDto,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
+        const string operation = "Cards.AddList";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Task.FromResult(Results.Unauthorized());
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id");
+            return Task.FromResult(Results.Unauthorized());
+        }
 
         var oracleCardList = new LinkedList<OracleCardDto>();
 
         var cardList = cardListDto.CardList.Trim().Split('\n').Select(p => p.Trim());
         foreach (var inputCard in cardList)
         {
-            oracleCardList.AddLast(cds.CardDataByName[inputCard]);
+            if (!cds.CardDataByName.TryGetValue(inputCard, out var oracleCard))
+            {
+                logger.LogOperationWarning(operation, "Card not found", new { inputCard });
+                continue;
+            }
+            oracleCardList.AddLast(oracleCard);
         }
 
+        logger.LogOperationSuccess(operation, new { Count = oracleCardList.Count });
         return Task.FromResult(Results.Ok(oracleCardList));
     }
 

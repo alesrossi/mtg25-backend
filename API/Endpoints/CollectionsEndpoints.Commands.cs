@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using API.Dtos.Collections;
 using API.Helpers;
+using API.Logging;
 using API.Services;
 using Core.Interfaces;
 using Core.Models;
@@ -12,6 +13,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 
 namespace API.Endpoints;
@@ -69,17 +71,28 @@ public static partial class CollectionsEndpoints
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] IValidationService validationService,
         HttpContext context,
-        NewCollectionDto collectionDto)
+        NewCollectionDto collectionDto,
+        [FromServices] ILogger<CollectionsEndpointLogCategory> logger)
     {
+        const string operation = "Collections.Create";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id");
+            return Results.Unauthorized();
+        }
 
         var user = await userManager.FindByIdAsync(userId);
-        if (user is null) return Results.Unauthorized();
+        if (user is null)
+        {
+            logger.LogOperationWarning(operation, "User not found", new { userId });
+            return Results.Unauthorized();
+        }
 
         var (isValid, errors) = validationService.ValidateModel(collectionDto);
         if (!isValid)
         {
+            logger.LogOperationWarning(operation, "Validation failed", new { userId, errors });
             return Results.BadRequest(new { errors });
         }
 
@@ -93,6 +106,7 @@ public static partial class CollectionsEndpoints
         };
         unitOfWork.Repository<Collection>().Add(collection);
         await unitOfWork.Complete();
+        logger.LogOperationSuccess(operation, new { collection.Id, userId });
         return Results.Ok(collection);
     }
 
@@ -102,26 +116,42 @@ public static partial class CollectionsEndpoints
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] IValidationService validationService,
         HttpContext context,
-        NewCollectionDto collectionDto)
+        NewCollectionDto collectionDto,
+        [FromServices] ILogger<CollectionsEndpointLogCategory> logger)
     {
+        const string operation = "Collections.Update";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { id });
+            return Results.Unauthorized();
+        }
 
         var (isValid, errors) = validationService.ValidateModel(collectionDto);
         if (!isValid)
         {
+            logger.LogOperationWarning(operation, "Validation failed", new { id, errors });
             return Results.BadRequest(new { errors });
         }
 
         var collection = await unitOfWork.Repository<Collection>().GetByIdAsync(id);
-        if (collection is null) return Results.NotFound();
-        if (collection.OwnerId != userId) return Results.Unauthorized();
+        if (collection is null)
+        {
+            logger.LogOperationWarning(operation, "Collection not found", new { id });
+            return Results.NotFound();
+        }
+        if (collection.OwnerId != userId)
+        {
+            logger.LogOperationWarning(operation, "Unauthorized access", new { id, userId });
+            return Results.Unauthorized();
+        }
 
         collection.Name = collectionDto.Name;
         collection.Color = collectionDto.Color;
         unitOfWork.Repository<Collection>().Update(collection);
         await unitOfWork.Complete();
 
+        logger.LogOperationSuccess(operation, new { id });
         return Results.Ok(collection);
     }
 
@@ -130,22 +160,48 @@ public static partial class CollectionsEndpoints
         CardDataService cds,
         IFormFile file,
         int id,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILogger<CollectionsEndpointLogCategory> logger)
     {
+        const string operation = "Collections.Import";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { id });
+            return Results.Unauthorized();
+        }
 
         try
         {
-            if (file.Length <= 0) return Results.BadRequest("No file uploaded");
-            if (!file.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)) return Results.BadRequest("File must be csv");
-            if (file.Length > 10 * 1024 * 1024) return Results.BadRequest("File is too large");
+            if (file.Length <= 0)
+            {
+                logger.LogOperationWarning(operation, "Empty file", new { id });
+                return Results.BadRequest("No file uploaded");
+            }
+            if (!file.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+            {
+                logger.LogOperationWarning(operation, "Invalid file type", new { id, file.FileName });
+                return Results.BadRequest("File must be csv");
+            }
+            if (file.Length > 10 * 1024 * 1024)
+            {
+                logger.LogOperationWarning(operation, "File too large", new { id, file.Length });
+                return Results.BadRequest("File is too large");
+            }
 
             var importResult = await CollectionHelpers.ProcessCsvFIle(file, cds, id);
 
             var collection = await unitOfWork.Repository<Collection>().GetByIdAsync(id);
-            if (collection is null) return Results.NotFound();
-            if (collection.OwnerId != userId) return Results.Unauthorized();
+            if (collection is null)
+            {
+                logger.LogOperationWarning(operation, "Collection not found", new { id });
+                return Results.NotFound();
+            }
+            if (collection.OwnerId != userId)
+            {
+                logger.LogOperationWarning(operation, "Unauthorized", new { id, userId });
+                return Results.Unauthorized();
+            }
 
             if (importResult.Cards.Count == 0)
             {
@@ -153,6 +209,7 @@ public static partial class CollectionsEndpoints
                     ? importResult.Errors
                     : new List<string> { "CSV file did not contain any valid cards." };
 
+                logger.LogOperationWarning(operation, "No valid cards", new { id, errors, importResult.SkippedLines });
                 return Results.BadRequest(new
                 {
                     cards = importResult.Cards,
@@ -168,6 +225,7 @@ public static partial class CollectionsEndpoints
             unitOfWork.Repository<Collection>().Update(collection);
             await unitOfWork.Complete();
 
+            logger.LogOperationSuccess(operation, new { id, importedCount, importResult.SkippedLines });
             return Results.Ok(new
             {
                 cards = importResult.Cards,
@@ -175,8 +233,9 @@ public static partial class CollectionsEndpoints
                 skippedLines = importResult.SkippedLines
             });
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            logger.LogOperationFailure(operation, ex, new { id });
             return Results.StatusCode(500);
         }
     }
@@ -184,18 +243,33 @@ public static partial class CollectionsEndpoints
     private static async Task<IResult> DeleteCollectionAsync(
         int id,
         IUnitOfWork unitOfWork,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILogger<CollectionsEndpointLogCategory> logger)
     {
+        const string operation = "Collections.Delete";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+        if (string.IsNullOrEmpty(userId))
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { id });
+            return Results.Unauthorized();
+        }
 
         var collection = await unitOfWork.Repository<Collection>().GetByIdAsync(id);
-        if (collection is null) return Results.NotFound();
-        if (collection.OwnerId != userId) return Results.Unauthorized();
+        if (collection is null)
+        {
+            logger.LogOperationWarning(operation, "Collection not found", new { id });
+            return Results.NotFound();
+        }
+        if (collection.OwnerId != userId)
+        {
+            logger.LogOperationWarning(operation, "Unauthorized", new { id, userId });
+            return Results.Unauthorized();
+        }
 
         unitOfWork.Repository<Collection>().Delete(collection);
         await unitOfWork.Complete();
 
+        logger.LogOperationSuccess(operation, new { id });
         return Results.NoContent();
     }
 
@@ -203,19 +277,41 @@ public static partial class CollectionsEndpoints
         IUnitOfWork unitOfWork,
         int id,
         [FromBody] List<int> ctbd,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILogger<CollectionsEndpointLogCategory> logger)
     {
+        const string operation = "Collections.MassDelete";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { id });
+            return Results.Unauthorized();
+        }
 
         var collection = await unitOfWork.Repository<Collection>().GetByIdAsync(id);
-        if (collection is null) return Results.NotFound();
-        if (collection.OwnerId != userId) return Results.Unauthorized();
+        if (collection is null)
+        {
+            logger.LogOperationWarning(operation, "Collection not found", new { id });
+            return Results.NotFound();
+        }
+        if (collection.OwnerId != userId)
+        {
+            logger.LogOperationWarning(operation, "Unauthorized", new { id, userId });
+            return Results.Unauthorized();
+        }
 
-        if (ctbd is null || ctbd.Count == 0) return Results.BadRequest("No card ids provided.");
+        if (ctbd is null || ctbd.Count == 0)
+        {
+            logger.LogOperationWarning(operation, "No ids", new { id });
+            return Results.BadRequest("No card ids provided.");
+        }
 
         var cardsToDelete = await unitOfWork.Repository<Card>().ListAsync(new CardsByIdsSpecification(ctbd, id));
-        if (cardsToDelete.Count == 0) return Results.NotFound();
+        if (cardsToDelete.Count == 0)
+        {
+            logger.LogOperationWarning(operation, "Cards not found", new { id, Count = ctbd.Count });
+            return Results.NotFound();
+        }
 
         foreach (var card in cardsToDelete)
         {
@@ -228,6 +324,7 @@ public static partial class CollectionsEndpoints
 
         await unitOfWork.Complete();
 
+        logger.LogOperationSuccess(operation, new { id, Removed = cardsToDelete.Count });
         return Results.Ok(cardsToDelete.Count);
     }
 }

@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using API.Dtos.Cards;
+using API.Logging;
 using API.Services;
 using Core.Interfaces;
 using Core.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
 
 namespace API.Endpoints;
 
@@ -60,26 +62,49 @@ public static partial class CardsEndpoints
         IUnitOfWork unit,
         int id,
         CardDataService cds,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
+        const string operation = "Cards.GetById";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { id });
+            return Results.Unauthorized();
+        }
 
         var card = await unit.Repository<Card>().GetByIdAsync(id, tracking: false);
-        if (card is null) return Results.NotFound();
+        if (card is null)
+        {
+            logger.LogOperationWarning(operation, "Card not found", new { id });
+            return Results.NotFound();
+        }
 
         var collection = await unit.Repository<Collection>().GetByIdAsync(card.CollectionId, tracking: false);
 
-        return collection!.OwnerId == userId ? Results.Ok(card) : Results.Unauthorized();
+        if (collection!.OwnerId != userId)
+        {
+            logger.LogOperationWarning(operation, "Unauthorized", new { collection.Id, userId });
+            return Results.Unauthorized();
+        }
+
+        logger.LogOperationSuccess(operation, new { id });
+        return Results.Ok(card);
     }
 
     private static IResult SearchCards(
         string find,
         CardDataService cds,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
+        const string operation = "Cards.Search";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id");
+            return Results.Unauthorized();
+        }
 
         var cardList = cds.CardDataById
             .Where(x => x.Value.Name.Contains(find, StringComparison.OrdinalIgnoreCase))
@@ -101,45 +126,89 @@ public static partial class CardsEndpoints
                 BackImageUrl = backImageUrl
             };
         }).ToList();
-        return result.Count == 0 ? Results.NotFound("Card not found") : Results.Ok(result);
+        if (result.Count == 0)
+        {
+            logger.LogOperationWarning(operation, "No matches", new { find });
+            return Results.NotFound("Card not found");
+        }
+
+        logger.LogOperationSuccess(operation, new { find, Count = result.Count });
+        return Results.Ok(result);
     }
 
     private static IResult GetCardVersionsAsync(
         string name,
         CardDataService cds,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
+        const string operation = "Cards.Versions";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { name });
+            return Results.Unauthorized();
+        }
 
-        if (!cds.CardDataByName.ContainsKey(name)) return Results.NotFound();
+        if (!cds.CardDataByName.ContainsKey(name))
+        {
+            logger.LogOperationWarning(operation, "Card not found", new { name });
+            return Results.NotFound();
+        }
 
         var versions = cds.CardDataById
             .Where(x => x.Value.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
+        logger.LogOperationSuccess(operation, new { name, Count = versions.Count });
         return Results.Ok(versions);
     }
 
     private static IResult GetCardFromExactName(
         string name,
         CardDataService cds,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
+        const string operation = "Cards.ScryfallByName";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { name });
+            return Results.Unauthorized();
+        }
 
-        return cds.CardDataByName.TryGetValue(name, out var card) ? Results.Ok(card) : Results.NotFound();
+        if (cds.CardDataByName.TryGetValue(name, out var card))
+        {
+            logger.LogOperationSuccess(operation, new { name });
+            return Results.Ok(card);
+        }
+
+        logger.LogOperationWarning(operation, "Card not found", new { name });
+        return Results.NotFound();
     }
 
     private static IResult GetCardFromOracleId(
         string id,
         CardDataService cds,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
+        const string operation = "Cards.ScryfallById";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { id });
+            return Results.Unauthorized();
+        }
 
-        return cds.CardDataById.TryGetValue(id, out var card) ? Results.Ok(card) : Results.NotFound();
+        if (cds.CardDataById.TryGetValue(id, out var card))
+        {
+            logger.LogOperationSuccess(operation, new { id });
+            return Results.Ok(card);
+        }
+
+        logger.LogOperationWarning(operation, "Card not found", new { id });
+        return Results.NotFound();
     }
 }

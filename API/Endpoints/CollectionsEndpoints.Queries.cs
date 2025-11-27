@@ -4,12 +4,14 @@ using System.Security.Claims;
 using API.Dtos.Cards;
 using API.Dtos.Collections;
 using API.Helpers;
+using API.Logging;
 using Core.Interfaces;
 using Core.Models;
 using Core.Specifications;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
 
 namespace API.Endpoints;
 
@@ -45,71 +47,115 @@ public static partial class CollectionsEndpoints
     private static async Task<IResult> GetCollectionFromIdAsync(
         IUnitOfWork unitOfWork,
         int id,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILogger<CollectionsEndpointLogCategory> logger)
     {
+        const string operation = "Collections.GetById";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { id });
+            return Results.Unauthorized();
+        }
 
         var collection = await unitOfWork.Repository<Collection>().GetByIdAsync(id, tracking: false);
-        if (collection is null) return Results.NotFound();
+        if (collection is null)
+        {
+            logger.LogOperationWarning(operation, "Collection not found", new { id });
+            return Results.NotFound();
+        }
 
-        return collection.OwnerId != userId ? Results.Unauthorized() : Results.Ok(collection);
+        if (collection.OwnerId != userId)
+        {
+            logger.LogOperationWarning(operation, "Unauthorized", new { id, userId });
+            return Results.Unauthorized();
+        }
+
+        logger.LogOperationSuccess(operation, new { id });
+        return Results.Ok(collection);
     }
 
     private static async Task<IResult> GetCardsFromCollectionAsync(
         IUnitOfWork unitOfWork,
         int id,
         [AsParameters] EntitySpecParams entityParams,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILogger<CollectionsEndpointLogCategory> logger)
     {
+        const string operation = "Collections.GetCards";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { id });
+            return Results.Unauthorized();
+        }
 
         var collection = await unitOfWork.Repository<Collection>().GetByIdAsync(id, tracking: false);
-        if (collection is null) return Results.NotFound();
-        if (collection.OwnerId != userId) return Results.Unauthorized();
+        if (collection is null)
+        {
+            logger.LogOperationWarning(operation, "Collection not found", new { id });
+            return Results.NotFound();
+        }
+        if (collection.OwnerId != userId)
+        {
+            logger.LogOperationWarning(operation, "Unauthorized", new { id, userId });
+            return Results.Unauthorized();
+        }
 
         if (!string.IsNullOrEmpty(entityParams.GroupBy))
         {
-            return await GetGroupedCardsFromCollectionAsync(unitOfWork, id, entityParams);
+            var grouped = await GetGroupedCardsFromCollectionAsync(unitOfWork, id, entityParams, logger);
+            logger.LogOperationSuccess(operation, new { id, entityParams.GroupBy, Grouped = true });
+            return grouped;
         }
 
         var spec = new CardsWithParamsSpecification(entityParams, id);
         var size = await unitOfWork.Repository<Card>().CountAsync(spec);
         var cards = await unitOfWork.Repository<Card>().ListAsync(spec, tracking: false);
 
+        logger.LogOperationSuccess(operation, new { id, entityParams.PageIndex, entityParams.PageSize, Count = cards?.Count });
         return Results.Ok(new Pagination<Card>(entityParams.PageIndex, entityParams.PageSize, size, cards));
     }
 
     private static async Task<IResult> GetAllCollectionsForUser(
         IUnitOfWork unitOfWork,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILogger<CollectionsEndpointLogCategory> logger)
     {
+        const string operation = "Collections.List";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+        if (string.IsNullOrEmpty(userId))
+        {
+            logger.LogOperationWarning(operation, "Missing user id");
+            return Results.Unauthorized();
+        }
 
         var collections = await unitOfWork.Repository<Collection>().ListAsync(new CollectionWithOwnerSpecification(userId), tracking: false);
+        logger.LogOperationSuccess(operation, new { userId, Count = collections?.Count });
         return Results.Ok(collections);
     }
 
     private static async Task<IResult> GetGroupedCardsFromCollectionAsync(
         IUnitOfWork unitOfWork,
         int collectionId,
-        EntitySpecParams entityParams)
+        EntitySpecParams entityParams,
+        ILogger<CollectionsEndpointLogCategory> logger)
     {
         var spec = new CardsWithParamsSpecification(entityParams, collectionId);
         var allCards = await unitOfWork.Repository<Card>().ListAsync(spec, tracking: false);
 
         if (allCards == null || !allCards.Any())
         {
-            return Results.Ok(new GroupedCardsPaginationDto
+            var empty = new GroupedCardsPaginationDto
             {
                 PageIndex = entityParams.PageIndex,
                 PageSize = entityParams.PageSize,
                 TotalGroups = 0,
                 TotalCards = 0,
                 Groups = []
-            });
+            };
+            logger.LogOperationWarning("Collections.GetCards", "No cards to group", new { collectionId });
+            return Results.Ok(empty);
         }
 
         var groupedCards = entityParams.GroupBy?.ToLower() switch
@@ -169,6 +215,7 @@ public static partial class CollectionsEndpoints
             Groups = paginatedGroups
         };
 
+        logger.LogOperationSuccess("Collections.GetCards", new { collectionId, entityParams.GroupBy, Groups = paginatedGroups.Count });
         return Results.Ok(result);
     }
 }

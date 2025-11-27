@@ -1,8 +1,10 @@
 using API.Dtos.Accounts;
+using API.Logging;
 using Core.Models.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
 
 namespace API.Endpoints;
 
@@ -18,8 +20,14 @@ public static partial class AccountsEndpoints
 
     private static async Task<IResult> CheckEmailExistsAsync(
         string email,
-        [FromServices] UserManager<AppUser> userManager)
+        [FromServices] UserManager<AppUser> userManager,
+        [FromServices] ILogger<AccountsEndpointLogCategory> logger)
     {
-        return Results.Ok(await CheckEmailExistsAsyncHelper(userManager, email));
+        const string operation = "Accounts.EmailExists";
+        logger.LogOperationStart(operation, new { email });
+
+        var exists = await CheckEmailExistsAsyncHelper(userManager, email);
+        logger.LogOperationSuccess(operation, new { email, exists });
+        return Results.Ok(exists);
     }
 }
