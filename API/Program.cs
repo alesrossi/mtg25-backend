@@ -20,6 +20,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Microsoft.OpenApi.Any;
 using System.IO.Compression;
+using Serilog;
 
 namespace API;
 
@@ -27,177 +28,193 @@ public class Program
 {
     public static async Task Main(string[] args)
     {
-        var builder = WebApplication.CreateBuilder(args);
+        Log.Logger = new LoggerConfiguration()
+            .WriteTo.Console()
+            .CreateBootstrapLogger();
 
-        // Add services to the container.
-        // Bind the Scryfall configuration
-        builder.Services.Configure<ScryfallConfig>(builder.Configuration.GetSection("Scryfall"));
-        builder.Services.Configure<PathsConfig>(builder.Configuration.GetSection("Paths"));
-        builder.Services.AddControllers()
-            .AddJsonOptions(options =>
+        try
+        {
+            Log.Information("Starting MTG25 host");
+
+            var builder = WebApplication.CreateBuilder(args);
+
+            builder.Host.UseSerilog((context, services, loggerConfiguration) =>
             {
-                // Enable built-in naming policies from System.Text.Json
-                options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
-                options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
-                options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
-                options.JsonSerializerOptions.WriteIndented = true;
+                loggerConfiguration
+                    .ReadFrom.Configuration(context.Configuration)
+                    .ReadFrom.Services(services)
+                    .Enrich.FromLogContext();
             });
 
-        // Configure JSON for Minimal APIs
-        builder.Services.ConfigureHttpJsonOptions(options =>
-        {
-            options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
-            options.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
-        });
-        
-        // Add services to the container.
-        builder.Services.AddAuthorization();
-        
-        builder.Services.AddDbContext<MainContext>(options =>
-        {
-            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-            if (string.IsNullOrEmpty(connectionString))
-            {
-                throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-            }
-            options.UseNpgsql(connectionString);
-        });
-        
-        builder.Services.AddDbContext<AppIdentityDbContext>(options =>
+            // Add services to the container.
+            // Bind the Scryfall configuration
+            builder.Services.Configure<ScryfallConfig>(builder.Configuration.GetSection("Scryfall"));
+            builder.Services.Configure<PathsConfig>(builder.Configuration.GetSection("Paths"));
+            builder.Services.AddControllers()
+                .AddJsonOptions(options =>
                 {
-                    var connectionString = builder.Configuration.GetConnectionString("IdentityConnection");
-                    if (string.IsNullOrEmpty(connectionString))
-                    {
-                        throw new InvalidOperationException("Connection string 'IdentityConnection' not found.");
-                    }
-                    options.UseNpgsql(connectionString);
+                    // Enable built-in naming policies from System.Text.Json
+                    options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+                    options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+                    options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+                    options.JsonSerializerOptions.WriteIndented = true;
                 });
 
-        
-        builder.Services.Configure<JwtSettings>(
-            builder.Configuration.GetSection("JWT"));
-        
-        builder.Services.AddStackExchangeRedisCache(options =>
-        {
-            options.Configuration = builder.Configuration.GetConnectionString("Redis");
-            options.InstanceName = "MTG25";
-        });
-        
-        
-        // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-        builder.Services.AddOpenApi();
-        builder.Services.AddEndpointsApiExplorer();
-        builder.Services.AddSwaggerGen();
-        
-        // Add CORS policy
-        builder.Services.AddCors(options =>
-        {
-            options.AddDefaultPolicy(policy =>
+            // Configure JSON for Minimal APIs
+            builder.Services.ConfigureHttpJsonOptions(options =>
             {
-                policy.AllowAnyOrigin()
-                    .AllowAnyMethod()
-                    .AllowAnyHeader();
+                options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+                options.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
             });
-        });
-        
-        builder.Services.Configure<ApiBehaviorOptions>(options =>
-        {
-            options.InvalidModelStateResponseFactory = context =>
+            
+            // Add services to the container.
+            builder.Services.AddAuthorization();
+            
+            builder.Services.AddDbContext<MainContext>(options =>
             {
-                var problemDetails = new ValidationProblemDetails(context.ModelState)
+                var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+                if (string.IsNullOrEmpty(connectionString))
                 {
-                    Detail = "See errors for additional information.",
-                    Instance = context.HttpContext.Request.Path,
-                    Status = StatusCodes.Status400BadRequest,
-                    Title = "Request validation failed",
-                    Type = "https://httpstatuses.io/400"
-                };
-                problemDetails.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
-
-                var result = new BadRequestObjectResult(problemDetails);
-                result.ContentTypes.Add("application/problem+json");
-
-                return result;
-            };
-        });
-
-// Add model validation
-        builder.Services.AddScoped<IValidationService, ValidationService>();
-        
-        // Add CardDataService as a singleton
-        builder.Services.AddSingleton<CardDataService>();
-        builder.Services.AddScoped<ProblemDetailsEndpointFilter>();
-        builder.Services.AddScoped<IJwtService, JwtService>();
-        builder.Services.AddScoped<DeckCardService>();
-        builder.Services.AddScoped<IDeckValidationService, DeckValidationService>();
-        builder.Services.AddScoped<IDecklistParserService, DecklistParserService>();
-        builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-        builder.Services.AddIdentityServices(builder.Configuration);
-
-        builder.Services.AddResponseCompression(options =>
-        {
-            options.EnableForHttps = true;
-            options.Providers.Clear();
-            options.Providers.Add<BrotliCompressionProvider>();
-            options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[]
-            {
-                "application/json",
-                "application/problem+json"
+                    throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+                }
+                options.UseNpgsql(connectionString);
             });
-        });
-
-        builder.Services.Configure<BrotliCompressionProviderOptions>(options =>
-        {
-            options.Level = CompressionLevel.Fastest;
-        });
-
-        
-        // JWT Configuration
-        
-        // Configure Authentication
-        var jwtSettings = builder.Configuration.GetSection("JWT").Get<JwtSettings>()!;
-        // Only configure JWT if not in testing environment and JWT config is available
-        if (jwtSettings != null && !builder.Environment.IsEnvironment("Testing"))
-        {
-            var key = Encoding.UTF8.GetBytes(jwtSettings.SecretKey);
-    
-            builder.Services.AddAuthentication(options =>
-                {
-                    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-                })
-                .AddJwtBearer(options =>
-                {
-                    options.TokenValidationParameters = new TokenValidationParameters
+            
+            builder.Services.AddDbContext<AppIdentityDbContext>(options =>
                     {
-                        ValidateIssuerSigningKey = true,
-                        IssuerSigningKey = new SymmetricSecurityKey(key),
-                        ValidateIssuer = true,
-                        ValidIssuer = jwtSettings.Issuer,
-                        ValidateAudience = true,
-                        ValidAudience = jwtSettings.Audience,
-                        ValidateLifetime = true,
-                        ClockSkew = TimeSpan.Zero
+                        var connectionString = builder.Configuration.GetConnectionString("IdentityConnection");
+                        if (string.IsNullOrEmpty(connectionString))
+                        {
+                            throw new InvalidOperationException("Connection string 'IdentityConnection' not found.");
+                        }
+                        options.UseNpgsql(connectionString);
+                    });
+
+            
+            builder.Services.Configure<JwtSettings>(
+                builder.Configuration.GetSection("JWT"));
+            
+            builder.Services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = builder.Configuration.GetConnectionString("Redis");
+                options.InstanceName = "MTG25";
+            });
+            
+            
+            // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+            builder.Services.AddOpenApi();
+            builder.Services.AddEndpointsApiExplorer();
+            builder.Services.AddSwaggerGen();
+            
+            // Add CORS policy
+            builder.Services.AddCors(options =>
+            {
+                options.AddDefaultPolicy(policy =>
+                {
+                    policy.AllowAnyOrigin()
+                        .AllowAnyMethod()
+                        .AllowAnyHeader();
+                });
+            });
+            
+            builder.Services.Configure<ApiBehaviorOptions>(options =>
+            {
+                options.InvalidModelStateResponseFactory = context =>
+                {
+                    var problemDetails = new ValidationProblemDetails(context.ModelState)
+                    {
+                        Detail = "See errors for additional information.",
+                        Instance = context.HttpContext.Request.Path,
+                        Status = StatusCodes.Status400BadRequest,
+                        Title = "Request validation failed",
+                        Type = "https://httpstatuses.io/400"
                     };
+                    problemDetails.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
 
-                    options.Events = new JwtBearerEvents
+                    var result = new BadRequestObjectResult(problemDetails);
+                    result.ContentTypes.Add("application/problem+json");
+
+                    return result;
+                };
+            });
+
+    // Add model validation
+            builder.Services.AddScoped<IValidationService, ValidationService>();
+            
+            // Add CardDataService as a singleton
+            builder.Services.AddSingleton<CardDataService>();
+            builder.Services.AddScoped<ProblemDetailsEndpointFilter>();
+            builder.Services.AddScoped<IJwtService, JwtService>();
+            builder.Services.AddScoped<DeckCardService>();
+            builder.Services.AddScoped<IDeckValidationService, DeckValidationService>();
+            builder.Services.AddScoped<IDecklistParserService, DecklistParserService>();
+            builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+            builder.Services.AddIdentityServices(builder.Configuration);
+
+            builder.Services.AddResponseCompression(options =>
+            {
+                options.EnableForHttps = true;
+                options.Providers.Clear();
+                options.Providers.Add<BrotliCompressionProvider>();
+                options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[]
+                {
+                    "application/json",
+                    "application/problem+json"
+                });
+            });
+
+            builder.Services.Configure<BrotliCompressionProviderOptions>(options =>
+            {
+                options.Level = CompressionLevel.Fastest;
+            });
+
+            
+            // JWT Configuration
+            
+            // Configure Authentication
+            var jwtSettings = builder.Configuration.GetSection("JWT").Get<JwtSettings>()!;
+            // Only configure JWT if not in testing environment and JWT config is available
+            if (jwtSettings != null && !builder.Environment.IsEnvironment("Testing"))
+            {
+                var key = Encoding.UTF8.GetBytes(jwtSettings.SecretKey);
+        
+                builder.Services.AddAuthentication(options =>
                     {
-                        OnTokenValidated = async context =>
+                        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                    })
+                    .AddJwtBearer(options =>
+                    {
+                        options.TokenValidationParameters = new TokenValidationParameters
                         {
-                            var jwtService = context.HttpContext.RequestServices.GetRequiredService<IJwtService>();
-                            var token = context.Request.Headers.Authorization
-                                .ToString().Replace("Bearer ", "");
-                            if (await jwtService.IsTokenBlacklistedAsync(token))
+                            ValidateIssuerSigningKey = true,
+                            IssuerSigningKey = new SymmetricSecurityKey(key),
+                            ValidateIssuer = true,
+                            ValidIssuer = jwtSettings.Issuer,
+                            ValidateAudience = true,
+                            ValidAudience = jwtSettings.Audience,
+                            ValidateLifetime = true,
+                            ClockSkew = TimeSpan.Zero
+                        };
+
+                        options.Events = new JwtBearerEvents
+                        {
+                            OnTokenValidated = async context =>
                             {
-                                context.Fail("Token has been revoked");
-                            }
-                        },
-                        OnChallenge = challengeContext =>
-                        {
-                            challengeContext.HandleResponse();
-                            var result = ProblemResultFactory.Create(
-                                challengeContext.HttpContext,
-                                StatusCodes.Status401Unauthorized,
+                                var jwtService = context.HttpContext.RequestServices.GetRequiredService<IJwtService>();
+                                var token = context.Request.Headers.Authorization
+                                    .ToString().Replace("Bearer ", "");
+                                if (await jwtService.IsTokenBlacklistedAsync(token))
+                                {
+                                    context.Fail("Token has been revoked");
+                                }
+                            },
+                            OnChallenge = challengeContext =>
+                            {
+                                challengeContext.HandleResponse();
+                                var result = ProblemResultFactory.Create(
+                                    challengeContext.HttpContext,
+                                    StatusCodes.Status401Unauthorized,
                                 "Authentication required",
                                 "You must be logged in to access this resource.",
                                 "auth-required");
@@ -431,6 +448,16 @@ public class Program
             app.UseSwaggerUI();
         }
         
-        app.Run();
+        await app.RunAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(ex, "Unhandled exception during MTG25 host execution");
+            throw;
+        }
+        finally
+        {
+            Log.CloseAndFlush();
+        }
     }
 }
