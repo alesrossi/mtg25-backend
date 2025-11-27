@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using API.Dtos.Cards;
+using API.Helpers;
 using API.Services;
 using Core.Interfaces;
 using Core.Models;
@@ -20,7 +21,8 @@ public static partial class CardsEndpoints
             .WithSummary("Update Card")
             .WithDescription("Updates card from form")
             .Produces<Card>()
-            .Produces(StatusCodes.Status400BadRequest)
+            .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest)
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
 
@@ -30,7 +32,8 @@ public static partial class CardsEndpoints
             .WithDescription("Removes card by ID from collection")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError);
 
         group.MapPost("/", AddNewCardAsync)
             .RequireAuthorization()
@@ -66,14 +69,24 @@ public static partial class CardsEndpoints
         if (collection is null || collection.OwnerId != userId) return Results.Unauthorized();
         if (updateDto.Quantity <= 0)
         {
-            return Results.BadRequest("Quantity must be greater than zero");
+            return ProblemResultFactory.Create(
+                context,
+                StatusCodes.Status400BadRequest,
+                "Invalid quantity",
+                "Quantity must be greater than zero for a card update.",
+                "card-invalid-quantity");
         }
 
         try
         {
             if (!Enum.TryParse(updateDto.Condition, out Condition condition))
             {
-                return Results.BadRequest("Invalid condition");
+                return ProblemResultFactory.Create(
+                    context,
+                    StatusCodes.Status400BadRequest,
+                    "Invalid condition",
+                    $"'{updateDto.Condition}' is not a supported condition value.",
+                    "card-invalid-condition");
             }
             card.Collection!.NumberOfCards = card.Collection!.NumberOfCards - card.Quantity + updateDto.Quantity;
             card.CollectionId = updateDto.CollectionId;
@@ -92,7 +105,12 @@ public static partial class CardsEndpoints
         }
         catch (Exception)
         {
-            return Results.StatusCode(StatusCodes.Status500InternalServerError);
+            return ProblemResultFactory.Create(
+                context,
+                StatusCodes.Status500InternalServerError,
+                "Card update failed",
+                "An unexpected error occurred while updating the card.",
+                "card-update-error");
         }
 
         return Results.Ok(card);
@@ -124,7 +142,12 @@ public static partial class CardsEndpoints
         }
         catch (Exception)
         {
-            return Results.StatusCode(StatusCodes.Status500InternalServerError);
+            return ProblemResultFactory.Create(
+                context,
+                StatusCodes.Status500InternalServerError,
+                "Card deletion failed",
+                "An unexpected error occurred while removing the card.",
+                "card-delete-error");
         }
     }
 

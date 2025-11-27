@@ -11,10 +11,12 @@ using Core.Models.Identity;
 using Infrastructure.Data;
 using Infrastructure.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi.Any;
 
 namespace API;
 
@@ -99,14 +101,20 @@ public class Program
         {
             options.InvalidModelStateResponseFactory = context =>
             {
-                var errors = context.ModelState
-                    .Where(x => x.Value?.Errors.Count > 0)
-                    .ToDictionary(
-                        kvp => kvp.Key,
-                        kvp => kvp.Value?.Errors.Select(e => e.ErrorMessage).ToArray()
-                    );
+                var problemDetails = new ValidationProblemDetails(context.ModelState)
+                {
+                    Detail = "See errors for additional information.",
+                    Instance = context.HttpContext.Request.Path,
+                    Status = StatusCodes.Status400BadRequest,
+                    Title = "Request validation failed",
+                    Type = "https://httpstatuses.io/400"
+                };
+                problemDetails.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
 
-                return new BadRequestObjectResult(new { errors });
+                var result = new BadRequestObjectResult(problemDetails);
+                result.ContentTypes.Add("application/problem+json");
+
+                return result;
             };
         });
 
@@ -192,6 +200,73 @@ public class Program
                         }
                     },
                     Array.Empty<string>()
+                }
+            });
+
+            c.MapType<ProblemDetails>(() => new OpenApiSchema
+            {
+                Type = "object",
+                Required = new HashSet<string> { "type", "title", "status", "traceId" },
+                Properties = new Dictionary<string, OpenApiSchema>
+                {
+                    ["type"] = new OpenApiSchema { Type = "string", Description = "Reference URI that identifies the problem type." },
+                    ["title"] = new OpenApiSchema { Type = "string", Description = "Short, human-readable summary of the problem." },
+                    ["status"] = new OpenApiSchema { Type = "integer", Format = "int32", Description = "HTTP status code for this occurrence." },
+                    ["detail"] = new OpenApiSchema { Type = "string", Nullable = true, Description = "Detailed explanation helpful for debugging." },
+                    ["instance"] = new OpenApiSchema { Type = "string", Nullable = true, Description = "The request path that produced the error." },
+                    ["traceId"] = new OpenApiSchema { Type = "string", Description = "Server-generated trace identifier for correlating logs." },
+                    ["errorCode"] = new OpenApiSchema { Type = "string", Nullable = true, Description = "Stable application-specific code describing the error." }
+                },
+                Example = new OpenApiObject
+                {
+                    ["type"] = new OpenApiString("https://httpstatuses.io/500"),
+                    ["title"] = new OpenApiString("Card update failed"),
+                    ["status"] = new OpenApiInteger(500),
+                    ["detail"] = new OpenApiString("An unexpected error occurred while updating the card."),
+                    ["instance"] = new OpenApiString("/api/cards/42"),
+                    ["traceId"] = new OpenApiString("00-3d82f6cd2f0be945b27d1d7e7c92b5ce-949a13d67f0a3d43-00"),
+                    ["errorCode"] = new OpenApiString("card-update-error")
+                }
+            });
+
+            c.MapType<ValidationProblemDetails>(() => new OpenApiSchema
+            {
+                Type = "object",
+                Required = new HashSet<string> { "type", "title", "status", "traceId", "errors" },
+                Properties = new Dictionary<string, OpenApiSchema>
+                {
+                    ["type"] = new OpenApiSchema { Type = "string" },
+                    ["title"] = new OpenApiSchema { Type = "string" },
+                    ["status"] = new OpenApiSchema { Type = "integer", Format = "int32" },
+                    ["detail"] = new OpenApiSchema { Type = "string", Nullable = true },
+                    ["instance"] = new OpenApiSchema { Type = "string", Nullable = true },
+                    ["traceId"] = new OpenApiSchema { Type = "string" },
+                    ["errors"] = new OpenApiSchema
+                    {
+                        Type = "object",
+                        AdditionalProperties = new OpenApiSchema
+                        {
+                            Type = "array",
+                            Items = new OpenApiSchema { Type = "string" }
+                        },
+                        Description = "Keyed collection containing validation messages per field."
+                    }
+                },
+                Example = new OpenApiObject
+                {
+                    ["type"] = new OpenApiString("https://httpstatuses.io/400"),
+                    ["title"] = new OpenApiString("Request validation failed"),
+                    ["status"] = new OpenApiInteger(400),
+                    ["detail"] = new OpenApiString("See errors for additional information."),
+                    ["instance"] = new OpenApiString("/api/cards"),
+                    ["traceId"] = new OpenApiString("00-7fdd0ff221c6cf438eab4b137eea521a-1cba7c30dad59c4e-00"),
+                    ["errors"] = new OpenApiObject
+                    {
+                        ["quantity"] = new OpenApiArray
+                        {
+                            new OpenApiString("Quantity must be greater than zero.")
+                        }
+                    }
                 }
             });
         });
