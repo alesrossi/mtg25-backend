@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using API.Dtos.Leagues;
+using API.Logging;
 using API.Services;
 using Core.Models.Identity;
 using Infrastructure.Identity;
@@ -9,6 +10,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace API.Endpoints;
 
@@ -58,30 +60,49 @@ public static partial class LeaguesEndpoint
     private static async Task<IResult> GetLeaguesAsync(
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] AppIdentityDbContext dbContext,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILogger<LeaguesEndpointLogCategory> logger)
     {
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (userId is null)
+        {
+            logger.LogOperationWarning("Leagues.QueryAll", "Missing user id");
+            return Results.Unauthorized();
+        }
 
         var user = await userManager.FindByIdAsync(userId);
-        if (user is null) return Results.Unauthorized();
+        if (user is null)
+        {
+            logger.LogOperationWarning("Leagues.QueryAll", "User not found", new { userId });
+            return Results.Unauthorized();
+        }
 
         var leagues = await dbContext.Leagues
             .AsNoTracking()
             .ToListAsync();
+        logger.LogOperationSuccess("Leagues.QueryAll", new { Count = leagues.Count });
         return Results.Ok(leagues);
     }
 
     private static async Task<IResult> GetLeaguesFromUserAsync(
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] AppIdentityDbContext dbContext,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILogger<LeaguesEndpointLogCategory> logger)
     {
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (userId is null)
+        {
+            logger.LogOperationWarning("Leagues.QueryUser", "Missing user id");
+            return Results.Unauthorized();
+        }
 
         var user = await userManager.FindByIdAsync(userId);
-        if (user is null) return Results.Unauthorized();
+        if (user is null)
+        {
+            logger.LogOperationWarning("Leagues.QueryUser", "User not found", new { userId });
+            return Results.Unauthorized();
+        }
 
         var res = await dbContext.UserLeagues
             .Where(ul => ul.UserId == userId)
@@ -139,32 +160,47 @@ public static partial class LeaguesEndpoint
         }
 
         var leaguesDto = leaguesById.Values.ToList();
-        return Results.Ok(new UserWithLeaguesDto
+        var dto = new UserWithLeaguesDto
         {
             Id = user.Id,
             FirstName = user.FirstName,
             LastName = user.LastName,
             DisplayName = user.DisplayName,
             Leagues = leaguesDto
-        });
+        };
+        logger.LogOperationSuccess("Leagues.QueryUser", new { userId, Count = leaguesDto.Count });
+        return Results.Ok(dto);
     }
 
     private static async Task<IResult> GetLeagueFromIdAsync(
         int id,
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] AppIdentityDbContext dbContext,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILogger<LeaguesEndpointLogCategory> logger)
     {
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (userId is null)
+        {
+            logger.LogOperationWarning("Leagues.GetById", "Missing user id", new { id });
+            return Results.Unauthorized();
+        }
 
         var user = await userManager.FindByIdAsync(userId);
-        if (user is null) return Results.Unauthorized();
+        if (user is null)
+        {
+            logger.LogOperationWarning("Leagues.GetById", "User not found", new { userId });
+            return Results.Unauthorized();
+        }
 
         var league = await dbContext.Leagues
             .AsNoTracking()
             .FirstOrDefaultAsync(l => l.Id == id);
-        if (league is null) return Results.NotFound();
+        if (league is null)
+        {
+            logger.LogOperationWarning("Leagues.GetById", "League not found", new { id });
+            return Results.NotFound();
+        }
 
         var res = await dbContext.UserLeagues
             .Where(ul => ul.LeagueId == league.Id && ul.UserId == userId)
@@ -172,7 +208,11 @@ public static partial class LeaguesEndpoint
             .AsNoTracking()
             .FirstOrDefaultAsync();
 
-        if (res is null) return Results.Unauthorized();
+        if (res is null)
+        {
+            logger.LogOperationWarning("Leagues.GetById", "User not in league", new { id, userId });
+            return Results.Unauthorized();
+        }
 
         var leagueDto = new LeagueDto
         {
@@ -193,6 +233,7 @@ public static partial class LeaguesEndpoint
             IsPlaying = res.IsPlaying
         };
 
+        logger.LogOperationSuccess("Leagues.GetById", new { id });
         return Results.Ok(leagueDto);
     }
 

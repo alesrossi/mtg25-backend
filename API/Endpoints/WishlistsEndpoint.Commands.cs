@@ -1,10 +1,13 @@
 using System.Collections.Generic;
 using System.Security.Claims;
 using API.Dtos.Wishlists;
+using API.Logging;
 using API.Services;
 using Core.Interfaces;
 using Core.Models;
 using Core.Specifications;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace API.Endpoints;
 
@@ -14,14 +17,20 @@ public static partial class WishlistsEndpoint
         CreateWishlistDto createDto,
         IValidationService validationService,
         IUnitOfWork unitOfWork,
-        ClaimsPrincipal user)
+        ClaimsPrincipal user,
+        [FromServices] ILogger<WishlistsEndpointLogCategory> logger)
     {
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+        if (string.IsNullOrEmpty(userId))
+        {
+            logger.LogOperationWarning("Wishlists.Create", "Missing user id");
+            return Results.Unauthorized();
+        }
 
         var (isValid, errors) = validationService.ValidateModel(createDto);
         if (!isValid)
         {
+            logger.LogOperationWarning("Wishlists.Create", "Validation failed", new { errors });
             return Results.BadRequest(new { errors });
         }
 
@@ -36,6 +45,7 @@ public static partial class WishlistsEndpoint
         unitOfWork.Repository<Wishlist>().Add(wishlist);
         await unitOfWork.Complete();
 
+        logger.LogOperationSuccess("Wishlists.Create", new { wishlist.Id });
         return Results.Ok(MapToDto(wishlist));
     }
 
@@ -44,20 +54,34 @@ public static partial class WishlistsEndpoint
         UpdateWishlistDto updateDto,
         IValidationService validationService,
         IUnitOfWork unitOfWork,
-        ClaimsPrincipal user)
+        ClaimsPrincipal user,
+        [FromServices] ILogger<WishlistsEndpointLogCategory> logger)
     {
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+        if (string.IsNullOrEmpty(userId))
+        {
+            logger.LogOperationWarning("Wishlists.Update", "Missing user id", new { id });
+            return Results.Unauthorized();
+        }
 
         var (isValid, errors) = validationService.ValidateModel(updateDto);
         if (!isValid)
         {
+            logger.LogOperationWarning("Wishlists.Update", "Validation failed", new { id, errors });
             return Results.BadRequest(new { errors });
         }
 
         var wishlist = await unitOfWork.Repository<Wishlist>().GetByIdAsync(id);
-        if (wishlist == null) return Results.NotFound();
-        if (wishlist.OwnerId != userId) return Results.Unauthorized();
+        if (wishlist == null)
+        {
+            logger.LogOperationWarning("Wishlists.Update", "Wishlist not found", new { id });
+            return Results.NotFound();
+        }
+        if (wishlist.OwnerId != userId)
+        {
+            logger.LogOperationWarning("Wishlists.Update", "Unauthorized", new { id, userId });
+            return Results.Unauthorized();
+        }
 
         wishlist.Name = updateDto.Name.Trim();
         wishlist.Description = string.IsNullOrWhiteSpace(updateDto.Description) ? null : updateDto.Description.Trim();
@@ -69,24 +93,39 @@ public static partial class WishlistsEndpoint
         var spec = new WishlistWithCardsSpecification(id, userId);
         var updated = await unitOfWork.Repository<Wishlist>().GetEntityWithSpec(spec) ?? wishlist;
 
+        logger.LogOperationSuccess("Wishlists.Update", new { id });
         return Results.Ok(MapToDto(updated));
     }
 
     private static async Task<IResult> DeleteWishlistAsync(
         int id,
         IUnitOfWork unitOfWork,
-        ClaimsPrincipal user)
+        ClaimsPrincipal user,
+        [FromServices] ILogger<WishlistsEndpointLogCategory> logger)
     {
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+        if (string.IsNullOrEmpty(userId))
+        {
+            logger.LogOperationWarning("Wishlists.Delete", "Missing user id", new { id });
+            return Results.Unauthorized();
+        }
 
         var wishlist = await unitOfWork.Repository<Wishlist>().GetByIdAsync(id);
-        if (wishlist == null) return Results.NotFound();
-        if (wishlist.OwnerId != userId) return Results.Unauthorized();
+        if (wishlist == null)
+        {
+            logger.LogOperationWarning("Wishlists.Delete", "Wishlist not found", new { id });
+            return Results.NotFound();
+        }
+        if (wishlist.OwnerId != userId)
+        {
+            logger.LogOperationWarning("Wishlists.Delete", "Unauthorized", new { id, userId });
+            return Results.Unauthorized();
+        }
 
         unitOfWork.Repository<Wishlist>().Delete(wishlist);
         await unitOfWork.Complete();
 
+        logger.LogOperationSuccess("Wishlists.Delete", new { id });
         return Results.NoContent();
     }
 
@@ -96,14 +135,20 @@ public static partial class WishlistsEndpoint
         IValidationService validationService,
         IUnitOfWork unitOfWork,
         CardDataService cds,
-        ClaimsPrincipal user)
+        ClaimsPrincipal user,
+        [FromServices] ILogger<WishlistsEndpointLogCategory> logger)
     {
         var ownershipResult = await EnsureWishlistOwnershipAsync(wishlistId, unitOfWork, user);
-        if (ownershipResult.Result != null) return ownershipResult.Result;
+        if (ownershipResult.Result != null)
+        {
+            logger.LogOperationWarning("Wishlists.Cards.Create", "Access denied", new { wishlistId });
+            return ownershipResult.Result;
+        }
 
         var (isValid, errors) = validationService.ValidateModel(newWishlistCardList);
         if (!isValid)
         {
+            logger.LogOperationWarning("Wishlists.Cards.Create", "Validation failed", new { wishlistId, errors });
             return Results.BadRequest(new { errors });
         }
 
@@ -128,6 +173,7 @@ public static partial class WishlistsEndpoint
         unitOfWork.Repository<WishlistCard>().Add(cardList);
         await unitOfWork.Complete();
 
+        logger.LogOperationSuccess("Wishlists.Cards.Create", new { wishlistId, Added = cardList.Count });
         return Results.Ok(cardList);
     }
 
@@ -137,19 +183,29 @@ public static partial class WishlistsEndpoint
         UpdateWishlistCardDto updateDto,
         IValidationService validationService,
         IUnitOfWork unitOfWork,
-        ClaimsPrincipal user)
+        ClaimsPrincipal user,
+        [FromServices] ILogger<WishlistsEndpointLogCategory> logger)
     {
         var ownershipResult = await EnsureWishlistOwnershipAsync(wishlistId, unitOfWork, user);
-        if (ownershipResult.Result != null) return ownershipResult.Result;
+        if (ownershipResult.Result != null)
+        {
+            logger.LogOperationWarning("Wishlists.Cards.Update", "Access denied", new { wishlistId, cardId });
+            return ownershipResult.Result;
+        }
 
         var (isValid, errors) = validationService.ValidateModel(updateDto);
         if (!isValid)
         {
+            logger.LogOperationWarning("Wishlists.Cards.Update", "Validation failed", new { wishlistId, cardId, errors });
             return Results.BadRequest(new { errors });
         }
 
         var wishlistCard = await unitOfWork.Repository<WishlistCard>().GetByIdAsync(cardId);
-        if (wishlistCard == null || wishlistCard.WishlistId != wishlistId) return Results.NotFound();
+        if (wishlistCard == null || wishlistCard.WishlistId != wishlistId)
+        {
+            logger.LogOperationWarning("Wishlists.Cards.Update", "Wishlist card not found", new { wishlistId, cardId });
+            return Results.NotFound();
+        }
 
         wishlistCard.Name = updateDto.Name.Trim();
         wishlistCard.DesiredQuantity = updateDto.DesiredQuantity;
@@ -160,6 +216,7 @@ public static partial class WishlistsEndpoint
         unitOfWork.Repository<WishlistCard>().Update(wishlistCard);
         await unitOfWork.Complete();
 
+        logger.LogOperationSuccess("Wishlists.Cards.Update", new { wishlistId, cardId });
         return Results.Ok(MapToDto(wishlistCard));
     }
 
@@ -167,17 +224,27 @@ public static partial class WishlistsEndpoint
         int wishlistId,
         int cardId,
         IUnitOfWork unitOfWork,
-        ClaimsPrincipal user)
+        ClaimsPrincipal user,
+        [FromServices] ILogger<WishlistsEndpointLogCategory> logger)
     {
         var ownershipResult = await EnsureWishlistOwnershipAsync(wishlistId, unitOfWork, user);
-        if (ownershipResult.Result != null) return ownershipResult.Result;
+        if (ownershipResult.Result != null)
+        {
+            logger.LogOperationWarning("Wishlists.Cards.Delete", "Access denied", new { wishlistId, cardId });
+            return ownershipResult.Result;
+        }
 
         var wishlistCard = await unitOfWork.Repository<WishlistCard>().GetByIdAsync(cardId);
-        if (wishlistCard == null || wishlistCard.WishlistId != wishlistId) return Results.NotFound();
+        if (wishlistCard == null || wishlistCard.WishlistId != wishlistId)
+        {
+            logger.LogOperationWarning("Wishlists.Cards.Delete", "Wishlist card not found", new { wishlistId, cardId });
+            return Results.NotFound();
+        }
 
         unitOfWork.Repository<WishlistCard>().Delete(wishlistCard);
         await unitOfWork.Complete();
 
+        logger.LogOperationSuccess("Wishlists.Cards.Delete", new { wishlistId, cardId });
         return Results.NoContent();
     }
 }

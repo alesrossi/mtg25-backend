@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using API.Dtos.Leagues;
+using API.Logging;
 using API.Services;
 using Core.Models.Identity;
 using Infrastructure.Identity;
@@ -9,6 +10,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace API.Endpoints;
 
@@ -76,23 +78,42 @@ public static partial class LeaguesEndpoint
         [FromServices] AppIdentityDbContext dbContext,
         [FromServices] IValidationService validationService,
         [FromBody] UpdateLeagueDto updateLeague,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILogger<LeaguesEndpointLogCategory> logger)
     {
+        const string operation = "Leagues.Update";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { id });
+            return Results.Unauthorized();
+        }
 
         var user = await userManager.FindByIdAsync(userId);
-        if (user is null) return Results.Unauthorized();
+        if (user is null)
+        {
+            logger.LogOperationWarning(operation, "User not found", new { userId });
+            return Results.Unauthorized();
+        }
 
         var league = await dbContext.Leagues
             .AsTracking()
             .FirstOrDefaultAsync(l => l.Id == id);
-        if (league is null) return Results.NotFound();
-        if (league.OwnerId != user.Id) return Results.Unauthorized();
+        if (league is null)
+        {
+            logger.LogOperationWarning(operation, "League not found", new { id });
+            return Results.NotFound();
+        }
+        if (league.OwnerId != user.Id)
+        {
+            logger.LogOperationWarning(operation, "Unauthorized", new { id, userId });
+            return Results.Unauthorized();
+        }
 
         var (isValid, errors) = validationService.ValidateModel(updateLeague);
         if (!isValid)
         {
+            logger.LogOperationWarning(operation, "Validation failed", new { id, errors });
             return Results.BadRequest(new { errors });
         }
 
@@ -106,6 +127,7 @@ public static partial class LeaguesEndpoint
         dbContext.Update(league);
         await dbContext.SaveChangesAsync();
 
+        logger.LogOperationSuccess(operation, new { id });
         return Results.Ok(league);
     }
 
@@ -114,19 +136,37 @@ public static partial class LeaguesEndpoint
         [FromBody] List<UserWithScore> userList,
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] AppIdentityDbContext dbContext,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILogger<LeaguesEndpointLogCategory> logger)
     {
+        const string operation = "Leagues.UpdateResults";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { id });
+            return Results.Unauthorized();
+        }
 
         var user = await userManager.FindByIdAsync(userId);
-        if (user is null) return Results.Unauthorized();
+        if (user is null)
+        {
+            logger.LogOperationWarning(operation, "User not found", new { userId });
+            return Results.Unauthorized();
+        }
 
         var league = await dbContext.Leagues
             .AsTracking()
             .FirstOrDefaultAsync(l => l.Id == id);
-        if (league is null) return Results.NotFound();
-        if (league.OwnerId != userId) return Results.Unauthorized();
+        if (league is null)
+        {
+            logger.LogOperationWarning(operation, "League not found", new { id });
+            return Results.NotFound();
+        }
+        if (league.OwnerId != userId)
+        {
+            logger.LogOperationWarning(operation, "Unauthorized", new { id, userId });
+            return Results.Unauthorized();
+        }
 
         var res = await dbContext.UserLeagues
             .Where(ul => ul.LeagueId == league.Id)
@@ -151,6 +191,7 @@ public static partial class LeaguesEndpoint
         dbContext.UpdateRange(res);
         await dbContext.SaveChangesAsync();
 
+        logger.LogOperationSuccess(operation, new { id });
         return Results.Ok();
     }
 
@@ -158,43 +199,77 @@ public static partial class LeaguesEndpoint
         int id,
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] AppIdentityDbContext dbContext,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILogger<LeaguesEndpointLogCategory> logger)
     {
+        const string operation = "Leagues.InviteCode";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { id });
+            return Results.Unauthorized();
+        }
 
         var user = await userManager.FindByIdAsync(userId);
-        if (user is null) return Results.Unauthorized();
+        if (user is null)
+        {
+            logger.LogOperationWarning(operation, "User not found", new { userId });
+            return Results.Unauthorized();
+        }
 
         var league = await dbContext.Leagues
             .AsTracking()
             .FirstOrDefaultAsync(l => l.Id == id);
-        if (league is null) return Results.NotFound();
-        if (league.OwnerId != userId) return Results.Unauthorized();
+        if (league is null)
+        {
+            logger.LogOperationWarning(operation, "League not found", new { id });
+            return Results.NotFound();
+        }
+        if (league.OwnerId != userId)
+        {
+            logger.LogOperationWarning(operation, "Unauthorized", new { id, userId });
+            return Results.Unauthorized();
+        }
 
-        return league.OwnerId != userId ? Results.Unauthorized() : Results.Ok(league.Code);
+        logger.LogOperationSuccess(operation, new { id });
+        return Results.Ok(league.Code);
     }
 
     private static async Task<IResult> JoinLeagueFromCodeAsync(
         string code,
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] AppIdentityDbContext dbContext,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILogger<LeaguesEndpointLogCategory> logger)
     {
+        const string operation = "Leagues.JoinByCode";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { code });
+            return Results.Unauthorized();
+        }
 
         var user = await userManager.FindByIdAsync(userId);
-        if (user is null) return Results.Unauthorized();
+        if (user is null)
+        {
+            logger.LogOperationWarning(operation, "User not found", new { userId });
+            return Results.Unauthorized();
+        }
 
         var league = await dbContext.Leagues
             .FirstOrDefaultAsync(l => l.Code == code);
-        if (league is null) return Results.NotFound("League not found");
+        if (league is null)
+        {
+            logger.LogOperationWarning(operation, "League not found", new { code });
+            return Results.NotFound("League not found");
+        }
 
         var existingMember = await dbContext.UserLeagues
             .AnyAsync(ul => ul.LeagueId == league.Id && ul.UserId == user.Id);
         if (existingMember)
         {
+            logger.LogOperationWarning(operation, "Already member", new { code, userId });
             return Results.BadRequest("User already joined the league");
         }
 
@@ -215,6 +290,7 @@ public static partial class LeaguesEndpoint
         dbContext.Update(league);
         await dbContext.SaveChangesAsync();
 
+        logger.LogOperationSuccess(operation, new { code, userId });
         return Results.Ok();
     }
 
@@ -222,28 +298,51 @@ public static partial class LeaguesEndpoint
         int id,
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] AppIdentityDbContext dbContext,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILogger<LeaguesEndpointLogCategory> logger)
     {
+        const string operation = "Leagues.Leave";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { id });
+            return Results.Unauthorized();
+        }
 
         var user = await userManager.FindByIdAsync(userId);
-        if (user is null) return Results.Unauthorized();
+        if (user is null)
+        {
+            logger.LogOperationWarning(operation, "User not found", new { userId });
+            return Results.Unauthorized();
+        }
 
         var league = await dbContext.Leagues
             .AsNoTracking()
             .FirstOrDefaultAsync(l => l.Id == id);
-        if (league is null) return Results.NotFound("League not found");
-        if (league.OwnerId == user.Id) return Results.BadRequest("You can't leave a league you created");
+        if (league is null)
+        {
+            logger.LogOperationWarning(operation, "League not found", new { id });
+            return Results.NotFound("League not found");
+        }
+        if (league.OwnerId == user.Id)
+        {
+            logger.LogOperationWarning(operation, "Owner leave attempt", new { id, userId });
+            return Results.BadRequest("You can't leave a league you created");
+        }
 
         var res = dbContext.UserLeagues
             .Where(ul => ul.LeagueId == league.Id && ul.UserId == userId).FirstOrDefault();
-        if (res is null) return Results.BadRequest("User not playing in league");
+        if (res is null)
+        {
+            logger.LogOperationWarning(operation, "User not in league", new { id, userId });
+            return Results.BadRequest("User not playing in league");
+        }
 
         res.IsPlaying = false;
         dbContext.Update(res);
         await dbContext.SaveChangesAsync();
 
+        logger.LogOperationSuccess(operation, new { id, userId });
         return Results.Ok();
     }
 
@@ -252,17 +351,28 @@ public static partial class LeaguesEndpoint
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] AppIdentityDbContext dbContext,
         [FromServices] IValidationService validationService,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILogger<LeaguesEndpointLogCategory> logger)
     {
+        const string operation = "Leagues.Create";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id");
+            return Results.Unauthorized();
+        }
 
         var user = await userManager.FindByIdAsync(userId);
-        if (user is null) return Results.Unauthorized();
+        if (user is null)
+        {
+            logger.LogOperationWarning(operation, "User not found", new { userId });
+            return Results.Unauthorized();
+        }
 
         var (isValid, errors) = validationService.ValidateModel(leagueDto);
         if (!isValid)
         {
+            logger.LogOperationWarning(operation, "Validation failed", new { errors });
             return Results.BadRequest(new { errors });
         }
 
@@ -285,6 +395,7 @@ public static partial class LeaguesEndpoint
         await dbContext.AddAsync(league);
         await dbContext.SaveChangesAsync();
 
+        logger.LogOperationSuccess(operation, new { league.Id });
         return Results.Ok(league);
     }
 
@@ -292,18 +403,40 @@ public static partial class LeaguesEndpoint
         int id,
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] AppIdentityDbContext dbContext,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILogger<LeaguesEndpointLogCategory> logger)
     {
+        const string operation = "Leagues.JoinAsPlayer";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { id });
+            return Results.Unauthorized();
+        }
 
         var user = await userManager.FindByIdAsync(userId);
-        if (user is null) return Results.Unauthorized();
+        if (user is null)
+        {
+            logger.LogOperationWarning(operation, "User not found", new { userId });
+            return Results.Unauthorized();
+        }
 
         var league = await dbContext.Set<League>().Where(x => x.Id == id).FirstOrDefaultAsync();
-        if (league is null) return Results.NotFound("League not found");
-        if (league.OwnerId != userId) return Results.Unauthorized();
-        if (!league.IsActive) return Results.BadRequest();
+        if (league is null)
+        {
+            logger.LogOperationWarning(operation, "League not found", new { id });
+            return Results.NotFound("League not found");
+        }
+        if (league.OwnerId != userId)
+        {
+            logger.LogOperationWarning(operation, "Unauthorized", new { id, userId });
+            return Results.Unauthorized();
+        }
+        if (!league.IsActive)
+        {
+            logger.LogOperationWarning(operation, "League inactive", new { id });
+            return Results.BadRequest();
+        }
         league.TotalPlayers++;
 
         await dbContext.AddAsync(new AppUserLeague
@@ -321,6 +454,7 @@ public static partial class LeaguesEndpoint
         dbContext.Update(league);
         await dbContext.SaveChangesAsync();
 
+        logger.LogOperationSuccess(operation, new { id, userId });
         return Results.Ok();
     }
 }
