@@ -123,6 +123,17 @@ public static partial class LeaguesEndpoint
         if (updateLeague.MinimumRounds != null) league.MinimumRounds = (int)updateLeague.MinimumRounds;
         if (updateLeague.TotalPrize != null) league.TotalPrize = (double)updateLeague.TotalPrize;
         if (updateLeague.PrizePerPerson != null) league.PrizePerPerson = (double)updateLeague.PrizePerPerson;
+        
+        if (updateLeague.CurrentRound != null)
+        {
+            var currentRoundValue = (int)updateLeague.CurrentRound;
+            if (currentRoundValue > league.TotalRounds)
+            {
+                logger.LogOperationWarning(operation, "CurrentRound exceeds TotalRounds", new { id, currentRoundValue, totalRounds = league.TotalRounds });
+                return Results.BadRequest(new { errors = new[] { "CurrentRound cannot be greater than TotalRounds" } });
+            }
+            league.CurrentRound = currentRoundValue;
+        }
 
         dbContext.Update(league);
         await dbContext.SaveChangesAsync();

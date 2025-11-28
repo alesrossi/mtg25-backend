@@ -22,5 +22,7 @@ public class UpdateLeagueDto
     public double? TotalPrize { get; set; }
     [Required(ErrorMessage = "PrizePerPerson is required")]
     [Range(0, int.MaxValue, ErrorMessage = "Only positive numbers are allowed")]
-    public double? PrizePerPerson {  get; set; } 
+    public double? PrizePerPerson {  get; set; }
+    [Range(0, int.MaxValue, ErrorMessage = "Only positive numbers are allowed")]
+    public int? CurrentRound { get; set; }
 }
