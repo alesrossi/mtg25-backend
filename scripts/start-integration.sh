@@ -67,6 +67,22 @@ check_service_health() {
     return 1
 }
 
+check_http_endpoint() {
+    local url=$1
+    local max_attempts=$2
+    local attempt=1
+
+    while [ $attempt -le $max_attempts ]; do
+        if curl -sf "$url" > /dev/null 2>&1; then
+            return 0
+        fi
+        echo -e "   Attempt $attempt/$max_attempts - Endpoint $url not ready yet..."
+        sleep 5
+        ((attempt++))
+    done
+    return 1
+}
+
 # Check PostgreSQL
 echo -e "${BLUE}🗄️  Checking PostgreSQL...${NC}"
 if check_service_health "postgres-int" 24; then
@@ -84,6 +100,26 @@ if check_service_health "redis-int" 12; then
 else
     echo -e "${RED}❌ Redis failed to start${NC}"
     docker compose -f docker-compose.int.yml logs redis-int
+    exit 1
+fi
+
+# Check Elasticsearch
+echo -e "${BLUE}🔍 Checking Elasticsearch...${NC}"
+if check_http_endpoint "http://localhost:9200/_cluster/health" 24; then
+    echo -e "${GREEN}✅ Elasticsearch is ready${NC}"
+else
+    echo -e "${RED}❌ Elasticsearch failed to become ready${NC}"
+    docker compose -f docker-compose.int.yml logs elasticsearch-int
+    exit 1
+fi
+
+# Check Kibana
+echo -e "${BLUE}📊 Checking Kibana...${NC}"
+if check_http_endpoint "http://localhost:5601/api/status" 24; then
+    echo -e "${GREEN}✅ Kibana is ready${NC}"
+else
+    echo -e "${RED}❌ Kibana failed to become ready${NC}"
+    docker compose -f docker-compose.int.yml logs kibana-int
     exit 1
 fi
 
@@ -132,6 +168,8 @@ echo "  🏥 API Health:     http://localhost:8086/api/health"
 echo "  📚 API Docs:       http://localhost:8086/swagger"
 echo "  🗄️  Database Admin: http://localhost:8084"
 echo "  🔄 Redis Port:     localhost:6380"
+echo "  📦 Elasticsearch:  http://localhost:9200"
+echo "  📊 Kibana:         http://localhost:5601"
 echo ""
 echo -e "${BLUE}Useful Commands:${NC}"
 echo "  View logs:    docker compose -f docker-compose.int.yml logs -f"
