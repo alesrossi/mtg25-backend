@@ -21,6 +21,13 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Microsoft.OpenApi.Any;
 using System.IO.Compression;
+using API.Endpoints.Accounts;
+using API.Endpoints.Binders;
+using API.Endpoints.Cards;
+using API.Endpoints.Collections;
+using API.Endpoints.Decks;
+using API.Endpoints.Leagues;
+using API.Endpoints.Wishlists;
 using Serilog;
 
 namespace API;
