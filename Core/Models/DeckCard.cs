@@ -12,6 +12,7 @@ public class DeckCard : BaseModel
     public string? SetName { get; set; }
     public List<string> ColorIdentity { get; set; } = [];
     public string? ImageUrl { get; set; }
+    public string? BackImageUrl { get; set; }
     public string? ArtCrop { get; set; }
     public string? Rarity { get; set; }
     public string? CollectorNumber { get; set; }

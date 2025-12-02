@@ -63,6 +63,8 @@ public static partial class WishlistsEndpoint
             WishlistId = card.WishlistId,
             OracleId = card.OracleId,
             Name = card.Name,
+            ImageUrl = card.ImageUrl,
+            BackImageUrl = card.BackImageUrl,
             DesiredQuantity = card.DesiredQuantity,
             IsFoil = card.IsFoil ?? false,
             Language = card.Language,

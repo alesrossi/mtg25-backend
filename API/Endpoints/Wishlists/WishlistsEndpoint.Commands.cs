@@ -155,6 +155,9 @@ public static partial class WishlistsEndpoint
             .Select(x =>
             {
                 var card = cds.CardDataById[x.OracleId];
+                var imageUris = CardDataService.ResolveImageUris(card);
+                var imageUrl = imageUris?.Normal ?? imageUris?.Large ?? imageUris?.Png ?? imageUris?.Small;
+                var backImageUrl = cds.ResolveBackImageUrl(card);
                 return new WishlistCard
                 {
                     WishlistId = wishlistId,
@@ -164,7 +167,9 @@ public static partial class WishlistsEndpoint
                     Name = card.Name,
                     OracleId = x.OracleId,
                     Notes = x.Notes,
-                    OriginalDeckId = x.OriginalDeckId
+                    OriginalDeckId = x.OriginalDeckId,
+                    ImageUrl = imageUrl,
+                    BackImageUrl = backImageUrl
                 };
             }).ToList();
 

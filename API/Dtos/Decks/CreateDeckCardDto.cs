@@ -21,6 +21,8 @@ public class CreateDeckCardDto
     [Required(ErrorMessage = "Image URL is required.")]
     [StringLength(512, ErrorMessage = "Image URL cannot exceed 512 characters.")]
     public required string ImageUrl { get; set; }
+    [StringLength(512, ErrorMessage = "Back image URL cannot exceed 512 characters.")]
+    public string? BackImageUrl { get; set; }
     public required string ArtCrop { get; set; }
 
     public List<string> ColorIdentity { get; set; } = [];

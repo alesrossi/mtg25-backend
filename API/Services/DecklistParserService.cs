@@ -142,6 +142,7 @@ public class DecklistParserService : IDecklistParserService
         }
 
         var artCrop = imageUris?.ArtCrop;
+        var backImageUrl = cardDataService.ResolveBackImageUrl(cardData);
 
         if (!deckCards.TryGetValue(cardData.OracleId, out var existingDto))
         {
@@ -152,6 +153,7 @@ public class DecklistParserService : IDecklistParserService
                 SetCode = cardData.Set,
                 SetName = cardData.SetName,
                 ImageUrl = imageUrl,
+                BackImageUrl = backImageUrl,
                 ArtCrop = artCrop!,
                 ColorIdentity = cardData.ColorIdentity?
                     .Where(ci => !string.IsNullOrWhiteSpace(ci))
