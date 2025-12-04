@@ -136,7 +136,7 @@ public class CardRepositoryTests : IDisposable
 
         var card = _testDataBuilder.CreateCard(collection.Id);
         card.Name = "Ancestral Recall";
-        card.OracleId = "test-oracle-id";
+        card.ScryfallId = "test-oracle-id";
 
         // Act
         _repository.Add(card);
@@ -147,7 +147,7 @@ public class CardRepositoryTests : IDisposable
         var savedCard = allCards.FirstOrDefault(c => c.Name == "Ancestral Recall");
         savedCard.Should().NotBeNull("because the card should be saved to the database");
         savedCard.Name.Should().Be("Ancestral Recall");
-        savedCard.OracleId.Should().Be("test-oracle-id");
+        savedCard.ScryfallId.Should().Be("test-oracle-id");
         
         // Verify it's associated with a collection
         var associatedCollection = await _context.Collections.FindAsync(savedCard.CollectionId);

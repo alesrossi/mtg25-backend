@@ -6,7 +6,7 @@ public class DeckCard : BaseModel
     public Deck Deck { get; set; } = null!;
     
     // Card reference (Scryfall data)
-    public required string OracleId { get; set; }
+    public required string ScryfallId { get; set; }
     public required string Name { get; set; }
     public required string SetCode { get; set; }
     public string? SetName { get; set; }

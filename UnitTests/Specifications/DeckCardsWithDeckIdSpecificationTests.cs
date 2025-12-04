@@ -24,7 +24,7 @@ public class DeckCardsWithDeckIdSpecificationTests
         var deckCard1 = new DeckCard
         {
             DeckId = deckId,
-            OracleId = "oracle-1",
+            ScryfallId = "oracle-1",
             Name = "Lightning Bolt",
             SetCode = "LEA",
             MaindeckQuantity = 4,
@@ -34,7 +34,7 @@ public class DeckCardsWithDeckIdSpecificationTests
         var deckCard2 = new DeckCard
         {
             DeckId = 2,
-            OracleId = "oracle-2", 
+            ScryfallId = "oracle-2", 
             Name = "Counterspell",
             SetCode = "ICE",
             MaindeckQuantity = 2,
@@ -62,7 +62,7 @@ public class DeckCardsWithDeckIdSpecificationTests
         var maindeckCard = new DeckCard
         {
             DeckId = deckId,
-            OracleId = "oracle-1",
+            ScryfallId = "oracle-1",
             Name = "Lightning Bolt",
             SetCode = "LEA",
             MaindeckQuantity = 4,
@@ -72,7 +72,7 @@ public class DeckCardsWithDeckIdSpecificationTests
         var sideboardOnlyCard = new DeckCard
         {
             DeckId = deckId,
-            OracleId = "oracle-2",
+            ScryfallId = "oracle-2",
             Name = "Counterspell",
             SetCode = "ICE", 
             MaindeckQuantity = 0,
@@ -100,7 +100,7 @@ public class DeckCardsWithDeckIdSpecificationTests
         var maindeckCard = new DeckCard
         {
             DeckId = deckId,
-            OracleId = "oracle-1",
+            ScryfallId = "oracle-1",
             Name = "Lightning Bolt",
             SetCode = "LEA",
             MaindeckQuantity = 4,
@@ -110,7 +110,7 @@ public class DeckCardsWithDeckIdSpecificationTests
         var sideboardCard = new DeckCard
         {
             DeckId = deckId,
-            OracleId = "oracle-2",
+            ScryfallId = "oracle-2",
             Name = "Counterspell",
             SetCode = "ICE",
             MaindeckQuantity = 0,
@@ -120,7 +120,7 @@ public class DeckCardsWithDeckIdSpecificationTests
         var bothCard = new DeckCard
         {
             DeckId = deckId,
-            OracleId = "oracle-3",
+            ScryfallId = "oracle-3",
             Name = "Brainstorm",
             SetCode = "ICE",
             MaindeckQuantity = 3,
@@ -174,7 +174,7 @@ public class DeckCardsWithDeckIdSpecificationTests
         var maindeckOnly = new DeckCard
         {
             DeckId = deckId,
-            OracleId = "oracle-1",
+            ScryfallId = "oracle-1",
             Name = "Lightning Bolt",
             SetCode = "LEA",
             MaindeckQuantity = 4,
@@ -184,7 +184,7 @@ public class DeckCardsWithDeckIdSpecificationTests
         var sideboardOnly = new DeckCard
         {
             DeckId = deckId,
-            OracleId = "oracle-2",
+            ScryfallId = "oracle-2",
             Name = "Counterspell",
             SetCode = "ICE",
             MaindeckQuantity = 0,
@@ -194,7 +194,7 @@ public class DeckCardsWithDeckIdSpecificationTests
         var bothDecks = new DeckCard
         {
             DeckId = deckId,
-            OracleId = "oracle-3",
+            ScryfallId = "oracle-3",
             Name = "Brainstorm",
             SetCode = "ICE",
             MaindeckQuantity = 3,

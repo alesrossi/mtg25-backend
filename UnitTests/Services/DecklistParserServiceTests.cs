@@ -152,7 +152,7 @@ public class DecklistParserServiceTests
         result.DeckCards.Single().MaindeckQuantity.Should().Be(4);
     }
 
-    private static DecklistParserService CreateParser(IEnumerable<OracleCardDto> cards)
+    private static DecklistParserService CreateParser(IEnumerable<ScryfallCardDto> cards)
     {
         var cardDataService = CardDataServiceTestHelper.CreateWithCards(cards);
         var validationService = new ValidationService();

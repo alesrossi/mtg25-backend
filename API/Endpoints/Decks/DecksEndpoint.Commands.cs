@@ -201,7 +201,7 @@ public static partial class DecksEndpoint
         }
 
         using var scope = logger.BeginOperationScope(operation, deckId);
-        logger.LogOperationStart(operation, new { deckId, createDto.OracleId, createDto.Name });
+        logger.LogOperationStart(operation, new { deckId, ScryfallId = createDto.ScryfallId, createDto.Name });
 
         var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
         if (deck == null || deck.OwnerId != userId)

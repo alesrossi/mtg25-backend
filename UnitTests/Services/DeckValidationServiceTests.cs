@@ -206,7 +206,7 @@ public class DeckValidationServiceTests
         {
             new()
             {
-                OracleId = "oracle1",
+                ScryfallId = "oracle1",
                 Name = "Lightning Bolt",
                 SetCode = "LEA",
                 DeckId = 1,
@@ -242,7 +242,7 @@ public class DeckValidationServiceTests
         {
             new()
             {
-                OracleId = "oracle1",
+                ScryfallId = "oracle1",
                 Name = "Lightning Bolt",
                 SetCode = "LEA",
                 DeckId = 1,
@@ -279,7 +279,7 @@ public class DeckValidationServiceTests
         {
             new()
             {
-                OracleId = "oracle1",
+                ScryfallId = "oracle1",
                 Name = "Lightning Bolt",
                 SetCode = "LEA",
                 DeckId = 1,
@@ -314,7 +314,7 @@ public class DeckValidationServiceTests
         {
             new()
             {
-                OracleId = "oracle1",
+                ScryfallId = "oracle1",
                 Name = "Sideboard Card",
                 SetCode = "LEA",
                 DeckId = 1,
@@ -349,7 +349,7 @@ public class DeckValidationServiceTests
         {
             new()
             {
-                OracleId = "oracle1",
+                ScryfallId = "oracle1",
                 Name = "Lightning Bolt",
                 SetCode = "LEA",
                 DeckId = 1,
@@ -358,7 +358,7 @@ public class DeckValidationServiceTests
             },
             new()
             {
-                OracleId = "oracle2",
+                ScryfallId = "oracle2",
                 Name = "Counterspell",
                 SetCode = "LEB",
                 DeckId = 1,
@@ -367,7 +367,7 @@ public class DeckValidationServiceTests
             },
             new()
             {
-                OracleId = "oracle3",
+                ScryfallId = "oracle3",
                 Name = "Forest",
                 SetCode = "LEA",
                 DeckId = 1,
@@ -400,7 +400,7 @@ public class DeckValidationServiceTests
         {
             new()
             {
-                OracleId = "oracle1",
+                ScryfallId = "oracle1",
                 Name = "Lightning Bolt",
                 SetCode = "LEA",
                 DeckId = 1,
@@ -445,7 +445,7 @@ public class DeckValidationServiceTests
         {
             new()
             {
-                OracleId = "oracle1",
+                ScryfallId = "oracle1",
                 Name = "Forest",
                 SetCode = "LEA",
                 DeckId = 1,
@@ -454,7 +454,7 @@ public class DeckValidationServiceTests
             },
             new()
             {
-                OracleId = "oracle2",
+                ScryfallId = "oracle2",
                 Name = "Island",
                 SetCode = "LEA",
                 DeckId = 1,
@@ -463,7 +463,7 @@ public class DeckValidationServiceTests
             },
             new()
             {
-                OracleId = "oracle3",
+                ScryfallId = "oracle3",
                 Name = "Mountain",
                 SetCode = "LEA",
                 DeckId = 1,

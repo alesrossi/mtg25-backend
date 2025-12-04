@@ -36,7 +36,7 @@ public class WishlistTests
         var card = new WishlistCard
         {
             WishlistId = wishlist.Id,
-            OracleId = Guid.NewGuid().ToString(),
+            ScryfallId = Guid.NewGuid().ToString(),
             Name = "Lightning Bolt",
             DesiredQuantity = 2
         };
@@ -71,7 +71,7 @@ public class WishlistCardTests
         var wishlistCard = new WishlistCard
         {
             WishlistId = 1,
-            OracleId = Guid.NewGuid().ToString(),
+            ScryfallId = Guid.NewGuid().ToString(),
             Name = "Sol Ring",
             DesiredQuantity = 1,
             IsFoil = true,

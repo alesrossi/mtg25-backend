@@ -4,7 +4,7 @@ public class DeckCardDto
 {
     public int Id { get; set; }
     public int DeckId { get; set; }
-    public string OracleId { get; set; } = string.Empty;
+    public string ScryfallId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string SetCode { get; set; } = string.Empty;
     public string? SetName { get; set; }

@@ -73,7 +73,7 @@ public static class CollectionHelpers
             importedCards.Add(new Card
             {
                 Name = record.Name,
-                OracleId = ocd.Id,
+                ScryfallId = ocd.Id,
                 Quantity = record.Quantity,
                 Language = record.Language,
                 IsFoil = record.IsFoil,

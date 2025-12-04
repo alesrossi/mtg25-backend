@@ -28,8 +28,8 @@ public class CardDataService
         this.logger = logger;
     }
 
-    public Dictionary<string, OracleCardDto> CardDataById { get; private set; } = new();
-    public Dictionary<string, OracleCardDto> CardDataByName { get; private set; } = new();
+    public Dictionary<string, ScryfallCardDto> CardDataById { get; private set; } = new();
+    public Dictionary<string, ScryfallCardDto> CardDataByName { get; private set; } = new();
 
     public async Task LoadCardDataAsync(CancellationToken cancellationToken = default)
     {
@@ -37,8 +37,8 @@ public class CardDataService
         logger.LogOperationStart(LoadOperation, new { _pathsConfig.Bulk, _scryfallConfig.BasePath });
 
         var stopwatch = Stopwatch.StartNew();
-        var cardsById = new Dictionary<string, OracleCardDto>();
-        var cardsByName = new Dictionary<string, OracleCardDto>(StringComparer.OrdinalIgnoreCase);
+        var cardsById = new Dictionary<string, ScryfallCardDto>();
+        var cardsByName = new Dictionary<string, ScryfallCardDto>(StringComparer.OrdinalIgnoreCase);
         var processed = 0;
         var indexed = 0;
         var skipped = 0;
@@ -111,7 +111,7 @@ public class CardDataService
             throw;
         }
 
-        void AddOrUpdateWithOldest(string key, OracleCardDto candidate)
+        void AddOrUpdateWithOldest(string key, ScryfallCardDto candidate)
         {
             if (string.IsNullOrWhiteSpace(key))
             {
@@ -130,7 +130,7 @@ public class CardDataService
             }
         }
 
-        bool IsCandidateOlder(OracleCardDto candidate, OracleCardDto existing)
+        bool IsCandidateOlder(ScryfallCardDto candidate, ScryfallCardDto existing)
         {
             if (candidate.ReleasedAt is null)
             {
@@ -146,7 +146,7 @@ public class CardDataService
         }
     }
 
-    public static ImageUris ResolveImageUris(OracleCardDto card)
+    public static ImageUris ResolveImageUris(ScryfallCardDto card)
     {
         if (card.ImageUris is not null)
         {
@@ -160,7 +160,7 @@ public class CardDataService
         return matchingFace?.ImageUris!;
     }
 
-    public string? ResolveBackImageUrl(OracleCardDto card)
+    public string? ResolveBackImageUrl(ScryfallCardDto card)
     {
         if (card.CardFaces is null || card.CardFaces.Count < 2)
         {

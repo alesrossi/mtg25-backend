@@ -779,7 +779,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         return deck;
     }
 
-    private Task SeedCardDataAsync(IEnumerable<OracleCardDto> cards)
+    private Task SeedCardDataAsync(IEnumerable<ScryfallCardDto> cards)
     {
         using var scope = _factory.Services.CreateScope();
         var cardDataService = scope.ServiceProvider.GetRequiredService<CardDataService>();
@@ -787,7 +787,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         return Task.CompletedTask;
     }
 
-    private OracleCardDto CreateOracleCardDto(string id, string oracleId, string name, string setCode, string setName) =>
+    private ScryfallCardDto CreateOracleCardDto(string id, string oracleId, string name, string setCode, string setName) =>
         _testDataBuilder.CreateOracleCard(id, oracleId, name, setCode, setName);
 
     private async Task VerifyDeckExistsInDatabase(int deckId, string expectedUserId)

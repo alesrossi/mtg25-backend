@@ -61,7 +61,7 @@ public static partial class WishlistsEndpoint
         {
             Id = card.Id,
             WishlistId = card.WishlistId,
-            OracleId = card.OracleId,
+            ScryfallId = card.ScryfallId,
             Name = card.Name,
             ImageUrl = card.ImageUrl,
             BackImageUrl = card.BackImageUrl,

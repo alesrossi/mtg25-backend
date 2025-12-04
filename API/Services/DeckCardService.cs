@@ -47,14 +47,14 @@ public class DeckCardService
             return [];
         }
         
-        // Get all oracle IDs from deck cards
-        var oracleIds = (deckCards ?? []).Select(dc => dc.OracleId).Distinct().ToList();
+        // Get all scryfall IDs from deck cards
+        var ids = (deckCards ?? []).Select(dc => dc.ScryfallId).Distinct().ToList();
         
         // Get user's collections
         var userCollectionsSpec = new CollectionWithOwnerSpecification(deck.OwnerId);
         var userCollections = await unitOfWork.Repository<Collection>().ListAsync(userCollectionsSpec, tracking: false);
         
-        // Get all owned cards for all oracle IDs in one query per collection
+        // Get all owned cards for all scryfall IDs in one query per collection
         var ownedCardsLookup = new Dictionary<string, List<Card>>();
         
         if (userCollections != null)
@@ -64,14 +64,14 @@ public class DeckCardService
                 var cardsSpec = new CardsWithParamsSpecification(new EntitySpecParams(), collection.Id);
                 var collectionCards = await unitOfWork.Repository<Card>().ListAsync(cardsSpec, tracking: false);
                 
-                var matchingCards = collectionCards?.Where(c => oracleIds.Contains(c.OracleId)).ToList();
+                var matchingCards = collectionCards?.Where(c => ids.Contains(c.ScryfallId)).ToList();
                 if (matchingCards?.Any() == true)
                 {
                     foreach (var card in matchingCards)
                     {
-                        if (!ownedCardsLookup.ContainsKey(card.OracleId))
-                            ownedCardsLookup[card.OracleId] = new List<Card>();
-                        ownedCardsLookup[card.OracleId].Add(card);
+                        if (!ownedCardsLookup.ContainsKey(card.ScryfallId))
+                            ownedCardsLookup[card.ScryfallId] = new List<Card>();
+                        ownedCardsLookup[card.ScryfallId].Add(card);
                     }
                 }
             }
@@ -92,21 +92,21 @@ public class DeckCardService
         return result;
     }
 
-    public async Task<IEnumerable<DeckCardDto>> GetDeckCardsByOracleIdAsync(string oracleId, int? deckId = null, string? userId = null)
+    public async Task<IEnumerable<DeckCardDto>> GetDeckCardsByScryfallIdAsync(string scryfallId, int? deckId = null, string? userId = null)
     {
-        const string operation = "DeckCards.FetchByOracle";
-        var scopeKey = deckId?.ToString() ?? userId ?? oracleId;
+        const string operation = "DeckCards.FetchByScryfallId";
+        var scopeKey = deckId?.ToString() ?? userId ?? scryfallId;
         using var scope = logger.BeginOperationScope(operation, scopeKey);
-        logger.LogOperationStart(operation, new { oracleId, deckId, userId });
+        logger.LogOperationStart(operation, new { scryfallId = scryfallId, deckId, userId });
 
         ISpecification<DeckCard> spec = deckId.HasValue
-            ? new DeckCardsWithOracleIdSpecification(oracleId, deckId.Value)
-            : new DeckCardsWithOracleIdSpecification(oracleId, userId!);
+            ? new DeckCardsWithScryfallIdSpecification(scryfallId, deckId.Value)
+            : new DeckCardsWithScryfallIdSpecification(scryfallId, userId!);
             
         var deckCards = await unitOfWork.Repository<DeckCard>().ListAsync(spec, tracking: false);
 
         var mapped = deckCards?.Select(MapToDto).ToList() ?? [];
-        logger.LogOperationSuccess(operation, new { oracleId, Count = mapped.Count });
+        logger.LogOperationSuccess(operation, new { scryfallId = scryfallId, Count = mapped.Count });
         return mapped;
     }
 
@@ -138,21 +138,21 @@ public class DeckCardService
     public async Task<DeckCardDto> CreateDeckCardAsync(int deckId, CreateDeckCardDto createDto)
     {
         using var scope = logger.BeginOperationScope(CreateDeckCardOperation, deckId);
-        logger.LogOperationStart(CreateDeckCardOperation, new { deckId, createDto.OracleId, createDto.Name });
+        logger.LogOperationStart(CreateDeckCardOperation, new { deckId, ScryfallId = createDto.ScryfallId, createDto.Name });
 
-        if (string.IsNullOrWhiteSpace(createDto.OracleId) || 
+        if (string.IsNullOrWhiteSpace(createDto.ScryfallId) || 
             string.IsNullOrWhiteSpace(createDto.Name) || 
             string.IsNullOrWhiteSpace(createDto.SetCode) ||
             string.IsNullOrWhiteSpace(createDto.ImageUrl))
         {
-            logger.LogOperationWarning(CreateDeckCardOperation, "Missing required fields", new { deckId, createDto.OracleId });
-            throw new ArgumentException("OracleId, Name, SetCode, and ImageUrl are required");
+            logger.LogOperationWarning(CreateDeckCardOperation, "Missing required fields", new { deckId, ScryfallId = createDto.ScryfallId });
+            throw new ArgumentException("ScryfallId, Name, SetCode, and ImageUrl are required");
         }
 
         var deckCard = new DeckCard
         {
             DeckId = deckId,
-            OracleId = createDto.OracleId,
+            ScryfallId = createDto.ScryfallId,
             Name = createDto.Name,
             SetCode = createDto.SetCode,
             SetName = createDto.SetName,
@@ -176,7 +176,7 @@ public class DeckCardService
         var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
         if (deck == null)
         {
-            logger.LogOperationWarning(CreateDeckCardOperation, "Deck not found after card creation", new { deckId, createDto.OracleId });
+            logger.LogOperationWarning(CreateDeckCardOperation, "Deck not found after card creation", new { deckId, ScryfallId = createDto.ScryfallId });
             throw new InvalidOperationException("Deck not found");
         }
         
@@ -249,7 +249,7 @@ public class DeckCardService
         {
             Id = deckCard.Id,
             DeckId = deckCard.DeckId,
-            OracleId = deckCard.OracleId,
+            ScryfallId = deckCard.ScryfallId,
             Name = deckCard.Name,
             SetCode = deckCard.SetCode,
             SetName = deckCard.SetName,
@@ -272,7 +272,7 @@ public class DeckCardService
         var userCollectionsSpec = new CollectionWithOwnerSpecification(ownerId);
         var userCollections = await unitOfWork.Repository<Collection>().ListAsync(userCollectionsSpec, tracking: false);
         
-        // Find all cards in those collections that match the OracleId
+        // Find all cards in those collections that match the ScryfallId
         var totalOwnedQuantity = 0;
         Card? firstOwnedCard = null;
         
@@ -283,7 +283,7 @@ public class DeckCardService
                 var cardsSpec = new CardsWithParamsSpecification(new EntitySpecParams(), collection.Id);
                 var collectionCards = await unitOfWork.Repository<Card>().ListAsync(cardsSpec, tracking: false);
                 
-                var matchingCards = collectionCards?.Where(c => c.OracleId == deckCard.OracleId).ToList();
+                var matchingCards = collectionCards?.Where(c => c.ScryfallId == deckCard.ScryfallId).ToList();
                 if (matchingCards?.Any() == true)
                 {
                     totalOwnedQuantity += matchingCards.Sum(c => c.Quantity);
@@ -296,7 +296,7 @@ public class DeckCardService
         {
             Id = deckCard.Id,
             DeckId = deckCard.DeckId,
-            OracleId = deckCard.OracleId,
+            ScryfallId = deckCard.ScryfallId,
             Name = deckCard.Name,
             SetCode = deckCard.SetCode,
             SetName = deckCard.SetName,
@@ -315,7 +315,7 @@ public class DeckCardService
 
     private static DeckCardDto MapToDtoWithLookup(DeckCard deckCard, Dictionary<string, List<Card>> ownedCardsLookup)
     {
-        var ownedCards = ownedCardsLookup.TryGetValue(deckCard.OracleId, out var cards) ? cards : new List<Card>();
+        var ownedCards = ownedCardsLookup.TryGetValue(deckCard.ScryfallId, out var cards) ? cards : new List<Card>();
         var totalOwnedQuantity = ownedCards.Sum(c => c.Quantity);
         var firstOwnedCard = ownedCards.FirstOrDefault();
         
@@ -323,7 +323,7 @@ public class DeckCardService
         {
             Id = deckCard.Id,
             DeckId = deckCard.DeckId,
-            OracleId = deckCard.OracleId,
+            ScryfallId = deckCard.ScryfallId,
             Name = deckCard.Name,
             SetCode = deckCard.SetCode,
             SetName = deckCard.SetName,

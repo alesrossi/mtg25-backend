@@ -32,7 +32,7 @@ public static partial class CardsEndpoints
             .RequireAuthorization()
             .WithSummary("Retrieves all versions of a card")
             .WithDescription("Returns all card dtos for a given exact card name")
-            .Produces<List<KeyValuePair<string, OracleCardDto>>>()
+            .Produces<List<KeyValuePair<string, ScryfallCardDto>>>()
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
 
@@ -40,15 +40,15 @@ public static partial class CardsEndpoints
             .RequireAuthorization()
             .WithSummary("Returns Scryfall card from name")
             .WithDescription("Returns Scryfall card with all fields, from exact name")
-            .Produces<OracleCardDto>()
+            .Produces<ScryfallCardDto>()
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
 
-        group.MapGet("/sf/id/{id}", GetCardFromOracleId)
+        group.MapGet("/sf/id/{id}", GetCardFromScryfallId)
             .RequireAuthorization()
-            .WithSummary("Returns Scryfall card from oracle id")
-            .WithDescription("Returns Scryfall card with all fields, from oracle id")
-            .Produces<OracleCardDto>()
+            .WithSummary("Returns Scryfall card from id")
+            .WithDescription("Returns Scryfall card with all fields, from id")
+            .Produces<ScryfallCardDto>()
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
     }
@@ -116,7 +116,7 @@ public static partial class CardsEndpoints
             return new MinimalCardDto
             {
                 Name = card.Value.Name,
-                OracleId = card.Key,
+                ScryfallId = card.Key,
                 ImageUrl = imageUrl,
                 BackImageUrl = backImageUrl
             };
@@ -183,7 +183,7 @@ public static partial class CardsEndpoints
         return Results.NotFound();
     }
 
-    private static IResult GetCardFromOracleId(
+    private static IResult GetCardFromScryfallId(
         string id,
         CardDataService cds,
         HttpContext context,

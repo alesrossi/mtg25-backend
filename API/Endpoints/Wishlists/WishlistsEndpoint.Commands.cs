@@ -151,10 +151,10 @@ public static partial class WishlistsEndpoint
         }
 
         var cardList = newWishlistCardList
-            .Where(x => cds.CardDataById.ContainsKey(x.OracleId))
+            .Where(x => cds.CardDataById.ContainsKey(x.ScryfallId))
             .Select(x =>
             {
-                var card = cds.CardDataById[x.OracleId];
+                var card = cds.CardDataById[x.ScryfallId];
                 var imageUris = CardDataService.ResolveImageUris(card);
                 var imageUrl = imageUris?.Normal ?? imageUris?.Large ?? imageUris?.Png ?? imageUris?.Small;
                 var backImageUrl = cds.ResolveBackImageUrl(card);
@@ -165,7 +165,7 @@ public static partial class WishlistsEndpoint
                     IsFoil = x.IsFoil,
                     Language = x.Language,
                     Name = card.Name,
-                    OracleId = x.OracleId,
+                    ScryfallId = x.ScryfallId,
                     Notes = x.Notes,
                     OriginalDeckId = x.OriginalDeckId,
                     ImageUrl = imageUrl,

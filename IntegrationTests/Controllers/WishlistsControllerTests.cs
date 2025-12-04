@@ -447,7 +447,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
 
         var createCardDto = new CreateWishlistCardDto
         {
-            OracleId = "89f612d6-7c59-4a7b-a87d-45f789e88ba5",
+            ScryfallId = "89f612d6-7c59-4a7b-a87d-45f789e88ba5",
             DesiredQuantity = 2,
             IsFoil = false,
             Language = "en",
@@ -601,7 +601,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         {
             new()
             {
-                OracleId = string.Empty,
+                ScryfallId = string.Empty,
                 DesiredQuantity = 0,
                 Notes = string.Empty
             }
@@ -624,7 +624,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         {
             new()
             {
-                OracleId = "89f612d6-7c59-4a7b-a87d-45f789e88ba5",
+                ScryfallId = "89f612d6-7c59-4a7b-a87d-45f789e88ba5",
                 DesiredQuantity = 1,
                 Notes = "test"
             }
@@ -645,7 +645,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         {
             new()
             {
-                OracleId = "89f612d6-7c59-4a7b-a87d-45f789e88ba5",
+                ScryfallId = "89f612d6-7c59-4a7b-a87d-45f789e88ba5",
                 DesiredQuantity = 1,
                 Notes = "test"
             }
@@ -664,7 +664,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         {
             new()
             {
-                OracleId = "89f612d6-7c59-4a7b-a87d-45f789e88ba5",
+                ScryfallId = "89f612d6-7c59-4a7b-a87d-45f789e88ba5",
                 DesiredQuantity = 1,
                 Notes = "test"
             }

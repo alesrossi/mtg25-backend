@@ -4,7 +4,7 @@ public class WishlistCard : BaseModel
 {
     public int WishlistId { get; set; }
     public Wishlist Wishlist { get; set; } = null!;
-    public required string OracleId { get; set; }
+    public required string ScryfallId { get; set; }
     public required string Name { get; set; }
     public string? ImageUrl { get; set; }
     public string? BackImageUrl { get; set; }

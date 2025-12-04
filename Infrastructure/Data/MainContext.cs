@@ -57,7 +57,7 @@ public class MainContext : DbContext
             entity.Property(e => e.Id)
                 .ValueGeneratedOnAdd();
 
-            entity.Property(e => e.OracleId).IsRequired();
+            entity.Property(e => e.ScryfallId).IsRequired();
             entity.Property(e => e.Name).IsRequired();
 
             entity.Property(e => e.DesiredQuantity)
@@ -83,7 +83,7 @@ public class MainContext : DbContext
                 .OnDelete(DeleteBehavior.SetNull);
                 
             // Ensure required properties are not null
-            entity.Property(dc => dc.OracleId).IsRequired();
+            entity.Property(dc => dc.ScryfallId).IsRequired();
             entity.Property(dc => dc.Name).IsRequired();
             entity.Property(dc => dc.SetCode).IsRequired();
         });

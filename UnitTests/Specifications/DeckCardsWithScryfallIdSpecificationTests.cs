@@ -5,11 +5,11 @@ using TestUtilities.Builders;
 
 namespace UnitTests.Specifications;
 
-public class DeckCardsWithOracleIdSpecificationTests
+public class DeckCardsWithScryfallIdSpecificationTests
 {
     private readonly TestDataBuilder _testDataBuilder;
 
-    public DeckCardsWithOracleIdSpecificationTests()
+    public DeckCardsWithScryfallIdSpecificationTests()
     {
         _testDataBuilder = new TestDataBuilder();
     }
@@ -19,12 +19,12 @@ public class DeckCardsWithOracleIdSpecificationTests
     {
         // Arrange
         var oracleId = "oracle-123";
-        var spec = new DeckCardsWithOracleIdSpecification(oracleId);
+        var spec = new DeckCardsWithScryfallIdSpecification(oracleId);
 
         var deckCard1 = new DeckCard
         {
             DeckId = 1,
-            OracleId = oracleId,
+            ScryfallId = oracleId,
             Name = "Lightning Bolt",
             SetCode = "LEA",
             MaindeckQuantity = 4,
@@ -34,7 +34,7 @@ public class DeckCardsWithOracleIdSpecificationTests
         var deckCard2 = new DeckCard
         {
             DeckId = 2,
-            OracleId = "oracle-456",
+            ScryfallId = "oracle-456",
             Name = "Counterspell",
             SetCode = "ICE",
             MaindeckQuantity = 2,
@@ -48,7 +48,7 @@ public class DeckCardsWithOracleIdSpecificationTests
 
         // Assert
         filtered.Should().HaveCount(1);
-        filtered.First().OracleId.Should().Be(oracleId);
+        filtered.First().ScryfallId.Should().Be(oracleId);
         filtered.First().Name.Should().Be("Lightning Bolt");
     }
 
@@ -58,12 +58,12 @@ public class DeckCardsWithOracleIdSpecificationTests
         // Arrange
         var oracleId = "oracle-123";
         var deckId = 1;
-        var spec = new DeckCardsWithOracleIdSpecification(oracleId, deckId);
+        var spec = new DeckCardsWithScryfallIdSpecification(oracleId, deckId);
 
         var matchingCard = new DeckCard
         {
             DeckId = deckId,
-            OracleId = oracleId,
+            ScryfallId = oracleId,
             Name = "Lightning Bolt",
             SetCode = "LEA",
             MaindeckQuantity = 4,
@@ -73,7 +73,7 @@ public class DeckCardsWithOracleIdSpecificationTests
         var wrongDeckCard = new DeckCard
         {
             DeckId = 2,
-            OracleId = oracleId,
+            ScryfallId = oracleId,
             Name = "Lightning Bolt",
             SetCode = "LEA",
             MaindeckQuantity = 3,
@@ -83,7 +83,7 @@ public class DeckCardsWithOracleIdSpecificationTests
         var wrongOracleCard = new DeckCard
         {
             DeckId = deckId,
-            OracleId = "oracle-456",
+            ScryfallId = "oracle-456",
             Name = "Counterspell",
             SetCode = "ICE",
             MaindeckQuantity = 2,
@@ -98,7 +98,7 @@ public class DeckCardsWithOracleIdSpecificationTests
         // Assert
         filtered.Should().HaveCount(1);
         filtered.First().DeckId.Should().Be(deckId);
-        filtered.First().OracleId.Should().Be(oracleId);
+        filtered.First().ScryfallId.Should().Be(oracleId);
         filtered.First().Name.Should().Be("Lightning Bolt");
     }
 
@@ -108,12 +108,12 @@ public class DeckCardsWithOracleIdSpecificationTests
         // Arrange
         var oracleId = "oracle-123";
         var userId = "user-123";
-        var spec = new DeckCardsWithOracleIdSpecification(oracleId, userId);
+        var spec = new DeckCardsWithScryfallIdSpecification(oracleId, userId);
 
         var userDeckCard = new DeckCard
         {
             DeckId = 1,
-            OracleId = oracleId,
+            ScryfallId = oracleId,
             Name = "Lightning Bolt",
             SetCode = "LEA",
             MaindeckQuantity = 4,
@@ -124,7 +124,7 @@ public class DeckCardsWithOracleIdSpecificationTests
         var otherUserDeckCard = new DeckCard
         {
             DeckId = 2,
-            OracleId = oracleId,
+            ScryfallId = oracleId,
             Name = "Lightning Bolt",
             SetCode = "LEA",
             MaindeckQuantity = 3,
@@ -148,7 +148,7 @@ public class DeckCardsWithOracleIdSpecificationTests
     {
         // Arrange
         var oracleId = "oracle-123";
-        var spec = new DeckCardsWithOracleIdSpecification(oracleId);
+        var spec = new DeckCardsWithScryfallIdSpecification(oracleId);
 
         // Assert
         spec.Includes.Should().HaveCount(2);
@@ -161,7 +161,7 @@ public class DeckCardsWithOracleIdSpecificationTests
     {
         // Arrange
         var oracleId = "oracle-123";
-        var spec = new DeckCardsWithOracleIdSpecification(oracleId);
+        var spec = new DeckCardsWithScryfallIdSpecification(oracleId);
 
         // Assert
         spec.OrderBy.Should().NotBeNull();
@@ -176,9 +176,9 @@ public class DeckCardsWithOracleIdSpecificationTests
         var deckId = 1;
         var userId = "user-123";
 
-        var spec1 = new DeckCardsWithOracleIdSpecification(oracleId);
-        var spec2 = new DeckCardsWithOracleIdSpecification(oracleId, deckId);
-        var spec3 = new DeckCardsWithOracleIdSpecification(oracleId, userId);
+        var spec1 = new DeckCardsWithScryfallIdSpecification(oracleId);
+        var spec2 = new DeckCardsWithScryfallIdSpecification(oracleId, deckId);
+        var spec3 = new DeckCardsWithScryfallIdSpecification(oracleId, userId);
 
         // Assert
         spec1.Includes.Should().HaveCount(2);

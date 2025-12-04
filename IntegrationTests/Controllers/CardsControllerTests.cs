@@ -379,7 +379,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var cardRequest = new
         {
-            OracleId = "97398ad2-675b-4a34-aab7-935dd6714f1c",
+            ScryfallId = "97398ad2-675b-4a34-aab7-935dd6714f1c",
             CollectionId = collection.Id,
             Quantity = 2,
             Language = "en",
@@ -444,7 +444,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var request = new InternalCardDto
         {
-            OracleId = "97398ad2-675b-4a34-aab7-935dd6714f1c",
+            ScryfallId = "97398ad2-675b-4a34-aab7-935dd6714f1c",
             CollectionId = collection.Id,
             Quantity = 1,
             Language = "en",
@@ -469,7 +469,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var request = new InternalCardDto
         {
-            OracleId = "97398ad2-675b-4a34-aab7-935dd6714f1c",
+            ScryfallId = "97398ad2-675b-4a34-aab7-935dd6714f1c",
             CollectionId = int.MaxValue,
             Quantity = 1,
             Language = "en",
@@ -501,7 +501,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var payload = await response.Content.ReadAsStringAsync();
-        var cards = JsonSerializer.Deserialize<List<OracleCardDto>>(payload, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var cards = JsonSerializer.Deserialize<List<ScryfallCardDto>>(payload, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         cards.Should().NotBeNull();
         cards!.Should().HaveCount(2);
@@ -534,7 +534,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             "because counterspell exists");
         
         var responseContent = await response.Content.ReadAsStringAsync();
-        var returnedCard = JsonSerializer.Deserialize<OracleCardDto>(
+        var returnedCard = JsonSerializer.Deserialize<ScryfallCardDto>(
             responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         returnedCard.Should().NotBeNull();
@@ -579,7 +579,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             "because counterspell exists");
         
         var responseContent = await response.Content.ReadAsStringAsync();
-        var returnedCard = JsonSerializer.Deserialize<OracleCardDto>(
+        var returnedCard = JsonSerializer.Deserialize<ScryfallCardDto>(
             responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         returnedCard.Should().NotBeNull();
@@ -680,7 +680,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         {
             CollectionId = collectionId,
             Name = name,
-            OracleId = Guid.NewGuid()
+            ScryfallId = Guid.NewGuid()
                 .ToString(),
             Quantity = quantity,
             Language = "English",

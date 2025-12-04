@@ -3,7 +3,7 @@ namespace Core.Models;
 public class Card : BaseModel
 {
     public required string Name { get; set; }
-    public required string OracleId { get; set; }
+    public required string ScryfallId { get; set; }
     public int CollectionId { get; set; }
     public Collection? Collection { get; set; }
     public required int Quantity { get; set; }

@@ -144,11 +144,11 @@ public class DecklistParserService : IDecklistParserService
         var artCrop = imageUris?.ArtCrop;
         var backImageUrl = cardDataService.ResolveBackImageUrl(cardData);
 
-        if (!deckCards.TryGetValue(cardData.OracleId, out var existingDto))
+        if (!deckCards.TryGetValue(cardData.Id, out var existingDto))
         {
             existingDto = new CreateDeckCardDto
             {
-                OracleId = cardData.Id,
+                ScryfallId = cardData.Id,
                 Name = cardData.Name,
                 SetCode = cardData.Set,
                 SetName = cardData.SetName,
@@ -166,7 +166,7 @@ public class DecklistParserService : IDecklistParserService
                 SideboardQuantity = 0
             };
 
-            deckCards[cardData.OracleId] = existingDto;
+            deckCards[cardData.Id] = existingDto;
         }
 
         if (inSideboard)

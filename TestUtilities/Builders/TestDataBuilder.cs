@@ -86,7 +86,7 @@ public class TestDataBuilder
         return new DeckCard
         {
             DeckId = deckId,
-            OracleId = oracleId ?? Guid.NewGuid().ToString(),
+            ScryfallId = oracleId ?? Guid.NewGuid().ToString(),
             Name = name ?? $"Card {_random.Next(1, 1_000)}",
             SetCode = setCode ?? GetRandomSetCode(),
             MaindeckQuantity = maindeckQuantity,
@@ -109,7 +109,7 @@ public class TestDataBuilder
     {
         return _fixture.Build<WishlistCard>()
             .With(c => c.WishlistId, wishlistId)
-            .With(c => c.OracleId, oracleId ?? _fixture.Create<Guid>().ToString())
+            .With(c => c.ScryfallId, oracleId ?? _fixture.Create<Guid>().ToString())
             .With(c => c.Name, name ?? $"Card {_random.Next(1, 1000)}")
             .With(c => c.DesiredQuantity, _random.Next(1, 5))
             .With(c => c.IsFoil, _random.Next(10) == 0)
@@ -162,7 +162,7 @@ public class TestDataBuilder
             .With(c => c.CollectionId, collectionId)
             .With(c => c.Name, name ?? cardNames[_random.Next(cardNames.Length)])
             .With(c => c.PurchasePrice, price ?? _fixture.Create<double>() % 1000)
-            .With(c => c.OracleId, _fixture.Create<Guid>().ToString())
+            .With(c => c.ScryfallId, _fixture.Create<Guid>().ToString())
             .With(c => c.Quantity, _random.Next(1, 10))
             .With(c => c.Language, "English")
             .With(c => c.Condition, Condition.NearMint)
@@ -187,12 +187,12 @@ public class TestDataBuilder
     public Card CreateCardWithOracleId(int collectionId, string oracleId, string? name = null, int quantity = 1)
     {
         var card = CreateCard(collectionId, name);
-        card.OracleId = oracleId;
+        card.ScryfallId = oracleId;
         card.Quantity = quantity;
         return card;
     }
 
-    public OracleCardDto CreateOracleCard(
+    public ScryfallCardDto CreateOracleCard(
         string? id = null,
         string? oracleId = null,
         string? name = null,
@@ -206,7 +206,7 @@ public class TestDataBuilder
         var resolvedSetName = setName ?? GetRandomSetName();
         var imageUrl = $"https://example.com/{cardId}.png";
 
-        return new OracleCardDto(
+        return new ScryfallCardDto(
             Object: "card",
             Id: cardId,
             OracleId: oracle,

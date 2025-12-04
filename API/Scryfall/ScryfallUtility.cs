@@ -9,12 +9,12 @@ namespace API.Scryfall;
 
 public static class ScryfallUtility
 {
-    public static async IAsyncEnumerable<OracleCardDto> FetchCardListStreamAsync(
+    public static async IAsyncEnumerable<ScryfallCardDto> FetchCardListStreamAsync(
         string bulkBasePath,
         string endpoint,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var filePath = await GetOracleBulkDataAsync(bulkBasePath, endpoint);
+        var filePath = await GetScryfallBulkDataAsync(bulkBasePath, endpoint);
 
         await using var stream = File.OpenRead(filePath);
         var options = new JsonSerializerOptions
@@ -23,7 +23,7 @@ public static class ScryfallUtility
             PropertyNameCaseInsensitive = true
         };
 
-        await foreach (var card in JsonSerializer.DeserializeAsyncEnumerable<OracleCardDto>(stream, options, cancellationToken))
+        await foreach (var card in JsonSerializer.DeserializeAsyncEnumerable<ScryfallCardDto>(stream, options, cancellationToken))
         {
             if (card is not null)
             {
@@ -32,7 +32,7 @@ public static class ScryfallUtility
         }
     }
     
-    private static async Task<string> GetOracleBulkDataAsync(string basePath, string endpoint)
+    private static async Task<string> GetScryfallBulkDataAsync(string basePath, string endpoint)
     {
         var resolvedBasePath = ResolveBasePath(basePath);
         Directory.CreateDirectory(resolvedBasePath);

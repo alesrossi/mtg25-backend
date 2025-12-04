@@ -6,7 +6,7 @@ namespace API.Dtos.Cards;
 
 using System.Collections.Generic;
 
-public record OracleCardDto(
+public record ScryfallCardDto(
     string? Object,
     string Id,
     string OracleId,

@@ -12,7 +12,7 @@ public class DeckCardTests
         var deckCard = new DeckCard
         {
             DeckId = 1,
-            OracleId = "12345678-1234-1234-1234-123456789012",
+            ScryfallId = "12345678-1234-1234-1234-123456789012",
             Name = "Lightning Bolt",
             SetCode = "LEA",
             MaindeckQuantity = 4,
@@ -21,7 +21,7 @@ public class DeckCardTests
 
         // Assert
         deckCard.DeckId.Should().Be(1);
-        deckCard.OracleId.Should().Be("12345678-1234-1234-1234-123456789012");
+        deckCard.ScryfallId.Should().Be("12345678-1234-1234-1234-123456789012");
         deckCard.Name.Should().Be("Lightning Bolt");
         deckCard.SetCode.Should().Be("LEA");
         deckCard.MaindeckQuantity.Should().Be(4);
@@ -35,7 +35,7 @@ public class DeckCardTests
         var deckCard = new DeckCard
         {
             DeckId = 1,
-            OracleId = "12345678-1234-1234-1234-123456789012",
+            ScryfallId = "12345678-1234-1234-1234-123456789012",
             Name = "Lightning Bolt",
             SetCode = "LEA",
             MaindeckQuantity = 3,
@@ -53,7 +53,7 @@ public class DeckCardTests
         var deckCard = new DeckCard
         {
             DeckId = 1,
-            OracleId = "12345678-1234-1234-1234-123456789012",
+            ScryfallId = "12345678-1234-1234-1234-123456789012",
             Name = "Lightning Bolt",
             SetCode = "LEA",
             MaindeckQuantity = 4,
@@ -86,7 +86,7 @@ public class DeckCardTests
         var deckCard = new DeckCard
         {
             DeckId = 1,
-            OracleId = "12345678-1234-1234-1234-123456789012",
+            ScryfallId = "12345678-1234-1234-1234-123456789012",
             Name = "Test Card",
             SetCode = "TST",
             MaindeckQuantity = maindeckQuantity,
@@ -105,7 +105,7 @@ public class DeckCardTests
         {
             Id = 1,
             CollectionId = 1,
-            OracleId = "12345678-1234-1234-1234-123456789012",
+            ScryfallId = "12345678-1234-1234-1234-123456789012",
             Name = "Lightning Bolt",
             SetCode = "LEA",
             Quantity = 1,
@@ -127,7 +127,7 @@ public class DeckCardTests
         var deckCard = new DeckCard
         {
             DeckId = 1,
-            OracleId = "12345678-1234-1234-1234-123456789012",
+            ScryfallId = "12345678-1234-1234-1234-123456789012",
             Name = "Lightning Bolt",
             SetCode = "LEA",
             MaindeckQuantity = 4,

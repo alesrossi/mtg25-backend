@@ -4,7 +4,7 @@ public class WishlistCardDto
 {
     public int Id { get; set; }
     public int WishlistId { get; set; }
-    public string OracleId { get; set; } = string.Empty;
+    public string ScryfallId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? ImageUrl { get; set; }
     public string? BackImageUrl { get; set; }

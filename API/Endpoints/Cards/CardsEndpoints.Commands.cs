@@ -44,8 +44,8 @@ public static partial class CardsEndpoints
         group.MapPost("/card-list", AddCardListAsync)
             .RequireAuthorization()
             .WithSummary("Process card list")
-            .WithDescription("Processes card names and returns Oracle card data")
-            .Produces<LinkedList<OracleCardDto>>()
+            .WithDescription("Processes card names and returns Scryfall card data")
+            .Produces<LinkedList<ScryfallCardDto>>()
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status400BadRequest);
     }
@@ -272,21 +272,21 @@ public static partial class CardsEndpoints
             return Results.BadRequest("Collection is not valid for logged user");
         }
 
-        if (!cds.CardDataById.TryGetValue(cardDto.OracleId, out var oracleCard)) return Results.BadRequest("Card not found for oracleId");
+        if (!cds.CardDataById.TryGetValue(cardDto.ScryfallId, out var scryfallCardDto)) return Results.BadRequest("Card not found for scryfallId");
 
         if (!Enum.TryParse(cardDto.Condition, out Condition myEnum))
         {
             return Results.BadRequest("Invalid condition");
         }
-        var imageUris = CardDataService.ResolveImageUris(oracleCard);
-        var imageUrl = imageUris.Normal ?? imageUris.Large ?? imageUris.Png ?? throw new InvalidOperationException($"Missing image URL for card {oracleCard.Name}");
-        var artCrop = imageUris.ArtCrop ?? throw new InvalidOperationException($"Missing art crop for card {oracleCard.Name}");
-        var backImageUrl = cds.ResolveBackImageUrl(oracleCard);
+        var imageUris = CardDataService.ResolveImageUris(scryfallCardDto);
+        var imageUrl = imageUris.Normal ?? imageUris.Large ?? imageUris.Png ?? throw new InvalidOperationException($"Missing image URL for card {scryfallCardDto.Name}");
+        var artCrop = imageUris.ArtCrop ?? throw new InvalidOperationException($"Missing art crop for card {scryfallCardDto.Name}");
+        var backImageUrl = cds.ResolveBackImageUrl(scryfallCardDto);
 
         var card = new Card
         {
-            OracleId = oracleCard.Id,
-            Name = oracleCard.Name,
+            ScryfallId = scryfallCardDto.Id,
+            Name = scryfallCardDto.Name,
             Collection = collection,
             Quantity = cardDto.Quantity,
             Language = cardDto.Language,
@@ -295,10 +295,10 @@ public static partial class CardsEndpoints
             PurchasePrice = cardDto.PurchasePrice,
             ImageUrl = imageUrl,
             PurchasePriceCurrency = cardDto.PurchasePriceCurrency,
-            SetCode = oracleCard.Set,
-            SetName = oracleCard.SetName,
-            CollectorNumber = oracleCard.CollectorNumber!,
-            Rarity = oracleCard.Rarity!,
+            SetCode = scryfallCardDto.Set,
+            SetName = scryfallCardDto.SetName,
+            CollectorNumber = scryfallCardDto.CollectorNumber!,
+            Rarity = scryfallCardDto.Rarity!,
             IsMisprint = cardDto.IsMisprint,
             IsAltered = cardDto.IsAltered,
             ArtCrop = artCrop,
@@ -329,21 +329,21 @@ public static partial class CardsEndpoints
             return Task.FromResult(Results.Unauthorized());
         }
 
-        var oracleCardList = new LinkedList<OracleCardDto>();
+        var scryfallCardList = new LinkedList<ScryfallCardDto>();
 
         var cardList = cardListDto.CardList.Trim().Split('\n').Select(p => p.Trim());
         foreach (var inputCard in cardList)
         {
-            if (!cds.CardDataByName.TryGetValue(inputCard, out var oracleCard))
+            if (!cds.CardDataByName.TryGetValue(inputCard, out var card))
             {
                 logger.LogOperationWarning(operation, "Card not found", new { inputCard });
                 continue;
             }
-            oracleCardList.AddLast(oracleCard);
+            scryfallCardList.AddLast(card);
         }
 
-        logger.LogOperationSuccess(operation, new { Count = oracleCardList.Count });
-        return Task.FromResult(Results.Ok(oracleCardList));
+        logger.LogOperationSuccess(operation, new { Count = scryfallCardList.Count });
+        return Task.FromResult(Results.Ok(scryfallCardList));
     }
 
 }

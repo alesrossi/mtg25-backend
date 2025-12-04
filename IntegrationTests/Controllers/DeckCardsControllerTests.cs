@@ -165,7 +165,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
 
         var createDto = new CreateDeckCardDto
         {
-            OracleId = "oracle-123",
+            ScryfallId = "oracle-123",
             Name = "Lightning Bolt",
             SetCode = "LEA",
             SetName = "Limited Edition Alpha",
@@ -199,7 +199,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         using var client = _factory.CreateClient();
         var createDto = new CreateDeckCardDto
         {
-            OracleId = "oracle-unauth",
+            ScryfallId = "oracle-unauth",
             Name = "Unauthorized",
             SetCode = "LEA",
             ImageUrl = "TEST",
@@ -221,7 +221,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
 
         var createDto = new CreateDeckCardDto
         {
-            OracleId = "oracle-missing",
+            ScryfallId = "oracle-missing",
             Name = "Missing Deck",
             SetCode = "SET",
             ImageUrl = "TEST",
@@ -245,7 +245,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
 
         var createDto = new CreateDeckCardDto
         {
-            OracleId = string.Empty,
+            ScryfallId = string.Empty,
             Name = "",
             SetCode = "LEA",
             ImageUrl = "https://example.com/card.png",
@@ -265,8 +265,8 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         using var json = JsonDocument.Parse(responseContent);
         var errorsElement = json.RootElement.GetProperty("errors");
 
-        errorsElement.TryGetProperty("OracleId", out var oracleErrors).Should().BeTrue();
-        oracleErrors[0].GetString().Should().Be("Oracle ID is required.");
+        errorsElement.TryGetProperty("ScryfallId", out var oracleErrors).Should().BeTrue();
+        oracleErrors[0].GetString().Should().Be("Scryfall ID is required.");
 
         errorsElement.TryGetProperty("Name", out var nameErrors).Should().BeTrue();
         nameErrors[0].GetString().Should().Be("Card name is required.");
@@ -282,7 +282,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
 
         var createDto = new CreateDeckCardDto
         {
-            OracleId = "97398ad2-675b-4a34-aab7-935dd6714f1c",
+            ScryfallId = "97398ad2-675b-4a34-aab7-935dd6714f1c",
             Name = "Lightning Bolt",
             SetCode = "LEA",
             ImageUrl = "https://example.com/card.png",
@@ -322,8 +322,8 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
 
         missingCards.Should().HaveCount(2);
         missingCards!.All(dc => !dc.IsOwned).Should().BeTrue();
-        var expectedOracleIds = deckCards.Skip(2).Select(dc => dc.OracleId).ToList();
-        missingCards.Select(dc => dc.OracleId).Should().BeEquivalentTo(expectedOracleIds);
+        var expectedOracleIds = deckCards.Skip(2).Select(dc => dc.ScryfallId).ToList();
+        missingCards.Select(dc => dc.ScryfallId).Should().BeEquivalentTo(expectedOracleIds);
     }
 
     [Fact]
@@ -568,7 +568,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         {
             var ownedCard = _testDataBuilder.CreateCardWithOracleId(
                 collectionId, 
-                deckCard.OracleId, 
+                deckCard.ScryfallId, 
                 deckCard.Name, 
                 2); // Set owned quantity to 2
             context.Cards.Add(ownedCard);

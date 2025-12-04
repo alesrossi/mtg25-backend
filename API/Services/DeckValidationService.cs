@@ -207,7 +207,7 @@ public class DeckValidationService : IDeckValidationService
         
         foreach (var deckCard in deckCards)
         {
-            var cardKey = $"{deckCard.Name}|{deckCard.OracleId}"; // Use both name and oracle ID for uniqueness
+            var cardKey = $"{deckCard.Name}|{deckCard.ScryfallId}"; // Use both name and ScryfallId for uniqueness
             
             // Count maindeck copies
             if (deckCard.MaindeckQuantity > 0)

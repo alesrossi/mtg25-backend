@@ -27,7 +27,7 @@ public class CardTests
         // Assert
         card.CollectionId.Should().Be(collectionId, "because card should belong to the specified collection");
         card.Name.Should().NotBeNullOrEmpty("because card name is required");
-        card.OracleId.Should().NotBeNullOrEmpty("because oracle ID is required for card identification");
+        card.ScryfallId.Should().NotBeNullOrEmpty("because oracle ID is required for card identification");
         card.Quantity.Should().BeGreaterThan(0, "because quantity must be positive");
         card.Language.Should().NotBeNullOrEmpty("because language is required");
         card.PurchasePriceCurrency.Should().NotBeNullOrEmpty("because currency is required");

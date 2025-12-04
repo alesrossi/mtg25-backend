@@ -4,9 +4,9 @@ namespace API.Dtos.Decks;
 
 public class CreateDeckCardDto
 {
-    [Required(ErrorMessage = "Oracle ID is required.")]
-    [StringLength(64, ErrorMessage = "Oracle ID cannot exceed 64 characters.")]
-    public required string OracleId { get; set; }
+    [Required(ErrorMessage = "Scryfall ID is required.")]
+    [StringLength(64, ErrorMessage = "Scryfall ID cannot exceed 64 characters.")]
+    public required string ScryfallId { get; set; }
 
     [Required(ErrorMessage = "Card name is required.")]
     [StringLength(128, ErrorMessage = "Card name cannot exceed 128 characters.")]

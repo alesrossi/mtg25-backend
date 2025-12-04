@@ -2,7 +2,7 @@ namespace API.Dtos.Cards;
 
 public class InternalCardDto
 {
-    public required string OracleId { get; set; }
+    public required string ScryfallId { get; set; }
     public int CollectionId { get; set; }
     public int Quantity { get; set; }
     public required string Language { get; set; }

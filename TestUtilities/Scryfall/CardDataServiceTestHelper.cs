@@ -11,7 +11,7 @@ namespace TestUtilities.Scryfall;
 
 public static class CardDataServiceTestHelper
 {
-    public static CardDataService CreateWithCards(IEnumerable<OracleCardDto> cards)
+    public static CardDataService CreateWithCards(IEnumerable<ScryfallCardDto> cards)
     {
         var service = new CardDataService(
             Options.Create(new PathsConfig()),
@@ -22,7 +22,7 @@ public static class CardDataServiceTestHelper
         return service;
     }
 
-    public static void Populate(CardDataService service, IEnumerable<OracleCardDto> cards)
+    public static void Populate(CardDataService service, IEnumerable<ScryfallCardDto> cards)
     {
         ArgumentNullException.ThrowIfNull(service);
         ArgumentNullException.ThrowIfNull(cards);
