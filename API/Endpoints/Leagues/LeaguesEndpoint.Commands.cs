@@ -119,7 +119,9 @@ public static partial class LeaguesEndpoint
         if (updateLeague.MinimumRounds != null) league.MinimumRounds = (int)updateLeague.MinimumRounds;
         if (updateLeague.TotalPrize != null) league.TotalPrize = (double)updateLeague.TotalPrize;
         if (updateLeague.PrizePerPerson != null) league.PrizePerPerson = (double)updateLeague.PrizePerPerson;
-
+        if (updateLeague.CurrentRound == null || updateLeague.CurrentRound > league.TotalRounds) return Results.BadRequest();
+        league.CurrentRound = (int)updateLeague.CurrentRound;
+             
         dbContext.Update(league);
         await dbContext.SaveChangesAsync();
 
