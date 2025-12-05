@@ -1,4 +1,5 @@
 using System.Linq;
+using API.Dtos.Cards;
 using API.Dtos.Decks;
 using API.Logging;
 using Core.Interfaces;
@@ -201,6 +202,57 @@ public class DeckCardService
         deckCard.MaindeckQuantity = updateDto.MaindeckQuantity;
         deckCard.SideboardQuantity = updateDto.SideboardQuantity;
         deckCard.OwnedCardId = updateDto.OwnedCardId;
+
+        unitOfWork.Repository<DeckCard>().Update(deckCard);
+        await unitOfWork.Complete();
+
+        // Reload the entity to get the updated values
+        var updatedDeckCard = await unitOfWork.Repository<DeckCard>().GetByIdAsync(id, tracking: false);
+        if (updatedDeckCard == null)
+        {
+            logger.LogOperationWarning(UpdateDeckCardOperation, "Deck card missing after update", new { id });
+            return null;
+        }
+        
+        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(updatedDeckCard.DeckId, tracking: false);
+        if (deck == null)
+        {
+            logger.LogOperationWarning(UpdateDeckCardOperation, "Deck missing after deck card update", new { updatedDeckCard.DeckId });
+            return null;
+        }
+        
+        var dto = await MapToDtoAsync(updatedDeckCard, deck.OwnerId);
+        logger.LogOperationSuccess(UpdateDeckCardOperation, new { id, updatedDeckCard.DeckId });
+        return dto;
+    }
+    
+    public async Task<DeckCardDto?> UpdateDeckCardVersionAsync(int id, UpdateDeckCardVersionDto updateDto, ScryfallCardDto scryfallCard, CardDataService cardDataService)
+    {
+        using var scope = logger.BeginOperationScope(UpdateDeckCardOperation, id);
+        logger.LogOperationStart(UpdateDeckCardOperation, new { id });
+
+        var imageUris = CardDataService.ResolveImageUris(scryfallCard);
+        var resolvedImage = imageUris?.Normal ?? imageUris?.Large ?? imageUris?.Png;
+        var resolvedBackImage = cardDataService.ResolveBackImageUrl(scryfallCard);
+        
+        var deckCard = await unitOfWork.Repository<DeckCard>().GetByIdAsync(id);
+        if (deckCard == null)
+        {
+            logger.LogOperationWarning(UpdateDeckCardOperation, "Deck card not found", new { id });
+            return null;
+        }
+
+        deckCard.MaindeckQuantity = updateDto.MaindeckQuantity;
+        deckCard.SideboardQuantity = updateDto.SideboardQuantity;
+        deckCard.OwnedCardId = updateDto.OwnedCardId;
+        deckCard.ScryfallId = scryfallCard.Id;
+        deckCard.SetName = scryfallCard.SetName;
+        deckCard.SetCode = scryfallCard.SetId!;
+        deckCard.ArtCrop = imageUris!.ArtCrop!;
+        deckCard.ImageUrl = resolvedImage!;
+        deckCard.BackImageUrl = resolvedBackImage;
+        deckCard.CollectorNumber = scryfallCard.CollectorNumber;
+        deckCard.Rarity = scryfallCard.Rarity;
 
         unitOfWork.Repository<DeckCard>().Update(deckCard);
         await unitOfWork.Complete();

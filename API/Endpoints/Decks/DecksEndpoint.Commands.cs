@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using System.Security.Claims;
 using API.Dtos.Decks;
 using API.Logging;
@@ -51,6 +53,15 @@ public static partial class DecksEndpoint
             .RequireAuthorization()
             .WithSummary("Update deck card")
             .WithDescription("Updates deck card quantities and owned card reference")
+            .Produces<DeckCardDto>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
+
+        group.MapPut("/{deckId:int}/cards/{id:int}/versions", UpdateDeckCardVersionAsync)
+            .RequireAuthorization()
+            .WithSummary("Update deck card version")
+            .WithDescription("Updates deck card printing using a Scryfall ID")
             .Produces<DeckCardDto>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -204,10 +215,16 @@ public static partial class DecksEndpoint
         logger.LogOperationStart(operation, new { deckId, ScryfallId = createDto.ScryfallId, createDto.Name });
 
         var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
-        if (deck == null || deck.OwnerId != userId)
+        if (deck == null)
         {
-            logger.LogOperationWarning(operation, "Deck not found or unauthorized", new { deckId, userId });
+            logger.LogOperationWarning(operation, "Deck not found", new { deckId });
             return Results.NotFound();
+        }
+
+        if (deck.OwnerId != userId)
+        {
+            logger.LogOperationWarning(operation, "Deck unauthorized", new { deckId, userId });
+            return Results.Unauthorized();
         }
 
         var (isValid, errors) = validationService.ValidateModel(createDto);
@@ -257,6 +274,74 @@ public static partial class DecksEndpoint
         }
 
         var updatedDeckCard = await deckCardService.UpdateDeckCardAsync(id, updateDto);
+        logger.LogOperationSuccess(operation, new { deckId, id });
+        return Results.Ok(updatedDeckCard);
+    }
+
+    private static async Task<IResult> UpdateDeckCardVersionAsync(
+        int deckId,
+        int id,
+        UpdateDeckCardVersionDto updateDto,
+        CardDataService cardDataService,
+        DeckCardService deckCardService,
+        IUnitOfWork unitOfWork,
+        ClaimsPrincipal user,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger)
+    {
+        const string operation = "DeckCards.UpdateVersion";
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null)
+        {
+            logger.LogOperationWarning(operation, "Missing user identifier", new { deckId, id });
+            return Results.Unauthorized();
+        }
+
+        using var scope = logger.BeginOperationScope(operation, id);
+        logger.LogOperationStart(operation, new { deckId, id, updateDto.ScryfallId });
+
+        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
+        if (deck == null || deck.OwnerId != userId)
+        {
+            logger.LogOperationWarning(operation, "Deck not found or unauthorized", new { deckId, userId });
+            return Results.NotFound();
+        }
+
+        var deckCard = await unitOfWork.Repository<DeckCard>().GetByIdAsync(id);
+        if (deckCard == null || deckCard.DeckId != deckId)
+        {
+            logger.LogOperationWarning(operation, "Deck card not found or mismatched deck", new { deckId, id });
+            return Results.NotFound();
+        }
+
+        if (!cardDataService.CardDataById.TryGetValue(updateDto.ScryfallId, out var scryfallCard))
+        {
+            logger.LogOperationWarning(operation, "Invalid scryfall id", new { updateDto.ScryfallId });
+            return Results.BadRequest(new { errors = new[] { "Invalid Scryfall ID provided." } });
+        }
+
+        if (!string.Equals(scryfallCard.Name, deckCard.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogOperationWarning(operation, "Scryfall name mismatch", new { updateDto.ScryfallId, deckCard.Name });
+            return Results.BadRequest(new { errors = new[] { $"'{updateDto.ScryfallId}' is not a valid version for '{deckCard.Name}'." } });
+        }
+
+        DeckCardDto updatedDeckCard;
+        try
+        {
+            updatedDeckCard = (await deckCardService.UpdateDeckCardVersionAsync(id, updateDto, scryfallCard, cardDataService))!;
+
+            unitOfWork.Repository<DeckCard>().Update(deckCard);
+            await unitOfWork.Complete();
+        }
+        catch (Exception ex)
+        {
+            logger.LogOperationFailure(operation, ex, new { deckId, id });
+            return Results.Problem(
+                detail: "An unexpected error occurred while updating the deck card.",
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: "Deck card update failed");
+        }
+        
         logger.LogOperationSuccess(operation, new { deckId, id });
         return Results.Ok(updatedDeckCard);
     }

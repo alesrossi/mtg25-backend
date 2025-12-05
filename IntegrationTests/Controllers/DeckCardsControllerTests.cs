@@ -1,8 +1,10 @@
+using System;
 using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using API.Dtos.Cards;
 using API.Dtos.Decks;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,9 +12,11 @@ using Core.Models;
 using Core.Models.Identity;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
+using API.Services;
 using TestUtilities.Authentication;
 using TestUtilities.Builders;
 using TestUtilities.Serialization;
+using TestUtilities.Scryfall;
 
 namespace IntegrationTests.Controllers;
 
@@ -470,6 +474,127 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
+    public async Task UpdateDeckCardVersion_WithValidData_ReturnsUpdatedDeckCard()
+    {
+        var owner = await CreateTestUserAsync("deckcard-version@example.com", "deckcard_version");
+        var deck = await CreateTestDeckForUserAsync(owner.Id);
+        var deckCard = await CreateDeckCardWithNameAsync(deck.Id, "026983a4-03ca-4812-b129-5ea523596942", "Force of Will");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var updateDto = new UpdateDeckCardVersionDto
+        {
+            ScryfallId = "dd60b291-0a88-4e8e-bef8-76cdfd6c8183"
+        };
+
+        await SeedCardDataAsync(new[]
+        {
+            CreateScryfallCard("026983a4-03ca-4812-b129-5ea523596942", "Force of Will", "ALL", "Alliances")
+        });
+        
+        await SeedCardDataAsync(new[]
+        {
+            CreateScryfallCard(updateDto.ScryfallId, "Force of Will", "2XM", "Double Masters")
+        });
+
+        var response = await client.PutAsync($"/api/decks/{deck.Id}/cards/{deckCard.Id}/versions", SerializeToJson(updateDto));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadAsStringAsync();
+        var updatedDeckCard = DeserializeDeckCard(payload);
+
+        updatedDeckCard.Should().NotBeNull();
+        updatedDeckCard!.ScryfallId.Should().Be(updateDto.ScryfallId);
+        updatedDeckCard.SetName.Should().Be("Double Masters");
+    }
+
+    [Fact]
+    public async Task UpdateDeckCardVersion_WithInvalidVersion_ReturnsBadRequest()
+    {
+        var owner = await CreateTestUserAsync("deckcard-version-invalid@example.com", "deckcard_version_invalid");
+        var deck = await CreateTestDeckForUserAsync(owner.Id);
+        var deckCard = await CreateDeckCardWithNameAsync(deck.Id, "026983a4-03ca-4812-b129-5ea523596942", "Force of Will");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var updateDto = new UpdateDeckCardVersionDto
+        {
+            ScryfallId = "0df55e3f-14de-46ef-b6b1-616618724d9e"
+        };
+
+        await SeedCardDataAsync(new[]
+        {
+            CreateScryfallCard(updateDto.ScryfallId, "Lightning Bolt", "LEA", "Limited Edition Alpha")
+        });
+
+        var response = await client.PutAsync($"/api/decks/{deck.Id}/cards/{deckCard.Id}/versions", SerializeToJson(updateDto));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task UpdateDeckCardVersion_WithInvalidScryfallId_ReturnsBadRequest()
+    {
+        var owner = await CreateTestUserAsync("deckcard-version-invalidsf@example.com", "deckcard_version_invalidsf");
+        var deck = await CreateTestDeckForUserAsync(owner.Id);
+        var deckCard = await CreateDeckCardWithNameAsync(deck.Id, "026983a4-03ca-4812-b129-5ea523596942", "Force of Will");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var updateDto = new UpdateDeckCardVersionDto { ScryfallId = "invalid" };
+
+        var response = await client.PutAsync($"/api/decks/{deck.Id}/cards/{deckCard.Id}/versions", SerializeToJson(updateDto));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task UpdateDeckCardVersion_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("deckcard-version-noauth@example.com", "deckcard_version_noauth");
+        var deck = await CreateTestDeckForUserAsync(owner.Id);
+        var deckCard = await CreateDeckCardWithNameAsync(deck.Id, "026983a4-03ca-4812-b129-5ea523596942", "Force of Will");
+        using var client = _factory.CreateClient();
+
+        var updateDto = new UpdateDeckCardVersionDto { ScryfallId = "dd60b291-0a88-4e8e-bef8-76cdfd6c8183" };
+        var response = await client.PutAsync($"/api/decks/{deck.Id}/cards/{deckCard.Id}/versions", SerializeToJson(updateDto));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task UpdateDeckCardVersion_WithInvalidDeck_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("deckcard-version-missingdeck@example.com", "deckcard_version_missingdeck");
+        var deck = await CreateTestDeckForUserAsync(owner.Id);
+        var deckCard = await CreateDeckCardWithNameAsync(deck.Id, "026983a4-03ca-4812-b129-5ea523596942", "Force of Will");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var updateDto = new UpdateDeckCardVersionDto { ScryfallId = "dd60b291-0a88-4e8e-bef8-76cdfd6c8183" };
+        var response = await client.PutAsync($"/api/decks/{int.MaxValue}/cards/{deckCard.Id}/versions", SerializeToJson(updateDto));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UpdateDeckCardVersion_WithOtherUsersDeck_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("deckcard-version-owner@example.com", "deckcard_version_owner");
+        var intruder = await CreateTestUserAsync("deckcard-version-intruder@example.com", "deckcard_version_intruder");
+        var deck = await CreateTestDeckForUserAsync(owner.Id);
+        var deckCard = await CreateDeckCardWithNameAsync(deck.Id, "026983a4-03ca-4812-b129-5ea523596942", "Force of Will");
+
+        using var client = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
+        var updateDto = new UpdateDeckCardVersionDto { ScryfallId = "dd60b291-0a88-4e8e-bef8-76cdfd6c8183" };
+
+        await SeedCardDataAsync(new[]
+        {
+            CreateScryfallCard(updateDto.ScryfallId, "Force of Will", "2XM", "Double Masters")
+        });
+
+        var response = await client.PutAsync($"/api/decks/{deck.Id}/cards/{deckCard.Id}/versions", SerializeToJson(updateDto));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task GetDeckCards_ConcurrentRequests_ShouldNotCauseDbContextIssues()
     {
         // Arrange
@@ -540,6 +665,18 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         return deckCards;
     }
 
+    private async Task<DeckCard> CreateDeckCardWithNameAsync(int deckId, string scryfallId, string name)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+        var deckCard = CreateDeckCardEntity(deckId, scryfallId, name, "LEA", 4, 0);
+        deckCard.SetName = "Test Set";
+        deckCard.Rarity = "rare";
+        context.DeckCards.Add(deckCard);
+        await context.SaveChangesAsync();
+        return deckCard;
+    }
+
     private async Task CreateMixedDeckCardsAsync(int deckId)
     {
         using var scope = _factory.Services.CreateScope();
@@ -605,4 +742,15 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
             PropertyNameCaseInsensitive = true
         })!;
     }
+
+    private Task SeedCardDataAsync(IEnumerable<ScryfallCardDto> cards)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var cardDataService = scope.ServiceProvider.GetRequiredService<CardDataService>();
+        CardDataServiceTestHelper.Populate(cardDataService, cards);
+        return Task.CompletedTask;
+    }
+
+    private ScryfallCardDto CreateScryfallCard(string id, string name, string setCode, string setName) =>
+        _testDataBuilder.CreateOracleCard(id: id, oracleId: Guid.NewGuid().ToString(), name: name, setCode: setCode, setName: setName);
 }
