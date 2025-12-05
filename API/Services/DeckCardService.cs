@@ -156,6 +156,7 @@ public class DeckCardService
             Name = createDto.Name,
             SetCode = createDto.SetCode,
             SetName = createDto.SetName,
+            TypeLine = createDto.TypeLine,
             ColorIdentity = (createDto.ColorIdentity ?? new List<string>())
                 .Where(ci => !string.IsNullOrWhiteSpace(ci))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -259,6 +260,7 @@ public class DeckCardService
             ArtCrop = deckCard.ArtCrop,
             Rarity = deckCard.Rarity,
             CollectorNumber = deckCard.CollectorNumber,
+            TypeLine = deckCard.TypeLine,
             MaindeckQuantity = deckCard.MaindeckQuantity,
             SideboardQuantity = deckCard.SideboardQuantity,
             OwnedCardId = deckCard.OwnedCardId,
@@ -306,6 +308,7 @@ public class DeckCardService
             ArtCrop = deckCard.ArtCrop,
             Rarity = deckCard.Rarity,
             CollectorNumber = deckCard.CollectorNumber,
+            TypeLine = deckCard.TypeLine,
             MaindeckQuantity = deckCard.MaindeckQuantity,
             SideboardQuantity = deckCard.SideboardQuantity,
             OwnedCardId = firstOwnedCard?.Id ?? deckCard.OwnedCardId,
@@ -332,6 +335,7 @@ public class DeckCardService
             ArtCrop = deckCard.ArtCrop,
             Rarity = deckCard.Rarity,
             CollectorNumber = deckCard.CollectorNumber,
+            TypeLine = deckCard.TypeLine,
             MaindeckQuantity = deckCard.MaindeckQuantity,
             SideboardQuantity = deckCard.SideboardQuantity,
             OwnedCardId = firstOwnedCard?.Id ?? deckCard.OwnedCardId,

@@ -82,6 +82,7 @@ public static class CollectionHelpers
                 ImageUrl = imageUrl,
                 SetCode = record.SetCode,
                 SetName = record.SetName,
+                TypeLine = ocd.TypeLine ?? string.Empty,
                 CollectorNumber = record.CollectorNumber,
                 Rarity = record.Rarity,
                 IsMisprint = record.IsMisprint,

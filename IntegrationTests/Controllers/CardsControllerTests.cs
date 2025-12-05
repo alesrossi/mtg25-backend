@@ -696,7 +696,8 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             Rarity = "Common",
             IsMisprint = false,
             IsAltered = false,
-            ArtCrop = "https://example.com/card.jpg"
+            ArtCrop = "https://example.com/card.jpg",
+            TypeLine = "Instant"
         };
         
         var collection = await dbContext.Collections.FindAsync(collectionId) ??

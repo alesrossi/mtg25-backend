@@ -152,6 +152,7 @@ public class DecklistParserService : IDecklistParserService
                 Name = cardData.Name,
                 SetCode = cardData.Set,
                 SetName = cardData.SetName,
+                TypeLine = cardData.TypeLine ?? string.Empty,
                 ImageUrl = imageUrl,
                 BackImageUrl = backImageUrl,
                 ArtCrop = artCrop!,

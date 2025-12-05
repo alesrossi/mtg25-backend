@@ -16,6 +16,7 @@ public class DeckCard : BaseModel
     public string? ArtCrop { get; set; }
     public string? Rarity { get; set; }
     public string? CollectorNumber { get; set; }
+    public required string TypeLine { get; set; }
     
     // Deck-specific properties
     public int MaindeckQuantity { get; set; }

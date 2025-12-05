@@ -15,6 +15,7 @@ public class DeckCardTests
             ScryfallId = "12345678-1234-1234-1234-123456789012",
             Name = "Lightning Bolt",
             SetCode = "LEA",
+            TypeLine = "Instant",
             MaindeckQuantity = 4,
             SideboardQuantity = 0
         };
@@ -38,6 +39,7 @@ public class DeckCardTests
             ScryfallId = "12345678-1234-1234-1234-123456789012",
             Name = "Lightning Bolt",
             SetCode = "LEA",
+            TypeLine = "Instant",
             MaindeckQuantity = 3,
             SideboardQuantity = 2
         };
@@ -56,6 +58,7 @@ public class DeckCardTests
             ScryfallId = "12345678-1234-1234-1234-123456789012",
             Name = "Lightning Bolt",
             SetCode = "LEA",
+            TypeLine = "Instant",
             MaindeckQuantity = 4,
             SideboardQuantity = 0,
             SetName = null,
@@ -89,6 +92,7 @@ public class DeckCardTests
             ScryfallId = "12345678-1234-1234-1234-123456789012",
             Name = "Test Card",
             SetCode = "TST",
+            TypeLine = "Instant",
             MaindeckQuantity = maindeckQuantity,
             SideboardQuantity = sideboardQuantity
         };
@@ -108,6 +112,7 @@ public class DeckCardTests
             ScryfallId = "12345678-1234-1234-1234-123456789012",
             Name = "Lightning Bolt",
             SetCode = "LEA",
+            TypeLine = "Instant",
             Quantity = 1,
             PurchasePrice = 2.50,
             Language = "English",
@@ -130,6 +135,7 @@ public class DeckCardTests
             ScryfallId = "12345678-1234-1234-1234-123456789012",
             Name = "Lightning Bolt",
             SetCode = "LEA",
+            TypeLine = "Instant",
             MaindeckQuantity = 4,
             SideboardQuantity = 0,
             OwnedCardId = 1,

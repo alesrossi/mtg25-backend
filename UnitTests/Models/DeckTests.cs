@@ -100,6 +100,7 @@ public class DeckTests
             ScryfallId = "12345678-1234-1234-1234-123456789012",
             Name = "Lightning Bolt",
             SetCode = "LEA",
+            TypeLine = "Instant",
             MaindeckQuantity = 4,
             SideboardQuantity = 0
         };

@@ -27,6 +27,7 @@ public class DeckCardsWithDeckIdSpecificationTests
             ScryfallId = "oracle-1",
             Name = "Lightning Bolt",
             SetCode = "LEA",
+            TypeLine = "Instant",
             MaindeckQuantity = 4,
             SideboardQuantity = 0
         };
@@ -37,6 +38,7 @@ public class DeckCardsWithDeckIdSpecificationTests
             ScryfallId = "oracle-2", 
             Name = "Counterspell",
             SetCode = "ICE",
+            TypeLine = "Instant",
             MaindeckQuantity = 2,
             SideboardQuantity = 0
         };
@@ -65,6 +67,7 @@ public class DeckCardsWithDeckIdSpecificationTests
             ScryfallId = "oracle-1",
             Name = "Lightning Bolt",
             SetCode = "LEA",
+            TypeLine = "Instant",
             MaindeckQuantity = 4,
             SideboardQuantity = 0
         };
@@ -75,6 +78,7 @@ public class DeckCardsWithDeckIdSpecificationTests
             ScryfallId = "oracle-2",
             Name = "Counterspell",
             SetCode = "ICE", 
+            TypeLine = "Instant",
             MaindeckQuantity = 0,
             SideboardQuantity = 2
         };
@@ -103,6 +107,7 @@ public class DeckCardsWithDeckIdSpecificationTests
             ScryfallId = "oracle-1",
             Name = "Lightning Bolt",
             SetCode = "LEA",
+            TypeLine = "Instant",
             MaindeckQuantity = 4,
             SideboardQuantity = 0
         };
@@ -113,6 +118,7 @@ public class DeckCardsWithDeckIdSpecificationTests
             ScryfallId = "oracle-2",
             Name = "Counterspell",
             SetCode = "ICE",
+            TypeLine = "Instant",
             MaindeckQuantity = 0,
             SideboardQuantity = 2
         };
@@ -123,6 +129,7 @@ public class DeckCardsWithDeckIdSpecificationTests
             ScryfallId = "oracle-3",
             Name = "Brainstorm",
             SetCode = "ICE",
+            TypeLine = "Instant",
             MaindeckQuantity = 3,
             SideboardQuantity = 1
         };
@@ -177,6 +184,7 @@ public class DeckCardsWithDeckIdSpecificationTests
             ScryfallId = "oracle-1",
             Name = "Lightning Bolt",
             SetCode = "LEA",
+            TypeLine = "Instant",
             MaindeckQuantity = 4,
             SideboardQuantity = 0
         };
@@ -187,6 +195,7 @@ public class DeckCardsWithDeckIdSpecificationTests
             ScryfallId = "oracle-2",
             Name = "Counterspell",
             SetCode = "ICE",
+            TypeLine = "Instant",
             MaindeckQuantity = 0,
             SideboardQuantity = 2
         };
@@ -197,6 +206,7 @@ public class DeckCardsWithDeckIdSpecificationTests
             ScryfallId = "oracle-3",
             Name = "Brainstorm",
             SetCode = "ICE",
+            TypeLine = "Instant",
             MaindeckQuantity = 3,
             SideboardQuantity = 1
         };

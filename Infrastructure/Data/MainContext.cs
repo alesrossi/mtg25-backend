@@ -86,6 +86,7 @@ public class MainContext : DbContext
             entity.Property(dc => dc.ScryfallId).IsRequired();
             entity.Property(dc => dc.Name).IsRequired();
             entity.Property(dc => dc.SetCode).IsRequired();
+            entity.Property(dc => dc.TypeLine).IsRequired();
         });
 
         modelBuilder.Entity<TradeBinder>(entity =>

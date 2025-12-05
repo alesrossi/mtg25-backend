@@ -14,6 +14,7 @@ public class DeckCardDto
     public string? ArtCrop { get; set; }
     public string? Rarity { get; set; }
     public string? CollectorNumber { get; set; }
+    public string? TypeLine { get; set; }
     public int MaindeckQuantity { get; set; }
     public int SideboardQuantity { get; set; }
     public int? OwnedCardId { get; set; }

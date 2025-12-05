@@ -27,6 +27,7 @@ public class DeckCardsWithScryfallIdSpecificationTests
             ScryfallId = oracleId,
             Name = "Lightning Bolt",
             SetCode = "LEA",
+            TypeLine = "Instant",
             MaindeckQuantity = 4,
             SideboardQuantity = 0
         };
@@ -37,6 +38,7 @@ public class DeckCardsWithScryfallIdSpecificationTests
             ScryfallId = "oracle-456",
             Name = "Counterspell",
             SetCode = "ICE",
+            TypeLine = "Instant",
             MaindeckQuantity = 2,
             SideboardQuantity = 0
         };
@@ -66,6 +68,7 @@ public class DeckCardsWithScryfallIdSpecificationTests
             ScryfallId = oracleId,
             Name = "Lightning Bolt",
             SetCode = "LEA",
+            TypeLine = "Instant",
             MaindeckQuantity = 4,
             SideboardQuantity = 0
         };
@@ -76,6 +79,7 @@ public class DeckCardsWithScryfallIdSpecificationTests
             ScryfallId = oracleId,
             Name = "Lightning Bolt",
             SetCode = "LEA",
+            TypeLine = "Instant",
             MaindeckQuantity = 3,
             SideboardQuantity = 0
         };
@@ -86,6 +90,7 @@ public class DeckCardsWithScryfallIdSpecificationTests
             ScryfallId = "oracle-456",
             Name = "Counterspell",
             SetCode = "ICE",
+            TypeLine = "Instant",
             MaindeckQuantity = 2,
             SideboardQuantity = 0
         };
@@ -116,6 +121,7 @@ public class DeckCardsWithScryfallIdSpecificationTests
             ScryfallId = oracleId,
             Name = "Lightning Bolt",
             SetCode = "LEA",
+            TypeLine = "Instant",
             MaindeckQuantity = 4,
             SideboardQuantity = 0,
             Deck = new Deck { OwnerId = userId, Name = "User Deck", Format = "Standard" }
@@ -127,6 +133,7 @@ public class DeckCardsWithScryfallIdSpecificationTests
             ScryfallId = oracleId,
             Name = "Lightning Bolt",
             SetCode = "LEA",
+            TypeLine = "Instant",
             MaindeckQuantity = 3,
             SideboardQuantity = 0,
             Deck = new Deck { OwnerId = "other-user", Name = "Other Deck", Format = "Modern" }

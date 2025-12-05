@@ -17,6 +17,7 @@ public class Card : BaseModel
     public required string ArtCrop { get; set; }
     public required string SetCode { get; set; }
     public required string SetName { get; set; }
+    public required string TypeLine { get; set; }
     public required string CollectorNumber  { get; set; }
     public required string Rarity { get; set; }
     public required bool IsMisprint { get; set; }

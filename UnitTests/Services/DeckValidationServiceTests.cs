@@ -211,7 +211,8 @@ public class DeckValidationServiceTests
                 SetCode = "LEA",
                 DeckId = 1,
                 MaindeckQuantity = 5, // Too many copies
-                SideboardQuantity = 0
+                SideboardQuantity = 0,
+                TypeLine = "Instant"
             }
         };
 
@@ -247,7 +248,8 @@ public class DeckValidationServiceTests
                 SetCode = "LEA",
                 DeckId = 1,
                 MaindeckQuantity = 2, // Not allowed in singleton format
-                SideboardQuantity = 0
+                SideboardQuantity = 0,
+                TypeLine = "Instant"
             }
         };
 
@@ -284,7 +286,8 @@ public class DeckValidationServiceTests
                 SetCode = "LEA",
                 DeckId = 1,
                 MaindeckQuantity = 0,
-                SideboardQuantity = 1 // Commander doesn't allow sideboards
+                SideboardQuantity = 1, // Commander doesn't allow sideboards
+                TypeLine = "Instant"
             }
         };
 
@@ -319,7 +322,8 @@ public class DeckValidationServiceTests
                 SetCode = "LEA",
                 DeckId = 1,
                 MaindeckQuantity = 0,
-                SideboardQuantity = 16 // Too many sideboard cards
+                SideboardQuantity = 16, // Too many sideboard cards
+                TypeLine = "Instant"
             }
         };
 
@@ -354,7 +358,8 @@ public class DeckValidationServiceTests
                 SetCode = "LEA",
                 DeckId = 1,
                 MaindeckQuantity = 4,
-                SideboardQuantity = 0
+                SideboardQuantity = 0,
+                TypeLine = "Instant"
             },
             new()
             {
@@ -363,7 +368,8 @@ public class DeckValidationServiceTests
                 SetCode = "LEB",
                 DeckId = 1,
                 MaindeckQuantity = 4,
-                SideboardQuantity = 2
+                SideboardQuantity = 2,
+                TypeLine = "Instant"
             },
             new()
             {
@@ -372,7 +378,8 @@ public class DeckValidationServiceTests
                 SetCode = "LEA",
                 DeckId = 1,
                 MaindeckQuantity = 52, // Basic lands can exceed 4 copies
-                SideboardQuantity = 0
+                SideboardQuantity = 0,
+                TypeLine = "Basic Land — Forest"
             }
         };
 
@@ -405,7 +412,8 @@ public class DeckValidationServiceTests
                 SetCode = "LEA",
                 DeckId = 1,
                 MaindeckQuantity = 40, // Should be allowed in draft
-                SideboardQuantity = 0
+                SideboardQuantity = 0,
+                TypeLine = "Instant"
             }
         };
 
@@ -450,7 +458,8 @@ public class DeckValidationServiceTests
                 SetCode = "LEA",
                 DeckId = 1,
                 MaindeckQuantity = 20, // More than 4 basic lands should be allowed
-                SideboardQuantity = 0
+                SideboardQuantity = 0,
+                TypeLine = "Basic Land — Forest"
             },
             new()
             {
@@ -459,7 +468,8 @@ public class DeckValidationServiceTests
                 SetCode = "LEA",
                 DeckId = 1,
                 MaindeckQuantity = 20,
-                SideboardQuantity = 0
+                SideboardQuantity = 0,
+                TypeLine = "Basic Land — Island"
             },
             new()
             {
@@ -468,7 +478,8 @@ public class DeckValidationServiceTests
                 SetCode = "LEA",
                 DeckId = 1,
                 MaindeckQuantity = 20,
-                SideboardQuantity = 0
+                SideboardQuantity = 0,
+                TypeLine = "Basic Land — Mountain"
             }
         };
 

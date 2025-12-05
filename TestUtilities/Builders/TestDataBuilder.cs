@@ -89,6 +89,7 @@ public class TestDataBuilder
             ScryfallId = oracleId ?? Guid.NewGuid().ToString(),
             Name = name ?? $"Card {_random.Next(1, 1_000)}",
             SetCode = setCode ?? GetRandomSetCode(),
+            TypeLine = GetRandomTypeLine(),
             MaindeckQuantity = maindeckQuantity,
             SideboardQuantity = sideboardQuantity
         };
@@ -172,6 +173,7 @@ public class TestDataBuilder
             .With(c => c.BackImageUrl, _random.Next(2) == 0 ? null : $"https://cards.scryfall.io/normal/back/{_fixture.Create<Guid>()}.jpg")
             .With(c => c.SetCode, GetRandomSetCode())
             .With(c => c.SetName, GetRandomSetName())
+            .With(c => c.TypeLine, GetRandomTypeLine())
             .With(c => c.CollectorNumber, _random.Next(1, 400).ToString())
             .With(c => c.Rarity, GetRandomRarity())
             .With(c => c.IsMisprint, false)
@@ -225,7 +227,7 @@ public class TestDataBuilder
             ImageUris: new ImageUris(imageUrl, imageUrl, imageUrl, imageUrl, imageUrl, imageUrl),
             ManaCost: null,
             Cmc: 1,
-            TypeLine: null,
+            TypeLine: GetRandomTypeLine(),
             OracleText: null,
             Power: null,
             Toughness: null,
@@ -307,6 +309,24 @@ public class TestDataBuilder
     {
         var rarities = new[] { "Common", "Uncommon", "Rare", "Mythic Rare" };
         return rarities[_random.Next(rarities.Length)];
+    }
+
+    private string GetRandomTypeLine()
+    {
+        var typeLines = new[]
+        {
+            "Creature — Human Wizard",
+            "Creature — Elf Druid",
+            "Instant",
+            "Sorcery",
+            "Artifact",
+            "Enchantment",
+            "Planeswalker",
+            "Land",
+            "Battle"
+        };
+
+        return typeLines[_random.Next(typeLines.Length)];
     }
 
     private string GenerateLeagueCode()

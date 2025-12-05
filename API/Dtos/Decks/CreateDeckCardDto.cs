@@ -18,6 +18,10 @@ public class CreateDeckCardDto
 
     public string? SetName { get; set; }
 
+    [Required(ErrorMessage = "Type line is required.")]
+    [StringLength(256, ErrorMessage = "Type line cannot exceed 256 characters.")]
+    public required string TypeLine { get; set; }
+
     [Required(ErrorMessage = "Image URL is required.")]
     [StringLength(512, ErrorMessage = "Image URL cannot exceed 512 characters.")]
     public required string ImageUrl { get; set; }

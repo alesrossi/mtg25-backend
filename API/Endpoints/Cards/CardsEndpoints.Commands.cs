@@ -297,6 +297,7 @@ public static partial class CardsEndpoints
             PurchasePriceCurrency = cardDto.PurchasePriceCurrency,
             SetCode = scryfallCardDto.Set,
             SetName = scryfallCardDto.SetName,
+            TypeLine = scryfallCardDto.TypeLine ?? string.Empty,
             CollectorNumber = scryfallCardDto.CollectorNumber!,
             Rarity = scryfallCardDto.Rarity!,
             IsMisprint = cardDto.IsMisprint,
