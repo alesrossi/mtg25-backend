@@ -568,6 +568,13 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
             card.IsFoil = i % 2 == 0;
             card.PurchasePrice = i * 10.0;
             card.Quantity = i;
+            card.TypeLine = i switch
+            {
+                1 or 2 => "Creature — Human",
+                3 => "Artifact",
+                4 => "Instant",
+                _ => "Sorcery"
+            };
             cards.Add(card);
         }
         
@@ -691,6 +698,26 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
     }
 
     [Fact]
+    public async Task GetCardsFromCollection_WithTypeLineFilter_ReturnsMatchingCards()
+    {
+        var user = await CreateTestUserAsync("typelinefilter@example.com", "typelinefilter");
+        var collection = await CreateTestCollectionAsync(user.Id, "TypeLine Filter Collection");
+        await CreateTestCardsForCollectionAsync(collection.Id);
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var response = await client.GetAsync($"/api/collections/{collection.Id}/cards?typeLine=Creature&pageIndex=1&pageSize=10");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        var result = JsonSerializer.Deserialize<API.Helpers.Pagination<Card>>(
+            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        result.Should().NotBeNull();
+        result!.Data.Should().HaveCount(2);
+        result.Data!.Should().OnlyContain(c => c.TypeLine.Contains("Creature"));
+    }
+
+    [Fact]
     public async Task GetCardsFromCollection_WithPriceSorting_ReturnsSortedCards()
     {
         // Arrange
@@ -713,6 +740,26 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         
         var prices = result.Data!.Select(c => c.PurchasePrice).ToList();
         prices.Should().BeInAscendingOrder("because sort=priceAsc was specified");
+    }
+
+    [Fact]
+    public async Task GetCardsFromCollection_WithTypeLineSorting_ReturnsSortedCards()
+    {
+        var user = await CreateTestUserAsync("typelinesort@example.com", "typelinesort");
+        var collection = await CreateTestCollectionAsync(user.Id, "TypeLine Sort Collection");
+        await CreateTestCardsForCollectionAsync(collection.Id);
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var response = await client.GetAsync($"/api/collections/{collection.Id}/cards?sort=typeDesc&pageIndex=1&pageSize=10");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        var result = JsonSerializer.Deserialize<API.Helpers.Pagination<Card>>(
+            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        result.Should().NotBeNull();
+        var typeLines = result!.Data!.Select(c => c.TypeLine).ToList();
+        typeLines.Should().BeInDescendingOrder();
     }
 
     [Fact]

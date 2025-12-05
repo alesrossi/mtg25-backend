@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Core.Models;
 
 namespace Core.Specifications;
@@ -26,4 +28,35 @@ public class EntitySpecParams
     public double? MinPrice { get; set; }
     public double? MaxPrice { get; set; }
     public string? GroupBy { get; set; }
+
+    private static readonly HashSet<string> AllowedTypeLines = new(
+        new[] { "Artifact", "Creature", "Enchantment", "Land", "Instant", "Sorcery", "Planeswalker", "Battle" },
+        StringComparer.OrdinalIgnoreCase);
+
+    private string? typeLine;
+    public string? TypeLine
+    {
+        get => typeLine;
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                typeLine = null;
+                return;
+            }
+
+            foreach (var allowed in AllowedTypeLines)
+            {
+                if (allowed.Equals(value, StringComparison.OrdinalIgnoreCase))
+                {
+                    typeLine = allowed;
+                    return;
+                }
+            }
+
+            typeLine = null;
+        }
+    }
+
+    public static IReadOnlyCollection<string> GetAllowedTypeLines() => AllowedTypeLines;
 }

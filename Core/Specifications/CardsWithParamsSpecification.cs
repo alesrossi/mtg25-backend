@@ -15,6 +15,7 @@ public class CardsWithParamsSpecification : BaseSpecification<Card>
             (entityParams.IsMisprint == null || x.IsMisprint == entityParams.IsMisprint) &&
             (entityParams.IsAltered == null || x.IsAltered == entityParams.IsAltered) &&
             (string.IsNullOrEmpty(entityParams.Language) || x.Language == entityParams.Language) &&
+            (string.IsNullOrEmpty(entityParams.TypeLine) || (x.TypeLine.Contains(entityParams.TypeLine))) &&
             (entityParams.MinPrice == null || x.PurchasePrice >= entityParams.MinPrice) &&
             (entityParams.MaxPrice == null || x.PurchasePrice <= entityParams.MaxPrice) &&
             x.CollectionId == collectionId)
@@ -50,6 +51,12 @@ public class CardsWithParamsSpecification : BaseSpecification<Card>
                     break;
                 case "rarityDesc":
                     AddOrderByDescending(r => r.Rarity);
+                    break;
+                case "typeAsc":
+                    AddOrderBy(t => t.TypeLine);
+                    break;
+                case "typeDesc":
+                    AddOrderByDescending(t => t.TypeLine);
                     break;
                 case "quantityAsc":
                     AddOrderBy(q => q.Quantity);
