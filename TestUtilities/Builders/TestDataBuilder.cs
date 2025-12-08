@@ -40,6 +40,7 @@ public class TestDataBuilder
             .With(u => u.EmailConfirmed, true)
             .With(u => u.LockoutEnd, DateTime.UtcNow)
             .Without(u => u.UserLeagues)
+            .Without(u => u.Settings)
             .Without(u => u.Id)  // Let Identity generate the ID
             .Create();
         

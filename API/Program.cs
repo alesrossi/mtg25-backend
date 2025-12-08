@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Microsoft.OpenApi.Any;
@@ -494,6 +495,10 @@ public class Program
         }
         
         await app.RunAsync();
+        }
+        catch (HostAbortedException)
+        {
+            Log.Information("MTG25 host aborted by tooling request");
         }
         catch (Exception ex)
         {
