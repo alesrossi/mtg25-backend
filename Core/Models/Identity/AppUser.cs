@@ -11,5 +11,5 @@ public class AppUser : IdentityUser
     [JsonIgnore]
     public ICollection<AppUserLeague> UserLeagues { get; set; } = new List<AppUserLeague>();
     [JsonIgnore]
-    public required Settings? Settings { get; set; }
+    public Settings? Settings { get; set; }
 }

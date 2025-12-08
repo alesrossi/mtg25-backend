@@ -1,9 +1,13 @@
+using System.Security.Claims;
 using API.Dtos.Accounts;
+using API.Helpers;
 using API.Logging;
 using API.Services;
 using Core.Models.Identity;
+using Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace API.Endpoints.Accounts;
 
@@ -29,6 +33,14 @@ public static partial class AccountsEndpoints
             .WithDescription("Logs out the authenticated user by blacklisting their JWT token")
             .Produces<string>()
             .Produces(StatusCodes.Status401Unauthorized);
+
+        group.MapPut("/settings", UpdateSettingsAsync)
+            .RequireAuthorization()
+            .WithSummary("Update user settings")
+            .WithDescription("Updates the authenticated user's settings")
+            .Produces<SettingsForUserDto>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
     }
 
     private static async Task<IResult> RegisterUserAsync(
@@ -150,5 +162,90 @@ public static partial class AccountsEndpoints
 
         logger.LogOperationSuccess(operation);
         return Results.Ok(new { message = "Logged out successfully" });
+    }
+
+    private static async Task<IResult> UpdateSettingsAsync(
+        HttpContext context,
+        [FromBody] UpdateSettingsDto updateDto,
+        [FromServices] UserManager<AppUser> userManager,
+        [FromServices] AppIdentityDbContext dbContext,
+        [FromServices] ILogger<AccountsEndpointLogCategory> logger)
+    {
+        const string operation = "Settings.Update";
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        logger.LogOperationStart(operation, new { userId });
+
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { userId });
+            return ProblemResultFactory.Create(
+                context,
+                StatusCodes.Status401Unauthorized,
+                "Authentication required",
+                "You must be logged in to update your settings.",
+                "settings-update-auth-required");
+        }
+
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user", new { userId });
+            return ProblemResultFactory.Create(
+                context,
+                StatusCodes.Status401Unauthorized,
+                "Authentication required",
+                "You must be logged in to update your settings.",
+                "settings-update-auth-required");
+        }
+
+        var settings = await dbContext.Settings
+            .FirstOrDefaultAsync(s => s.AppUserId == userId);
+
+        if (settings is null)
+        {
+            logger.LogOperationWarning(operation, "Settings not found", new { userId });
+            return Results.NotFound();
+        }
+
+        if (updateDto is null)
+        {
+            logger.LogOperationWarning(operation, "Missing payload", new { userId });
+            return Results.BadRequest("Settings payload is required.");
+        }
+
+        if (updateDto.MarketProvider.HasValue)
+        {
+            settings.MarketProvider = updateDto.MarketProvider.Value;
+        }
+
+        if (updateDto.ReferencePrice.HasValue)
+        {
+            settings.ReferencePrice = updateDto.ReferencePrice.Value;
+        }
+
+        if (updateDto.Currency.HasValue)
+        {
+            settings.Currency = updateDto.Currency.Value;
+        }
+
+        if (!string.IsNullOrWhiteSpace(updateDto.LanguageUi))
+        {
+            settings.LanguageUi = updateDto.LanguageUi;
+        }
+
+        if (!string.IsNullOrWhiteSpace(updateDto.LanguageCards))
+        {
+            settings.LanguageCards = updateDto.LanguageCards;
+        }
+
+        if (updateDto.EnabledLocation.HasValue)
+        {
+            settings.EnabledLocation = updateDto.EnabledLocation.Value;
+        }
+
+        await dbContext.SaveChangesAsync();
+
+        logger.LogOperationSuccess(operation, new { userId, settings.Id });
+        return Results.Ok(MapToDto(settings, user));
     }
 }
