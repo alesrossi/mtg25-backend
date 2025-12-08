@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Infrastructure.Migrations.AppIdentityDb
 {
     [DbContext(typeof(AppIdentityDbContext))]
-    partial class AppIdentityDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251208190515_AddedSettings")]
+    partial class AddedSettings
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -203,31 +206,36 @@ namespace Infrastructure.Migrations.AppIdentityDb
                         .HasColumnType("text");
 
                     b.Property<string>("Currency")
+                        .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("text")
                         .HasDefaultValue("Eur");
 
-                    b.Property<bool?>("EnabledLocation")
+                    b.Property<bool>("EnabledLocation")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(false);
 
                     b.Property<string>("LanguageCards")
+                        .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("text")
                         .HasDefaultValue("En");
 
                     b.Property<string>("LanguageUi")
+                        .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("text")
                         .HasDefaultValue("It");
 
                     b.Property<string>("MarketProvider")
+                        .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("text")
                         .HasDefaultValue("Mkm");
 
                     b.Property<string>("ReferencePrice")
+                        .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("text")
                         .HasDefaultValue("Avg");
@@ -455,7 +463,8 @@ namespace Infrastructure.Migrations.AppIdentityDb
 
             modelBuilder.Entity("Core.Models.Identity.AppUser", b =>
                 {
-                    b.Navigation("Settings");
+                    b.Navigation("Settings")
+                        .IsRequired();
 
                     b.Navigation("UserLeagues");
                 });

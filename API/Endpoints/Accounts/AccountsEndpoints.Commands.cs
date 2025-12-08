@@ -53,7 +53,8 @@ public static partial class AccountsEndpoints
             logger.LogOperationWarning(operation, "Validation failed", new { registerDto.Email, errors });
             return Results.BadRequest(new { errors });
         }
-
+        
+        
         var user = new AppUser
         {
             DisplayName = registerDto.DisplayName,
@@ -61,6 +62,13 @@ public static partial class AccountsEndpoints
             UserName = registerDto.Email,
             FirstName = registerDto.FirstName,
             LastName = registerDto.LastName,
+            Settings = null
+        };
+
+        user.Settings = new Settings
+        {
+            AppUser = user,
+            AppUserId = user.Id
         };
 
         var result = await userManager.CreateAsync(user, registerDto.Password);
