@@ -59,7 +59,8 @@ public record ScryfallCardDto(
     string? Rarity,
     string? Watermark,
     string? FlavorText,
-    string? CardBackId
+    string? CardBackId,
+    Prices? Prices
 );
 
 // Nested classes to represent "image_uris," "all_parts," and "legalities"
@@ -113,5 +114,12 @@ public record Legalities(
     string? Oldschool,
     string? Premodern,
     string? Predh
+);
+
+public record Prices (string? Usd,
+    string? UsdFoil, 
+    string? Eur, 
+    string? EurFoil, 
+    string? Tix
 );
 

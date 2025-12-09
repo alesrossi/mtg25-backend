@@ -4,7 +4,10 @@ using API.Logging;
 using API.Services;
 using Core.Interfaces;
 using Core.Models;
+using Core.Models.Identity;
+using Infrastructure.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace API.Endpoints.Cards;
 
@@ -58,6 +61,7 @@ public static partial class CardsEndpoints
         int id,
         CardDataService cds,
         HttpContext context,
+        [FromServices] AppIdentityDbContext dbContext,
         [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
         const string operation = "Cards.GetById";
@@ -82,9 +86,49 @@ public static partial class CardsEndpoints
             logger.LogOperationWarning(operation, "Unauthorized", new { collection.Id, userId });
             return Results.Unauthorized();
         }
-
+        
+        var settings = await dbContext.Settings
+            .Where(ul => ul.AppUserId == userId)
+            .AsNoTracking()
+            .FirstOrDefaultAsync();
+        
+        double? price = null;
+        if (settings is not null)
+        {
+            if (settings.MarketProvider == MarketProvider.Mkm)
+            {
+                if (card.IsFoil)
+                {
+                    var eur = cds.CardDataById[card.ScryfallId].Prices!.EurFoil;
+                    if (eur != null)
+                        price = double.Parse(eur);
+                }
+                else
+                {
+                    var eur = cds.CardDataById[card.ScryfallId].Prices!.Eur;
+                    if (eur != null)
+                        price = double.Parse(eur);
+                }
+            }
+            else
+            {
+                if (card.IsFoil)
+                {
+                    var usd = cds.CardDataById[card.ScryfallId].Prices!.UsdFoil;
+                    if (usd != null)
+                        price = double.Parse(usd);
+                }
+                else
+                {
+                    var usd = cds.CardDataById[card.ScryfallId].Prices!.Usd;
+                    if (usd != null)
+                        price = double.Parse(usd);
+                }
+            }
+        }
+        
         logger.LogOperationSuccess(operation, new { id });
-        return Results.Ok(card);
+        return Results.Ok(CardsEndpointsHelpers.MapToDto(card, price, settings.MarketProvider));
     }
 
     private static IResult SearchCards(

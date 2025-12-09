@@ -1,11 +1,16 @@
 using System.Security.Claims;
 using API.Dtos.Cards;
+using API.Endpoints.Cards;
 using API.Helpers;
 using API.Logging;
+using API.Services;
 using Core.Interfaces;
 using Core.Models;
+using Core.Models.Identity;
 using Core.Specifications;
+using Infrastructure.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace API.Endpoints.Collections;
 
@@ -72,8 +77,10 @@ public static partial class CollectionsEndpoints
     private static async Task<IResult> GetCardsFromCollectionAsync(
         IUnitOfWork unitOfWork,
         int id,
+        CardDataService cds,
         [AsParameters] EntitySpecParams entityParams,
         HttpContext context,
+        [FromServices] AppIdentityDbContext dbContext,
         [FromServices] ILogger<CollectionsEndpointLogCategory> logger)
     {
         const string operation = "Collections.GetCards";
@@ -107,8 +114,54 @@ public static partial class CollectionsEndpoints
         var size = await unitOfWork.Repository<Card>().CountAsync(spec);
         var cards = await unitOfWork.Repository<Card>().ListAsync(spec, tracking: false);
 
+        var settings = await dbContext.Settings
+            .Where(ul => ul.AppUserId == userId)
+            .AsNoTracking()
+            .FirstOrDefaultAsync();
+        
+        List<ExtensiveCardDto> cardList = [];
+        foreach (var card in cards)
+        {
+            double? price = null;
+            if (settings is not null)
+            {
+                if (settings.MarketProvider == MarketProvider.Mkm)
+                {
+                    if (card.IsFoil)
+                    {
+                        var eur = cds.CardDataById[card.ScryfallId].Prices!.EurFoil;
+                        if (eur != null)
+                            price = double.Parse(eur);
+                    }
+                    else
+                    {
+                        var eur = cds.CardDataById[card.ScryfallId].Prices!.Eur;
+                        if (eur != null)
+                            price = double.Parse(eur);
+                    }
+                }
+                else
+                {
+                    if (card.IsFoil)
+                    {
+                        var usd = cds.CardDataById[card.ScryfallId].Prices!.UsdFoil;
+                        if (usd != null)
+                            price = double.Parse(usd);
+                    }
+                    else
+                    {
+                        var usd = cds.CardDataById[card.ScryfallId].Prices!.Usd;
+                        if (usd != null)
+                            price = double.Parse(usd);
+                    }
+                }
+            }
+            
+            cardList.Add(CardsEndpointsHelpers.MapToDto(card, price, settings.MarketProvider));
+        }
+        
         logger.LogOperationSuccess(operation, new { id, entityParams.PageIndex, entityParams.PageSize, Count = cards?.Count });
-        return Results.Ok(new Pagination<Card>(entityParams.PageIndex, entityParams.PageSize, size, cards));
+        return Results.Ok(new Pagination<ExtensiveCardDto>(entityParams.PageIndex, entityParams.PageSize, size, cardList));
     }
 
     private static async Task<IResult> GetAllCollectionsForUser(

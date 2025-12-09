@@ -262,7 +262,8 @@ public class TestDataBuilder
             Rarity: GetRandomRarity(),
             Watermark: null,
             FlavorText: null,
-            CardBackId: null
+            CardBackId: null,
+            Prices: new Prices("", "", "", "", "")
         );
     }
 
