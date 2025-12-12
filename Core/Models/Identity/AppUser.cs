@@ -12,4 +12,6 @@ public class AppUser : IdentityUser
     public ICollection<AppUserLeague> UserLeagues { get; set; } = new List<AppUserLeague>();
     [JsonIgnore]
     public Settings? Settings { get; set; }
+    [JsonIgnore]
+    public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
 }

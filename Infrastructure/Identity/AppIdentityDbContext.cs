@@ -13,6 +13,7 @@ namespace Infrastructure.Identity
         public DbSet<League> Leagues { get; set; }
         public DbSet<AppUserLeague> UserLeagues { get; set; }
         public DbSet<Settings> Settings { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -49,6 +50,11 @@ namespace Infrastructure.Identity
                 .Property(s => s.EnabledLocation)
                 .HasDefaultValue(false);
 
+            builder.Entity<Notification>()
+                .HasOne(ul => ul.AppUser)
+                .WithMany(u => u.Notifications)
+                .HasForeignKey(ul => ul.AppUserId);
+            
             // Configure UserLeague entity
             builder.Entity<AppUserLeague>()
                 .HasKey(ul => new { ul.UserId, ul.LeagueId }); // Composite primary key

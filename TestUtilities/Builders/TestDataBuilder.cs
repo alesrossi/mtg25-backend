@@ -41,6 +41,7 @@ public class TestDataBuilder
             .With(u => u.LockoutEnd, DateTime.UtcNow)
             .Without(u => u.UserLeagues)
             .Without(u => u.Settings)
+            .Without(u => u.Notifications)
             .Without(u => u.Id)  // Let Identity/EF generate the ID
             .Create();
 
