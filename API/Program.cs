@@ -28,6 +28,7 @@ using API.Endpoints.Cards;
 using API.Endpoints.Collections;
 using API.Endpoints.Decks;
 using API.Endpoints.Leagues;
+using API.Endpoints.Notifications;
 using API.Endpoints.Wishlists;
 using Serilog;
 
@@ -476,6 +477,7 @@ public class Program
         app.MapWishlistsEndpoints();
         app.MapLeaguesEndpoints();
         app.MapDecksEndpoints();
+        app.MapNotificationsEndpoints();
         
         // Add health check endpoint
         app.MapGet("/api/health", () => Results.Ok(new { 

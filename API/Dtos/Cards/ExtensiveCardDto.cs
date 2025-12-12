@@ -1,5 +1,4 @@
 using Core.Models.Identity;
-using StackExchange.Redis;
 using Condition = Core.Models.Condition;
 
 namespace API.Dtos.Cards;
