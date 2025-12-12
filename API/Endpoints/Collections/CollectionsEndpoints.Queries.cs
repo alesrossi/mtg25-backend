@@ -120,22 +120,23 @@ public static partial class CollectionsEndpoints
             .FirstOrDefaultAsync();
         
         List<ExtensiveCardDto> cardList = [];
+        var marketProvider = settings?.MarketProvider ?? MarketProvider.Mkm;
         foreach (var card in cards)
         {
             double? price = null;
-            if (settings is not null)
+            if (settings is not null && cds.CardDataById.TryGetValue(card.ScryfallId, out var marketData) && marketData?.Prices is not null)
             {
                 if (settings.MarketProvider == MarketProvider.Mkm)
                 {
                     if (card.IsFoil)
                     {
-                        var eur = cds.CardDataById[card.ScryfallId].Prices!.EurFoil;
+                        var eur = marketData.Prices!.EurFoil;
                         if (eur != null)
                             price = double.Parse(eur);
                     }
                     else
                     {
-                        var eur = cds.CardDataById[card.ScryfallId].Prices!.Eur;
+                        var eur = marketData.Prices!.Eur;
                         if (eur != null)
                             price = double.Parse(eur);
                     }
@@ -144,20 +145,20 @@ public static partial class CollectionsEndpoints
                 {
                     if (card.IsFoil)
                     {
-                        var usd = cds.CardDataById[card.ScryfallId].Prices!.UsdFoil;
+                        var usd = marketData.Prices!.UsdFoil;
                         if (usd != null)
                             price = double.Parse(usd);
                     }
                     else
                     {
-                        var usd = cds.CardDataById[card.ScryfallId].Prices!.Usd;
+                        var usd = marketData.Prices!.Usd;
                         if (usd != null)
                             price = double.Parse(usd);
                     }
                 }
             }
             
-            cardList.Add(CardsEndpointsHelpers.MapToDto(card, price, settings.MarketProvider));
+            cardList.Add(CardsEndpointsHelpers.MapToDto(card, price, marketProvider));
         }
         
         logger.LogOperationSuccess(operation, new { id, entityParams.PageIndex, entityParams.PageSize, Count = cards?.Count });

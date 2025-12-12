@@ -13,6 +13,7 @@ public static class CardsEndpointsHelpers
             Id = card.Id,
             Name = card.Name,
             ScryfallId = card.ScryfallId,
+            CollectionId = card.CollectionId,
             Quantity = card.Quantity,
             Language = card.Language,
             Condition = card.Condition,

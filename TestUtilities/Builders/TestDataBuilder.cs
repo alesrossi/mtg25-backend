@@ -41,9 +41,15 @@ public class TestDataBuilder
             .With(u => u.LockoutEnd, DateTime.UtcNow)
             .Without(u => u.UserLeagues)
             .Without(u => u.Settings)
-            .Without(u => u.Id)  // Let Identity generate the ID
+            .Without(u => u.Id)  // Let Identity/EF generate the ID
             .Create();
-        
+
+        if (string.IsNullOrEmpty(user.Id))
+        {
+            user.Id = Guid.NewGuid().ToString();
+        }
+
+        user.Settings = CreateDefaultSettings(user);
         return user;
     }
 
@@ -265,6 +271,21 @@ public class TestDataBuilder
             CardBackId: null,
             Prices: new Prices("", "", "", "", "")
         );
+    }
+
+    private static Settings CreateDefaultSettings(AppUser user)
+    {
+        return new Settings
+        {
+            MarketProvider = MarketProvider.Mkm,
+            ReferencePrice = ReferencePrice.Avg,
+            Currency = Currency.Eur,
+            LanguageUi = "It",
+            LanguageCards = "En",
+            EnabledLocation = false,
+            AppUser = user,
+            AppUserId = user.Id
+        };
     }
 
     /// <summary>

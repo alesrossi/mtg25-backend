@@ -93,19 +93,20 @@ public static partial class CardsEndpoints
             .FirstOrDefaultAsync();
         
         double? price = null;
-        if (settings is not null)
+        var marketProvider = settings?.MarketProvider ?? MarketProvider.Mkm;
+        if (settings is not null && cds.CardDataById.TryGetValue(card.ScryfallId, out var marketData) && marketData?.Prices is not null)
         {
             if (settings.MarketProvider == MarketProvider.Mkm)
             {
                 if (card.IsFoil)
                 {
-                    var eur = cds.CardDataById[card.ScryfallId].Prices!.EurFoil;
+                    var eur = marketData.Prices!.EurFoil;
                     if (eur != null)
                         price = double.Parse(eur);
                 }
                 else
                 {
-                    var eur = cds.CardDataById[card.ScryfallId].Prices!.Eur;
+                    var eur = marketData.Prices!.Eur;
                     if (eur != null)
                         price = double.Parse(eur);
                 }
@@ -114,13 +115,13 @@ public static partial class CardsEndpoints
             {
                 if (card.IsFoil)
                 {
-                    var usd = cds.CardDataById[card.ScryfallId].Prices!.UsdFoil;
+                    var usd = marketData.Prices!.UsdFoil;
                     if (usd != null)
                         price = double.Parse(usd);
                 }
                 else
                 {
-                    var usd = cds.CardDataById[card.ScryfallId].Prices!.Usd;
+                    var usd = marketData.Prices!.Usd;
                     if (usd != null)
                         price = double.Parse(usd);
                 }
@@ -128,7 +129,7 @@ public static partial class CardsEndpoints
         }
         
         logger.LogOperationSuccess(operation, new { id });
-        return Results.Ok(CardsEndpointsHelpers.MapToDto(card, price, settings.MarketProvider));
+        return Results.Ok(CardsEndpointsHelpers.MapToDto(card, price, marketProvider));
     }
 
     private static IResult SearchCards(
