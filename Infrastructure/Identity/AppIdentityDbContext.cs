@@ -55,6 +55,14 @@ namespace Infrastructure.Identity
                 .WithMany(u => u.Notifications)
                 .HasForeignKey(ul => ul.AppUserId);
             
+            builder.Entity<Notification>()
+                .Property(n => n.IsRead)
+                .HasDefaultValue(false);
+            
+            builder.Entity<Notification>()
+                .Property(n => n.Approval)
+                .HasDefaultValue(false);
+            
             // Configure UserLeague entity
             builder.Entity<AppUserLeague>()
                 .HasKey(ul => new { ul.UserId, ul.LeagueId }); // Composite primary key

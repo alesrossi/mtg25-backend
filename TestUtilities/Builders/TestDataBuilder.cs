@@ -54,6 +54,29 @@ public class TestDataBuilder
         return user;
     }
 
+    public Notification CreateNotification(
+        AppUser? user = null,
+        string? name = null,
+        string? message = null,
+        bool? isInstant = null,
+        bool? isRead = null,
+        string? origin = null,
+        DateTime? creationDateTime = null)
+    {
+        user ??= CreateUser();
+
+        return new Notification
+        {
+            Name = name ?? $"Notification {_random.Next(1, 1_000)}",
+            Message = message ?? "Test notification body",
+            IsRead = isRead ?? false,
+            Origin = origin ?? "System",
+            CreationDateTime = creationDateTime ?? DateTime.UtcNow,
+            AppUserId = user.Id,
+            AppUser = user
+        };
+    }
+
     /// <summary>
     /// Creates a collection belonging to a specific user.
     /// Demonstrates how to create related entities with proper foreign key relationships.

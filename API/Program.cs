@@ -149,14 +149,14 @@ public class Program
                 };
             });
 
-    // Add model validation
+            // Add model validation
             builder.Services.AddScoped<IValidationService, ValidationService>();
             
-            // Add CardDataService as a singleton
             builder.Services.AddSingleton<CardDataService>();
             builder.Services.AddScoped<ProblemDetailsEndpointFilter>();
             builder.Services.AddScoped<IJwtService, JwtService>();
             builder.Services.AddScoped<DeckCardService>();
+            builder.Services.AddScoped<NotificationService>();
             builder.Services.AddScoped<IDeckValidationService, DeckValidationService>();
             builder.Services.AddScoped<IDecklistParserService, DecklistParserService>();
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();

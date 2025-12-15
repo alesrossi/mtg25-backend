@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using API.Dtos.Leagues;
+using API.Dtos.Notifications;
 using API.Logging;
 using API.Services;
 using Core.Models.Identity;
@@ -32,12 +33,20 @@ public static partial class LeaguesEndpoint
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
 
-        group.MapPatch("/{code}/join", JoinLeagueFromCodeAsync)
+        group.MapPatch("/{code}/join", RequestJoinLeagueFromCodeAsync)
             .RequireAuthorization()
             .WithSummary("Join league by code")
             .WithDescription("Joins authenticated user to league using invite code")
             .Produces(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
+        
+        group.MapPatch("/{id:int}/approve/{userId}", ApproveUserForLeagueAsync)
+            .RequireAuthorization()
+            .WithSummary("Approves User")
+            .WithDescription("Admin approves user joining a given league")
+            .Produces(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
 
@@ -233,11 +242,12 @@ public static partial class LeaguesEndpoint
         return Results.Ok(league.Code);
     }
 
-    private static async Task<IResult> JoinLeagueFromCodeAsync(
+    private static async Task<IResult> RequestJoinLeagueFromCodeAsync(
         string code,
+        HttpContext context,
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] AppIdentityDbContext dbContext,
-        HttpContext context,
+        [FromServices] NotificationService notificationService,
         [FromServices] ILogger<LeaguesEndpointLogCategory> logger)
     {
         const string operation = "Leagues.JoinByCode";
@@ -271,6 +281,72 @@ public static partial class LeaguesEndpoint
             return Results.BadRequest("User already joined the league");
         }
 
+        var newNotification = new NewNotificationDto
+        {
+            Name = "request_join_league",
+            Message = $"User {userId} wants to join league {league.Name}",
+            Origin = "request.league.join",
+            AppUserId = userId
+        };
+        
+        await notificationService.CreateNotificationAsync(newNotification);
+
+        logger.LogOperationSuccess(operation, new { code, userId });
+        return Results.Ok();
+    }
+    
+    private static async Task<IResult> ApproveUserForLeagueAsync(
+        int id,
+        string userId,
+        HttpContext context,
+        [FromServices] UserManager<AppUser> userManager,
+        [FromServices] AppIdentityDbContext dbContext,
+        [FromServices] NotificationService notificationService,
+        [FromServices] ILogger<LeaguesEndpointLogCategory> logger)
+    {
+        const string operation = "Leagues.ApproveUserJoin";
+        var ownerId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (ownerId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { id });
+            return Results.Unauthorized();
+        }
+
+        var owner = await userManager.FindByIdAsync(ownerId);
+        if (owner is null)
+        {
+            logger.LogOperationWarning(operation, "Owner not found", new { userId = ownerId });
+            return Results.Unauthorized();
+        }
+        
+        var user = await userManager.FindByIdAsync(ownerId);
+        if (user is null)
+        {
+            logger.LogOperationWarning(operation, "User not found", new { userId });
+            return Results.Unauthorized();
+        }
+
+        var league = dbContext.Find<League>(id);
+        if (league is null)
+        {
+            logger.LogOperationWarning(operation, "League not found", new { id });
+            return Results.NotFound("League not found");
+        }
+
+        if (league.OwnerId != owner.Id)
+        {
+            logger.LogOperationWarning(operation, "Owner does not own league", new { owner });
+            return Results.Unauthorized();
+        }
+
+        var existingMember = await dbContext.UserLeagues
+            .AnyAsync(ul => ul.LeagueId == league.Id && ul.UserId == user.Id);
+        if (existingMember)
+        {
+            logger.LogOperationWarning(operation, "Already member", new { id, userId = userId });
+            return Results.BadRequest("User already joined the league");
+        }
+
         await dbContext.AddAsync(new AppUserLeague
         {
             UserId = user.Id,
@@ -283,12 +359,23 @@ public static partial class LeaguesEndpoint
             BestRound = 0,
             AvgScore = 0
         });
-
+        
         league.TotalPlayers++;
         dbContext.Update(league);
         await dbContext.SaveChangesAsync();
-
-        logger.LogOperationSuccess(operation, new { code, userId });
+        
+        var newNotification = new NewNotificationDto
+        {
+            Name = "joined_league",
+            Message = $"You have joined {league.Name}!",
+            ObjectId = league.Id,
+            Origin = "notify.league.join",
+            AppUserId = userId
+        };
+        
+        await notificationService.CreateNotificationAsync(newNotification);
+        
+        logger.LogOperationSuccess(operation, new { league.Id, userId = userId });
         return Results.Ok();
     }
 

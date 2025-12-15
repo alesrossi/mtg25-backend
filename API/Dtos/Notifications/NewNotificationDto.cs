@@ -1,11 +1,10 @@
 namespace API.Dtos.Notifications;
 
-public class NotificationDto
+public class NewNotificationDto
 {
-    public int Id { get; set; }
     public required string Name { get; set; }
     public required string Message { get; set; }
-    public bool IsRead { get; set; }
+    public int? ObjectId { get; set; }
     public required string Origin { get; set; }
-    public DateTime CreationDateTime {  get; set; }
+    public required string AppUserId { get; set; }
 }
