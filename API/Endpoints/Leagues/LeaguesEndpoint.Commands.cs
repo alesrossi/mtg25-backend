@@ -292,7 +292,8 @@ public static partial class LeaguesEndpoint
         {
             Name = "request_join_league",
             Message = $"User {user.FirstName} {user.LastName} wants to join {league.Name}",
-            Origin = league.Id + "." +user.Id,
+            ObjectId = league.Id,
+            Origin = league.Id + "." + user.Id,
             AppUserId = league.OwnerId
         };
         
@@ -371,11 +372,11 @@ public static partial class LeaguesEndpoint
         
         var newNotification = new NewNotificationDto
         {
-            Name = "joined_league",
-            Message = $"You have joined {league.Name}!",
+            Name = "player_joined_league",
+            Message = $"{user.FirstName} {user.LastName} has joined {league.Name}",
             ObjectId = league.Id,
-            Origin = "notify.league.join",
-            AppUserId = userId
+            Origin = $"{league.Id}.{user.Id}",
+            AppUserId = league.OwnerId
         };
         
         await notificationService.CreateNotificationAsync(newNotification);
@@ -436,6 +437,7 @@ public static partial class LeaguesEndpoint
         {
             Name = "user_leave_league",
             Message = $"User {user.FirstName} {user.LastName} left {league.Name}",
+            ObjectId = league.Id,
             Origin = league.Id + "." + user.Id,
             AppUserId = league.OwnerId
         };

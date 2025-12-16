@@ -135,4 +135,49 @@ public class NotificationService
         
         return true;
     }
+    
+    public async Task<bool> UpdateNotificationAsync(List<int> ids, bool? isRead, bool? approval, string? userToUpdate)
+    {
+        
+
+        await _context.Notifications.AsNoTracking().Where(n => ids.Contains(n.Id)).ForEachAsync(notification =>
+        {
+            using var scope = _logger.BeginOperationScope(UpdateNotificationOperation, notification.Id);
+            _logger.LogOperationStart(UpdateNotificationOperation, new { notification.Id });
+            
+            if (isRead is not null)
+            {
+                notification.IsRead = isRead.Value;
+                _context.Notifications.Update(notification);
+                
+            }
+            
+            if (approval is not null)
+            {
+                notification.Approval = approval.Value;
+                _context.Notifications.Update(notification);
+                
+                var newNotification = new Notification
+                {
+                    Name = "joined_league",
+                    Message = "You have been approved for to join a league",
+                    ObjectId = notification.ObjectId,
+                    Origin = notification.Origin,
+                    CreationDateTime = DateTime.UtcNow,
+                    AppUserId = notification.Origin.Split('.')[1],
+                    AppUser = null!
+                };
+                
+                _context.Notifications.Add(newNotification);
+            }
+            
+            _logger.LogOperationSuccess(UpdateNotificationOperation, new { notification.Id, notification.Name });
+            
+        });
+        
+        await _context.SaveChangesAsync();
+
+        
+        return true;
+    }
 }

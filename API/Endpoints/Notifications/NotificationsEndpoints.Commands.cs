@@ -122,7 +122,9 @@ public static partial class NotificationsEndpoints
             return Results.Unauthorized();
         }
 
-        var successful = await notificationService.UpdateNotificationAsync(notificationIds, null, true);
+        var successful = await notificationService.UpdateNotificationAsync(notificationIds, null, true, userId);
+        
+        
         
         return Results.Ok();
     }
