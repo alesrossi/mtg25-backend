@@ -13,7 +13,7 @@ public static partial class NotificationsEndpoints
 {
     private static void MapNotificationsCommands(RouteGroupBuilder group)
     {
-        group.MapPost("/{id:int}", DeleteNotificationAsync)
+        group.MapDelete("/{id:int}", DeleteNotificationAsync)
             .RequireAuthorization()
             .WithSummary("Deletes a notification from Id")
             .WithDescription("Deletes a notification from Id")

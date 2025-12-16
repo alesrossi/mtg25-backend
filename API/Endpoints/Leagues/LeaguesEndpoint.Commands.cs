@@ -29,25 +29,25 @@ public static partial class LeaguesEndpoint
             .WithSummary("Update league results")
             .WithDescription("Updates league standings and match results")
             .Produces(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
 
-        group.MapPatch("/{code}/join", RequestJoinLeagueFromCodeAsync)
+        group.MapPatch("/{code}/request", RequestJoinLeagueFromCodeAsync)
             .RequireAuthorization()
-            .WithSummary("Join league by code")
-            .WithDescription("Joins authenticated user to league using invite code")
+            .WithSummary("Request to join league")
+            .WithDescription("Request to join authenticated user to league using invite code")
             .Produces(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);
         
-        group.MapPatch("/{id:int}/approve/{userId}", ApproveUserForLeagueAsync)
+        group.MapPatch("/{id:int}/join", JoinLeagueAsync)
             .RequireAuthorization()
-            .WithSummary("Approves User")
-            .WithDescription("Admin approves user joining a given league")
+            .WithSummary("Joins league")
+            .WithDescription("User joins league, requires previous approval")
             .Produces(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound);
 
         group.MapPatch("/{id:int}/leave", LeaveLeagueAsync)
@@ -67,7 +67,7 @@ public static partial class LeaguesEndpoint
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized);
 
-        group.MapPatch("/{id:int}/join", JoinAsPlayerAsync)
+        group.MapPatch("/{id:int}/owner-join", JoinAsPlayerAsync)
             .RequireAuthorization()
             .WithSummary("Owner of league joins as player")
             .WithDescription("Owner of league joins as player")
@@ -284,9 +284,9 @@ public static partial class LeaguesEndpoint
         var newNotification = new NewNotificationDto
         {
             Name = "request_join_league",
-            Message = $"User {userId} wants to join league {league.Name}",
-            Origin = "request.league.join",
-            AppUserId = userId
+            Message = $"User {user.FirstName} {user.LastName} wants to join {league.Name}",
+            Origin = league.Id + "." +user.Id,
+            AppUserId = league.OwnerId
         };
         
         await notificationService.CreateNotificationAsync(newNotification);
@@ -295,31 +295,23 @@ public static partial class LeaguesEndpoint
         return Results.Ok();
     }
     
-    private static async Task<IResult> ApproveUserForLeagueAsync(
+    private static async Task<IResult> JoinLeagueAsync(
         int id,
-        string userId,
         HttpContext context,
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] AppIdentityDbContext dbContext,
         [FromServices] NotificationService notificationService,
         [FromServices] ILogger<LeaguesEndpointLogCategory> logger)
     {
-        const string operation = "Leagues.ApproveUserJoin";
-        var ownerId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (ownerId is null)
+        const string operation = "Leagues.ApprovedUserJoin";
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null)
         {
             logger.LogOperationWarning(operation, "Missing user id", new { id });
             return Results.Unauthorized();
         }
 
-        var owner = await userManager.FindByIdAsync(ownerId);
-        if (owner is null)
-        {
-            logger.LogOperationWarning(operation, "Owner not found", new { userId = ownerId });
-            return Results.Unauthorized();
-        }
-        
-        var user = await userManager.FindByIdAsync(ownerId);
+        var user = await userManager.FindByIdAsync(userId);
         if (user is null)
         {
             logger.LogOperationWarning(operation, "User not found", new { userId });
@@ -333,20 +325,26 @@ public static partial class LeaguesEndpoint
             return Results.NotFound("League not found");
         }
 
-        if (league.OwnerId != owner.Id)
-        {
-            logger.LogOperationWarning(operation, "Owner does not own league", new { owner });
-            return Results.Unauthorized();
-        }
-
         var existingMember = await dbContext.UserLeagues
             .AnyAsync(ul => ul.LeagueId == league.Id && ul.UserId == user.Id);
         if (existingMember)
         {
-            logger.LogOperationWarning(operation, "Already member", new { id, userId = userId });
+            logger.LogOperationWarning(operation, "Already member", new { id, userId });
             return Results.BadRequest("User already joined the league");
         }
-
+        
+        var exactMatch = $"{league.Id}.{userId}";
+        
+        var approved = await dbContext.Notifications
+            .AnyAsync(n => 
+                n.Origin == exactMatch
+                && n.Approval);
+        if (!approved)
+        {
+            logger.LogOperationWarning(operation, "User not approved", new { id, userId });
+            return Results.BadRequest("User has not been approved by an admin");
+        }
+        
         await dbContext.AddAsync(new AppUserLeague
         {
             UserId = user.Id,
@@ -375,7 +373,7 @@ public static partial class LeaguesEndpoint
         
         await notificationService.CreateNotificationAsync(newNotification);
         
-        logger.LogOperationSuccess(operation, new { league.Id, userId = userId });
+        logger.LogOperationSuccess(operation, new { league.Id, userId });
         return Results.Ok();
     }
 
@@ -415,8 +413,7 @@ public static partial class LeaguesEndpoint
             return Results.BadRequest("You can't leave a league you created");
         }
 
-        var res = dbContext.UserLeagues
-            .Where(ul => ul.LeagueId == league.Id && ul.UserId == userId).FirstOrDefault();
+        var res = dbContext.UserLeagues.FirstOrDefault(ul => ul.LeagueId == league.Id && ul.UserId == userId);
         if (res is null)
         {
             logger.LogOperationWarning(operation, "User not in league", new { id, userId });

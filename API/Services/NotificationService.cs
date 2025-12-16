@@ -1,10 +1,11 @@
+using System.Collections.Generic;
+using System.Linq;
 using API.Dtos.Notifications;
-using API.Endpoints.Notifications;
 using API.Logging;
-using Core.Interfaces;
 using Core.Models.Identity;
 using Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace API.Services;
 
@@ -44,6 +45,43 @@ public class NotificationService
 
         _logger.LogOperationSuccess(CreateNotificationOperation, new { notification.Id, newNotification.Name });
         return notification;
+    }
+
+    public async Task<NotificationDto?> GetNotificationAsync(int id, string appUserId)
+    {
+        return await _context.Notifications
+            .AsNoTracking()
+            .Where(n => n.Id == id && n.AppUserId == appUserId)
+            .Select(n => new NotificationDto
+            {
+                Id = n.Id,
+                Name = n.Name,
+                Message = n.Message,
+                IsRead = n.IsRead,
+                Approval = n.Approval,
+                Origin = n.Origin,
+                CreationDateTime = n.CreationDateTime
+            })
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<IReadOnlyList<NotificationDto>> GetUserNotificationsAsync(string appUserId)
+    {
+        return await _context.Notifications
+            .AsNoTracking()
+            .Where(n => n.AppUserId == appUserId)
+            .OrderByDescending(n => n.CreationDateTime)
+            .Select(n => new NotificationDto
+            {
+                Id = n.Id,
+                Name = n.Name,
+                Message = n.Message,
+                IsRead = n.IsRead,
+                Approval = n.Approval,
+                Origin = n.Origin,
+                CreationDateTime = n.CreationDateTime
+            })
+            .ToListAsync();
     }
     
     public async Task<bool> DeleteNotificationAsync(int id)

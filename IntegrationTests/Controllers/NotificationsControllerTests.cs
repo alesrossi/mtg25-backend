@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Net;
 using System.Text.Json;
 using API.Dtos.Notifications;
@@ -82,28 +80,13 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
     }
 
     [Fact]
-    public async Task GetInstantNotifications_ForCurrentUser_ReturnsNotifications()
-    {
-        var user = await CreateTestUserAsync("notifications-instant@test.com", "notifications_instant");
-        await CreateNotificationAsync(user.Id, isInstant: true, name: "Instant Alert");
-        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
-
-        var response = await client.GetAsync("/api/notifications/instant");
-
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var payload = await response.Content.ReadAsStringAsync();
-        var dto = JsonSerializer.Deserialize<List<NotificationDto>>(payload, JsonContentHelper.DefaultOptions);
-        dto.Should().NotBeNull();
-    }
-
-    [Fact]
     public async Task DeleteNotification_WithExistingNotification_ReturnsSuccess()
     {
         var user = await CreateTestUserAsync("notifications-delete@test.com", "notifications_delete");
         var notification = await CreateNotificationAsync(user.Id);
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
-        var response = await client.PostAsync($"/api/notifications/{notification.Id}", JsonContentHelper.CreateContent(new { }));
+        var response = await client.DeleteAsync($"/api/notifications/{notification.Id}");
 
         response.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.NoContent);
     }
@@ -115,9 +98,23 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
         var notification = await CreateNotificationAsync(user.Id);
         using var client = _factory.CreateClient();
 
-        var response = await client.PostAsync($"/api/notifications/{notification.Id}", JsonContentHelper.CreateContent(new { }));
+        var response = await client.DeleteAsync($"/api/notifications/{notification.Id}");
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+    
+    [Fact]
+    public async Task UpdateNotificationApproval_WithExistingNotification_ReturnsSuccess()
+    {
+        var user = await CreateTestUserAsync("notifications-update@test.com", "notifications_update");
+        var notification = await CreateNotificationAsync(user.Id, isRead: false);
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+        int[] arr = [notification.Id];
+        
+        var response = await client.PutAsync($"/api/notifications/read", JsonContentHelper.CreateContent(arr));
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        await VerifyNotificationHasBeenRead(notification.Id);
     }
 
     [Fact]
@@ -126,8 +123,9 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
         var user = await CreateTestUserAsync("notifications-update@test.com", "notifications_update");
         var notification = await CreateNotificationAsync(user.Id, isRead: false);
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
-
-        var response = await client.PutAsync($"/api/notifications/{notification.Id}", JsonContentHelper.CreateContent(new { }));
+        int[] arr = [notification.Id];
+        
+        var response = await client.PutAsync($"/api/notifications/read", JsonContentHelper.CreateContent(arr));
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
@@ -139,7 +137,7 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
         var notification = await CreateNotificationAsync(user.Id);
         using var client = _factory.CreateClient();
 
-        var response = await client.PutAsync($"/api/notifications/{notification.Id}", JsonContentHelper.CreateContent(new { }));
+        var response = await client.PutAsync($"/api/notifications/read", JsonContentHelper.CreateContent(new { }));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -173,5 +171,15 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
         await context.SaveChangesAsync();
 
         return notification;
+    }
+    
+    private async Task VerifyNotificationHasBeenRead(int id)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        
+        var notification = dbContext.Notifications.FirstOrDefault(n => n.Id == id);
+        notification.Should().NotBeNull($"because notification {id} should be updated");
+        notification.IsRead.Should().Be(true, $"because notification {id} should be set to read");
     }
 }

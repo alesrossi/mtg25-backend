@@ -1,16 +1,11 @@
-using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
-using System.Collections.Generic;
 using API.Dtos.Leagues;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Core.Models.Identity;
 using Infrastructure.Identity;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using TestUtilities.Authentication;
 using TestUtilities.Builders;
 
@@ -416,7 +411,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task JoinLeague_WithValidLeagueCode_AddsUserToLeague()
+    public async Task RequestJoinLeague_WithValidLeagueCode_AddsUserToLeague()
     {
         // Arrange
         var owner = await CreateTestUserAsync("leagueowner@example.com", "leagueowner");
@@ -427,20 +422,40 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var content = new StringContent("", Encoding.UTF8, "application/json");
 
         // Act
-        var response = await client.PatchAsync($"/api/leagues/{league.Code}/join", content);
+        var response = await client.PatchAsync($"/api/leagues/{league.Code}/request", content);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK,
-            "because valid league codes should allow users to join");
+            "because valid league codes should allow users to request");
 
         if (response.StatusCode == HttpStatusCode.OK)
         {
-            await VerifyUserAssociatedWithLeague(joiner.Id, league.Id);
+            await VerifyNotificationAssociatedWithLeague(joiner.Id, league.Id);
         }
     }
     
     [Fact]
-    public async Task JoinLeague_WithNonExistingLeagueCode_ReturnsNotFound()
+    public async Task RequestJoinLeague_WithAlreadyJoinedUser_ReturnsBadRequest()
+    {
+        // Arrange
+        var owner = await CreateTestUserAsync("leagueowner@example.com", "leagueowner");
+        var joiner = await CreateTestUserAsync("joiner@example.com", "joiner");
+        var league = await CreateTestLeagueAsync("Joinable League", owner.Id);
+        await AssociateUserWithLeagueAsync(joiner.Id, league.Id);
+        using var client = _factory.CreateClientWithUser(joiner.Id, joiner.UserName!, joiner.Email!);
+        
+        var content = new StringContent("", Encoding.UTF8, "application/json");
+
+        // Act
+        var response = await client.PatchAsync($"/api/leagues/{league.Code}/request", content);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest,
+            "because user already joined the league");
+    }
+    
+    [Fact]
+    public async Task RequestJoinLeague_WithNonExistingLeagueCode_ReturnsNotFound()
     {
         // Arrange
         var owner = await CreateTestUserAsync("leagueowner@example.com", "leagueowner");
@@ -450,11 +465,101 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var content = new StringContent("", Encoding.UTF8, "application/json");
 
         // Act
-        var response = await client.PatchAsync($"/api/leagues/NOTEXI/join", content);
+        var response = await client.PatchAsync($"/api/leagues/NOTEXI/request", content);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound,
             "because code is not valid and shouldn't join a league");
+    }
+    
+    [Fact]
+    public async Task RequestJoinLeague_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("request-noauth-owner@example.com", "request_noauth_owner");
+        var league = await CreateTestLeagueAsync("Request NoAuth League", owner.Id);
+        using var client = _factory.CreateClient();
+
+        var response = await client.PatchAsync($"/api/leagues/{league.Code}/request",
+            new StringContent(string.Empty, Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+    
+    [Fact]
+    public async Task JoinLeague_WithApprovedLeague_AddsUserToLeague()
+    {
+        // Arrange
+        var owner = await CreateTestUserAsync("leagueowner@example.com", "leagueowner");
+        var joiner = await CreateTestUserAsync("joiner@example.com", "joiner");
+        var league = await CreateTestLeagueAsync("Joinable League", owner.Id);
+        var notification = await CreateNotificationForUserAsync(joiner.Id, $"{league.Id}.{joiner.Id}", true);
+        using var client = _factory.CreateClientWithUser(joiner.Id, joiner.UserName!, joiner.Email!);
+        
+        var content = new StringContent("", Encoding.UTF8, "application/json");
+
+        // Act
+        var response = await client.PatchAsync($"/api/leagues/{league.Id}/join", content);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK,
+            "because user has been approved");
+
+        if (response.StatusCode == HttpStatusCode.OK)
+        {
+            await VerifyNotificationAssociatedWithLeague(joiner.Id, league.Id);
+        }
+    }
+    
+    [Fact]
+    public async Task JoinLeague_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("join-noauth-owner@example.com", "join_noauth_owner");
+        var league = await CreateTestLeagueAsync("Join NoAuth League", owner.Id);
+        using var client = _factory.CreateClient();
+
+        var response = await client.PatchAsync($"/api/leagues/{league.Id}/join",
+            new StringContent(string.Empty, Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+    
+    [Fact]
+    public async Task JoinLeague_WithUnknownLeague_ReturnsNotFound()
+    {
+        // Arrange
+        var owner = await CreateTestUserAsync("leagueowner@example.com", "leagueowner");
+        var joiner = await CreateTestUserAsync("joiner@example.com", "joiner");
+        var league = await CreateTestLeagueAsync("Joinable League", owner.Id);
+        using var client = _factory.CreateClientWithUser(joiner.Id, joiner.UserName!, joiner.Email!);
+        
+        var content = new StringContent("", Encoding.UTF8, "application/json");
+
+        // Act
+        var response = await client.PatchAsync($"/api/leagues/NOTEXISTS/request", content);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound,
+            "because league doesn't exist");
+    }
+    
+    [Fact]
+    public async Task JoinLeague_AlreadyJoined_ReturnsBadRequest()
+    {
+        // Arrange
+        var owner = await CreateTestUserAsync("leagueowner@example.com", "leagueowner");
+        var joiner = await CreateTestUserAsync("joiner@example.com", "joiner");
+        var league = await CreateTestLeagueAsync("Joinable League", owner.Id);
+        await AssociateUserWithLeagueAsync(joiner.Id, league.Id);
+        using var client = _factory.CreateClientWithUser(joiner.Id, joiner.UserName!, joiner.Email!);
+        
+        var content = new StringContent("", Encoding.UTF8, "application/json");
+
+        // Act
+        var response = await client.PatchAsync($"/api/leagues/{league.Id}/join", content);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest,
+            "because suer already joined league");
     }
 
     [Fact]
@@ -569,7 +674,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var league = await CreateTestLeagueAsync("Owner Player League", owner.Id, isActive: true);
         using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
 
-        var response = await client.PatchAsync($"/api/leagues/{league.Id}/join",
+        var response = await client.PatchAsync($"/api/leagues/{league.Id}/owner-join",
             new StringContent(string.Empty, Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -583,10 +688,23 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var league = await CreateTestLeagueAsync("Owner Only League", owner.Id);
         using var client = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
 
-        var response = await client.PatchAsync($"/api/leagues/{league.Id}/join",
+        var response = await client.PatchAsync($"/api/leagues/{league.Id}/owner-join",
             new StringContent(string.Empty, Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+    
+    [Fact]
+    public async Task JoinAsPlayer_WithUnknownLeague_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("joinplayer-inactive@example.com", "joinplayer_notfound");
+        var league = await CreateTestLeagueAsync("Not Found League", owner.Id, isActive: true);
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var response = await client.PatchAsync($"/api/leagues/{int.MaxValue}/owner-join",
+            new StringContent(string.Empty, Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -596,7 +714,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var league = await CreateTestLeagueAsync("Inactive League", owner.Id, isActive: false);
         using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
 
-        var response = await client.PatchAsync($"/api/leagues/{league.Id}/join",
+        var response = await client.PatchAsync($"/api/leagues/{league.Id}/owner-join",
             new StringContent(string.Empty, Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -609,20 +727,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var league = await CreateTestLeagueAsync("Join Player NoAuth", owner.Id);
         using var client = _factory.CreateClient();
 
-        var response = await client.PatchAsync($"/api/leagues/{league.Id}/join",
-            new StringContent(string.Empty, Encoding.UTF8, "application/json"));
-
-        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-    }
-
-    [Fact]
-    public async Task JoinLeague_WithoutAuthentication_ReturnsUnauthorized()
-    {
-        var owner = await CreateTestUserAsync("leagueowner-noauth@example.com", "leagueowner_noauth");
-        var league = await CreateTestLeagueAsync("Public League", owner.Id);
-        using var client = _factory.CreateClient();
-
-        var response = await client.PatchAsync($"/api/leagues/{league.Code}/join",
+        var response = await client.PatchAsync($"/api/leagues/{league.Id}/owner-join",
             new StringContent(string.Empty, Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -713,6 +818,26 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         dbContext.UserLeagues.Add(userLeague);
         await dbContext.SaveChangesAsync();
     }
+    
+    private async Task<Notification> CreateNotificationForUserAsync(string userId, string origin, bool approval)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        
+        var notification = new Notification
+        {
+            Name = "test_notification",
+            Message = "test_notification",
+            Origin = origin,
+            Approval = approval,
+            AppUserId = userId,
+            AppUser = null!
+        };
+        
+        dbContext.Notifications.Add(notification);
+        await dbContext.SaveChangesAsync();
+        return notification;
+    }
 
     private async Task VerifyLeagueUpdatedInDatabase(int leagueId, string expectedName)
     {
@@ -731,6 +856,17 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         
         var userLeague = dbContext.UserLeagues.FirstOrDefault(ul => ul.UserId == userId && ul.LeagueId == leagueId);
         userLeague.Should().NotBeNull($"because user {userId} should be associated with league {leagueId}");
+    }
+    
+    private async Task VerifyNotificationAssociatedWithLeague(string userId, int leagueId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+
+        var origin = $"{leagueId}.{userId}";
+        
+        var userLeague = dbContext.Notifications.FirstOrDefault(n => n.Origin == origin);
+        userLeague.Should().NotBeNull($"because user {userId} should have a new notification associated with league {leagueId}");
     }
 
 
