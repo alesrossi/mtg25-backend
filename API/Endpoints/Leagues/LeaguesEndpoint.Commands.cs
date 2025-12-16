@@ -379,9 +379,10 @@ public static partial class LeaguesEndpoint
 
     private static async Task<IResult> LeaveLeagueAsync(
         int id,
+        HttpContext context,
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] AppIdentityDbContext dbContext,
-        HttpContext context,
+        [FromServices] NotificationService notificationService,
         [FromServices] ILogger<LeaguesEndpointLogCategory> logger)
     {
         const string operation = "Leagues.Leave";
@@ -423,6 +424,16 @@ public static partial class LeaguesEndpoint
         res.IsPlaying = false;
         dbContext.Update(res);
         await dbContext.SaveChangesAsync();
+        
+        var newNotification = new NewNotificationDto
+        {
+            Name = "user_leave_league",
+            Message = $"User {user.FirstName} {user.LastName} left {league.Name}",
+            Origin = league.Id + "." + user.Id,
+            AppUserId = league.OwnerId
+        };
+        
+        await notificationService.CreateNotificationAsync(newNotification);
 
         logger.LogOperationSuccess(operation, new { id, userId });
         return Results.Ok();
