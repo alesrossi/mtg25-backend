@@ -23,8 +23,9 @@ public static partial class CollectionsEndpoints
             .WithSummary("Get collection by ID")
             .WithDescription("Retrieves specific collection by ID")
             .Produces<Collection>()
-            .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/{id:int}/cards", GetCardsFromCollectionAsync)
             .RequireAuthorization()
@@ -32,15 +33,17 @@ public static partial class CollectionsEndpoints
             .WithDescription("Retrieves paginated list of cards from a specific collection with filtering, sorting, searching, and optional grouping")
             .Produces<Pagination<Card>>()
             .Produces<GroupedCardsPaginationDto>()
-            .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/", GetAllCollectionsForUser)
             .RequireAuthorization()
             .WithSummary("Get user's collections")
             .WithDescription("Returns all collections owned by authenticated user")
             .Produces<List<Collection>>()
-            .Produces(StatusCodes.Status401Unauthorized);
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
     }
 
     private static async Task<IResult> GetCollectionFromIdAsync(

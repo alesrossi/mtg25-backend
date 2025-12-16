@@ -20,48 +20,54 @@ public static partial class DecksEndpoint
             .WithSummary("Get decks for user")
             .WithDescription("Gets all decks from a given user")
             .Produces<IReadOnlyList<DeckDto>>()
-            .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/{id:int}", GetDeckByIdAsync)
             .RequireAuthorization()
             .WithSummary("Get deck by ID")
             .WithDescription("Retrieves a specific deck by ID")
             .Produces<DeckDto>()
-            .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/{deckId:int}/cards", GetDeckCardsAsync)
             .RequireAuthorization()
             .WithSummary("Get deck cards")
             .WithDescription("Retrieves all cards in a deck with optional filtering for maindeck, sideboard, and ownership status")
             .Produces<IEnumerable<DeckCardDto>>()
-            .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/{deckId:int}/cards/{id:int}", GetDeckCardByIdAsync)
             .RequireAuthorization()
             .WithSummary("Get deck card by ID")
             .WithDescription("Retrieves specific deck card by ID")
             .Produces<DeckCardDto>()
-            .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/{deckId:int}/export", ExportDeckAsync)
             .RequireAuthorization()
             .WithSummary("Export deck")
             .WithDescription("Returns the decklist as a list of strings with maindeck and sideboard sections")
             .Produces<IReadOnlyList<string>>()
-            .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/{deckId:int}/missing-cards", GetMissingDeckCardsAsync)
             .RequireAuthorization()
             .WithSummary("Get missing deck cards")
             .WithDescription("Returns deck cards that are not owned in any user collection")
             .Produces<IEnumerable<DeckCardDto>>()
-            .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
     }
 
     private static async Task<IResult> GetAllDecksForUser(

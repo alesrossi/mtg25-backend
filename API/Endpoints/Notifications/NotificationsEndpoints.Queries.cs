@@ -18,17 +18,17 @@ public static partial class NotificationsEndpoints
             .WithSummary("Retrieves notification")
             .WithDescription("Retrieves notification from given id")
             .Produces<NotificationDto>()
-            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json");
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
         
         group.MapGet("/", GetAllUserNotificationsAsync)
             .RequireAuthorization()
             .WithSummary("Retrieves all notifications for logged in user")
             .WithDescription("Retrieves all notifications for logged in user")
             .Produces<IReadOnlyList<NotificationDto>>()
-            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json");
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
         
     }
     

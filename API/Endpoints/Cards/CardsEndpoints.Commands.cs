@@ -19,9 +19,9 @@ public static partial class CardsEndpoints
             .WithDescription("Updates card from form")
             .Produces<Card>()
             .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json");
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
         
         group.MapPut("/{id:int}/versions", UpdateCardVersionFromIdAsync)
             .RequireAuthorization()
@@ -29,9 +29,9 @@ public static partial class CardsEndpoints
             .WithDescription("Updates card from form")
             .Produces<Card>()
             .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json");
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
         
         group.MapDelete("/{id:int}", DeleteCardFromIdAsync)
             .RequireAuthorization()
@@ -47,17 +47,19 @@ public static partial class CardsEndpoints
             .WithSummary("Add new card")
             .WithDescription("Adds card to collection with properties")
             .Produces<Card>()
-            .Produces(StatusCodes.Status400BadRequest)
-            .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapPost("/card-list", AddCardListAsync)
             .RequireAuthorization()
             .WithSummary("Process card list")
             .WithDescription("Processes card names and returns Scryfall card data")
             .Produces<LinkedList<ScryfallCardDto>>()
-            .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status400BadRequest);
+            .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
     }
 
     private static async Task<IResult> UpdateCardFromIdAsync(

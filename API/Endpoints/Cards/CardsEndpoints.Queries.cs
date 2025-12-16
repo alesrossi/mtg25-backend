@@ -20,40 +20,45 @@ public static partial class CardsEndpoints
             .WithSummary("Get card by ID")
             .WithDescription("Retrieves card by internal database ID")
             .Produces<Card?>()
-            .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/search/{find}", SearchCards)
             .RequireAuthorization()
             .WithSummary("Search cards by name")
             .WithDescription("Searches cards by name with partial matching")
             .Produces<List<MinimalCardDto>>()
-            .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/{name}/versions", GetCardVersionsAsync)
             .RequireAuthorization()
             .WithSummary("Retrieves all versions of a card")
             .WithDescription("Returns all card dtos for a given exact card name")
             .Produces<List<KeyValuePair<string, ScryfallCardDto>>>()
-            .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/sf/name/{name}", GetCardFromExactName)
             .RequireAuthorization()
             .WithSummary("Returns Scryfall card from name")
             .WithDescription("Returns Scryfall card with all fields, from exact name")
             .Produces<ScryfallCardDto>()
-            .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/sf/id/{id}", GetCardFromScryfallId)
             .RequireAuthorization()
             .WithSummary("Returns Scryfall card from id")
             .WithDescription("Returns Scryfall card with all fields, from id")
             .Produces<ScryfallCardDto>()
-            .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
     }
 
     private static async Task<IResult> GetCardFromId(

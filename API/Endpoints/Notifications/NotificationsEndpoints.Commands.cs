@@ -18,27 +18,27 @@ public static partial class NotificationsEndpoints
             .WithSummary("Deletes a notification from Id")
             .WithDescription("Deletes a notification from Id")
             .Produces<NotificationDto>()
-            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json");
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
         
         group.MapPut("/read", UpdateNotificationStatusAsync)
             .RequireAuthorization()
             .WithSummary("Reads notifications")
             .WithDescription("Sets the isRead status of a list of notifications from false to true")
             .Produces<NotificationDto>()
-            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json");
+            .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
         
         group.MapPut("/approve", ApproveNotificationAsync)
             .RequireAuthorization()
             .WithSummary("Approves notification from Id")
             .WithDescription("Sets the approval of a notification from false to true")
             .Produces<NotificationDto>()
-            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json");
+            .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
     }
     
     private static async Task<IResult> DeleteNotificationAsync(
