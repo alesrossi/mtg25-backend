@@ -62,13 +62,17 @@ public static partial class WishlistsEndpoint
             Id = card.Id,
             WishlistId = card.WishlistId,
             ScryfallId = card.ScryfallId,
+            ExactVersion = card.ExactVersion,
             Name = card.Name,
             ImageUrl = card.ImageUrl,
             BackImageUrl = card.BackImageUrl,
             DesiredQuantity = card.DesiredQuantity,
             IsFoil = card.IsFoil ?? false,
             Language = card.Language,
-            Notes = card.Notes
+            MinimumCondition = card.MinimumCondition,
+            Notes = card.Notes,
+            OriginalDeckId = card.OriginalDeckId,
+            IsAny = card.IsFoil is null && card.Language is null && card.MinimumCondition is null && !card.ExactVersion
         };
     }
 }

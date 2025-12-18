@@ -156,7 +156,8 @@ public static partial class WishlistsEndpoint
             {
                 var card = cds.CardDataById[x.ScryfallId];
                 var imageUris = CardDataService.ResolveImageUris(card);
-                var imageUrl = imageUris?.Normal ?? imageUris?.Large ?? imageUris?.Png ?? imageUris?.Small;
+                var imageUrl = imageUris?.Large ?? imageUris?.Normal ?? imageUris?.Png ?? imageUris?.Small;
+                var artCrop = imageUris!.ArtCrop;
                 var backImageUrl = cds.ResolveBackImageUrl(card);
                 return new WishlistCard
                 {
@@ -164,12 +165,15 @@ public static partial class WishlistsEndpoint
                     DesiredQuantity = x.DesiredQuantity,
                     IsFoil = x.IsFoil,
                     Language = x.Language,
+                    MinimumCondition = x.MinimumCondition,
                     Name = card.Name,
                     ScryfallId = x.ScryfallId,
+                    ExactVersion = x.ExactVersion,
                     Notes = x.Notes,
                     OriginalDeckId = x.OriginalDeckId,
                     ImageUrl = imageUrl,
-                    BackImageUrl = backImageUrl
+                    BackImageUrl = backImageUrl,
+                    ArtCrop = artCrop
                 };
             }).ToList();
 
@@ -187,6 +191,7 @@ public static partial class WishlistsEndpoint
         IValidationService validationService,
         IUnitOfWork unitOfWork,
         ClaimsPrincipal user,
+        [FromServices] CardDataService cds,
         [FromServices] ILogger<WishlistsEndpointLogCategory> logger)
     {
         var ownershipResult = await EnsureWishlistOwnershipAsync(wishlistId, unitOfWork, user);
@@ -210,11 +215,33 @@ public static partial class WishlistsEndpoint
             return Results.NotFound();
         }
 
-        wishlistCard.Name = updateDto.Name.Trim();
-        wishlistCard.DesiredQuantity = updateDto.DesiredQuantity;
-        wishlistCard.IsFoil = updateDto.IsFoil;
-        wishlistCard.Language = string.IsNullOrWhiteSpace(updateDto.Language) ? null : updateDto.Language.Trim();
-        wishlistCard.Notes = updateDto.Notes?.Trim() ?? string.Empty;
+        if (updateDto.ScryfallId is not null)
+        {
+            var card = cds.CardDataById[updateDto.ScryfallId];
+            if (card.Name == wishlistCard.Name)
+            {
+                var imageUris = CardDataService.ResolveImageUris(card);
+                var imageUrl = imageUris.Large ?? imageUris?.Normal ?? imageUris?.Png ?? imageUris?.Small;
+                var artCrop = imageUris!.ArtCrop;
+                var backImageUrl = cds.ResolveBackImageUrl(card);
+            
+                wishlistCard.ScryfallId = updateDto.ScryfallId;
+                wishlistCard.ImageUrl = imageUrl;
+                wishlistCard.BackImageUrl = backImageUrl;
+                wishlistCard.ArtCrop = artCrop;
+            }
+            else
+            {
+                logger.LogOperationWarning("Wishlists.Cards.Update", "Card version is not valid for this card", new { wishlistId, cardId });
+                return Results.BadRequest("Card version is not valid for this card");
+            }
+        }
+        if (updateDto.DesiredQuantity is not null) wishlistCard.DesiredQuantity = (int)updateDto.DesiredQuantity;
+        if (updateDto.IsFoil is not null) wishlistCard.IsFoil = updateDto.IsFoil;
+        if (updateDto.Language is not null) wishlistCard.Language = updateDto.Language;
+        if (updateDto.ExactVersion is not null) wishlistCard.ExactVersion = (bool)updateDto.ExactVersion;
+        if (updateDto.MinimumCondition is not null) wishlistCard.MinimumCondition = updateDto.MinimumCondition;
+        if (updateDto.Notes is not null) wishlistCard.Notes = updateDto.Notes?.Trim() ?? string.Empty;
 
         unitOfWork.Repository<WishlistCard>().Update(wishlistCard);
         await unitOfWork.Complete();

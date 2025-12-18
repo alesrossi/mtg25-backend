@@ -367,12 +367,6 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
 
         var request = new UpdateWishlistCardDto
         {
-            Name = "Updated Card Name",
-            SetCode = "SET",
-            SetName = "Updated Set",
-            ImageUrl = "https://example.com/updated-card.jpg",
-            CollectorNumber = "123",
-            Rarity = "Rare",
             DesiredQuantity = 3,
             IsFoil = true,
             Language = "es",
@@ -387,7 +381,6 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
 
         updatedCard.Should().NotBeNull();
         updatedCard!.Id.Should().Be(wishlistCard.Id);
-        updatedCard.Name.Should().Be(request.Name);
         updatedCard.DesiredQuantity.Should().Be(request.DesiredQuantity);
         updatedCard.IsFoil.Should().BeTrue();
         updatedCard.Language.Should().Be(request.Language);
@@ -419,8 +412,6 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
 
         var request = new UpdateWishlistCardDto
         {
-            Name = "Intruder Update",
-            SetCode = "SET",
             DesiredQuantity = 2,
             IsFoil = false
         };
@@ -685,8 +676,6 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
 
         var request = new UpdateWishlistCardDto
         {
-            Name = string.Empty,
-            SetCode = string.Empty,
             DesiredQuantity = 0,
             Notes = string.Empty
         };
@@ -706,8 +695,6 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
 
         var request = new UpdateWishlistCardDto
         {
-            Name = "New Name",
-            SetCode = "SET",
             DesiredQuantity = 1,
             Notes = "notes"
         };
@@ -727,8 +714,6 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
 
         var request = new UpdateWishlistCardDto
         {
-            Name = "New Name",
-            SetCode = "SET",
             DesiredQuantity = 1,
             Notes = "notes"
         };
