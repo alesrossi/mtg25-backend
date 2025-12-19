@@ -2,18 +2,16 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Core.Models.Identity;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace API.Services;
 
-public class JwtService(IOptions<JwtSettings> jwtSettings, IDistributedCache cache, UserManager<AppUser> userManager)
+public class JwtService(IOptions<JwtSettings> jwtSettings, IDistributedCache cache)
     : IJwtService
 {
     private readonly JwtSettings _jwtSettings = jwtSettings.Value;
-    private readonly UserManager<AppUser> _userManager = userManager;
 
     public Task<string> GenerateTokenAsync(AppUser user)
     {
@@ -28,7 +26,7 @@ public class JwtService(IOptions<JwtSettings> jwtSettings, IDistributedCache cac
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
         };
-        
+
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),

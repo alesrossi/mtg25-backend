@@ -12,8 +12,8 @@ using Core.Models.Identity;
 using Infrastructure.Data;
 using Infrastructure.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
@@ -397,7 +397,6 @@ public class Program
             await cardDataService.LoadCardDataAsync();
         }
 
-        
         // Configure the HTTP request pipeline.
         if (app.Environment.IsDevelopment())
         {

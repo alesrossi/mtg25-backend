@@ -1,4 +1,5 @@
-﻿using Core.Models.Identity;
+﻿using Core.Enums;
+using Core.Models.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,6 +15,7 @@ namespace Infrastructure.Identity
         public DbSet<AppUserLeague> UserLeagues { get; set; }
         public DbSet<Settings> Settings { get; set; }
         public DbSet<Notification> Notifications { get; set; }
+        public DbSet<LeagueRoleAssignment> LeagueRoleAssignments { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -76,6 +78,25 @@ namespace Infrastructure.Identity
                 .HasOne(ul => ul.League)
                 .WithMany(l => l.UserLeagues)
                 .HasForeignKey(ul => ul.LeagueId);
+
+            builder.Entity<LeagueRoleAssignment>()
+                .HasIndex(lr => new { lr.LeagueId, lr.UserId })
+                .IsUnique();
+
+            builder.Entity<LeagueRoleAssignment>()
+                .Property(lr => lr.Roles)
+                .HasConversion<string>()
+                .HasDefaultValue(LeagueRole.Player);
+
+            builder.Entity<LeagueRoleAssignment>()
+                .HasOne(lr => lr.User)
+                .WithMany(u => u.LeagueRoles)
+                .HasForeignKey(lr => lr.UserId);
+
+            builder.Entity<LeagueRoleAssignment>()
+                .HasOne(lr => lr.League)
+                .WithMany(l => l.RoleAssignments)
+                .HasForeignKey(lr => lr.LeagueId);
         }
     }
 }

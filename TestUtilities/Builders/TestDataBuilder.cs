@@ -40,6 +40,7 @@ public class TestDataBuilder
             .With(u => u.EmailConfirmed, true)
             .With(u => u.LockoutEnd, DateTime.UtcNow)
             .Without(u => u.UserLeagues)
+            .Without(u => u.LeagueRoles)
             .Without(u => u.Settings)
             .Without(u => u.Notifications)
             .Without(u => u.Id)  // Let Identity/EF generate the ID
@@ -332,6 +333,7 @@ public class TestDataBuilder
             .With(l => l.IsActive, true)
             .Without(l => l.Id)
             .Without(l => l.UserLeagues)
+            .Without(l => l.RoleAssignments)
             .Create();
     }
 

@@ -28,6 +28,8 @@ public static class TestUserFactory
 
         var (uniqueEmail, uniqueUserName) = GenerateUniqueIdentifiers(baseEmail, baseUserName);
         var user = builder.CreateUser(uniqueEmail, uniqueUserName);
+        user.UserLeagues = new List<AppUserLeague>();
+        user.LeagueRoles = new List<LeagueRoleAssignment>();
 
         IdentityResult result = requirePassword
             ? await userManager.CreateAsync(user, password ?? DefaultPassword)

@@ -1,8 +1,10 @@
+using System.Linq;
 using System.Security.Claims;
 using API.Dtos.Leagues;
 using API.Dtos.Notifications;
 using API.Logging;
 using API.Services;
+using Core.Enums;
 using Core.Models.Identity;
 using Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
@@ -368,6 +370,7 @@ public static partial class LeaguesEndpoint
         
         league.TotalPlayers++;
         dbContext.Update(league);
+        await AssignLeagueRoleAsync(dbContext, user.Id, league.Id, LeagueRole.Player);
         await dbContext.SaveChangesAsync();
         
         var newNotification = new NewNotificationDto
@@ -496,7 +499,9 @@ public static partial class LeaguesEndpoint
 
         await dbContext.AddAsync(league);
         await dbContext.SaveChangesAsync();
-
+        await AssignLeagueRoleAsync(dbContext, user.Id, league.Id, LeagueRole.Admin);
+        await dbContext.SaveChangesAsync();
+        
         logger.LogOperationSuccess(operation, new { league.Id });
         return Results.Ok(league);
     }
@@ -554,9 +559,43 @@ public static partial class LeaguesEndpoint
             AvgScore = 0
         });
         dbContext.Update(league);
+        await AssignLeagueRoleAsync(dbContext, user.Id, league.Id, LeagueRole.Player);
         await dbContext.SaveChangesAsync();
 
         logger.LogOperationSuccess(operation, new { id, userId });
         return Results.Ok();
+    }
+
+    private static async Task AssignLeagueRoleAsync(
+        AppIdentityDbContext dbContext,
+        string userId,
+        int leagueId,
+        LeagueRole role)
+    {
+        var userExists = await dbContext.Users.AnyAsync(u => u.Id == userId);
+        if (!userExists)
+        {
+            return;
+        }
+
+        var assignment = await dbContext.LeagueRoleAssignments
+            .FirstOrDefaultAsync(x => x.LeagueId == leagueId && x.UserId == userId);
+
+        if (assignment is null)
+        {
+            await dbContext.LeagueRoleAssignments.AddAsync(new LeagueRoleAssignment
+            {
+                LeagueId = leagueId,
+                UserId = userId,
+                Roles = role
+            });
+            return;
+        }
+
+        if (!assignment.Roles.HasFlag(role))
+        {
+            assignment.Roles |= role;
+            dbContext.LeagueRoleAssignments.Update(assignment);
+        }
     }
 }

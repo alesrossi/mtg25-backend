@@ -16,4 +16,5 @@ public class League : BaseModel
     public required List<int> PointsToGive {get; set;}
     public bool IsActive { get; set; } = true;
     public ICollection<AppUserLeague> UserLeagues { get; set; } = new List<AppUserLeague>();
+    public ICollection<LeagueRoleAssignment> RoleAssignments { get; set; } = new List<LeagueRoleAssignment>();
 }

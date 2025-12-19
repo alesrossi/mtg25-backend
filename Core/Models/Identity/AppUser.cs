@@ -14,4 +14,6 @@ public class AppUser : IdentityUser
     public Settings? Settings { get; set; }
     [JsonIgnore]
     public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
+    [JsonIgnore]
+    public ICollection<LeagueRoleAssignment> LeagueRoles { get; set; } = new List<LeagueRoleAssignment>();
 }

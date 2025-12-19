@@ -1,4 +1,3 @@
-using System.Text;
 using Core.Models.Identity;
 using Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
