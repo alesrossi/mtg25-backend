@@ -20,7 +20,7 @@ public static partial class LeaguesEndpoint
         group.MapPut("/{id:int}", UpdateLeagueAsync)
             .RequireAuthorization()
             .WithSummary("Update league")
-            .WithDescription("Updates league information such as name, description, and settings")
+            .WithDescription("Updates league information such as name, description, and settings. Only admins can call this route")
             .Produces<League>()
             .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
@@ -30,7 +30,7 @@ public static partial class LeaguesEndpoint
         group.MapPatch("/{id:int}/results", UpdateLeagueFromResultsAsync)
             .RequireAuthorization()
             .WithSummary("Update league results")
-            .WithDescription("Updates league standings and match results")
+            .WithDescription("Updates league standings and match results . Only admins can call this route")
             .Produces(StatusCodes.Status200OK)
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
@@ -84,6 +84,16 @@ public static partial class LeaguesEndpoint
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
+
+        group.MapPatch("/{leagueId:int}/promote/{userId}", PromoteLeagueAdminAsync)
+            .RequireAuthorization()
+            .WithSummary("Promote player to admin")
+            .WithDescription("Allows the league owner to grant admin role to a player")
+            .Produces(StatusCodes.Status200OK)
+            .Produces<ProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
     }
 
     private static async Task<IResult> UpdateLeagueAsync(
@@ -118,7 +128,7 @@ public static partial class LeaguesEndpoint
             logger.LogOperationWarning(operation, "League not found", new { id });
             return Results.NotFound();
         }
-        if (league.OwnerId != user.Id)
+        if (!await IsLeagueAdminAsync(dbContext, league, user.Id))
         {
             logger.LogOperationWarning(operation, "Unauthorized", new { id, userId });
             return Results.Unauthorized();
@@ -178,7 +188,7 @@ public static partial class LeaguesEndpoint
             logger.LogOperationWarning(operation, "League not found", new { id });
             return Results.NotFound();
         }
-        if (league.OwnerId != userId)
+        if (!await IsLeagueAdminAsync(dbContext, league, userId))
         {
             logger.LogOperationWarning(operation, "Unauthorized", new { id, userId });
             return Results.Unauthorized();
@@ -241,7 +251,7 @@ public static partial class LeaguesEndpoint
             logger.LogOperationWarning(operation, "League not found", new { id });
             return Results.NotFound();
         }
-        if (league.OwnerId != userId)
+        if (!await IsLeagueAdminAsync(dbContext, league, userId))
         {
             logger.LogOperationWarning(operation, "Unauthorized", new { id, userId });
             return Results.Unauthorized();
@@ -434,6 +444,7 @@ public static partial class LeaguesEndpoint
 
         res.IsPlaying = false;
         dbContext.Update(res);
+        await RemoveLeagueRoleAsync(dbContext, userId, league.Id);
         await dbContext.SaveChangesAsync();
         
         var newNotification = new NewNotificationDto
@@ -566,6 +577,67 @@ public static partial class LeaguesEndpoint
         return Results.Ok();
     }
 
+    private static async Task<IResult> PromoteLeagueAdminAsync(
+        int leagueId,
+        string userId,
+        HttpContext context,
+        [FromServices] UserManager<AppUser> userManager,
+        [FromServices] AppIdentityDbContext dbContext,
+        [FromServices] ILogger<LeaguesEndpointLogCategory> logger)
+    {
+        const string operation = "Leagues.Promote";
+        var callerId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (callerId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing caller id", new { leagueId, targetUser = userId });
+            return Results.Unauthorized();
+        }
+
+        var caller = await userManager.FindByIdAsync(callerId);
+        if (caller is null)
+        {
+            logger.LogOperationWarning(operation, "Caller not found", new { callerId });
+            return Results.Unauthorized();
+        }
+
+        var league = await dbContext.Leagues
+            .AsTracking()
+            .FirstOrDefaultAsync(l => l.Id == leagueId);
+        if (league is null)
+        {
+            logger.LogOperationWarning(operation, "League not found", new { leagueId });
+            return Results.NotFound();
+        }
+
+        if (league.OwnerId != caller.Id)
+        {
+            logger.LogOperationWarning(operation, "Caller not owner", new { leagueId, callerId });
+            return Results.Unauthorized();
+        }
+
+        var targetUser = await userManager.FindByIdAsync(userId);
+        if (targetUser is null)
+        {
+            logger.LogOperationWarning(operation, "Target user not found", new { userId });
+            return Results.NotFound("User not found");
+        }
+
+        var isMember = await dbContext.UserLeagues
+            .AsNoTracking()
+            .AnyAsync(ul => ul.LeagueId == league.Id && ul.UserId == targetUser.Id && ul.IsPlaying);
+        if (!isMember)
+        {
+            logger.LogOperationWarning(operation, "Target not part of league", new { leagueId, userId });
+            return Results.BadRequest("User must be part of the league to be promoted");
+        }
+
+        await AssignLeagueRoleAsync(dbContext, targetUser.Id, league.Id, LeagueRole.Admin);
+        await dbContext.SaveChangesAsync();
+
+        logger.LogOperationSuccess(operation, new { leagueId, targetUser = targetUser.Id });
+        return Results.Ok();
+    }
+
     private static async Task AssignLeagueRoleAsync(
         AppIdentityDbContext dbContext,
         string userId,
@@ -597,5 +669,33 @@ public static partial class LeaguesEndpoint
             assignment.Roles |= role;
             dbContext.LeagueRoleAssignments.Update(assignment);
         }
+    }
+
+    private static async Task RemoveLeagueRoleAsync(
+        AppIdentityDbContext dbContext,
+        string userId,
+        int leagueId)
+    {
+        var assignment = await dbContext.LeagueRoleAssignments
+            .FirstOrDefaultAsync(x => x.LeagueId == leagueId && x.UserId == userId);
+
+        if (assignment != null)
+        {
+            dbContext.LeagueRoleAssignments.Remove(assignment);
+        }
+    }
+
+    private static async Task<bool> IsLeagueAdminAsync(
+        AppIdentityDbContext dbContext,
+        League league,
+        string userId)
+    {
+        if (league.OwnerId == userId) return true;
+
+        var assignment = await dbContext.LeagueRoleAssignments
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.LeagueId == league.Id && x.UserId == userId);
+
+        return assignment?.Roles.HasFlag(LeagueRole.Admin) == true;
     }
 }

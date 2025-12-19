@@ -42,7 +42,7 @@ public static partial class LeaguesEndpoint
         group.MapGet("/{id:int}/invite", GetInviteCodeAsync)
             .RequireAuthorization()
             .WithSummary("Get league invite code")
-            .WithDescription("Generates or retrieves invite code for league participation")
+            .WithDescription("Generates or retrieves invite code for league participation. Only admins can call this route")
             .Produces<string>()
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")

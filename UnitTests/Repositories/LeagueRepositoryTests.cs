@@ -1,7 +1,10 @@
+using System.Text.Json;
+using Core.Enums;
 using Core.Models.Identity;
 using FluentAssertions;
 using Infrastructure.Data;
 using Infrastructure.Identity;
+using Microsoft.EntityFrameworkCore;
 using TestUtilities.Builders;
 using TestUtilities.Database;
 
@@ -296,6 +299,101 @@ public class LeagueRepositoryTests : IDisposable
         // Note: In a real test, you'd load the navigation properties
         var userLeagueCount = _identityContext.UserLeagues.Count(ul => ul.LeagueId == league.Id);
         userLeagueCount.Should().Be(2, "because two users joined the league");
+    }
+
+    [Fact]
+    public async Task RoleAssignments_AddingPlayerRole_PersistsAssignment()
+    {
+        var owner = _testDataBuilder.CreateUser("role-owner@test.com", "role_owner");
+        var player = _testDataBuilder.CreateUser("role-player@test.com", "role_player");
+        _identityContext.Users.AddRange(owner, player);
+        await _identityContext.SaveChangesAsync();
+
+        var league = _testDataBuilder.CreateLeague(owner.Id);
+        league.Code = "ROLEADD";
+        _identityContext.Leagues.Add(league);
+        await _identityContext.SaveChangesAsync();
+
+        var assignment = new LeagueRoleAssignment
+        {
+            LeagueId = league.Id,
+            UserId = player.Id,
+            Roles = LeagueRole.Player
+        };
+        _identityContext.LeagueRoleAssignments.Add(assignment);
+        await _identityContext.SaveChangesAsync();
+
+        var saved = await _identityContext.LeagueRoleAssignments
+            .FirstOrDefaultAsync(x => x.LeagueId == league.Id && x.UserId == player.Id);
+
+        saved.Should().NotBeNull();
+        saved!.Roles.Should().Be(LeagueRole.Player);
+    }
+
+    [Fact]
+    public async Task RoleAssignments_UpdatingExistingAssignment_MergesRoles()
+    {
+        var owner = _testDataBuilder.CreateUser("merge-owner@test.com", "merge_owner");
+        var player = _testDataBuilder.CreateUser("merge-player@test.com", "merge_player");
+        _identityContext.Users.AddRange(owner, player);
+        await _identityContext.SaveChangesAsync();
+
+        var league = _testDataBuilder.CreateLeague(owner.Id);
+        league.Code = "ROLEMERGE";
+        _identityContext.Leagues.Add(league);
+        await _identityContext.SaveChangesAsync();
+
+        var assignment = new LeagueRoleAssignment
+        {
+            LeagueId = league.Id,
+            UserId = player.Id,
+            Roles = LeagueRole.Player
+        };
+        _identityContext.LeagueRoleAssignments.Add(assignment);
+        await _identityContext.SaveChangesAsync();
+
+        assignment.Roles |= LeagueRole.Admin;
+        _identityContext.LeagueRoleAssignments.Update(assignment);
+        await _identityContext.SaveChangesAsync();
+
+        var saved = await _identityContext.LeagueRoleAssignments
+            .FirstOrDefaultAsync(x => x.LeagueId == league.Id && x.UserId == player.Id);
+
+        saved.Should().NotBeNull();
+        saved!.Roles.Should().Be(LeagueRole.Player | LeagueRole.Admin);
+    }
+
+    [Fact]
+    public void RoleAssignments_Serialization_DoesNotExposeUserDetails()
+    {
+        var owner = _testDataBuilder.CreateUser("json-owner@test.com", "json_owner");
+        var player = _testDataBuilder.CreateUser("json-player@test.com", "json_player");
+        var league = _testDataBuilder.CreateLeague(owner.Id);
+        league.Id = 123;
+
+        var assignment = new LeagueRoleAssignment
+        {
+            Id = 456,
+            LeagueId = league.Id,
+            UserId = player.Id,
+            Roles = LeagueRole.Admin,
+            User = player,
+            League = league
+        };
+        league.RoleAssignments.Add(assignment);
+
+        var json = JsonSerializer.Serialize(league, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+
+        using var document = JsonDocument.Parse(json);
+        var assignments = document.RootElement.GetProperty("roleAssignments");
+        assignments.GetArrayLength().Should().Be(1);
+        var firstAssignment = assignments[0];
+        firstAssignment.GetProperty("userId").GetString().Should().Be(player.Id);
+        firstAssignment.TryGetProperty("user", out _).Should().BeFalse();
+        firstAssignment.TryGetProperty("league", out _).Should().BeFalse();
     }
 
     public void Dispose()

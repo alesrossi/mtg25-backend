@@ -8,6 +8,8 @@ using Core.Models.Identity;
 using Infrastructure.Identity;
 using TestUtilities.Authentication;
 using TestUtilities.Builders;
+using Core.Enums;
+using Microsoft.EntityFrameworkCore;
 
 namespace IntegrationTests.Controllers;
 
@@ -204,29 +206,39 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task UpdateLeague_WithUnauthorizedUser_ReturnsForbidden()
+    public async Task UpdateLeague_WithNonAdminUser_ReturnsUnauthorized()
     {
-        // Arrange
         var owner = await CreateTestUserAsync("owner@example.com", "owner");
         var otherUser = await CreateTestUserAsync("other@example.com", "other");
         var league = await CreateTestLeagueAsync("Owner's League", owner.Id);
-        
-        // Try to update as different user
+
         using var client = _factory.CreateClientWithUser(otherUser.Id, otherUser.UserName!, otherUser.Email!);
 
-        var updateRequest = new UpdateLeagueDto
+        var updateRequest = new UpdateLeagueDto { Name = "Hijacked League" };
+        var response = await client.PutAsync($"/api/leagues/{league.Id}",
+            new StringContent(JsonSerializer.Serialize(updateRequest), Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task UpdateLeague_WithDelegatedAdmin_UpdatesLeague()
+    {
+        var owner = await CreateTestUserAsync("delegated-owner@example.com", "delegated_owner");
+        var admin = await CreateTestUserAsync("delegated-admin@example.com", "delegated_admin");
+        var league = await CreateTestLeagueAsync("Delegated League", owner.Id);
+        await GrantAdminRoleAsync(admin.Id, league.Id);
+        using var client = _factory.CreateClientWithUser(admin.Id, admin.UserName!, admin.Email!);
+
+        var updateRequest = new UpdateLeagueDto { Name = "Delegated Update", CurrentRound = league.CurrentRound };
+        var response = await client.PutAsync($"/api/leagues/{league.Id}",
+            new StringContent(JsonSerializer.Serialize(updateRequest), Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        if (response.StatusCode == HttpStatusCode.OK)
         {
-            Name = "Hijacked League"
-        };
-
-        var json = JsonSerializer.Serialize(updateRequest);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        // Act
-        var response = await client.PutAsync($"/api/leagues/{league.Id}", content);
-
-        // Assert
-        response.StatusCode.Should().BeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden);
+            await VerifyLeagueUpdatedInDatabase(league.Id, "Delegated Update");
+        }
     }
 
     [Fact]
@@ -298,6 +310,20 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task UpdateLeagueFromResults_WithNonAdminUser_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("resulter-owner@example.com", "resulter_owner");
+        var outsider = await CreateTestUserAsync("resulter-outsider@example.com", "resulter_outsider");
+        var league = await CreateTestLeagueAsync("Restricted Results", owner.Id);
+        using var client = _factory.CreateClientWithUser(outsider.Id, outsider.UserName!, outsider.Email!);
+
+        var response = await client.PatchAsync($"/api/leagues/{league.Id}/results",
+            new StringContent(JsonSerializer.Serialize(new List<UserWithScore>()), Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task UpdateLeagueFromResults_WithoutAuthentication_ReturnsUnauthorized()
     {
         var owner = await CreateTestUserAsync("resulter-noauth@example.com", "resulter_noauth");
@@ -364,6 +390,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             createdLeague.Name.Should().Be(createRequest.Name);
             createdLeague.OwnerId.Should().Be(user.Id);
             createdLeague.Code.Length.Should().Be(6);
+            await VerifyRoleAssignmentAsync(user.Id, createdLeague!.Id, LeagueRole.Admin);
         }
     }
 
@@ -575,6 +602,10 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             new StringContent(string.Empty, Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+        if (response.StatusCode == HttpStatusCode.OK)
+        {
+            await AssertNoRoleAssignmentAsync(joiner.Id, league.Id);
+        }
     }
 
     [Fact]
@@ -678,6 +709,10 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             new StringContent(string.Empty, Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+        if (response.StatusCode == HttpStatusCode.OK)
+        {
+            await VerifyRoleAssignmentAsync(owner.Id, league.Id, LeagueRole.Player);
+        }
     }
 
     [Fact]
@@ -761,6 +796,22 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task GetInviteCode_WithDelegatedAdmin_ReturnsCode()
+    {
+        var owner = await CreateTestUserAsync("invite-owner3@example.com", "invite_owner3");
+        var admin = await CreateTestUserAsync("invite-admin@example.com", "invite_admin");
+        var league = await CreateTestLeagueAsync("Invite League 3", owner.Id);
+        await GrantAdminRoleAsync(admin.Id, league.Id);
+        using var client = _factory.CreateClientWithUser(admin.Id, admin.UserName!, admin.Email!);
+
+        var response = await client.GetAsync($"/api/leagues/{league.Id}/invite");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var code = await response.Content.ReadAsStringAsync();
+        code.Should().Contain(league.Code);
+    }
+
+    [Fact]
     public async Task GetInviteCode_WithInvalidLeague_ReturnsNotFound()
     {
         var owner = await CreateTestUserAsync("invite-missing@example.com", "invite_missing");
@@ -769,6 +820,68 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var response = await client.GetAsync($"/api/leagues/{int.MaxValue}/invite");
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task PromoteLeagueAdmin_WithOwnerPromotingMember_ReturnsOk()
+    {
+        var owner = await CreateTestUserAsync("promote-owner@example.com", "promote_owner");
+        var player = await CreateTestUserAsync("promote-player@example.com", "promote_player");
+        var league = await CreateTestLeagueAsync("Promotion League", owner.Id);
+        await AssociateUserWithLeagueAsync(player.Id, league.Id);
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var response = await client.PatchAsync($"/api/leagues/{league.Id}/promote/{player.Id}",
+            new StringContent(string.Empty, Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        if (response.StatusCode == HttpStatusCode.OK)
+        {
+            await VerifyRoleAssignmentAsync(player.Id, league.Id, LeagueRole.Admin);
+        }
+    }
+
+    [Fact]
+    public async Task PromoteLeagueAdmin_WithNonOwner_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("promote-owner2@example.com", "promote_owner2");
+        var intruder = await CreateTestUserAsync("promote-intruder@example.com", "promote_intruder");
+        var player = await CreateTestUserAsync("promote-player2@example.com", "promote_player2");
+        var league = await CreateTestLeagueAsync("Promotion Lock", owner.Id);
+        await AssociateUserWithLeagueAsync(player.Id, league.Id);
+        using var client = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
+
+        var response = await client.PatchAsync($"/api/leagues/{league.Id}/promote/{player.Id}",
+            new StringContent(string.Empty, Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task PromoteLeagueAdmin_WithUnknownTargetUser_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("promote-owner3@example.com", "promote_owner3");
+        var league = await CreateTestLeagueAsync("Promotion Missing", owner.Id);
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var response = await client.PatchAsync($"/api/leagues/{league.Id}/promote/{Guid.NewGuid()}",
+            new StringContent(string.Empty, Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task PromoteLeagueAdmin_WithUserNotInLeague_ReturnsBadRequest()
+    {
+        var owner = await CreateTestUserAsync("promote-owner4@example.com", "promote_owner4");
+        var league = await CreateTestLeagueAsync("Promotion Membership", owner.Id);
+        var outsider = await CreateTestUserAsync("promote-outsider@example.com", "promote_outsider");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var response = await client.PatchAsync($"/api/leagues/{league.Id}/promote/{outsider.Id}",
+            new StringContent(string.Empty, Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     #region Helper Methods
@@ -817,6 +930,78 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         
         dbContext.UserLeagues.Add(userLeague);
         await dbContext.SaveChangesAsync();
+
+        var assignment = await dbContext.LeagueRoleAssignments
+            .FirstOrDefaultAsync(x => x.UserId == userId && x.LeagueId == leagueId);
+        if (assignment == null)
+        {
+            assignment = new LeagueRoleAssignment
+            {
+                UserId = userId,
+                LeagueId = leagueId,
+                Roles = LeagueRole.Player
+            };
+            dbContext.LeagueRoleAssignments.Add(assignment);
+        }
+        else if (!assignment.Roles.HasFlag(LeagueRole.Player))
+        {
+            assignment.Roles |= LeagueRole.Player;
+            dbContext.LeagueRoleAssignments.Update(assignment);
+        }
+
+        await dbContext.SaveChangesAsync();
+    }
+
+    private async Task GrantAdminRoleAsync(string userId, int leagueId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+
+        var assignment = await dbContext.LeagueRoleAssignments
+            .FirstOrDefaultAsync(x => x.UserId == userId && x.LeagueId == leagueId);
+
+        if (assignment == null)
+        {
+            assignment = new LeagueRoleAssignment
+            {
+                UserId = userId,
+                LeagueId = leagueId,
+                Roles = LeagueRole.Admin
+            };
+            dbContext.LeagueRoleAssignments.Add(assignment);
+        }
+        else if (!assignment.Roles.HasFlag(LeagueRole.Admin))
+        {
+            assignment.Roles |= LeagueRole.Admin;
+            dbContext.LeagueRoleAssignments.Update(assignment);
+        }
+
+        await dbContext.SaveChangesAsync();
+    }
+
+    private async Task AssertNoRoleAssignmentAsync(string userId, int leagueId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+
+        var assignment = await dbContext.LeagueRoleAssignments
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.UserId == userId && x.LeagueId == leagueId);
+
+        assignment.Should().BeNull();
+    }
+
+    private async Task VerifyRoleAssignmentAsync(string userId, int leagueId, LeagueRole expectedRole)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+
+        var assignment = await dbContext.LeagueRoleAssignments
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.UserId == userId && x.LeagueId == leagueId);
+
+        assignment.Should().NotBeNull();
+        assignment!.Roles.HasFlag(expectedRole).Should().BeTrue();
     }
     
     private async Task<Notification> CreateNotificationForUserAsync(string userId, string origin, bool approval)
