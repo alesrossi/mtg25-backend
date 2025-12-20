@@ -209,7 +209,7 @@ public static partial class LeaguesEndpoint
             .AsNoTracking()
             .FirstOrDefaultAsync();
 
-        if (res is null)
+        if (userId != league.OwnerId && res is null)
         {
             logger.LogOperationWarning("Leagues.GetById", "User not in league", new { id, userId });
             return Results.Unauthorized();
