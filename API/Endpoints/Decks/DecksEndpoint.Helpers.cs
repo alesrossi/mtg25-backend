@@ -17,6 +17,7 @@ public static partial class DecksEndpoint
             NumberOfMainBoardCards = deck.NumberOfMainBoardCards,
             NumberOfSideBoardCards = deck.NumberOfSideBoardCards,
             TotalPrice = deck.TotalPrice,
+            TotalPriceCurrency = deck.TotalPriceCurrency,
             ColorIdentity = deck.ColorIdentity.ToList(),
             OwnerId = deck.OwnerId
         };

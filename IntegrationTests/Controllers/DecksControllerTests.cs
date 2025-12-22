@@ -772,6 +772,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         deck.Name = name;
         deck.NumberOfCards = 60;
         deck.TotalPrice = 100.0;
+        deck.TotalPriceCurrency = Currency.Eur;
         
         dbContext.Decks.Add(deck);
         await dbContext.SaveChangesAsync();

@@ -102,6 +102,7 @@ public class TestDataBuilder
         return _fixture.Build<Deck>()
             .With(d => d.OwnerId, userId)
             .With(d => d.Format, format ?? validFormats[_random.Next(validFormats.Length)])
+            .With(d => d.TotalPriceCurrency, Currency.Eur)
             .Without(d => d.Id)
             .Without(d => d.DeckCards) // Initialize as empty collection
             .Create();

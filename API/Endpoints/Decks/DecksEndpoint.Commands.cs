@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Security.Claims;
 using API.Dtos.Decks;
@@ -6,8 +7,11 @@ using API.Logging;
 using API.Services;
 using Core.Interfaces;
 using Core.Models;
+using Core.Models.Identity;
 using Core.Specifications;
+using Infrastructure.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace API.Endpoints.Decks;
 
@@ -336,7 +340,7 @@ public static partial class DecksEndpoint
         DeckCardDto updatedDeckCard;
         try
         {
-            updatedDeckCard = (await deckCardService.UpdateDeckCardVersionAsync(id, updateDto, scryfallCard, cardDataService))!;
+            updatedDeckCard = (await deckCardService.UpdateDeckCardVersionAsync(id, updateDto, scryfallCard))!;
 
             unitOfWork.Repository<DeckCard>().Update(deckCard);
             await unitOfWork.Complete();
@@ -405,6 +409,8 @@ public static partial class DecksEndpoint
         [FromServices] IValidationService validationService,
         IUnitOfWork unitOfWork,
         ClaimsPrincipal user,
+        [FromServices] CardDataService cardDataService,
+        [FromServices] AppIdentityDbContext identityDbContext,
         [FromServices] ILogger<DecksEndpointLogCategory> logger)
     {
         const string operation = "Decks.Import";
@@ -452,23 +458,36 @@ public static partial class DecksEndpoint
             Format = importDto.Format.Trim(),
             OwnerId = userId,
             NumberOfCards = 0,
-            TotalPrice = 0
+            TotalPrice = 0,
+            TotalPriceCurrency = null
         };
 
         unitOfWork.Repository<Deck>().Add(deck);
         await unitOfWork.Complete();
 
         var createdCards = new List<DeckCardDto>();
+        var settings = await identityDbContext.Settings
+            .Where(s => s.AppUserId == userId)
+            .AsNoTracking()
+            .FirstOrDefaultAsync();
+        var marketProvider = settings?.MarketProvider ?? MarketProvider.Mkm;
+        deck.TotalPriceCurrency = marketProvider == MarketProvider.Mkm ? Currency.Eur : Currency.Usd;
+        double totalPrice = 0;
         foreach (var deckCardDto in parseResult.DeckCards)
         {
             var created = await deckCardService.CreateDeckCardAsync(deck.Id, deckCardDto);
             deck.ColorIdentity.AddRange(created.ColorIdentity.Except(deck.ColorIdentity));
             createdCards.Add(created);
+
+            var cardPrice = ResolveCardMarketPrice(cardDataService, deckCardDto.ScryfallId, marketProvider);
+            var quantity = deckCardDto.MaindeckQuantity + deckCardDto.SideboardQuantity;
+            totalPrice += cardPrice * quantity;
         }
 
         deck.NumberOfCards = createdCards.Sum(dc => dc.MaindeckQuantity + dc.SideboardQuantity);
         deck.NumberOfMainBoardCards = createdCards.Sum(dc => dc.MaindeckQuantity);
         deck.NumberOfSideBoardCards = createdCards.Sum(dc => dc.SideboardQuantity);
+        deck.TotalPrice = Math.Round(totalPrice, 2, MidpointRounding.AwayFromZero);
         unitOfWork.Repository<Deck>().Update(deck);
         await unitOfWork.Complete();
 
@@ -507,5 +526,26 @@ public static partial class DecksEndpoint
         }
 
         return filteredLines.ToArray();
+    }
+
+    private static double ResolveCardMarketPrice(CardDataService cardDataService, string scryfallId, MarketProvider provider)
+    {
+        if (!cardDataService.CardDataById.TryGetValue(scryfallId, out var cardData) || cardData?.Prices is null)
+        {
+            return 0;
+        }
+
+        var priceText = provider == MarketProvider.Mkm
+            ? cardData.Prices.Eur
+            : cardData.Prices.Usd;
+
+        if (string.IsNullOrWhiteSpace(priceText))
+        {
+            return 0;
+        }
+
+        return double.TryParse(priceText, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : 0;
     }
 }

@@ -10,6 +10,7 @@ public class Deck : BaseModel
     public int NumberOfMainBoardCards { get; set; }
     public int NumberOfSideBoardCards { get; set; }
     public double TotalPrice { get; set; }
+    public Currency? TotalPriceCurrency { get; set; }
     public required string OwnerId { get; set; }
     public string? Image { get; set; }
     public List<string> ColorIdentity { get; set; } = [];

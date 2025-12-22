@@ -1,3 +1,5 @@
+using Core.Models.Identity;
+
 namespace API.Dtos.Decks;
 
 public class DeckCardDto
@@ -19,6 +21,8 @@ public class DeckCardDto
     public int SideboardQuantity { get; set; }
     public int? OwnedCardId { get; set; }
     public int OwnedQuantity { get; set; }
+    public double? Price { get; set; }
+    public MarketProvider? PriceCurrency { get; set; }
     public bool IsOwned => OwnedCardId.HasValue;
     public int TotalQuantity => MaindeckQuantity + SideboardQuantity;
     public string OwnershipStatus => GetOwnershipStatus();

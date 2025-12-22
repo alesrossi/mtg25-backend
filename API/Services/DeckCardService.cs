@@ -1,10 +1,14 @@
+using System.Globalization;
 using System.Linq;
 using API.Dtos.Cards;
 using API.Dtos.Decks;
 using API.Logging;
 using Core.Interfaces;
 using Core.Models;
+using Core.Models.Identity;
 using Core.Specifications;
+using Infrastructure.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace API.Services;
@@ -13,16 +17,20 @@ public class DeckCardService
 {
     private readonly IUnitOfWork unitOfWork;
     private readonly ILogger<DeckCardService> logger;
+    private readonly CardDataService cardDataService;
+    private readonly AppIdentityDbContext identityDbContext;
 
     private const string GetDeckCardsOperation = "DeckCards.Fetch";
     private const string CreateDeckCardOperation = "DeckCards.Create";
     private const string UpdateDeckCardOperation = "DeckCards.Update";
     private const string DeleteDeckCardOperation = "DeckCards.Delete";
 
-    public DeckCardService(IUnitOfWork unitOfWork, ILogger<DeckCardService> logger)
+    public DeckCardService(IUnitOfWork unitOfWork, ILogger<DeckCardService> logger, CardDataService cardDataService, AppIdentityDbContext identityDbContext)
     {
         this.unitOfWork = unitOfWork;
         this.logger = logger;
+        this.cardDataService = cardDataService;
+        this.identityDbContext = identityDbContext;
     }
 
     public async Task<IEnumerable<DeckCardDto>> GetDeckCardsAsync(int deckId, bool maindeckOnly = false, bool sideboardOnly = false, bool? ownedOnly = null)
@@ -39,7 +47,7 @@ public class DeckCardService
         };
         
         var deckCards = await unitOfWork.Repository<DeckCard>().ListAsync(spec, tracking: false);
-        
+
         // Get the deck owner for collection lookup
         var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
         if (deck == null)
@@ -47,6 +55,8 @@ public class DeckCardService
             logger.LogOperationWarning(GetDeckCardsOperation, "Deck not found", new { deckId });
             return [];
         }
+
+        var marketProvider = await ResolveMarketProviderAsync(deck.OwnerId);
         
         // Get all scryfall IDs from deck cards
         var ids = (deckCards ?? []).Select(dc => dc.ScryfallId).Distinct().ToList();
@@ -79,7 +89,7 @@ public class DeckCardService
         }
         
         // Map to DTOs using the lookup
-        var result = (deckCards ?? []).Select(dc => MapToDtoWithLookup(dc, ownedCardsLookup)).ToList();
+        var result = (deckCards ?? []).Select(dc => MapToDtoWithLookup(dc, ownedCardsLookup, marketProvider)).ToList();
         
         // Apply ownership filter if specified
         if (ownedOnly.HasValue)
@@ -106,7 +116,11 @@ public class DeckCardService
             
         var deckCards = await unitOfWork.Repository<DeckCard>().ListAsync(spec, tracking: false);
 
-        var mapped = deckCards?.Select(MapToDto).ToList() ?? [];
+        var marketProvider = deckId.HasValue
+            ? await ResolveMarketProviderForDeckAsync(deckId.Value)
+            : (!string.IsNullOrEmpty(userId) ? await ResolveMarketProviderAsync(userId) : MarketProvider.Mkm);
+
+        var mapped = deckCards?.Select(dc => MapToDto(dc, marketProvider)).ToList() ?? [];
         logger.LogOperationSuccess(operation, new { scryfallId = scryfallId, Count = mapped.Count });
         return mapped;
     }
@@ -131,7 +145,8 @@ public class DeckCardService
             return null;
         }
         
-        var dto = await MapToDtoAsync(deckCard, deck.OwnerId);
+        var marketProvider = await ResolveMarketProviderAsync(deck.OwnerId);
+        var dto = await MapToDtoAsync(deckCard, deck.OwnerId, marketProvider);
         logger.LogOperationSuccess(operation, new { id, deckCard.DeckId });
         return dto;
     }
@@ -182,7 +197,8 @@ public class DeckCardService
             throw new InvalidOperationException("Deck not found");
         }
         
-        var dto = await MapToDtoAsync(deckCard, deck.OwnerId);
+        var marketProvider = await ResolveMarketProviderAsync(deck.OwnerId);
+        var dto = await MapToDtoAsync(deckCard, deck.OwnerId, marketProvider);
         logger.LogOperationSuccess(CreateDeckCardOperation, new { deckCard.Id, deckId });
         return dto;
     }
@@ -221,12 +237,13 @@ public class DeckCardService
             return null;
         }
         
-        var dto = await MapToDtoAsync(updatedDeckCard, deck.OwnerId);
+        var marketProvider = await ResolveMarketProviderAsync(deck.OwnerId);
+        var dto = await MapToDtoAsync(updatedDeckCard, deck.OwnerId, marketProvider);
         logger.LogOperationSuccess(UpdateDeckCardOperation, new { id, updatedDeckCard.DeckId });
         return dto;
     }
     
-    public async Task<DeckCardDto?> UpdateDeckCardVersionAsync(int id, UpdateDeckCardVersionDto updateDto, ScryfallCardDto scryfallCard, CardDataService cardDataService)
+    public async Task<DeckCardDto?> UpdateDeckCardVersionAsync(int id, UpdateDeckCardVersionDto updateDto, ScryfallCardDto scryfallCard)
     {
         using var scope = logger.BeginOperationScope(UpdateDeckCardOperation, id);
         logger.LogOperationStart(UpdateDeckCardOperation, new { id });
@@ -272,7 +289,8 @@ public class DeckCardService
             return null;
         }
         
-        var dto = await MapToDtoAsync(updatedDeckCard, deck.OwnerId);
+        var marketProvider = await ResolveMarketProviderAsync(deck.OwnerId);
+        var dto = await MapToDtoAsync(updatedDeckCard, deck.OwnerId, marketProvider);
         logger.LogOperationSuccess(UpdateDeckCardOperation, new { id, updatedDeckCard.DeckId });
         return dto;
     }
@@ -296,8 +314,9 @@ public class DeckCardService
         return true;
     }
 
-    private static DeckCardDto MapToDto(DeckCard deckCard)
+    private DeckCardDto MapToDto(DeckCard deckCard, MarketProvider marketProvider)
     {
+        var price = ResolveMarketPrice(deckCard.ScryfallId, marketProvider);
         return new DeckCardDto
         {
             Id = deckCard.Id,
@@ -316,11 +335,13 @@ public class DeckCardService
             MaindeckQuantity = deckCard.MaindeckQuantity,
             SideboardQuantity = deckCard.SideboardQuantity,
             OwnedCardId = deckCard.OwnedCardId,
-            OwnedQuantity = deckCard.OwnedCard?.Quantity ?? 0
+            OwnedQuantity = deckCard.OwnedCard?.Quantity ?? 0,
+            Price = price,
+            PriceCurrency = price.HasValue ? marketProvider : null
         };
     }
 
-    private async Task<DeckCardDto> MapToDtoAsync(DeckCard deckCard, string ownerId)
+    private async Task<DeckCardDto> MapToDtoAsync(DeckCard deckCard, string ownerId, MarketProvider marketProvider)
     {
         // Find all collections owned by the user
         var userCollectionsSpec = new CollectionWithOwnerSpecification(ownerId);
@@ -346,6 +367,7 @@ public class DeckCardService
             }
         }
         
+        var price = ResolveMarketPrice(deckCard.ScryfallId, marketProvider);
         return new DeckCardDto
         {
             Id = deckCard.Id,
@@ -364,15 +386,18 @@ public class DeckCardService
             MaindeckQuantity = deckCard.MaindeckQuantity,
             SideboardQuantity = deckCard.SideboardQuantity,
             OwnedCardId = firstOwnedCard?.Id ?? deckCard.OwnedCardId,
-            OwnedQuantity = totalOwnedQuantity
+            OwnedQuantity = totalOwnedQuantity,
+            Price = price,
+            PriceCurrency = price.HasValue ? marketProvider : null
         };
     }
 
-    private static DeckCardDto MapToDtoWithLookup(DeckCard deckCard, Dictionary<string, List<Card>> ownedCardsLookup)
+    private DeckCardDto MapToDtoWithLookup(DeckCard deckCard, Dictionary<string, List<Card>> ownedCardsLookup, MarketProvider marketProvider)
     {
         var ownedCards = ownedCardsLookup.TryGetValue(deckCard.ScryfallId, out var cards) ? cards : new List<Card>();
         var totalOwnedQuantity = ownedCards.Sum(c => c.Quantity);
         var firstOwnedCard = ownedCards.FirstOrDefault();
+        var price = ResolveMarketPrice(deckCard.ScryfallId, marketProvider);
         
         return new DeckCardDto
         {
@@ -391,7 +416,44 @@ public class DeckCardService
             MaindeckQuantity = deckCard.MaindeckQuantity,
             SideboardQuantity = deckCard.SideboardQuantity,
             OwnedCardId = firstOwnedCard?.Id ?? deckCard.OwnedCardId,
-            OwnedQuantity = totalOwnedQuantity
+            OwnedQuantity = totalOwnedQuantity,
+            Price = price,
+            PriceCurrency = price.HasValue ? marketProvider : null
         };
+    }
+
+    private async Task<MarketProvider> ResolveMarketProviderAsync(string ownerId)
+    {
+        var settings = await identityDbContext.Settings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.AppUserId == ownerId);
+        return settings?.MarketProvider ?? MarketProvider.Mkm;
+    }
+
+    private async Task<MarketProvider> ResolveMarketProviderForDeckAsync(int deckId)
+    {
+        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
+        return deck is null ? MarketProvider.Mkm : await ResolveMarketProviderAsync(deck.OwnerId);
+    }
+
+    private double? ResolveMarketPrice(string scryfallId, MarketProvider marketProvider)
+    {
+        if (!cardDataService.CardDataById.TryGetValue(scryfallId, out var marketData) || marketData?.Prices is null)
+        {
+            return null;
+        }
+
+        var priceText = marketProvider == MarketProvider.Mkm
+            ? marketData.Prices.Eur
+            : marketData.Prices.Usd;
+
+        if (string.IsNullOrWhiteSpace(priceText))
+        {
+            return null;
+        }
+
+        return double.TryParse(priceText, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : null;
     }
 }
