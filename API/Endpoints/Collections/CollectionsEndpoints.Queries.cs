@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using API.Dtos.Cards;
 using API.Endpoints.Cards;
@@ -113,59 +114,42 @@ public static partial class CollectionsEndpoints
             return grouped;
         }
 
-        var spec = new CardsWithParamsSpecification(entityParams, id);
-        var size = await unitOfWork.Repository<Card>().CountAsync(spec);
-        var cards = await unitOfWork.Repository<Card>().ListAsync(spec, tracking: false);
+        var sortByCurrentPrice = SortsByCurrentPrice(entityParams.Sort);
+        var listingSpec = sortByCurrentPrice
+            ? new CardsWithParamsSpecification(entityParams, id, applySorting: false, applyPaging: false)
+            : new CardsWithParamsSpecification(entityParams, id);
+
+        var cards = await unitOfWork.Repository<Card>().ListAsync(listingSpec, tracking: false) ?? Array.Empty<Card>();
 
         var settings = await dbContext.Settings
             .Where(ul => ul.AppUserId == userId)
             .AsNoTracking()
             .FirstOrDefaultAsync();
-        
-        List<ExtensiveCardDto> cardList = [];
         var marketProvider = settings?.MarketProvider ?? MarketProvider.Mkm;
+        var mappedCards = new List<ExtensiveCardDto>(cards.Count);
         foreach (var card in cards)
         {
-            double? price = null;
-            if (settings is not null && cds.CardDataById.TryGetValue(card.ScryfallId, out var marketData) && marketData?.Prices is not null)
-            {
-                if (settings.MarketProvider == MarketProvider.Mkm)
-                {
-                    if (card.IsFoil)
-                    {
-                        var eur = marketData.Prices!.EurFoil;
-                        if (eur != null)
-                            price = double.Parse(eur);
-                    }
-                    else
-                    {
-                        var eur = marketData.Prices!.Eur;
-                        if (eur != null)
-                            price = double.Parse(eur);
-                    }
-                }
-                else
-                {
-                    if (card.IsFoil)
-                    {
-                        var usd = marketData.Prices!.UsdFoil;
-                        if (usd != null)
-                            price = double.Parse(usd);
-                    }
-                    else
-                    {
-                        var usd = marketData.Prices!.Usd;
-                        if (usd != null)
-                            price = double.Parse(usd);
-                    }
-                }
-            }
-            
-            cardList.Add(CardsEndpointsHelpers.MapToDto(card, price, marketProvider));
+            var (price, resolvedProvider) = ResolveMarketPrice(card, cds, marketProvider);
+            mappedCards.Add(CardsEndpointsHelpers.MapToDto(card, price, resolvedProvider));
+        }
+
+        int size;
+        if (sortByCurrentPrice)
+        {
+            var skip = entityParams.PageSize * (entityParams.PageIndex - 1);
+            mappedCards = SortByCurrentPrice(mappedCards, entityParams.Sort)
+                .Skip(skip)
+                .Take(entityParams.PageSize)
+                .ToList();
+            size = cards.Count;
+        }
+        else
+        {
+            size = await unitOfWork.Repository<Card>().CountAsync(listingSpec);
         }
         
-        logger.LogOperationSuccess(operation, new { id, entityParams.PageIndex, entityParams.PageSize, Count = cards?.Count });
-        return Results.Ok(new Pagination<ExtensiveCardDto>(entityParams.PageIndex, entityParams.PageSize, size, cardList));
+        logger.LogOperationSuccess(operation, new { id, entityParams.PageIndex, entityParams.PageSize, entityParams.Sort, Count = mappedCards.Count });
+        return Results.Ok(new Pagination<ExtensiveCardDto>(entityParams.PageIndex, entityParams.PageSize, size, mappedCards));
     }
 
     private static async Task<IResult> GetAllCollectionsForUser(
@@ -268,5 +252,55 @@ public static partial class CollectionsEndpoints
 
         logger.LogOperationSuccess("Collections.GetCards", new { collectionId, entityParams.GroupBy, Groups = paginatedGroups.Count });
         return Results.Ok(result);
+    }
+
+    private static bool SortsByCurrentPrice(string? sort) =>
+        string.Equals(sort, "currentPriceAsc", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(sort, "currentPriceDesc", StringComparison.OrdinalIgnoreCase);
+
+    private static IEnumerable<ExtensiveCardDto> SortByCurrentPrice(IEnumerable<ExtensiveCardDto> cards, string? sort)
+    {
+        var ordered = cards.OrderBy(c => c.Price.HasValue ? 0 : 1);
+        var descending = string.Equals(sort, "currentPriceDesc", StringComparison.OrdinalIgnoreCase);
+        return descending
+            ? ordered.ThenByDescending(c => c.Price ?? double.MinValue)
+            : ordered.ThenBy(c => c.Price ?? double.MaxValue);
+    }
+
+    private static (double? price, MarketProvider? provider) ResolveMarketPrice(Card card, CardDataService cds, MarketProvider preferredProvider)
+    {
+        if (!cds.CardDataById.TryGetValue(card.ScryfallId, out var marketData) || marketData?.Prices is null)
+        {
+            return (null, preferredProvider);
+        }
+
+        var prices = marketData.Prices;
+        foreach (var provider in EnumerateProviders(preferredProvider))
+        {
+            var selected = provider == MarketProvider.Mkm
+                ? (card.IsFoil ? prices.EurFoil : prices.Eur)
+                : (card.IsFoil ? prices.UsdFoil : prices.Usd);
+
+            var parsed = TryParsePrice(selected);
+            if (parsed.HasValue)
+            {
+                return (parsed, provider);
+            }
+        }
+
+        return (null, preferredProvider);
+    }
+
+    private static IEnumerable<MarketProvider> EnumerateProviders(MarketProvider preferred)
+    {
+        yield return preferred;
+        yield return preferred == MarketProvider.Mkm ? MarketProvider.Tcg : MarketProvider.Mkm;
+    }
+
+    private static double? TryParsePrice(string? value)
+    {
+        return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : null;
     }
 }

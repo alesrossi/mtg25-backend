@@ -4,7 +4,11 @@ namespace Core.Specifications;
 
 public class CardsWithParamsSpecification : BaseSpecification<Card>
 {
-    public CardsWithParamsSpecification(EntitySpecParams entityParams, int collectionId)
+    public CardsWithParamsSpecification(
+        EntitySpecParams entityParams,
+        int collectionId,
+        bool applySorting = true,
+        bool applyPaging = true)
         : base(x =>
             (string.IsNullOrEmpty(entityParams.Search) || x.Name.Contains(entityParams.Search)) &&
             (string.IsNullOrEmpty(entityParams.SetCode) || x.SetCode == entityParams.SetCode) &&
@@ -21,57 +25,73 @@ public class CardsWithParamsSpecification : BaseSpecification<Card>
             x.CollectionId == collectionId)
 
     {
-        AddOrderBy(x => x.Name);
-        ApplyPaging(entityParams.PageSize * (entityParams.PageIndex - 1), entityParams.PageSize);
-
-        if (!string.IsNullOrEmpty(entityParams.Sort))
+        if (applySorting)
         {
-            switch (entityParams.Sort)
-            {
-                case "priceAsc":
-                    AddOrderBy(p => p.PurchasePrice);
-                    break;
-                case "priceDesc":
-                    AddOrderByDescending(p => p.PurchasePrice);
-                    break;
-                case "nameAsc":
-                    AddOrderBy(n => n.Name);
-                    break;
-                case "nameDesc":
-                    AddOrderByDescending(n => n.Name);
-                    break;
-                case "setAsc":
-                    AddOrderBy(s => s.SetName);
-                    break;
-                case "setDesc":
-                    AddOrderByDescending(s => s.SetName);
-                    break;
-                case "rarityAsc":
-                    AddOrderBy(r => r.Rarity);
-                    break;
-                case "rarityDesc":
-                    AddOrderByDescending(r => r.Rarity);
-                    break;
-                case "typeAsc":
-                    AddOrderBy(t => t.TypeLine);
-                    break;
-                case "typeDesc":
-                    AddOrderByDescending(t => t.TypeLine);
-                    break;
-                case "quantityAsc":
-                    AddOrderBy(q => q.Quantity);
-                    break;
-                case "quantityDesc":
-                    AddOrderByDescending(q => q.Quantity);
-                    break;
-                default:
-                    AddOrderBy(n => n.Name);
-                    break;
-            }
+            ApplySorting(entityParams.Sort);
+        }
+
+        if (applyPaging)
+        {
+            ApplyPaging(entityParams.PageSize * (entityParams.PageIndex - 1), entityParams.PageSize);
         }
     }
 
     public CardsWithParamsSpecification(int id) : base(x => x.Id == id)
     {
+    }
+
+    private void ApplySorting(string? sort)
+    {
+        if (string.IsNullOrEmpty(sort))
+        {
+            AddOrderBy(n => n.Name);
+            return;
+        }
+
+        switch (sort)
+        {
+            case "priceAsc":
+                AddOrderBy(p => p.PurchasePrice);
+                break;
+            case "priceDesc":
+                AddOrderByDescending(p => p.PurchasePrice);
+                break;
+            case "nameAsc":
+                AddOrderBy(n => n.Name);
+                break;
+            case "nameDesc":
+                AddOrderByDescending(n => n.Name);
+                break;
+            case "setAsc":
+                AddOrderBy(s => s.SetName);
+                break;
+            case "setDesc":
+                AddOrderByDescending(s => s.SetName);
+                break;
+            case "rarityAsc":
+                AddOrderBy(r => r.Rarity);
+                break;
+            case "rarityDesc":
+                AddOrderByDescending(r => r.Rarity);
+                break;
+            case "typeAsc":
+                AddOrderBy(t => t.TypeLine);
+                break;
+            case "typeDesc":
+                AddOrderByDescending(t => t.TypeLine);
+                break;
+            case "quantityAsc":
+                AddOrderBy(q => q.Quantity);
+                break;
+            case "quantityDesc":
+                AddOrderByDescending(q => q.Quantity);
+                break;
+            case "currentPriceAsc":
+            case "currentPriceDesc":
+                break;
+            default:
+                AddOrderBy(n => n.Name);
+                break;
+        }
     }
 }

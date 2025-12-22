@@ -1,19 +1,24 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using API.Dtos.Cards;
 using API.Dtos.Collections;
+using API.Services;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Core.Models;
 using Core.Models.Identity;
 using Infrastructure.Data;
+using Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using TestUtilities.Authentication;
 using TestUtilities.Builders;
 using System.Linq;
+using TestUtilities.Scryfall;
 
 namespace IntegrationTests.Controllers;
 
@@ -588,6 +593,25 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         return cards;
     }
 
+    private void SeedCardMarketData(IEnumerable<(Card Card, double Price)> cardPrices)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var cardDataService = scope.ServiceProvider.GetRequiredService<CardDataService>();
+
+        var scryfallCards = cardPrices.Select(cp =>
+        {
+            var dto = _testDataBuilder.CreateOracleCard(
+                id: cp.Card.ScryfallId,
+                name: cp.Card.Name,
+                setCode: cp.Card.SetCode,
+                setName: cp.Card.SetName);
+            var priceText = cp.Price.ToString(CultureInfo.InvariantCulture);
+            return dto with { Prices = new Prices(priceText, priceText, priceText, priceText, null) };
+        }).ToList();
+
+        CardDataServiceTestHelper.Populate(cardDataService, scryfallCards);
+    }
+
     #endregion
 
     #region Card Filtering Tests
@@ -760,6 +784,66 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         result.Should().NotBeNull();
         var typeLines = result!.Data!.Select(c => c.TypeLine).ToList();
         typeLines.Should().BeInDescendingOrder();
+    }
+
+    [Fact]
+    public async Task GetCardsFromCollection_WithCurrentPriceSorting_OrdersByMarketPrice()
+    {
+        var user = await CreateTestUserAsync("currentsort@example.com", "currentsort");
+        var collection = await CreateTestCollectionAsync(user.Id, "Current Price Sort Collection");
+        var cards = await CreateTestCardsForCollectionAsync(collection.Id, count: 4);
+
+        var cardPrices = cards
+            .Select((card, index) => (card, Price: (index + 1) * 5.5))
+            .ToList();
+        SeedCardMarketData(cardPrices);
+
+        // Remove settings to ensure default provider logic still resolves prices
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var settingsEntity = await identityContext.Settings
+                .FirstOrDefaultAsync(s => s.AppUserId == user.Id);
+            if (settingsEntity is not null)
+            {
+                identityContext.Settings.Remove(settingsEntity);
+                await identityContext.SaveChangesAsync();
+            }
+        }
+
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var descResponse = await client.GetAsync($"/api/collections/{collection.Id}/cards?sort=currentPriceDesc&pageIndex=1&pageSize=10");
+        descResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var descContent = await descResponse.Content.ReadAsStringAsync();
+        var descResult = JsonSerializer.Deserialize<API.Helpers.Pagination<ExtensiveCardDto>>(
+            descContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        descResult.Should().NotBeNull();
+        descResult!.Data.Should().NotBeNull();
+        var descPrices = descResult.Data!
+            .Select(c => c.Price)
+            .Where(p => p.HasValue)
+            .Select(p => p!.Value)
+            .ToList();
+        descPrices.Should().HaveCount(cardPrices.Count);
+        descPrices.Should().BeInDescendingOrder();
+
+        var ascResponse = await client.GetAsync($"/api/collections/{collection.Id}/cards?sort=currentPriceAsc&pageIndex=1&pageSize=10");
+        ascResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var ascContent = await ascResponse.Content.ReadAsStringAsync();
+        var ascResult = JsonSerializer.Deserialize<API.Helpers.Pagination<ExtensiveCardDto>>(
+            ascContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        ascResult.Should().NotBeNull();
+        ascResult!.Data.Should().NotBeNull();
+        var ascPrices = ascResult.Data!
+            .Select(c => c.Price)
+            .Where(p => p.HasValue)
+            .Select(p => p!.Value)
+            .ToList();
+        ascPrices.Should().HaveCount(cardPrices.Count);
+        ascPrices.Should().BeInAscendingOrder();
     }
 
     [Fact]
