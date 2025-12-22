@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -68,7 +69,7 @@ public class CardDataService
 
                 if (splitNames.Length <= 1)
                 {
-                    AddOrUpdateWithOldest(splitNames.FirstOrDefault() ?? card.Name, card);
+                    AddOrUpdateWithCheapest(splitNames.FirstOrDefault() ?? card.Name, card);
                     indexed++;
                     continue;
                 }
@@ -80,7 +81,7 @@ public class CardDataService
                         continue;
                     }
 
-                    AddOrUpdateWithOldest(faceName, card with { Name = faceName });
+                    AddOrUpdateWithCheapest(faceName, card with { Name = faceName });
                     indexed++;
                 }
             }
@@ -111,7 +112,7 @@ public class CardDataService
             throw;
         }
 
-        void AddOrUpdateWithOldest(string key, ScryfallCardDto candidate)
+        void AddOrUpdateWithCheapest(string key, ScryfallCardDto candidate)
         {
             if (string.IsNullOrWhiteSpace(key))
             {
@@ -124,26 +125,47 @@ public class CardDataService
                 return;
             }
 
-            if (IsCandidateOlder(candidate, existing))
+            if (ShouldReplaceWithCheaper(candidate, existing))
             {
                 cardsByName[key] = candidate;
             }
         }
 
-        bool IsCandidateOlder(ScryfallCardDto candidate, ScryfallCardDto existing)
+        bool ShouldReplaceWithCheaper(ScryfallCardDto candidate, ScryfallCardDto existing)
         {
-            if (candidate.ReleasedAt is null)
+            var candidatePrice = GetNonFoilEuroPrice(candidate);
+            var existingPrice = GetNonFoilEuroPrice(existing);
+
+            if (candidatePrice is null && existingPrice is null)
             {
                 return false;
             }
 
-            if (existing.ReleasedAt is null)
+            if (candidatePrice is not null && existingPrice is null)
             {
                 return true;
             }
 
-            return candidate.ReleasedAt < existing.ReleasedAt;
+            if (candidatePrice is null)
+            {
+                return false;
+            }
+
+            return candidatePrice < existingPrice;
         }
+    }
+
+    private static double? GetNonFoilEuroPrice(ScryfallCardDto card)
+    {
+        var priceText = card.Prices?.Eur;
+        if (string.IsNullOrWhiteSpace(priceText))
+        {
+            return null;
+        }
+
+        return double.TryParse(priceText, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : null;
     }
 
     public static ImageUris ResolveImageUris(ScryfallCardDto card)
