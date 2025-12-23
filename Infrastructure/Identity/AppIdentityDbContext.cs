@@ -83,10 +83,9 @@ namespace Infrastructure.Identity
                 .HasIndex(lr => new { lr.LeagueId, lr.UserId })
                 .IsUnique();
 
-            builder.Entity<LeagueRoleAssignment>()
-                .Property(lr => lr.Roles)
-                .HasConversion<string>()
-                .HasDefaultValue(LeagueRole.Player);
+        builder.Entity<LeagueRoleAssignment>()
+            .Property(lr => lr.Roles)
+            .HasConversion<string>();
 
             builder.Entity<LeagueRoleAssignment>()
                 .HasOne(lr => lr.User)
