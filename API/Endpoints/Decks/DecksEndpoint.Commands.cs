@@ -246,9 +246,17 @@ public static partial class DecksEndpoint
             return Results.BadRequest(new { errors });
         }
 
-        var createdDeckCard = await deckCardService.CreateDeckCardAsync(deckId, createDto);
-        logger.LogOperationSuccess(operation, new { deckId, createdDeckCard.Id });
-        return Results.Ok(createdDeckCard);
+        try
+        {
+            var createdDeckCard = await deckCardService.CreateDeckCardAsync(deckId, createDto);
+            logger.LogOperationSuccess(operation, new { deckId, createdDeckCard.Id });
+            return Results.Ok(createdDeckCard);
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { deckId });
+            return Results.BadRequest(new { errors = new[] { ex.Message } });
+        }
     }
 
     private static async Task<IResult> UpdateDeckCardAsync(
@@ -285,7 +293,16 @@ public static partial class DecksEndpoint
             return Results.NotFound();
         }
 
-        var updatedDeckCard = await deckCardService.UpdateDeckCardAsync(id, updateDto);
+        DeckCardDto? updatedDeckCard;
+        try
+        {
+            updatedDeckCard = await deckCardService.UpdateDeckCardAsync(id, updateDto);
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { deckId, id });
+            return Results.BadRequest(new { errors = new[] { ex.Message } });
+        }
         logger.LogOperationSuccess(operation, new { deckId, id });
         return Results.Ok(updatedDeckCard);
     }
@@ -344,6 +361,11 @@ public static partial class DecksEndpoint
 
             unitOfWork.Repository<DeckCard>().Update(deckCard);
             await unitOfWork.Complete();
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { deckId, id });
+            return Results.BadRequest(new { errors = new[] { ex.Message } });
         }
         catch (Exception ex)
         {

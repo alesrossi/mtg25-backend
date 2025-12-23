@@ -196,6 +196,46 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
+    public async Task CreateDeckCard_WithPriceData_UpdatesDeckTotalPrice()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync("priceupdate@example.com", "priceupdate");
+        var deck = await CreateTestDeckForUserAsync(user.Id);
+        var pricedCard = CreateScryfallCard("oracle-priced", "Priced Card", "LEA", "Limited Edition Alpha") with
+        {
+            Prices = new Prices("3.00", null, "1.50", null, null)
+        };
+        await SeedCardDataAsync(new[] { pricedCard });
+
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+        var createDto = new CreateDeckCardDto
+        {
+            ScryfallId = pricedCard.Id,
+            Name = pricedCard.Name,
+            SetCode = pricedCard.Set,
+            SetName = pricedCard.SetName,
+            TypeLine = pricedCard.TypeLine ?? "Instant",
+            MaindeckQuantity = 2,
+            SideboardQuantity = 1,
+            ImageUrl = pricedCard.ImageUris?.Normal ?? "https://example.com/card.png",
+            BackImageUrl = pricedCard.ImageUris?.BorderCrop,
+            ArtCrop = pricedCard.ImageUris?.ArtCrop ?? pricedCard.ImageUris?.Normal ?? "https://example.com/card.png"
+        };
+
+        // Act
+        var response = await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(createDto));
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var refreshedDeck = await LoadDeckAsync(deck.Id);
+        refreshedDeck!.TotalPrice.Should().Be(4.5);
+        refreshedDeck.TotalPriceCurrency.Should().Be(Currency.Eur);
+        refreshedDeck.NumberOfCards.Should().Be(3);
+        refreshedDeck.NumberOfMainBoardCards.Should().Be(2);
+        refreshedDeck.NumberOfSideBoardCards.Should().Be(1);
+    }
+
+    [Fact]
     public async Task CreateDeckCard_WithoutAuthentication_ReturnsUnauthorized()
     {
         var user = await CreateTestUserAsync("deckcard-create-noauth@example.com", "deckcard_create_noauth");
@@ -217,6 +257,87 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         var response = await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(createDto));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task CreateDeckCard_WithTooManyCopies_ReturnsBadRequest()
+    {
+        var user = await CreateTestUserAsync("deckcard-limit@example.com", "deckcard_limit");
+        var deck = await CreateTestDeckForUserAsync(user.Id);
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var initialDto = new CreateDeckCardDto
+        {
+            ScryfallId = "limit-1",
+            Name = "Lightning Bolt",
+            SetCode = "LEA",
+            TypeLine = "Instant",
+            ImageUrl = "TEST",
+            ArtCrop = "TEST",
+            MaindeckQuantity = 3,
+            SideboardQuantity = 1
+        };
+
+        var duplicateDto = new CreateDeckCardDto
+        {
+            ScryfallId = "limit-2",
+            Name = "Lightning Bolt",
+            SetCode = "LEA",
+            TypeLine = "Instant",
+            ImageUrl = "TEST",
+            ArtCrop = "TEST",
+            MaindeckQuantity = 1,
+            SideboardQuantity = 0
+        };
+
+        var firstResponse = await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(initialDto));
+        firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var secondResponse = await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(duplicateDto));
+        secondResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var responseContent = await secondResponse.Content.ReadAsStringAsync();
+        using var json = JsonDocument.Parse(responseContent);
+        var errors = json.RootElement.GetProperty("errors");
+        errors.GetArrayLength().Should().BeGreaterThan(0);
+        errors[0].GetString().Should().Contain("4-copy");
+    }
+
+    [Fact]
+    public async Task CreateDeckCard_WithBasicLand_AllowsMoreThanFourCopies()
+    {
+        var user = await CreateTestUserAsync("deckcard-basic@example.com", "deckcard_basic");
+        var deck = await CreateTestDeckForUserAsync(user.Id);
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var firstDto = new CreateDeckCardDto
+        {
+            ScryfallId = "plains-1",
+            Name = "Plains",
+            SetCode = "LEA",
+            TypeLine = "Basic Land — Plains",
+            ImageUrl = "TEST",
+            ArtCrop = "TEST",
+            MaindeckQuantity = 4,
+            SideboardQuantity = 0
+        };
+
+        var secondDto = new CreateDeckCardDto
+        {
+            ScryfallId = "plains-2",
+            Name = "Plains",
+            SetCode = "LEA",
+            TypeLine = "Basic Land — Plains",
+            ImageUrl = "TEST",
+            ArtCrop = "TEST",
+            MaindeckQuantity = 5,
+            SideboardQuantity = 0
+        };
+
+        var firstResponse = await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(firstDto));
+        firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var secondResponse = await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(secondDto));
+        secondResponse.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -386,6 +507,95 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
 
         updatedDeckCard!.MaindeckQuantity.Should().Be(2);
         updatedDeckCard.SideboardQuantity.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task UpdateDeckCard_WithQuantityChange_RecalculatesDeckPrice()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync("priceupdate2@example.com", "priceupdate2");
+        var deck = await CreateTestDeckForUserAsync(user.Id);
+        var pricedCard = CreateScryfallCard("oracle-priced-update", "Priced Update", "LEA", "Limited Edition Alpha") with
+        {
+            Prices = new Prices("2.00", null, "1.50", null, null)
+        };
+        await SeedCardDataAsync(new[] { pricedCard });
+
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+        var createDto = new CreateDeckCardDto
+        {
+            ScryfallId = pricedCard.Id,
+            Name = pricedCard.Name,
+            SetCode = pricedCard.Set,
+            SetName = pricedCard.SetName,
+            TypeLine = pricedCard.TypeLine ?? "Instant",
+            MaindeckQuantity = 2,
+            SideboardQuantity = 1,
+            ImageUrl = pricedCard.ImageUris?.Normal ?? "https://example.com/card.png",
+            BackImageUrl = pricedCard.ImageUris?.BorderCrop,
+            ArtCrop = pricedCard.ImageUris?.ArtCrop ?? pricedCard.ImageUris?.Normal ?? "https://example.com/card.png"
+        };
+
+        var createResponse = await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(createDto));
+        createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var createdDeckCard = DeserializeDeckCard(await createResponse.Content.ReadAsStringAsync());
+
+        var updateDto = new UpdateDeckCardDto
+        {
+            MaindeckQuantity = 1,
+            SideboardQuantity = 3,
+            OwnedCardId = null
+        };
+
+        // Act
+        var updateResponse = await client.PutAsync($"/api/decks/{deck.Id}/cards/{createdDeckCard!.Id}", SerializeToJson(updateDto));
+
+        // Assert
+        updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var refreshedDeck = await LoadDeckAsync(deck.Id);
+        refreshedDeck!.TotalPrice.Should().Be(6.0);
+        refreshedDeck.TotalPriceCurrency.Should().Be(Currency.Eur);
+        refreshedDeck.NumberOfCards.Should().Be(4);
+        refreshedDeck.NumberOfMainBoardCards.Should().Be(1);
+        refreshedDeck.NumberOfSideBoardCards.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task UpdateDeckCard_WithQuantityLimitExceeded_ReturnsBadRequest()
+    {
+        var user = await CreateTestUserAsync("deckcard-update-limit@example.com", "deckcard_update_limit");
+        var deck = await CreateTestDeckForUserAsync(user.Id);
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var createDto = new CreateDeckCardDto
+        {
+            ScryfallId = "limit-update",
+            Name = "Lightning Bolt",
+            SetCode = "LEA",
+            TypeLine = "Instant",
+            ImageUrl = "TEST",
+            ArtCrop = "TEST",
+            MaindeckQuantity = 3,
+            SideboardQuantity = 0
+        };
+
+        var createResponse = await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(createDto));
+        createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var createdDeckCard = DeserializeDeckCard(await createResponse.Content.ReadAsStringAsync());
+
+        var updateDto = new UpdateDeckCardDto
+        {
+            MaindeckQuantity = 5,
+            SideboardQuantity = 0,
+            OwnedCardId = null
+        };
+
+        var updateResponse = await client.PutAsync($"/api/decks/{deck.Id}/cards/{createdDeckCard!.Id}", SerializeToJson(updateDto));
+        updateResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var payload = await updateResponse.Content.ReadAsStringAsync();
+        using var json = JsonDocument.Parse(payload);
+        var errors = json.RootElement.GetProperty("errors");
+        errors[0].GetString().Should().Contain("4-copy");
     }
 
     [Fact]
@@ -643,9 +853,21 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         var context = scope.ServiceProvider.GetRequiredService<MainContext>();
         var deck = _testDataBuilder.CreateDeck(userId);
         deck.Name = "Test Deck";
+        deck.TotalPrice = 0;
+        deck.TotalPriceCurrency = null;
+        deck.NumberOfCards = 0;
+        deck.NumberOfMainBoardCards = 0;
+        deck.NumberOfSideBoardCards = 0;
         context.Decks.Add(deck);
         await context.SaveChangesAsync();
         return deck;
+    }
+
+    private async Task<Deck?> LoadDeckAsync(int deckId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+        return await context.Decks.FindAsync(deckId);
     }
 
     private async Task<List<DeckCard>> CreateTestDeckCardsForDeckAsync(int deckId, int count)

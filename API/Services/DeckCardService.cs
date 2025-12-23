@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using System.Linq;
 using API.Dtos.Cards;
@@ -165,6 +166,9 @@ public class DeckCardService
             throw new ArgumentException("ScryfallId, Name, SetCode, and ImageUrl are required");
         }
 
+        var requestedQuantity = createDto.MaindeckQuantity + createDto.SideboardQuantity;
+        await EnsureCopyLimitAsync(deckId, createDto.Name, createDto.TypeLine, requestedQuantity, null, CreateDeckCardOperation);
+
         var deckCard = new DeckCard
         {
             DeckId = deckId,
@@ -190,7 +194,7 @@ public class DeckCardService
         unitOfWork.Repository<DeckCard>().Add(deckCard);
         await unitOfWork.Complete();
 
-        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
+        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
         if (deck == null)
         {
             logger.LogOperationWarning(CreateDeckCardOperation, "Deck not found after card creation", new { deckId, ScryfallId = createDto.ScryfallId });
@@ -198,6 +202,7 @@ public class DeckCardService
         }
         
         var marketProvider = await ResolveMarketProviderAsync(deck.OwnerId);
+        await UpdateDeckAggregatesAsync(deck, deckCard, marketProvider, previousMaindeck: 0, previousSideboard: 0);
         var dto = await MapToDtoAsync(deckCard, deck.OwnerId, marketProvider);
         logger.LogOperationSuccess(CreateDeckCardOperation, new { deckCard.Id, deckId });
         return dto;
@@ -215,6 +220,11 @@ public class DeckCardService
             return null;
         }
 
+        var previousMaindeck = deckCard.MaindeckQuantity;
+        var previousSideboard = deckCard.SideboardQuantity;
+        var requestedQuantity = updateDto.MaindeckQuantity + updateDto.SideboardQuantity;
+        await EnsureCopyLimitAsync(deckCard.DeckId, deckCard.Name, deckCard.TypeLine, requestedQuantity, deckCard.Id, UpdateDeckCardOperation);
+
         deckCard.MaindeckQuantity = updateDto.MaindeckQuantity;
         deckCard.SideboardQuantity = updateDto.SideboardQuantity;
         deckCard.OwnedCardId = updateDto.OwnedCardId;
@@ -230,7 +240,7 @@ public class DeckCardService
             return null;
         }
         
-        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(updatedDeckCard.DeckId, tracking: false);
+        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(updatedDeckCard.DeckId);
         if (deck == null)
         {
             logger.LogOperationWarning(UpdateDeckCardOperation, "Deck missing after deck card update", new { updatedDeckCard.DeckId });
@@ -238,6 +248,7 @@ public class DeckCardService
         }
         
         var marketProvider = await ResolveMarketProviderAsync(deck.OwnerId);
+        await UpdateDeckAggregatesAsync(deck, updatedDeckCard, marketProvider, previousMaindeck, previousSideboard);
         var dto = await MapToDtoAsync(updatedDeckCard, deck.OwnerId, marketProvider);
         logger.LogOperationSuccess(UpdateDeckCardOperation, new { id, updatedDeckCard.DeckId });
         return dto;
@@ -259,6 +270,12 @@ public class DeckCardService
             return null;
         }
 
+        var requestedQuantity = updateDto.MaindeckQuantity + updateDto.SideboardQuantity;
+        var resolvedTypeLine = scryfallCard.TypeLine ?? deckCard.TypeLine;
+        await EnsureCopyLimitAsync(deckCard.DeckId, deckCard.Name, resolvedTypeLine, requestedQuantity, deckCard.Id, UpdateDeckCardOperation);
+
+        var previousMaindeck = deckCard.MaindeckQuantity;
+        var previousSideboard = deckCard.SideboardQuantity;
         deckCard.MaindeckQuantity = updateDto.MaindeckQuantity;
         deckCard.SideboardQuantity = updateDto.SideboardQuantity;
         deckCard.OwnedCardId = updateDto.OwnedCardId;
@@ -270,6 +287,7 @@ public class DeckCardService
         deckCard.BackImageUrl = resolvedBackImage;
         deckCard.CollectorNumber = scryfallCard.CollectorNumber;
         deckCard.Rarity = scryfallCard.Rarity;
+        deckCard.TypeLine = resolvedTypeLine ?? deckCard.TypeLine;
 
         unitOfWork.Repository<DeckCard>().Update(deckCard);
         await unitOfWork.Complete();
@@ -282,7 +300,7 @@ public class DeckCardService
             return null;
         }
         
-        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(updatedDeckCard.DeckId, tracking: false);
+        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(updatedDeckCard.DeckId);
         if (deck == null)
         {
             logger.LogOperationWarning(UpdateDeckCardOperation, "Deck missing after deck card update", new { updatedDeckCard.DeckId });
@@ -290,6 +308,7 @@ public class DeckCardService
         }
         
         var marketProvider = await ResolveMarketProviderAsync(deck.OwnerId);
+        await UpdateDeckAggregatesAsync(deck, updatedDeckCard, marketProvider, previousMaindeck, previousSideboard);
         var dto = await MapToDtoAsync(updatedDeckCard, deck.OwnerId, marketProvider);
         logger.LogOperationSuccess(UpdateDeckCardOperation, new { id, updatedDeckCard.DeckId });
         return dto;
@@ -420,6 +439,79 @@ public class DeckCardService
             Price = price,
             PriceCurrency = price.HasValue ? marketProvider : null
         };
+    }
+
+    private async Task UpdateDeckAggregatesAsync(
+        Deck deck,
+        DeckCard deckCard,
+        MarketProvider marketProvider,
+        int previousMaindeck,
+        int previousSideboard)
+    {
+        var mainDelta = deckCard.MaindeckQuantity - previousMaindeck;
+        var sideDelta = deckCard.SideboardQuantity - previousSideboard;
+
+        if (mainDelta != 0)
+        {
+            deck.NumberOfMainBoardCards = Math.Max(0, deck.NumberOfMainBoardCards + mainDelta);
+        }
+
+        if (sideDelta != 0)
+        {
+            deck.NumberOfSideBoardCards = Math.Max(0, deck.NumberOfSideBoardCards + sideDelta);
+        }
+
+        var totalDelta = mainDelta + sideDelta;
+        if (totalDelta != 0)
+        {
+            deck.NumberOfCards = Math.Max(0, deck.NumberOfCards + totalDelta);
+        }
+
+        var price = ResolveMarketPrice(deckCard.ScryfallId, marketProvider);
+        if (price.HasValue && totalDelta != 0)
+        {
+            deck.TotalPriceCurrency = ResolveCurrency(marketProvider);
+            var updatedTotal = deck.TotalPrice + (price.Value * totalDelta);
+            deck.TotalPrice = Math.Round(Math.Max(0, updatedTotal), 2, MidpointRounding.AwayFromZero);
+        }
+
+        if (mainDelta != 0 || sideDelta != 0 || (price.HasValue && totalDelta != 0))
+        {
+            unitOfWork.Repository<Deck>().Update(deck);
+            await unitOfWork.Complete();
+        }
+    }
+
+    private async Task EnsureCopyLimitAsync(int deckId, string cardName, string? typeLine, int requestedTotalQuantity, int? existingDeckCardId, string operation)
+    {
+        if (IsBasicLand(typeLine))
+        {
+            return;
+        }
+
+        var spec = new DeckCardsWithDeckIdSpecification(deckId);
+        var deckCards = await unitOfWork.Repository<DeckCard>().ListAsync(spec, tracking: false) ?? [];
+
+        var existingTotal = deckCards
+            .Where(dc => string.Equals(dc.Name, cardName, StringComparison.OrdinalIgnoreCase))
+            .Where(dc => !existingDeckCardId.HasValue || dc.Id != existingDeckCardId.Value)
+            .Sum(dc => dc.MaindeckQuantity + dc.SideboardQuantity);
+
+        if (existingTotal + requestedTotalQuantity > 4)
+        {
+            logger.LogOperationWarning(operation, "Copy limit exceeded", new { deckId, cardName, requestedTotalQuantity });
+            throw new InvalidOperationException($"Adding '{cardName}' would exceed the 4-copy limit for this deck.");
+        }
+    }
+
+    private static bool IsBasicLand(string? typeLine)
+    {
+        return !string.IsNullOrWhiteSpace(typeLine) && typeLine.IndexOf("Basic", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static Currency ResolveCurrency(MarketProvider marketProvider)
+    {
+        return marketProvider == MarketProvider.Mkm ? Currency.Eur : Currency.Usd;
     }
 
     private async Task<MarketProvider> ResolveMarketProviderAsync(string ownerId)
