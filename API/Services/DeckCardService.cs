@@ -58,32 +58,52 @@ public class DeckCardService
         }
 
         var marketProvider = await ResolveMarketProviderAsync(deck.OwnerId);
-        
-        // Get all scryfall IDs from deck cards
-        var ids = (deckCards ?? []).Select(dc => dc.ScryfallId).Distinct().ToList();
+
+        // Build a lookup of deck card names so ownership can be matched across printings
+        var cardNames = (deckCards ?? [])
+            .Select(dc => dc.Name)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var cardNameSet = new HashSet<string>(cardNames, StringComparer.OrdinalIgnoreCase);
         
         // Get user's collections
         var userCollectionsSpec = new CollectionWithOwnerSpecification(deck.OwnerId);
         var userCollections = await unitOfWork.Repository<Collection>().ListAsync(userCollectionsSpec, tracking: false);
         
-        // Get all owned cards for all scryfall IDs in one query per collection
-        var ownedCardsLookup = new Dictionary<string, List<Card>>();
+        // Get all owned cards that match the deck card names in one query per collection
+        var ownedCardsLookup = new Dictionary<string, List<Card>>(StringComparer.OrdinalIgnoreCase);
         
         if (userCollections != null)
         {
             foreach (var collection in userCollections)
             {
-                var cardsSpec = new CardsWithParamsSpecification(new EntitySpecParams(), collection.Id);
+                var cardsSpec = new CardsWithParamsSpecification(
+                    new EntitySpecParams(),
+                    collection.Id,
+                    applySorting: false,
+                    applyPaging: false);
                 var collectionCards = await unitOfWork.Repository<Card>().ListAsync(cardsSpec, tracking: false);
                 
-                var matchingCards = collectionCards?.Where(c => ids.Contains(c.ScryfallId)).ToList();
+                var matchingCards = collectionCards?
+                    .Where(c => !string.IsNullOrWhiteSpace(c.Name) && cardNameSet.Contains(c.Name))
+                    .ToList();
                 if (matchingCards?.Any() == true)
                 {
                     foreach (var card in matchingCards)
                     {
-                        if (!ownedCardsLookup.ContainsKey(card.ScryfallId))
-                            ownedCardsLookup[card.ScryfallId] = new List<Card>();
-                        ownedCardsLookup[card.ScryfallId].Add(card);
+                        var lookupKey = card.Name;
+                        if (string.IsNullOrWhiteSpace(lookupKey))
+                        {
+                            continue;
+                        }
+
+                        if (!ownedCardsLookup.TryGetValue(lookupKey, out var cards))
+                        {
+                            cards = new List<Card>();
+                            ownedCardsLookup[lookupKey] = cards;
+                        }
+                        cards.Add(card);
                     }
                 }
             }
@@ -389,10 +409,14 @@ public class DeckCardService
         {
             foreach (var collection in userCollections)
             {
-                var cardsSpec = new CardsWithParamsSpecification(new EntitySpecParams(), collection.Id);
+                var cardsSpec = new CardsWithParamsSpecification(
+                    new EntitySpecParams(),
+                    collection.Id,
+                    applySorting: false,
+                    applyPaging: false);
                 var collectionCards = await unitOfWork.Repository<Card>().ListAsync(cardsSpec, tracking: false);
                 
-                var matchingCards = collectionCards?.Where(c => c.ScryfallId == deckCard.ScryfallId).ToList();
+                var matchingCards = collectionCards?.Where(c => c.Name == deckCard.Name).ToList();
                 if (matchingCards?.Any() == true)
                 {
                     totalOwnedQuantity += matchingCards.Sum(c => c.Quantity);
@@ -428,7 +452,10 @@ public class DeckCardService
 
     private DeckCardDto MapToDtoWithLookup(DeckCard deckCard, Dictionary<string, List<Card>> ownedCardsLookup, MarketProvider marketProvider)
     {
-        var ownedCards = ownedCardsLookup.TryGetValue(deckCard.ScryfallId, out var cards) ? cards : new List<Card>();
+        var lookupKey = deckCard.Name;
+        var ownedCards = !string.IsNullOrWhiteSpace(lookupKey) && ownedCardsLookup.TryGetValue(lookupKey, out var cards)
+            ? cards
+            : new List<Card>();
         var totalOwnedQuantity = ownedCards.Sum(c => c.Quantity);
         var firstOwnedCard = ownedCards.FirstOrDefault();
         var price = ResolveMarketPrice(deckCard.ScryfallId, marketProvider);

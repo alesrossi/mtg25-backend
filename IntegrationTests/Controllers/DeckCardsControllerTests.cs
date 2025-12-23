@@ -99,6 +99,34 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
+    public async Task GetDeckCards_WithOwnedCardFromDifferentPrinting_DetectsOwnershipByName()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync("deckcards-diffprint@example.com", "deckcards_diffprint");
+        var deck = await CreateTestDeckForUserAsync(user.Id);
+        var deckCard = await CreateDeckCardWithNameAsync(deck.Id, Guid.NewGuid().ToString(), "Serra Angel");
+        var collection = await CreateCollectionWithOwnedCards(user.Id);
+        await AddOwnedCardVersionAsync(collection.Id, Guid.NewGuid().ToString(), deckCard.Name, quantity: 3);
+
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        // Act
+        var response = await client.GetAsync($"/api/decks/{deck.Id}/cards");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        var returnedDeckCards = DeserializeDeckCardList(responseContent);
+
+        var targetCard = returnedDeckCards.Should()
+            .ContainSingle(dc => dc.Id == deckCard.Id)
+            .Subject;
+        targetCard.IsOwned.Should().BeTrue();
+        targetCard.OwnedQuantity.Should().Be(3);
+        targetCard.OwnershipStatus.Should().Be("PartiallyOwned");
+    }
+
+    [Fact]
     public async Task GetDeckCardById_WithValidId_ReturnsDeckCard()
     {
         // Arrange
@@ -1055,6 +1083,15 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
             context.Cards.Add(ownedCard);
         }
 
+        await context.SaveChangesAsync();
+    }
+
+    private async Task AddOwnedCardVersionAsync(int collectionId, string scryfallId, string name, int quantity)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+        var ownedCard = _testDataBuilder.CreateCardWithOracleId(collectionId, scryfallId, name, quantity);
+        context.Cards.Add(ownedCard);
         await context.SaveChangesAsync();
     }
 
