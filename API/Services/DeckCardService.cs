@@ -177,10 +177,7 @@ public class DeckCardService
             SetCode = createDto.SetCode,
             SetName = createDto.SetName,
             TypeLine = createDto.TypeLine,
-            ColorIdentity = (createDto.ColorIdentity ?? new List<string>())
-                .Where(ci => !string.IsNullOrWhiteSpace(ci))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList(),
+            ColorIdentity = NormalizeColorIdentity(createDto.ColorIdentity),
             ImageUrl = createDto.ImageUrl,
             BackImageUrl = createDto.BackImageUrl,
             ArtCrop = createDto.ArtCrop,
@@ -203,6 +200,7 @@ public class DeckCardService
         
         var marketProvider = await ResolveMarketProviderAsync(deck.OwnerId);
         await UpdateDeckAggregatesAsync(deck, deckCard, marketProvider, previousMaindeck: 0, previousSideboard: 0);
+        await UpdateDeckColorIdentityAsync(deck, deckCard.ColorIdentity);
         var dto = await MapToDtoAsync(deckCard, deck.OwnerId, marketProvider);
         logger.LogOperationSuccess(CreateDeckCardOperation, new { deckCard.Id, deckId });
         return dto;
@@ -249,6 +247,7 @@ public class DeckCardService
         
         var marketProvider = await ResolveMarketProviderAsync(deck.OwnerId);
         await UpdateDeckAggregatesAsync(deck, updatedDeckCard, marketProvider, previousMaindeck, previousSideboard);
+        await UpdateDeckColorIdentityAsync(deck, updatedDeckCard.ColorIdentity);
         var dto = await MapToDtoAsync(updatedDeckCard, deck.OwnerId, marketProvider);
         logger.LogOperationSuccess(UpdateDeckCardOperation, new { id, updatedDeckCard.DeckId });
         return dto;
@@ -288,6 +287,7 @@ public class DeckCardService
         deckCard.CollectorNumber = scryfallCard.CollectorNumber;
         deckCard.Rarity = scryfallCard.Rarity;
         deckCard.TypeLine = resolvedTypeLine ?? deckCard.TypeLine;
+        deckCard.ColorIdentity = NormalizeColorIdentity(scryfallCard.ColorIdentity);
 
         unitOfWork.Repository<DeckCard>().Update(deckCard);
         await unitOfWork.Complete();
@@ -309,6 +309,7 @@ public class DeckCardService
         
         var marketProvider = await ResolveMarketProviderAsync(deck.OwnerId);
         await UpdateDeckAggregatesAsync(deck, updatedDeckCard, marketProvider, previousMaindeck, previousSideboard);
+        await UpdateDeckColorIdentityAsync(deck, updatedDeckCard.ColorIdentity);
         var dto = await MapToDtoAsync(updatedDeckCard, deck.OwnerId, marketProvider);
         logger.LogOperationSuccess(UpdateDeckCardOperation, new { id, updatedDeckCard.DeckId });
         return dto;
@@ -325,6 +326,20 @@ public class DeckCardService
             logger.LogOperationWarning(DeleteDeckCardOperation, "Deck card not found", new { id });
             return false;
         }
+
+        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckCard.DeckId);
+        if (deck == null)
+        {
+            logger.LogOperationWarning(DeleteDeckCardOperation, "Deck missing for deck card deletion", new { deckCard.DeckId, id });
+            return false;
+        }
+
+        var previousMaindeck = deckCard.MaindeckQuantity;
+        var previousSideboard = deckCard.SideboardQuantity;
+        deckCard.MaindeckQuantity = 0;
+        deckCard.SideboardQuantity = 0;
+        var marketProvider = await ResolveMarketProviderAsync(deck.OwnerId);
+        await UpdateDeckAggregatesAsync(deck, deckCard, marketProvider, previousMaindeck, previousSideboard);
 
         unitOfWork.Repository<DeckCard>().Delete(deckCard);
         await unitOfWork.Complete();
@@ -482,6 +497,31 @@ public class DeckCardService
         }
     }
 
+    private async Task UpdateDeckColorIdentityAsync(Deck deck, IEnumerable<string>? colorIdentity)
+    {
+        if (deck == null || colorIdentity == null)
+        {
+            return;
+        }
+
+        deck.ColorIdentity ??= new List<string>();
+        var added = false;
+        foreach (var color in colorIdentity.Where(ci => !string.IsNullOrWhiteSpace(ci)))
+        {
+            if (!deck.ColorIdentity.Any(existing => string.Equals(existing, color, StringComparison.OrdinalIgnoreCase)))
+            {
+                deck.ColorIdentity.Add(color);
+                added = true;
+            }
+        }
+
+        if (added)
+        {
+            unitOfWork.Repository<Deck>().Update(deck);
+            await unitOfWork.Complete();
+        }
+    }
+
     private async Task EnsureCopyLimitAsync(int deckId, string cardName, string? typeLine, int requestedTotalQuantity, int? existingDeckCardId, string operation)
     {
         if (IsBasicLand(typeLine))
@@ -507,6 +547,15 @@ public class DeckCardService
     private static bool IsBasicLand(string? typeLine)
     {
         return !string.IsNullOrWhiteSpace(typeLine) && typeLine.IndexOf("Basic", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static List<string> NormalizeColorIdentity(IEnumerable<string?>? colorIdentity)
+    {
+        return (colorIdentity ?? Enumerable.Empty<string?>())
+            .Where(ci => !string.IsNullOrWhiteSpace(ci))
+            .Select(ci => ci!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     private static Currency ResolveCurrency(MarketProvider marketProvider)

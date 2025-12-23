@@ -236,6 +236,33 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
+    public async Task CreateDeckCard_AddsColorsToDeck()
+    {
+        var user = await CreateTestUserAsync("deckcard-colors@example.com", "deckcard_colors");
+        var deck = await CreateTestDeckForUserAsync(user.Id);
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var createDto = new CreateDeckCardDto
+        {
+            ScryfallId = "color-test",
+            Name = "Izzet Charm",
+            SetCode = "RTR",
+            TypeLine = "Instant",
+            ImageUrl = "TEST",
+            ArtCrop = "TEST",
+            MaindeckQuantity = 1,
+            SideboardQuantity = 0,
+            ColorIdentity = new List<string> { "U", "R" }
+        };
+
+        var response = await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(createDto));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var refreshedDeck = await LoadDeckAsync(deck.Id);
+        refreshedDeck!.ColorIdentity.Should().Contain(new[] { "U", "R" });
+    }
+
+    [Fact]
     public async Task CreateDeckCard_WithoutAuthentication_ReturnsUnauthorized()
     {
         var user = await CreateTestUserAsync("deckcard-create-noauth@example.com", "deckcard_create_noauth");
@@ -599,6 +626,52 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
+    public async Task UpdateDeckCardVersion_WithNewColors_UpdatesDeckColorIdentity()
+    {
+        var user = await CreateTestUserAsync("deckcard-version-colors@example.com", "deckcard_version_colors");
+        var deck = await CreateTestDeckForUserAsync(user.Id);
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var createDto = new CreateDeckCardDto
+        {
+            ScryfallId = "two-color-original",
+            Name = "Feral Hydra",
+            SetCode = "RTR",
+            TypeLine = "Creature",
+            ImageUrl = "TEST",
+            ArtCrop = "TEST",
+            MaindeckQuantity = 2,
+            SideboardQuantity = 0,
+            ColorIdentity = new List<string> { "G" }
+        };
+
+        var createResponse = await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(createDto));
+        createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var createdDeckCard = DeserializeDeckCard(await createResponse.Content.ReadAsStringAsync());
+
+        var newVersion = CreateScryfallCard("two-color-new", createDto.Name, "RNA", "Ravnica Allegiance") with
+        {
+            ColorIdentity = new List<string?> { "G", "U" },
+            TypeLine = "Creature"
+        };
+        await SeedCardDataAsync(new[] { newVersion });
+
+        var updateDto = new UpdateDeckCardVersionDto
+        {
+            ScryfallId = newVersion.Id,
+            MaindeckQuantity = createDto.MaindeckQuantity,
+            SideboardQuantity = createDto.SideboardQuantity,
+            OwnedCardId = null
+        };
+
+        var updateResponse = await client.PutAsync($"/api/decks/{deck.Id}/cards/{createdDeckCard!.Id}/versions", SerializeToJson(updateDto));
+
+        updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var refreshedDeck = await LoadDeckAsync(deck.Id);
+        refreshedDeck!.ColorIdentity.Should().Contain("U");
+    }
+
+    [Fact]
     public async Task DeleteDeckCard_WithValidData_RemovesDeckCard()
     {
         var owner = await CreateTestUserAsync("deckcard-delete-owner@example.com", "deckcard_delete_owner");
@@ -614,6 +687,50 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         var payload = await listResponse.Content.ReadAsStringAsync();
         var cards = DeserializeDeckCardList(payload);
         cards.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task DeleteDeckCard_UpdatesDeckAggregates()
+    {
+        var owner = await CreateTestUserAsync("deckcard-delete-agg@example.com", "deckcard_delete_agg");
+        var deck = await CreateTestDeckForUserAsync(owner.Id);
+
+        var pricedCard = CreateScryfallCard("delete-priced", "Shock", "M10", "Magic 2010") with
+        {
+            Prices = new Prices("1.00", null, "0.50", null, null)
+        };
+        await SeedCardDataAsync(new[] { pricedCard });
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+        var createDto = new CreateDeckCardDto
+        {
+            ScryfallId = pricedCard.Id,
+            Name = pricedCard.Name,
+            SetCode = pricedCard.Set,
+            SetName = pricedCard.SetName,
+            TypeLine = pricedCard.TypeLine ?? "Instant",
+            ImageUrl = "TEST",
+            ArtCrop = "TEST",
+            MaindeckQuantity = 2,
+            SideboardQuantity = 1
+        };
+
+        var createResponse = await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(createDto));
+        createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var createdDeckCard = DeserializeDeckCard(await createResponse.Content.ReadAsStringAsync());
+
+        var deckBeforeDelete = await LoadDeckAsync(deck.Id);
+        deckBeforeDelete!.NumberOfCards.Should().Be(3);
+        deckBeforeDelete.TotalPrice.Should().BeGreaterThan(0);
+
+        var deleteResponse = await client.DeleteAsync($"/api/decks/{deck.Id}/cards/{createdDeckCard!.Id}");
+        deleteResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var refreshedDeck = await LoadDeckAsync(deck.Id);
+        refreshedDeck!.NumberOfCards.Should().Be(0);
+        refreshedDeck.NumberOfMainBoardCards.Should().Be(0);
+        refreshedDeck.NumberOfSideBoardCards.Should().Be(0);
+        refreshedDeck.TotalPrice.Should().Be(0);
     }
 
     [Fact]
