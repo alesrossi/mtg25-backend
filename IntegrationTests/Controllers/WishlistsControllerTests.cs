@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Text.Json;
+using API.Dtos.Cards;
 using API.Dtos.Wishlists;
+using API.Services;
 using Core.Models;
 using Core.Models.Identity;
 using FluentAssertions;
@@ -13,6 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 using TestUtilities.Authentication;
 using TestUtilities.Builders;
 using TestUtilities.Serialization;
+using TestUtilities.Scryfall;
 
 namespace IntegrationTests.Controllers;
 
@@ -55,6 +58,8 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         wishlist.OwnerId.Should().Be(user.Id);
         wishlist.CardsCount.Should().Be(0);
         wishlist.IndividualCardsCount.Should().Be(0);
+        wishlist.TotalPrice.Should().Be(0);
+        wishlist.TotalPriceCurrency.Should().BeNull();
     }
 
     [Fact]
@@ -122,7 +127,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         var wishlists = JsonSerializer.Deserialize<List<WishlistSummaryDto>>(responseContent, JsonContentHelper.DefaultOptions);
         wishlists.Should().NotBeNull();
         wishlists!.Should().HaveCount(2);
-        wishlists.Should().OnlyContain(w => w.CardsCount == 0 && w.IndividualCardsCount == 0);
+        wishlists.Should().OnlyContain(w => w.CardsCount == 0 && w.IndividualCardsCount == 0 && w.TotalPrice == 0 && w.TotalPriceCurrency == null);
     }
 
     [Fact]
@@ -170,6 +175,8 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         updatedWishlist.IsPublic.Should().BeTrue();
         updatedWishlist.CardsCount.Should().Be(0);
         updatedWishlist.IndividualCardsCount.Should().Be(0);
+        updatedWishlist.TotalPrice.Should().Be(0);
+        updatedWishlist.TotalPriceCurrency.Should().BeNull();
     }
 
     [Fact]
@@ -648,6 +655,43 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
+    public async Task CreateWishlistCard_RecalculatesTotalPrice()
+    {
+        var owner = await CreateTestUserAsync("wishlist-card-price-create@test.com", "wishlist_card_price_create");
+        var wishlist = await CreateWishlistAsync(owner.Id);
+
+        var pricedCard = _testDataBuilder.CreateOracleCard(id: "wishlist-price-1", name: "Wishlist Price", setCode: "TST", setName: "Test Set") with
+        {
+            Prices = new Prices("2.00", "2.50", "1.50", "1.80", null)
+        };
+        await SeedCardDataAsync(new[] { pricedCard });
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+        var request = new List<CreateWishlistCardDto>
+        {
+            new()
+            {
+                ScryfallId = pricedCard.Id,
+                DesiredQuantity = 3,
+                Notes = string.Empty
+            }
+        };
+
+        var response = await client.PostAsync($"/api/wishlists/{wishlist.Id}/cards", JsonContentHelper.CreateContent(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var wishlistResponse = await client.GetAsync($"/api/wishlists/{wishlist.Id}");
+        wishlistResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await wishlistResponse.Content.ReadAsStringAsync();
+        var dto = JsonSerializer.Deserialize<WishlistDto>(payload, JsonContentHelper.DefaultOptions);
+
+        dto.Should().NotBeNull();
+        dto!.TotalPrice.Should().Be(4.5);
+        dto.TotalPriceCurrency.Should().Be(Currency.Eur);
+    }
+
+    [Fact]
     public async Task CreateWishlistCard_WithoutAuthentication_ReturnsUnauthorized()
     {
         using var client = _factory.CreateClient();
@@ -702,6 +746,51 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         var response = await client.PutAsync($"/api/wishlists/{wishlist.Id}/cards/{int.MaxValue}", JsonContentHelper.CreateContent(request));
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UpdateWishlistCard_RecalculatesTotalPrice()
+    {
+        var owner = await CreateTestUserAsync("wishlist-card-price-update@test.com", "wishlist_card_price_update");
+        var wishlist = await CreateWishlistAsync(owner.Id);
+
+        var pricedCard = _testDataBuilder.CreateOracleCard(id: "wishlist-price-2", name: "Wishlist Update Price", setCode: "TST", setName: "Test Set") with
+        {
+            Prices = new Prices("2.00", "2.50", "1.50", "1.80", null)
+        };
+        await SeedCardDataAsync(new[] { pricedCard });
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+        var createRequest = new List<CreateWishlistCardDto>
+        {
+            new()
+            {
+                ScryfallId = pricedCard.Id,
+                DesiredQuantity = 1
+            }
+        };
+
+        var createResponse = await client.PostAsync($"/api/wishlists/{wishlist.Id}/cards", JsonContentHelper.CreateContent(createRequest));
+        createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var createdPayload = await createResponse.Content.ReadAsStringAsync();
+        var createdCards = JsonSerializer.Deserialize<List<WishlistCard>>(createdPayload, JsonContentHelper.DefaultOptions);
+        createdCards.Should().NotBeNull();
+
+        var updateDto = new UpdateWishlistCardDto
+        {
+            DesiredQuantity = 4
+        };
+
+        var updateResponse = await client.PutAsync($"/api/wishlists/{wishlist.Id}/cards/{createdCards![0].Id}", JsonContentHelper.CreateContent(updateDto));
+        updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var wishlistResponse = await client.GetAsync($"/api/wishlists/{wishlist.Id}");
+        var payload = await wishlistResponse.Content.ReadAsStringAsync();
+        var dto = JsonSerializer.Deserialize<WishlistDto>(payload, JsonContentHelper.DefaultOptions);
+
+        dto.Should().NotBeNull();
+        dto!.TotalPrice.Should().Be(6.0);
+        dto.TotalPriceCurrency.Should().Be(Currency.Eur);
     }
 
     [Fact]
@@ -763,6 +852,46 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
+    [Fact]
+    public async Task DeleteWishlistCard_RecalculatesTotalPrice()
+    {
+        var owner = await CreateTestUserAsync("wishlist-card-price-delete@test.com", "wishlist_card_price_delete");
+        var wishlist = await CreateWishlistAsync(owner.Id);
+
+        var pricedCard = _testDataBuilder.CreateOracleCard(id: "wishlist-price-3", name: "Wishlist Delete Price", setCode: "TST", setName: "Test Set") with
+        {
+            Prices = new Prices("2.00", "2.50", "1.50", "1.80", null)
+        };
+        await SeedCardDataAsync(new[] { pricedCard });
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+        var createRequest = new List<CreateWishlistCardDto>
+        {
+            new()
+            {
+                ScryfallId = pricedCard.Id,
+                DesiredQuantity = 2
+            }
+        };
+
+        var createResponse = await client.PostAsync($"/api/wishlists/{wishlist.Id}/cards", JsonContentHelper.CreateContent(createRequest));
+        createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var createdPayload = await createResponse.Content.ReadAsStringAsync();
+        var createdCards = JsonSerializer.Deserialize<List<WishlistCard>>(createdPayload, JsonContentHelper.DefaultOptions);
+        createdCards.Should().NotBeNull();
+
+        var deleteResponse = await client.DeleteAsync($"/api/wishlists/{wishlist.Id}/cards/{createdCards![0].Id}");
+        deleteResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var wishlistResponse = await client.GetAsync($"/api/wishlists/{wishlist.Id}");
+        var payload = await wishlistResponse.Content.ReadAsStringAsync();
+        var dto = JsonSerializer.Deserialize<WishlistDto>(payload, JsonContentHelper.DefaultOptions);
+
+        dto.Should().NotBeNull();
+        dto!.TotalPrice.Should().Be(0);
+        dto.TotalPriceCurrency.Should().BeNull();
+    }
+
     private Task<AppUser> CreateTestUserAsync(string email, string userName) =>
         TestUserFactory.CreateAsync(_factory.Services, _testDataBuilder, email, userName, requirePassword: true);
 
@@ -784,5 +913,18 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         context.WishlistCards.Add(card);
         await context.SaveChangesAsync();
         return card;
+    }
+
+    private Task SeedCardDataAsync(IEnumerable<ScryfallCardDto> cards)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var cardDataService = scope.ServiceProvider.GetRequiredService<CardDataService>();
+        foreach (var card in cards)
+        {
+            cardDataService.CardDataById[card.Id] = card;
+            cardDataService.CardDataByName[card.Name] = card;
+        }
+
+        return Task.CompletedTask;
     }
 }

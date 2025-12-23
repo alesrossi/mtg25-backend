@@ -134,6 +134,8 @@ public class TestDataBuilder
             .With(w => w.OwnerId, ownerId)
             .With(w => w.IsPublic, isPublic ?? _random.Next(2) == 0)
             .With(w => w.Name, $"Wishlist {Guid.NewGuid():N}"[..16])
+            .With(w => w.TotalPrice, 0)
+            .With(w => w.TotalPriceCurrency, (Currency?)null)
             .Without(w => w.Id)
             .Without(w => w.WishlistCards)
             .Create();

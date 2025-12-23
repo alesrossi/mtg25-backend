@@ -1,3 +1,5 @@
+using Core.Models.Identity;
+
 namespace Core.Models;
 
 public class Wishlist : BaseModel
@@ -6,5 +8,7 @@ public class Wishlist : BaseModel
     public string? Description { get; set; }
     public required bool IsPublic { get; set; }
     public required string OwnerId { get; set; }
+    public double TotalPrice { get; set; }
+    public Currency? TotalPriceCurrency { get; set; }
     public ICollection<WishlistCard> WishlistCards { get; set; } = new List<WishlistCard>();
 }

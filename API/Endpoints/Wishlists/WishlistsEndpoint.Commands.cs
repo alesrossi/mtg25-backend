@@ -133,6 +133,7 @@ public static partial class WishlistsEndpoint
         IValidationService validationService,
         IUnitOfWork unitOfWork,
         CardDataService cds,
+        [FromServices] WishlistPricingService wishlistPricingService,
         ClaimsPrincipal user,
         [FromServices] ILogger<WishlistsEndpointLogCategory> logger)
     {
@@ -180,6 +181,8 @@ public static partial class WishlistsEndpoint
         unitOfWork.Repository<WishlistCard>().Add(cardList);
         await unitOfWork.Complete();
 
+        await wishlistPricingService.RecalculateTotalsAsync(wishlistId);
+
         logger.LogOperationSuccess("Wishlists.Cards.Create", new { wishlistId, Added = cardList.Count });
         return Results.Ok(cardList);
     }
@@ -192,6 +195,7 @@ public static partial class WishlistsEndpoint
         IUnitOfWork unitOfWork,
         ClaimsPrincipal user,
         [FromServices] CardDataService cds,
+        [FromServices] WishlistPricingService wishlistPricingService,
         [FromServices] ILogger<WishlistsEndpointLogCategory> logger)
     {
         var ownershipResult = await EnsureWishlistOwnershipAsync(wishlistId, unitOfWork, user);
@@ -246,6 +250,8 @@ public static partial class WishlistsEndpoint
         unitOfWork.Repository<WishlistCard>().Update(wishlistCard);
         await unitOfWork.Complete();
 
+        await wishlistPricingService.RecalculateTotalsAsync(wishlistId);
+
         logger.LogOperationSuccess("Wishlists.Cards.Update", new { wishlistId, cardId });
         return Results.Ok(MapToDto(wishlistCard));
     }
@@ -255,6 +261,7 @@ public static partial class WishlistsEndpoint
         int cardId,
         IUnitOfWork unitOfWork,
         ClaimsPrincipal user,
+        [FromServices] WishlistPricingService wishlistPricingService,
         [FromServices] ILogger<WishlistsEndpointLogCategory> logger)
     {
         var ownershipResult = await EnsureWishlistOwnershipAsync(wishlistId, unitOfWork, user);
@@ -273,6 +280,8 @@ public static partial class WishlistsEndpoint
 
         unitOfWork.Repository<WishlistCard>().Delete(wishlistCard);
         await unitOfWork.Complete();
+
+        await wishlistPricingService.RecalculateTotalsAsync(wishlistId);
 
         logger.LogOperationSuccess("Wishlists.Cards.Delete", new { wishlistId, cardId });
         return Results.NoContent();

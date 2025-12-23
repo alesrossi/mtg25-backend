@@ -33,6 +33,8 @@ public static partial class WishlistsEndpoint
             Name = wishlist.Name,
             Description = wishlist.Description,
             IsPublic = wishlist.IsPublic,
+            TotalPrice = wishlist.TotalPrice,
+            TotalPriceCurrency = wishlist.TotalPriceCurrency,
             CardsCount = cards.Sum(c => c.DesiredQuantity),
             IndividualCardsCount = cards.Count
         };
@@ -49,6 +51,8 @@ public static partial class WishlistsEndpoint
             Description = wishlist.Description,
             IsPublic = wishlist.IsPublic,
             OwnerId = wishlist.OwnerId,
+            TotalPrice = wishlist.TotalPrice,
+            TotalPriceCurrency = wishlist.TotalPriceCurrency,
             CardsCount = cards.Sum(c => c.DesiredQuantity),
             IndividualCardsCount = cards.Count,
             Cards = cards
