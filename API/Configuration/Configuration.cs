@@ -17,4 +17,10 @@ public class RequestLoggingOptions
     public string CorrelationHeaderName { get; init; } = DefaultCorrelationHeaderName;
 
     public int SlowRequestThresholdMs { get; init; } = 2000;
+
+    public bool IncludeRequestBody { get; init; }
+
+    public bool IncludeResponseBody { get; init; }
+
+    public int BodySizeLimitKb { get; init; } = 128;
 }

@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.Text;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -46,6 +48,27 @@ public class RequestLoggingMiddleware
             var stopwatch = Stopwatch.StartNew();
             var request = context.Request;
             var requestPath = request.Path + request.QueryString;
+            var captureRequestBody = options.IncludeRequestBody &&
+                (request.ContentLength ?? 0) > 0 &&
+                request.Body.CanRead;
+            var captureResponseBody = options.IncludeResponseBody;
+            string? requestBody = null;
+            string? responseBody = null;
+            Stream? originalResponseBody = null;
+            MemoryStream? bufferedResponseBody = null;
+
+            if (captureRequestBody)
+            {
+                requestBody = await ReadRequestBodyAsync(request);
+            }
+
+            if (captureResponseBody)
+            {
+                originalResponseBody = context.Response.Body;
+                bufferedResponseBody = new MemoryStream();
+                context.Response.Body = bufferedResponseBody;
+            }
+
             logger.LogInformation(
                 "Handling HTTP {Method} {Path} from {RemoteIp}",
                 request.Method,
@@ -67,6 +90,17 @@ public class RequestLoggingMiddleware
             }
             finally
             {
+                if (captureResponseBody && bufferedResponseBody != null)
+                {
+                    responseBody = await ReadResponseBodyAsync(bufferedResponseBody);
+                    bufferedResponseBody.Seek(0, SeekOrigin.Begin);
+                    if (originalResponseBody != null)
+                    {
+                        await bufferedResponseBody.CopyToAsync(originalResponseBody);
+                        context.Response.Body = originalResponseBody;
+                    }
+                }
+
                 stopwatch.Stop();
                 var elapsedMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
                 var statusCode = context.Response?.StatusCode ?? StatusCodes.Status200OK;
@@ -90,6 +124,24 @@ public class RequestLoggingMiddleware
                     requestPath,
                     statusCode,
                     elapsedMilliseconds);
+
+                if (captureRequestBody && !string.IsNullOrWhiteSpace(requestBody))
+                {
+                    logger.LogInformation(
+                        "HTTP {Method} {Path} request body: {RequestBody}",
+                        request.Method,
+                        requestPath,
+                        requestBody);
+                }
+
+                if (captureResponseBody && !string.IsNullOrWhiteSpace(responseBody))
+                {
+                    logger.LogInformation(
+                        "HTTP {Method} {Path} response body: {ResponseBody}",
+                        request.Method,
+                        requestPath,
+                        responseBody);
+                }
             }
         }
     }
@@ -118,5 +170,43 @@ public class RequestLoggingMiddleware
         }
 
         return context.TraceIdentifier;
+    }
+
+    private async Task<string> ReadRequestBodyAsync(HttpRequest request)
+    {
+        request.EnableBuffering();
+        request.Body.Seek(0, SeekOrigin.Begin);
+        var body = await ReadStreamAsync(request.Body);
+        request.Body.Seek(0, SeekOrigin.Begin);
+        return body;
+    }
+
+    private async Task<string> ReadResponseBodyAsync(Stream responseBody)
+    {
+        responseBody.Seek(0, SeekOrigin.Begin);
+        return await ReadStreamAsync(responseBody);
+    }
+
+    private async Task<string> ReadStreamAsync(Stream stream)
+    {
+        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, leaveOpen: true);
+        var text = await reader.ReadToEndAsync();
+        return TruncateBody(text);
+    }
+
+    private string TruncateBody(string body)
+    {
+        if (string.IsNullOrEmpty(body))
+        {
+            return body;
+        }
+
+        var limit = Math.Max(options.BodySizeLimitKb, 1) * 1024;
+        if (body.Length <= limit)
+        {
+            return body;
+        }
+
+        return body[..limit] + "... (truncated)";
     }
 }
