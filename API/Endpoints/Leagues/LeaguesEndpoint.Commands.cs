@@ -512,7 +512,22 @@ public static partial class LeaguesEndpoint
         await dbContext.SaveChangesAsync();
         await AssignLeagueRoleAsync(dbContext, user.Id, league.Id, LeagueRole.Admin);
         await dbContext.SaveChangesAsync();
+
+        var userLeague = new AppUserLeague
+        {
+            UserId = userId,
+            LeagueId = league.Id,
+            Score = 0,
+            RoundsPlayed = 0,
+            Rounds = [],
+            BestRound = 0,
+            AvgScore = 0,
+            IsPlaying = false
+        };
         
+        await dbContext.AddAsync(userLeague);
+        await dbContext.SaveChangesAsync();
+
         logger.LogOperationSuccess(operation, new { league.Id });
         return Results.Ok(league);
     }
@@ -555,20 +570,24 @@ public static partial class LeaguesEndpoint
             logger.LogOperationWarning(operation, "League inactive", new { id });
             return Results.BadRequest();
         }
-        league.TotalPlayers++;
-
-        await dbContext.AddAsync(new AppUserLeague
+        var ownerMembership = await dbContext.UserLeagues
+            .FirstOrDefaultAsync(ul => ul.LeagueId == league.Id && ul.UserId == user.Id);
+        if (ownerMembership is null)
         {
-            UserId = user.Id,
-            User = user,
-            LeagueId = league.Id,
-            League = league,
-            Score = 0,
-            RoundsPlayed = 0,
-            Rounds = [],
-            BestRound = 0,
-            AvgScore = 0
-        });
+            logger.LogOperationWarning(operation, "Owner membership missing", new { id, userId });
+            return Results.BadRequest("Owner membership not found");
+        }
+
+        if (ownerMembership.IsPlaying)
+        {
+            logger.LogOperationWarning(operation, "Owner already playing", new { id, userId });
+            return Results.BadRequest("Owner already joined as player");
+        }
+
+        ownerMembership.IsPlaying = true;
+        dbContext.UserLeagues.Update(ownerMembership);
+
+        league.TotalPlayers++;
         dbContext.Update(league);
         await AssignLeagueRoleAsync(dbContext, user.Id, league.Id, LeagueRole.Player);
         await dbContext.SaveChangesAsync();

@@ -712,6 +712,17 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         if (response.StatusCode == HttpStatusCode.OK)
         {
             await VerifyRoleAssignmentAsync(owner.Id, league.Id, LeagueRole.Player);
+
+            await using var verificationScope = _factory.Services.CreateAsyncScope();
+            var verificationContext = verificationScope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var membership = await verificationContext.UserLeagues
+                .FirstOrDefaultAsync(ul => ul.LeagueId == league.Id && ul.UserId == owner.Id);
+            membership.Should().NotBeNull();
+            membership!.IsPlaying.Should().BeTrue();
+
+            var refreshedLeague = await verificationContext.Leagues.FindAsync(league.Id);
+            refreshedLeague.Should().NotBeNull();
+            refreshedLeague!.TotalPlayers.Should().Be(1);
         }
     }
 
@@ -904,12 +915,33 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             TotalRounds = 5,
             RoundsToConsider = 4,
             MinimumRounds = 2,
-            TotalPlayers = 10,
+            TotalPlayers = 0,
             PointsToGive = new List<int> { 3, 1, 0 },
             IsActive = isActive
         };
         
         dbContext.Leagues.Add(league);
+        await dbContext.SaveChangesAsync();
+
+        dbContext.LeagueRoleAssignments.Add(new LeagueRoleAssignment
+        {
+            LeagueId = league.Id,
+            UserId = ownerId,
+            Roles = LeagueRole.Admin
+        });
+
+        dbContext.UserLeagues.Add(new AppUserLeague
+        {
+            UserId = ownerId,
+            LeagueId = league.Id,
+            Score = 0,
+            RoundsPlayed = 0,
+            Rounds = [],
+            BestRound = 0,
+            AvgScore = 0,
+            IsPlaying = false
+        });
+
         await dbContext.SaveChangesAsync();
         
         return league;
