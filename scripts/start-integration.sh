@@ -19,11 +19,14 @@ if [ -z "$DOCKER_USERNAME" ]; then
 fi
 
 export IMAGE_TAG=${IMAGE_TAG:-"int-latest"}
+export FRONTEND_REGISTRY=${FRONTEND_REGISTRY:-"alesrossi"}
+export FRONTEND_TAG=${FRONTEND_TAG:-"latest"}
 
 echo -e "${BLUE}Configuration:${NC}"
 echo "  Docker Username: $DOCKER_USERNAME"
 echo "  Image Tag: $IMAGE_TAG"
 echo "  Full Image: $DOCKER_USERNAME/mtg-api:$IMAGE_TAG"
+echo "  Frontend Image: $FRONTEND_REGISTRY/mtgfe-frontend:$FRONTEND_TAG"
 echo ""
 
 # Stop existing containers
@@ -35,12 +38,20 @@ echo -e "${YELLOW}🧹 Cleaning up old resources...${NC}"
 docker system prune -f --filter "label=com.docker.compose.project=mtg-int" || true
 
 # Pull latest image
-echo -e "${YELLOW}📥 Pulling latest image: $DOCKER_USERNAME/mtg-api:$IMAGE_TAG${NC}"
+echo -e "${YELLOW}📥 Pulling API image: $DOCKER_USERNAME/mtg-api:$IMAGE_TAG${NC}"
 if ! docker pull --platform linux/amd64 $DOCKER_USERNAME/mtg-api:$IMAGE_TAG; then
     echo -e "${RED}❌ Failed to pull image. Make sure:${NC}"
     echo "  1. The image exists on DockerHub"
     echo "  2. Your DockerHub username is correct"
     echo "  3. The image tag exists"
+    exit 1
+fi
+
+echo -e "${YELLOW}📥 Pulling Frontend image: $FRONTEND_REGISTRY/mtgfe-frontend:$FRONTEND_TAG${NC}"
+if ! docker pull --platform linux/amd64 $FRONTEND_REGISTRY/mtgfe-frontend:$FRONTEND_TAG; then
+    echo -e "${RED}❌ Failed to pull frontend image. Make sure:${NC}"
+    echo "  1. The image exists on DockerHub"
+    echo "  2. The registry/tag are correct"
     exit 1
 fi
 

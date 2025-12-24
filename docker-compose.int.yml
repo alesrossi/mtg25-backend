@@ -117,7 +117,7 @@ services:
     networks:
       - mtg-int-network
   frontend-int:
-    image: ${DOCKER_USERNAME:-alesrossi}/mtgfe-frontend:${IMAGE_TAG:-latest}
+    image: ${FRONTEND_REGISTRY:-alesrossi}/mtgfe-frontend:${FRONTEND_TAG:-latest}
     container_name: frontend-int
     restart: unless-stopped
     depends_on:
