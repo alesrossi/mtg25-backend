@@ -17,7 +17,7 @@ public class CsvRecordDto
     public required string CollectorNumber { get; set; }
     
     [Name("Foil")]
-    [BooleanTrueValues("Yes", "Y", "True", "1", "true", "foil")]
+    [BooleanTrueValues("Yes", "Y", "True", "1", "true", "foil", "etched")]
     [BooleanFalseValues("No", "N", "False", "0", "false", "", "normal")]
     public bool IsFoil { get; set; }
     
