@@ -1,3 +1,5 @@
+using System;
+using System.Linq.Expressions;
 using Core.Models;
 
 namespace Core.Specifications;
@@ -9,20 +11,7 @@ public class CardsWithParamsSpecification : BaseSpecification<Card>
         int collectionId,
         bool applySorting = true,
         bool applyPaging = true)
-        : base(x =>
-            (string.IsNullOrEmpty(entityParams.Search) || x.Name.Contains(entityParams.Search)) &&
-            (string.IsNullOrEmpty(entityParams.SetCode) || x.SetCode == entityParams.SetCode) &&
-            (string.IsNullOrEmpty(entityParams.SetName) || x.SetName.Contains(entityParams.SetName)) &&
-            (string.IsNullOrEmpty(entityParams.Rarity) || x.Rarity == entityParams.Rarity) &&
-            (entityParams.Condition == null || x.Condition == entityParams.Condition) &&
-            (entityParams.IsFoil == null || x.IsFoil == entityParams.IsFoil) &&
-            (entityParams.IsMisprint == null || x.IsMisprint == entityParams.IsMisprint) &&
-            (entityParams.IsAltered == null || x.IsAltered == entityParams.IsAltered) &&
-            (string.IsNullOrEmpty(entityParams.Language) || x.Language == entityParams.Language) &&
-            (string.IsNullOrEmpty(entityParams.TypeLine) || (x.TypeLine.Contains(entityParams.TypeLine))) &&
-            (entityParams.MinPrice == null || x.PurchasePrice >= entityParams.MinPrice) &&
-            (entityParams.MaxPrice == null || x.PurchasePrice <= entityParams.MaxPrice) &&
-            x.CollectionId == collectionId)
+        : base(BuildCriteria(entityParams, collectionId))
 
     {
         if (applySorting)
@@ -93,5 +82,27 @@ public class CardsWithParamsSpecification : BaseSpecification<Card>
                 AddOrderBy(n => n.Name);
                 break;
         }
+    }
+
+    private static Expression<Func<Card, bool>> BuildCriteria(EntitySpecParams entityParams, int collectionId)
+    {
+        var searchTerm = entityParams.Search?.ToLowerInvariant();
+        var setNameTerm = entityParams.SetName?.ToLowerInvariant();
+        var typeLineTerm = entityParams.TypeLine?.ToLowerInvariant();
+
+        return x =>
+            (string.IsNullOrEmpty(searchTerm) || x.Name.ToLower().Contains(searchTerm)) &&
+            (string.IsNullOrEmpty(entityParams.SetCode) || x.SetCode == entityParams.SetCode) &&
+            (string.IsNullOrEmpty(setNameTerm) || x.SetName.ToLower().Contains(setNameTerm)) &&
+            (string.IsNullOrEmpty(entityParams.Rarity) || x.Rarity == entityParams.Rarity) &&
+            (entityParams.Condition == null || x.Condition == entityParams.Condition) &&
+            (entityParams.IsFoil == null || x.IsFoil == entityParams.IsFoil) &&
+            (entityParams.IsMisprint == null || x.IsMisprint == entityParams.IsMisprint) &&
+            (entityParams.IsAltered == null || x.IsAltered == entityParams.IsAltered) &&
+            (string.IsNullOrEmpty(entityParams.Language) || x.Language == entityParams.Language) &&
+            (string.IsNullOrEmpty(typeLineTerm) || x.TypeLine.ToLower().Contains(typeLineTerm)) &&
+            (entityParams.MinPrice == null || x.PurchasePrice >= entityParams.MinPrice) &&
+            (entityParams.MaxPrice == null || x.PurchasePrice <= entityParams.MaxPrice) &&
+            x.CollectionId == collectionId;
     }
 }
