@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using API.Dtos.Cards;
 using API.Helpers;
@@ -5,6 +6,7 @@ using API.Logging;
 using API.Services;
 using Core.Interfaces;
 using Core.Models;
+using Core.Models.Identity;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Endpoints.Cards;
@@ -397,6 +399,7 @@ public static partial class CardsEndpoints
         CardDataService cds,
         HttpContext context,
         InternalCardDto cardDto,
+        [FromServices] IUserSettingsService userSettingsService,
         [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
         const string operation = "Cards.AddInternal";
@@ -436,6 +439,12 @@ public static partial class CardsEndpoints
         var artCrop = imageUris.ArtCrop ?? throw new InvalidOperationException($"Missing art crop for card {scryfallCardDto.Name}");
         var backImageUrl = cds.ResolveBackImageUrl(scryfallCardDto);
 
+        var (resolvedPrice, resolvedCurrency) = await ResolvePurchasePriceAsync(
+            cardDto,
+            scryfallCardDto,
+            userId,
+            userSettingsService);
+
         var card = new Card
         {
             ScryfallId = scryfallCardDto.Id,
@@ -445,9 +454,9 @@ public static partial class CardsEndpoints
             Language = cardDto.Language,
             Condition = myEnum,
             IsFoil = cardDto.IsFoil,
-            PurchasePrice = cardDto.PurchasePrice,
+            PurchasePrice = resolvedPrice,
             ImageUrl = imageUrl,
-            PurchasePriceCurrency = cardDto.PurchasePriceCurrency,
+            PurchasePriceCurrency = resolvedCurrency,
             SetCode = scryfallCardDto.Set,
             SetName = scryfallCardDto.SetName,
             TypeLine = scryfallCardDto.TypeLine ?? string.Empty,
@@ -500,4 +509,72 @@ public static partial class CardsEndpoints
         return Task.FromResult(Results.Ok(scryfallCardList));
     }
 
+    private static async Task<(double price, string currency)> ResolvePurchasePriceAsync(
+        InternalCardDto cardDto,
+        ScryfallCardDto scryfallCard,
+        string userId,
+        IUserSettingsService userSettingsService)
+    {
+        var purchasePrice = cardDto.PurchasePrice;
+        var purchaseCurrency = cardDto.PurchasePriceCurrency;
+
+        var requiresMarketPrice = !purchasePrice.HasValue || purchasePrice.Value <= 0;
+        var requiresCurrency = string.IsNullOrWhiteSpace(purchaseCurrency);
+
+        if (!requiresMarketPrice && !requiresCurrency)
+        {
+            return (purchasePrice!.Value, purchaseCurrency!);
+        }
+
+        var marketProvider = await userSettingsService.GetMarketProviderAsync(userId);
+        var currencyCode = ConvertCurrencyToCode(userSettingsService.ResolveCurrency(marketProvider));
+
+        if (requiresMarketPrice)
+        {
+            var livePrice = ResolveMarketPrice(scryfallCard, cardDto.IsFoil, marketProvider);
+            if (livePrice.HasValue)
+            {
+                purchasePrice = livePrice.Value;
+                purchaseCurrency ??= currencyCode;
+            }
+        }
+
+        purchaseCurrency ??= currencyCode;
+
+        return (purchasePrice ?? 0, purchaseCurrency);
+    }
+
+    private static double? ResolveMarketPrice(ScryfallCardDto scryfallCard, bool isFoil, MarketProvider marketProvider)
+    {
+        var prices = scryfallCard.Prices;
+        if (prices is null)
+        {
+            return null;
+        }
+
+        var priceText = marketProvider == MarketProvider.Mkm
+            ? (isFoil ? prices.EurFoil : prices.Eur)
+            : (isFoil ? prices.UsdFoil : prices.Usd);
+
+        if (string.IsNullOrWhiteSpace(priceText) && isFoil)
+        {
+            priceText = marketProvider == MarketProvider.Mkm
+                ? prices.Eur
+                : prices.Usd;
+        }
+
+        if (string.IsNullOrWhiteSpace(priceText))
+        {
+            return null;
+        }
+
+        return double.TryParse(priceText, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : null;
+    }
+
+    private static string ConvertCurrencyToCode(Currency currency)
+    {
+        return currency.ToString().ToUpperInvariant();
+    }
 }

@@ -586,6 +586,46 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         updatedCollection.Should().NotBeNull();
         updatedCollection!.NumberOfCards.Should().Be(cardRequest.Quantity);
     }
+
+    [Fact]
+    public async Task AddNewCard_WithoutPurchasePrice_UsesLivePricing()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync("cardadder-noprice@example.com", "cardadder_noprice");
+        var collection = await CreateTestCollectionAsync(user.Id, "Auto Price Collection");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var cardRequest = new
+        {
+            ScryfallId = "97398ad2-675b-4a34-aab7-935dd6714f1c",
+            CollectionId = collection.Id,
+            Quantity = 1,
+            Language = "en",
+            Condition = "NearMint",
+            IsFoil = false,
+            IsMisprint = false,
+            IsAltered = false
+        };
+
+        var json = JsonSerializer.Serialize(cardRequest);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        // Act
+        var response = await client.PostAsync("/api/cards", content);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK, "because the API should fill missing prices with live data");
+
+        var payload = await response.Content.ReadAsStringAsync();
+        var createdCard = JsonSerializer.Deserialize<Card>(payload, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        createdCard.Should().NotBeNull();
+        createdCard!.PurchasePrice.Should().BeGreaterThan(0, "because a live price should be applied when none is supplied");
+        createdCard.PurchasePriceCurrency.Should().NotBeNullOrWhiteSpace();
+    }
     
     [Fact]
     public async Task AddNewCard_WithInvalidCondition_ReturnsBadRequest()

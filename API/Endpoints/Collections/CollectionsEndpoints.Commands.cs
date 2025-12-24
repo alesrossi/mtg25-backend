@@ -160,6 +160,7 @@ public static partial class CollectionsEndpoints
         IFormFile file,
         int id,
         HttpContext context,
+        [FromServices] IUserSettingsService userSettingsService,
         [FromServices] ILogger<CollectionsEndpointLogCategory> logger)
     {
         const string operation = "Collections.Import";
@@ -188,7 +189,9 @@ public static partial class CollectionsEndpoints
                 return Results.BadRequest("File is too large");
             }
 
-            var importResult = await CollectionHelpers.ProcessCsvFIle(file, cds, id);
+            var marketProvider = await userSettingsService.GetMarketProviderAsync(userId);
+            var userCurrency = userSettingsService.ResolveCurrency(marketProvider);
+            var importResult = await CollectionHelpers.ProcessCsvFIle(file, cds, id, marketProvider, userCurrency);
 
             var collection = await unitOfWork.Repository<Collection>().GetByIdAsync(id);
             if (collection is null)

@@ -8,8 +8,8 @@ public class InternalCardDto
     public required string Language { get; set; }
     public required string Condition { get; set; } 
     public bool IsFoil { get; set; }
-    public double PurchasePrice { get; set; }
-    public required string PurchasePriceCurrency { get; set; }
+    public double? PurchasePrice { get; set; }
+    public string? PurchasePriceCurrency { get; set; }
     public required bool IsMisprint { get; set; }
     public required bool IsAltered  { get; set; }
 }
