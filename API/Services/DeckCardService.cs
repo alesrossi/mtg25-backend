@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using API.Dtos.Cards;
@@ -25,6 +26,15 @@ public class DeckCardService
     private const string CreateDeckCardOperation = "DeckCards.Create";
     private const string UpdateDeckCardOperation = "DeckCards.Update";
     private const string DeleteDeckCardOperation = "DeckCards.Delete";
+
+    private static readonly HashSet<string> BasicLandNames = new HashSet<string>(new[]
+    {
+        "Island",
+        "Forest",
+        "Mountain",
+        "Swamp",
+        "Plains"
+    }, StringComparer.OrdinalIgnoreCase);
 
     public DeckCardService(IUnitOfWork unitOfWork, ILogger<DeckCardService> logger, CardDataService cardDataService, AppIdentityDbContext identityDbContext)
     {
@@ -62,7 +72,7 @@ public class DeckCardService
         // Build a lookup of deck card names so ownership can be matched across printings
         var cardNames = (deckCards ?? [])
             .Select(dc => dc.Name)
-            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Where(name => !string.IsNullOrWhiteSpace(name) && !IsBasicLandName(name))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
         var cardNameSet = new HashSet<string>(cardNames, StringComparer.OrdinalIgnoreCase);
@@ -74,7 +84,7 @@ public class DeckCardService
         // Get all owned cards that match the deck card names in one query per collection
         var ownedCardsLookup = new Dictionary<string, List<Card>>(StringComparer.OrdinalIgnoreCase);
         
-        if (userCollections != null)
+        if (userCollections != null && cardNameSet.Count > 0)
         {
             foreach (var collection in userCollections)
             {
@@ -370,33 +380,22 @@ public class DeckCardService
 
     private DeckCardDto MapToDto(DeckCard deckCard, MarketProvider marketProvider)
     {
-        var price = ResolveMarketPrice(deckCard.ScryfallId, marketProvider);
-        return new DeckCardDto
+        if (IsBasicLandName(deckCard.Name))
         {
-            Id = deckCard.Id,
-            DeckId = deckCard.DeckId,
-            ScryfallId = deckCard.ScryfallId,
-            Name = deckCard.Name,
-            SetCode = deckCard.SetCode,
-            SetName = deckCard.SetName,
-            ColorIdentity = deckCard.ColorIdentity,
-            ImageUrl = deckCard.ImageUrl,
-            BackImageUrl = deckCard.BackImageUrl,
-            ArtCrop = deckCard.ArtCrop,
-            Rarity = deckCard.Rarity,
-            CollectorNumber = deckCard.CollectorNumber,
-            TypeLine = deckCard.TypeLine,
-            MaindeckQuantity = deckCard.MaindeckQuantity,
-            SideboardQuantity = deckCard.SideboardQuantity,
-            OwnedCardId = deckCard.OwnedCardId,
-            OwnedQuantity = deckCard.OwnedCard?.Quantity ?? 0,
-            Price = price,
-            PriceCurrency = price.HasValue ? marketProvider : null
-        };
+            return CreateDeckCardDto(deckCard, marketProvider, ResolveBasicLandOwnedQuantity(deckCard));
+        }
+
+        var ownedQuantity = deckCard.OwnedCard?.Quantity ?? 0;
+        return CreateDeckCardDto(deckCard, marketProvider, ownedQuantity);
     }
 
     private async Task<DeckCardDto> MapToDtoAsync(DeckCard deckCard, string ownerId, MarketProvider marketProvider)
     {
+        if (IsBasicLandName(deckCard.Name))
+        {
+            return CreateDeckCardDto(deckCard, marketProvider, ResolveBasicLandOwnedQuantity(deckCard));
+        }
+
         // Find all collections owned by the user
         var userCollectionsSpec = new CollectionWithOwnerSpecification(ownerId);
         var userCollections = await unitOfWork.Repository<Collection>().ListAsync(userCollectionsSpec, tracking: false);
@@ -425,6 +424,28 @@ public class DeckCardService
             }
         }
         
+        return CreateDeckCardDto(deckCard, marketProvider, totalOwnedQuantity, firstOwnedCard?.Id);
+    }
+
+    private DeckCardDto MapToDtoWithLookup(DeckCard deckCard, Dictionary<string, List<Card>> ownedCardsLookup, MarketProvider marketProvider)
+    {
+        if (IsBasicLandName(deckCard.Name))
+        {
+            return CreateDeckCardDto(deckCard, marketProvider, ResolveBasicLandOwnedQuantity(deckCard));
+        }
+
+        var lookupKey = deckCard.Name;
+        var ownedCards = !string.IsNullOrWhiteSpace(lookupKey) && ownedCardsLookup.TryGetValue(lookupKey, out var cards)
+            ? cards
+            : new List<Card>();
+        var totalOwnedQuantity = ownedCards.Sum(c => c.Quantity);
+        var firstOwnedCard = ownedCards.FirstOrDefault();
+        
+        return CreateDeckCardDto(deckCard, marketProvider, totalOwnedQuantity, firstOwnedCard?.Id);
+    }
+
+    private DeckCardDto CreateDeckCardDto(DeckCard deckCard, MarketProvider marketProvider, int ownedQuantity, int? ownedCardIdOverride = null)
+    {
         var price = ResolveMarketPrice(deckCard.ScryfallId, marketProvider);
         return new DeckCardDto
         {
@@ -443,44 +464,33 @@ public class DeckCardService
             TypeLine = deckCard.TypeLine,
             MaindeckQuantity = deckCard.MaindeckQuantity,
             SideboardQuantity = deckCard.SideboardQuantity,
-            OwnedCardId = firstOwnedCard?.Id ?? deckCard.OwnedCardId,
-            OwnedQuantity = totalOwnedQuantity,
+            OwnedCardId = ownedCardIdOverride ?? deckCard.OwnedCardId,
+            OwnedQuantity = ownedQuantity,
             Price = price,
             PriceCurrency = price.HasValue ? marketProvider : null
         };
     }
 
-    private DeckCardDto MapToDtoWithLookup(DeckCard deckCard, Dictionary<string, List<Card>> ownedCardsLookup, MarketProvider marketProvider)
+    private static bool IsBasicLandName(string? cardName)
     {
-        var lookupKey = deckCard.Name;
-        var ownedCards = !string.IsNullOrWhiteSpace(lookupKey) && ownedCardsLookup.TryGetValue(lookupKey, out var cards)
-            ? cards
-            : new List<Card>();
-        var totalOwnedQuantity = ownedCards.Sum(c => c.Quantity);
-        var firstOwnedCard = ownedCards.FirstOrDefault();
-        var price = ResolveMarketPrice(deckCard.ScryfallId, marketProvider);
-        
-        return new DeckCardDto
-        {
-            Id = deckCard.Id,
-            DeckId = deckCard.DeckId,
-            ScryfallId = deckCard.ScryfallId,
-            Name = deckCard.Name,
-            SetCode = deckCard.SetCode,
-            SetName = deckCard.SetName,
-            ImageUrl = deckCard.ImageUrl,
-            BackImageUrl = deckCard.BackImageUrl,
-            ArtCrop = deckCard.ArtCrop,
-            Rarity = deckCard.Rarity,
-            CollectorNumber = deckCard.CollectorNumber,
-            TypeLine = deckCard.TypeLine,
-            MaindeckQuantity = deckCard.MaindeckQuantity,
-            SideboardQuantity = deckCard.SideboardQuantity,
-            OwnedCardId = firstOwnedCard?.Id ?? deckCard.OwnedCardId,
-            OwnedQuantity = totalOwnedQuantity,
-            Price = price,
-            PriceCurrency = price.HasValue ? marketProvider : null
-        };
+        return !string.IsNullOrWhiteSpace(cardName) && BasicLandNames.Contains(cardName.Trim());
+    }
+
+    private static bool IsBasicLandTypeLine(string? typeLine)
+    {
+        return !string.IsNullOrWhiteSpace(typeLine) &&
+            typeLine.Contains("Basic Land", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static int ResolveBasicLandOwnedQuantity(DeckCard deckCard)
+    {
+        var total = GetTotalQuantity(deckCard);
+        return Math.Max(total, 4);
+    }
+
+    private static int GetTotalQuantity(DeckCard deckCard)
+    {
+        return deckCard.MaindeckQuantity + deckCard.SideboardQuantity;
     }
 
     private async Task UpdateDeckAggregatesAsync(
@@ -551,7 +561,7 @@ public class DeckCardService
 
     private async Task EnsureCopyLimitAsync(int deckId, string cardName, string? typeLine, int requestedTotalQuantity, int? existingDeckCardId, string operation)
     {
-        if (IsBasicLand(typeLine))
+        if (IsBasicLandTypeLine(typeLine))
         {
             return;
         }
@@ -569,11 +579,6 @@ public class DeckCardService
             logger.LogOperationWarning(operation, "Copy limit exceeded", new { deckId, cardName, requestedTotalQuantity });
             throw new InvalidOperationException($"Adding '{cardName}' would exceed the 4-copy limit for this deck.");
         }
-    }
-
-    private static bool IsBasicLand(string? typeLine)
-    {
-        return !string.IsNullOrWhiteSpace(typeLine) && typeLine.IndexOf("Basic", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     private static List<string> NormalizeColorIdentity(IEnumerable<string?>? colorIdentity)

@@ -494,6 +494,49 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task ImportDeck_BasicLandsAreAlwaysFullyOwned()
+    {
+        var user = await CreateTestUserAsync("import-basics@example.com", "import_basics");
+        await SeedCardDataAsync(new[]
+        {
+            CreateOracleCardDto("island-1", "oracle-island", "Island", "MIR", "Mirage"),
+            CreateOracleCardDto("mountain-1", "oracle-mountain", "Mountain", "MIR", "Mirage"),
+            CreateOracleCardDto("bolt-1", "oracle-bolt", "Lightning Bolt", "LEA", "Limited Edition Alpha")
+        });
+
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var importRequest = new DeckImportRequestDto
+        {
+            Name = "Basics Test",
+            Format = "Modern",
+            Decklist = "2 Island\n1 Mountain\n4 Lightning Bolt"
+        };
+
+        var json = JsonSerializer.Serialize(importRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await client.PostAsync("/api/decks/import", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var responseContent = await response.Content.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(responseContent);
+        var deckCards = document.RootElement.GetProperty("deckCards");
+
+        var island = deckCards.EnumerateArray().Single(dc => dc.GetProperty("name").GetString() == "Island");
+        island.GetProperty("ownershipStatus").GetString().Should().Be("FullyOwned");
+        island.GetProperty("ownedQuantity").GetInt32().Should().Be(4);
+
+        var mountain = deckCards.EnumerateArray().Single(dc => dc.GetProperty("name").GetString() == "Mountain");
+        mountain.GetProperty("ownershipStatus").GetString().Should().Be("FullyOwned");
+        mountain.GetProperty("ownedQuantity").GetInt32().Should().Be(4);
+
+        var lightningBolt = deckCards.EnumerateArray().Single(dc => dc.GetProperty("name").GetString() == "Lightning Bolt");
+        lightningBolt.GetProperty("ownershipStatus").GetString().Should().Be("NotOwned");
+    }
+
+    [Fact]
     public async Task ImportDeck_WithUnknownCard_ReturnsPartialSuccess()
     {
         var user = await CreateTestUserAsync("importerror@example.com", "importerror");

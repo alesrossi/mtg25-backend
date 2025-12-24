@@ -117,22 +117,15 @@ services:
     networks:
       - mtg-int-network
   frontend-int:
-    image: alesrossi/mtgfe-frontend:latest
+    image: ${DOCKER_USERNAME:-alesrossi}/mtgfe-frontend:${IMAGE_TAG:-latest}
     container_name: frontend-int
-    command: pnpm expo start --dev-client --host lan --port 8088
-    environment:
-      EXPO_TOKEN: "token"
-      EXPO_DEVTOOLS_LISTEN_ADDRESS: 0.0.0.0
-      EXPO_DEVTOOLS_LISTEN_PORT: "19002"
-      EXPO_PUBLIC_API_URL: http://138.197.188.60:8086/api
-    tty: true
-    ports:
-      - "8088:8088"
-      - "19000:19000"
-      - "19001:19001"
-      - "19002:19002"
     restart: unless-stopped
-    
+    depends_on:
+      api-int:
+        condition: service_started
+    ports:
+      - "8088:80"
+
 volumes:
   redis-int-data:
     name: mtg-redis-int-data
