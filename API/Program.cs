@@ -157,6 +157,7 @@ public class Program
             builder.Services.AddScoped<IJwtService, JwtService>();
             builder.Services.AddScoped<DeckCardService>();
             builder.Services.AddScoped<WishlistPricingService>();
+            builder.Services.AddScoped<IUserSettingsService, UserSettingsService>();
             builder.Services.AddScoped<NotificationService>();
             builder.Services.AddScoped<IDeckValidationService, DeckValidationService>();
             builder.Services.AddScoped<IDecklistParserService, DecklistParserService>();

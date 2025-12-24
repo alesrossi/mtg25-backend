@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using API.Dtos.Cards;
 using API.Logging;
@@ -5,9 +6,7 @@ using API.Services;
 using Core.Interfaces;
 using Core.Models;
 using Core.Models.Identity;
-using Infrastructure.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace API.Endpoints.Cards;
 
@@ -66,7 +65,7 @@ public static partial class CardsEndpoints
         int id,
         CardDataService cds,
         HttpContext context,
-        [FromServices] AppIdentityDbContext dbContext,
+        [FromServices] IUserSettingsService userSettingsService,
         [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
         const string operation = "Cards.GetById";
@@ -92,44 +91,19 @@ public static partial class CardsEndpoints
             return Results.Unauthorized();
         }
         
-        var settings = await dbContext.Settings
-            .Where(ul => ul.AppUserId == userId)
-            .AsNoTracking()
-            .FirstOrDefaultAsync();
-        
+        var marketProvider = await userSettingsService.GetMarketProviderAsync(userId);
+
         double? price = null;
-        var marketProvider = settings?.MarketProvider ?? MarketProvider.Mkm;
-        if (settings is not null && cds.CardDataById.TryGetValue(card.ScryfallId, out var marketData) && marketData?.Prices is not null)
+        if (cds.CardDataById.TryGetValue(card.ScryfallId, out var marketData) && marketData?.Prices is not null)
         {
-            if (settings.MarketProvider == MarketProvider.Mkm)
+            var priceText = marketProvider == MarketProvider.Mkm
+                ? (card.IsFoil ? marketData.Prices.EurFoil : marketData.Prices.Eur)
+                : (card.IsFoil ? marketData.Prices.UsdFoil : marketData.Prices.Usd);
+
+            if (!string.IsNullOrWhiteSpace(priceText) &&
+                double.TryParse(priceText, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
             {
-                if (card.IsFoil)
-                {
-                    var eur = marketData.Prices!.EurFoil;
-                    if (eur != null)
-                        price = double.Parse(eur);
-                }
-                else
-                {
-                    var eur = marketData.Prices!.Eur;
-                    if (eur != null)
-                        price = double.Parse(eur);
-                }
-            }
-            else
-            {
-                if (card.IsFoil)
-                {
-                    var usd = marketData.Prices!.UsdFoil;
-                    if (usd != null)
-                        price = double.Parse(usd);
-                }
-                else
-                {
-                    var usd = marketData.Prices!.Usd;
-                    if (usd != null)
-                        price = double.Parse(usd);
-                }
+                price = parsed;
             }
         }
         

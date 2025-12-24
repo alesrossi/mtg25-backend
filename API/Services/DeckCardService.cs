@@ -9,8 +9,6 @@ using Core.Interfaces;
 using Core.Models;
 using Core.Models.Identity;
 using Core.Specifications;
-using Infrastructure.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace API.Services;
@@ -20,7 +18,7 @@ public class DeckCardService
     private readonly IUnitOfWork unitOfWork;
     private readonly ILogger<DeckCardService> logger;
     private readonly CardDataService cardDataService;
-    private readonly AppIdentityDbContext identityDbContext;
+    private readonly IUserSettingsService userSettingsService;
 
     private const string GetDeckCardsOperation = "DeckCards.Fetch";
     private const string CreateDeckCardOperation = "DeckCards.Create";
@@ -36,12 +34,12 @@ public class DeckCardService
         "Plains"
     }, StringComparer.OrdinalIgnoreCase);
 
-    public DeckCardService(IUnitOfWork unitOfWork, ILogger<DeckCardService> logger, CardDataService cardDataService, AppIdentityDbContext identityDbContext)
+    public DeckCardService(IUnitOfWork unitOfWork, ILogger<DeckCardService> logger, CardDataService cardDataService, IUserSettingsService userSettingsService)
     {
         this.unitOfWork = unitOfWork;
         this.logger = logger;
         this.cardDataService = cardDataService;
-        this.identityDbContext = identityDbContext;
+        this.userSettingsService = userSettingsService;
     }
 
     public async Task<IEnumerable<DeckCardDto>> GetDeckCardsAsync(int deckId, bool maindeckOnly = false, bool sideboardOnly = false, bool? ownedOnly = null)
@@ -522,7 +520,7 @@ public class DeckCardService
         var price = ResolveMarketPrice(deckCard.ScryfallId, marketProvider);
         if (price.HasValue && totalDelta != 0)
         {
-            deck.TotalPriceCurrency = ResolveCurrency(marketProvider);
+            deck.TotalPriceCurrency = userSettingsService.ResolveCurrency(marketProvider);
             var updatedTotal = deck.TotalPrice + (price.Value * totalDelta);
             deck.TotalPrice = Math.Round(Math.Max(0, updatedTotal), 2, MidpointRounding.AwayFromZero);
         }
@@ -590,17 +588,9 @@ public class DeckCardService
             .ToList();
     }
 
-    private static Currency ResolveCurrency(MarketProvider marketProvider)
+    private Task<MarketProvider> ResolveMarketProviderAsync(string ownerId)
     {
-        return marketProvider == MarketProvider.Mkm ? Currency.Eur : Currency.Usd;
-    }
-
-    private async Task<MarketProvider> ResolveMarketProviderAsync(string ownerId)
-    {
-        var settings = await identityDbContext.Settings
-            .AsNoTracking()
-            .FirstOrDefaultAsync(s => s.AppUserId == ownerId);
-        return settings?.MarketProvider ?? MarketProvider.Mkm;
+        return userSettingsService.GetMarketProviderAsync(ownerId);
     }
 
     private async Task<MarketProvider> ResolveMarketProviderForDeckAsync(int deckId)

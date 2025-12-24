@@ -9,9 +9,7 @@ using Core.Interfaces;
 using Core.Models;
 using Core.Models.Identity;
 using Core.Specifications;
-using Infrastructure.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace API.Endpoints.Decks;
 
@@ -432,7 +430,7 @@ public static partial class DecksEndpoint
         IUnitOfWork unitOfWork,
         ClaimsPrincipal user,
         [FromServices] CardDataService cardDataService,
-        [FromServices] AppIdentityDbContext identityDbContext,
+        [FromServices] IUserSettingsService userSettingsService,
         [FromServices] ILogger<DecksEndpointLogCategory> logger)
     {
         const string operation = "Decks.Import";
@@ -488,12 +486,8 @@ public static partial class DecksEndpoint
         await unitOfWork.Complete();
 
         var createdCards = new List<DeckCardDto>();
-        var settings = await identityDbContext.Settings
-            .Where(s => s.AppUserId == userId)
-            .AsNoTracking()
-            .FirstOrDefaultAsync();
-        var marketProvider = settings?.MarketProvider ?? MarketProvider.Mkm;
-        deck.TotalPriceCurrency = marketProvider == MarketProvider.Mkm ? Currency.Eur : Currency.Usd;
+        var marketProvider = await userSettingsService.GetMarketProviderAsync(userId);
+        deck.TotalPriceCurrency = userSettingsService.ResolveCurrency(marketProvider);
         double totalPrice = 0;
         foreach (var deckCardDto in parseResult.DeckCards)
         {

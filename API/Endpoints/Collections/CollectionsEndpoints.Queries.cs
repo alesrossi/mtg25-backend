@@ -9,9 +9,7 @@ using Core.Interfaces;
 using Core.Models;
 using Core.Models.Identity;
 using Core.Specifications;
-using Infrastructure.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace API.Endpoints.Collections;
 
@@ -84,7 +82,7 @@ public static partial class CollectionsEndpoints
         CardDataService cds,
         [AsParameters] EntitySpecParams entityParams,
         HttpContext context,
-        [FromServices] AppIdentityDbContext dbContext,
+        [FromServices] IUserSettingsService userSettingsService,
         [FromServices] ILogger<CollectionsEndpointLogCategory> logger)
     {
         const string operation = "Collections.GetCards";
@@ -121,11 +119,7 @@ public static partial class CollectionsEndpoints
 
         var cards = await unitOfWork.Repository<Card>().ListAsync(listingSpec, tracking: false) ?? Array.Empty<Card>();
 
-        var settings = await dbContext.Settings
-            .Where(ul => ul.AppUserId == userId)
-            .AsNoTracking()
-            .FirstOrDefaultAsync();
-        var marketProvider = settings?.MarketProvider ?? MarketProvider.Mkm;
+        var marketProvider = await userSettingsService.GetMarketProviderAsync(userId);
         var mappedCards = new List<ExtensiveCardDto>(cards.Count);
         foreach (var card in cards)
         {

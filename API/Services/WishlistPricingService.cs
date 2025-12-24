@@ -3,8 +3,6 @@ using Core.Interfaces;
 using Core.Models;
 using Core.Models.Identity;
 using Core.Specifications;
-using Infrastructure.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace API.Services;
@@ -13,18 +11,18 @@ public class WishlistPricingService
 {
     private readonly IUnitOfWork unitOfWork;
     private readonly CardDataService cardDataService;
-    private readonly AppIdentityDbContext identityDbContext;
+    private readonly IUserSettingsService userSettingsService;
     private readonly ILogger<WishlistPricingService> logger;
 
     public WishlistPricingService(
         IUnitOfWork unitOfWork,
         CardDataService cardDataService,
-        AppIdentityDbContext identityDbContext,
+        IUserSettingsService userSettingsService,
         ILogger<WishlistPricingService> logger)
     {
         this.unitOfWork = unitOfWork;
         this.cardDataService = cardDataService;
-        this.identityDbContext = identityDbContext;
+        this.userSettingsService = userSettingsService;
         this.logger = logger;
     }
 
@@ -40,7 +38,7 @@ public class WishlistPricingService
         var cardsSpec = new WishlistCardsWithWishlistIdSpecification(wishlistId);
         var cards = await unitOfWork.Repository<WishlistCard>().ListAsync(cardsSpec, tracking: false) ?? [];
 
-        var marketProvider = await ResolveMarketProviderAsync(wishlist.OwnerId);
+        var marketProvider = await userSettingsService.GetMarketProviderAsync(wishlist.OwnerId);
 
         double total = 0;
         foreach (var card in cards)
@@ -60,19 +58,11 @@ public class WishlistPricingService
             total += unitPrice.Value * quantity;
         }
 
-        wishlist.TotalPriceCurrency = total > 0 ? ResolveCurrency(marketProvider) : null;
+        wishlist.TotalPriceCurrency = total > 0 ? userSettingsService.ResolveCurrency(marketProvider) : null;
         wishlist.TotalPrice = Math.Round(total, 2, MidpointRounding.AwayFromZero);
 
         unitOfWork.Repository<Wishlist>().Update(wishlist);
         await unitOfWork.Complete();
-    }
-
-    private async Task<MarketProvider> ResolveMarketProviderAsync(string ownerId)
-    {
-        var settings = await identityDbContext.Settings
-            .AsNoTracking()
-            .FirstOrDefaultAsync(s => s.AppUserId == ownerId);
-        return settings?.MarketProvider ?? MarketProvider.Mkm;
     }
 
     private double? ResolveMarketPrice(string scryfallId, bool isFoil, MarketProvider marketProvider)
@@ -104,8 +94,4 @@ public class WishlistPricingService
             : null;
     }
 
-    private static Currency ResolveCurrency(MarketProvider marketProvider)
-    {
-        return marketProvider == MarketProvider.Mkm ? Currency.Eur : Currency.Usd;
-    }
 }
