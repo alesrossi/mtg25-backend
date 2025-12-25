@@ -17,4 +17,5 @@ public class LeagueDto // League from User point of view
     public bool IsActive { get; set; }
     public bool IsPlaying { get; set; }
     public required string OwnerId { get; set; }
+    public bool IsPublic { get; set; }
 }

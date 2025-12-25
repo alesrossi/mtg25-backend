@@ -26,4 +26,5 @@ public class NewLeagueDto
     public required ScoringSystem ScoringSystem { get; set; } 
     public double? TotalPrize { get; set; }
     public double PrizePerPerson {  get; set; } 
+    public bool IsPublic { get; set; } = true;
 }

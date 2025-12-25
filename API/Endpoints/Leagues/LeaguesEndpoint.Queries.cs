@@ -80,6 +80,7 @@ public static partial class LeaguesEndpoint
 
         var leagues = await dbContext.Leagues
             .AsNoTracking()
+            .Where(l => l.IsPublic)
             .ToListAsync();
         logger.LogOperationSuccess("Leagues.QueryAll", new { Count = leagues.Count });
         return Results.Ok(leagues);
@@ -128,7 +129,8 @@ public static partial class LeaguesEndpoint
                 TotalPlayers = x.League.TotalPlayers,
                 IsActive = x.League.IsActive,
                 IsPlaying = x.IsPlaying,
-                OwnerId = x.League.OwnerId
+                OwnerId = x.League.OwnerId,
+                IsPublic = x.League.IsPublic
             })
             .ToDictionary(league => league.Id);
 
@@ -150,7 +152,8 @@ public static partial class LeaguesEndpoint
                 TotalPlayers = league.TotalPlayers,
                 IsActive = league.IsActive,
                 IsPlaying = false,
-                OwnerId = league.OwnerId
+                OwnerId = league.OwnerId,
+                IsPublic = league.IsPublic
             })
             .AsNoTracking()
             .ToListAsync();
@@ -231,7 +234,8 @@ public static partial class LeaguesEndpoint
             Score = res.Score,
             OwnerId = league.OwnerId,
             IsActive = league.IsActive,
-            IsPlaying = res.IsPlaying
+            IsPlaying = res.IsPlaying,
+            IsPublic = league.IsPublic
         };
 
         logger.LogOperationSuccess("Leagues.GetById", new { id });
@@ -267,7 +271,8 @@ public static partial class LeaguesEndpoint
             Id = league.Id,
             Name = league.Name,
             CurrentRound = league.CurrentRound,
-            OwnerId = league.OwnerId
+            OwnerId = league.OwnerId,
+            IsPublic = league.IsPublic
         };
 
         var orderedPlayers = res

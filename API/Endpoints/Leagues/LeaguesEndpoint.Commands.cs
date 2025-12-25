@@ -147,6 +147,7 @@ public static partial class LeaguesEndpoint
         if (updateLeague.MinimumRounds != null) league.MinimumRounds = (int)updateLeague.MinimumRounds;
         if (updateLeague.TotalPrize != null) league.TotalPrize = (double)updateLeague.TotalPrize;
         if (updateLeague.PrizePerPerson != null) league.PrizePerPerson = (double)updateLeague.PrizePerPerson;
+        if (updateLeague.IsPublic.HasValue) league.IsPublic = updateLeague.IsPublic.Value;
         if (updateLeague.CurrentRound == null || updateLeague.CurrentRound > league.TotalRounds) return Results.BadRequest();
         league.CurrentRound = (int)updateLeague.CurrentRound;
              
@@ -538,6 +539,7 @@ public static partial class LeaguesEndpoint
             TotalPlayers = 0,
             PointsToGive = leagueDto.PointsToGive ?? null,
             IsActive = true,
+            IsPublic = leagueDto.IsPublic,
             ScoringSystem = leagueDto.ScoringSystem,
             PointsPerWin = leagueDto.PointsPerWin ?? null,
             PointsPerDraw = leagueDto.PointsPerDraw ?? null,

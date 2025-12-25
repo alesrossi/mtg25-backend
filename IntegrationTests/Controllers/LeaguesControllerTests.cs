@@ -903,7 +903,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     private Task<AppUser> CreateTestUserAsync(string baseEmail, string baseUserName) =>
         TestUserFactory.CreateAsync(_factory.Services, _testDataBuilder, baseEmail, baseUserName);
 
-    private async Task<League> CreateTestLeagueAsync(string name, string ownerId, bool isActive = true)
+    private async Task<League> CreateTestLeagueAsync(string name, string ownerId, bool isActive = true, bool isPublic = true)
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
@@ -924,7 +924,8 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             PointsPerDraw = 1,
             PointsPerLoss = 0,
             ScoringSystem = ScoringSystem.Positional,
-            IsActive = isActive
+            IsActive = isActive,
+            IsPublic = isPublic
         };
         
         dbContext.Leagues.Add(league);

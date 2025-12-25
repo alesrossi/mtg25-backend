@@ -19,4 +19,5 @@ public class UpdateLeagueDto
     public double? PrizePerPerson {  get; set; } 
     [Range(0, int.MaxValue, ErrorMessage = "Only positive numbers are allowed")]
     public int? CurrentRound {  get; set; } 
+    public bool? IsPublic { get; set; }
 }

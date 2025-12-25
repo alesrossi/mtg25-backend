@@ -19,6 +19,7 @@ public class League : BaseModel
     public int? PointsPerLoss { get; set;}
     public required ScoringSystem ScoringSystem { get; set; } = ScoringSystem.Victories;
     public bool IsActive { get; set; } = true;
+    public bool IsPublic { get; set; } = true;
     public ICollection<AppUserLeague> UserLeagues { get; set; } = new List<AppUserLeague>();
     public ICollection<LeagueRoleAssignment> RoleAssignments { get; set; } = new List<LeagueRoleAssignment>();
 }
