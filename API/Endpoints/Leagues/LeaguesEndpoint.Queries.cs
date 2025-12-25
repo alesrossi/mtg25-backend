@@ -270,22 +270,26 @@ public static partial class LeaguesEndpoint
             OwnerId = league.OwnerId
         };
 
-        res.ForEach(x =>
+        var orderedPlayers = res
+            .Where(x => x.LeagueId == league.Id && x.IsPlaying)
+            .OrderByDescending(x => x.Score)
+            .ThenBy(x => x.User.FirstName)
+            .ThenBy(x => x.User.LastName);
+
+        foreach (var player in orderedPlayers)
         {
-            if (x.LeagueId == league.Id && x.IsPlaying)
+            leagueWithScores.Scores.Add(new Score
             {
-                leagueWithScores.Scores.Add(new Score
-                {
-                    FirstName = x.User.FirstName,
-                    LastName = x.User.LastName,
-                    UserId = x.User.Id,
-                    Points = x.Score,
-                    RoundsPlayed = x.RoundsPlayed,
-                    BestRound = x.BestRound,
-                    AvgScore = x.AvgScore
-                });
-            }
-        });
+                FirstName = player.User.FirstName,
+                LastName = player.User.LastName,
+                UserId = player.User.Id,
+                Points = player.Score,
+                RoundsPlayed = player.RoundsPlayed,
+                BestRound = player.BestRound,
+                AvgScore = player.AvgScore,
+                Rounds = player.Rounds
+            });
+        }
 
         return Results.Ok(leagueWithScores);
     }

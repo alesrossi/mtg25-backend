@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Core.Models.Identity;
 
 namespace API.Dtos.Leagues;
 
@@ -18,7 +19,11 @@ public class NewLeagueDto
     [Required(ErrorMessage = "MinimumRounds is required")]
     [Range(0, int.MaxValue, ErrorMessage = "Only positive numbers are allowed")]
     public int MinimumRounds { get; set; }
-    public required List<int> PointsToGive {get; set;}
+    public List<int>? PointsToGive {get; set;}
+    public int? PointsPerWin { get; set;}
+    public int? PointsPerDraw { get; set;}
+    public int? PointsPerLoss { get; set;}
+    public required ScoringSystem ScoringSystem { get; set; } 
     public double? TotalPrize { get; set; }
     public double PrizePerPerson {  get; set; } 
 }

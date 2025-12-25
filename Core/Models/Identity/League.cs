@@ -13,8 +13,19 @@ public class League : BaseModel
     public double TotalPrize { get; set; } = 0;
     public double PrizePerPerson {  get; set; } = 0;
     public int TotalPlayers { get; set; }
-    public required List<int> PointsToGive {get; set;}
+    public List<int>? PointsToGive { get; set;}
+    public int? PointsPerWin { get; set;}
+    public int? PointsPerDraw { get; set;}
+    public int? PointsPerLoss { get; set;}
+    public required ScoringSystem ScoringSystem { get; set; } = ScoringSystem.Victories;
     public bool IsActive { get; set; } = true;
     public ICollection<AppUserLeague> UserLeagues { get; set; } = new List<AppUserLeague>();
     public ICollection<LeagueRoleAssignment> RoleAssignments { get; set; } = new List<LeagueRoleAssignment>();
+}
+
+
+public enum ScoringSystem
+{
+    Positional,
+    Victories
 }

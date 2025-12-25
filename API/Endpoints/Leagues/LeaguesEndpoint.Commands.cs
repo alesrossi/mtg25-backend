@@ -198,21 +198,34 @@ public static partial class LeaguesEndpoint
             .Where(ul => ul.LeagueId == league.Id)
             .Include(ul => ul.User)
             .ToListAsync();
-
-        res.ForEach(x =>
+        
+        var count = 0;
+        foreach (var userWithScore in userList)
         {
-            foreach (var userWithScore in userList.Where(userWithScore => userWithScore.UserId == x.UserId))
+            var userLeague = res.FirstOrDefault(x => x.UserId == userWithScore.UserId)!;
+            if (league.ScoringSystem == ScoringSystem.Positional)
             {
-                x.Score = +userWithScore.Score;
-                x.BestRound = userWithScore.Score > x.BestRound ? userWithScore.Score : x.BestRound;
-                x.RoundsPlayed = x.RoundsPlayed++;
-                x.Rounds.Add(userWithScore.Score);
-                x.AvgScore = x.Rounds.Average();
+                userLeague.Score += league.PointsToGive!.Count <= count ? 0 : league.PointsToGive![count];
+                userLeague.BestRound = userLeague.BestRound == 0 || count + 1 < userLeague.BestRound ? count+1 : userLeague.BestRound;
+                userLeague.RoundsPlayed += 1;
+                userLeague.Rounds.Add(count+1);
+                userLeague.AvgScore = userLeague.Rounds.Average();
                 league.TotalPrize += league.PrizePerPerson;
-                if (league.CurrentRound + 1 <= league.TotalRounds) league.CurrentRound++;
+                
             }
-        });
-
+            
+            if (league.ScoringSystem == ScoringSystem.Victories)
+            {
+                userLeague.Score += (int)(userWithScore.Wins! * league.PointsPerWin! + userWithScore.Draws! * league.PointsPerDraw! + userWithScore.Losses! * league.PointsPerLoss!);
+                userLeague.BestRound = userLeague.BestRound == 0 || count + 1 < userLeague.BestRound ? count+1 : userLeague.BestRound;
+                userLeague.RoundsPlayed += 1;
+                userLeague.Rounds.Add(count+1);
+                userLeague.AvgScore = userLeague.Rounds.Average();
+                league.TotalPrize += league.PrizePerPerson;
+            }
+            count++;
+        }
+        if (league.CurrentRound + 1 <= league.TotalRounds) league.CurrentRound++;
         dbContext.Update(league);
         dbContext.UpdateRange(res);
         await dbContext.SaveChangesAsync();
@@ -504,8 +517,12 @@ public static partial class LeaguesEndpoint
             TotalPrize = leagueDto.TotalPrize ?? 0,
             PrizePerPerson = leagueDto.PrizePerPerson,
             TotalPlayers = 0,
-            PointsToGive = leagueDto.PointsToGive,
+            PointsToGive = leagueDto.PointsToGive ?? null,
             IsActive = true,
+            ScoringSystem = leagueDto.ScoringSystem,
+            PointsPerWin = leagueDto.PointsPerWin ?? null,
+            PointsPerDraw = leagueDto.PointsPerDraw ?? null,
+            PointsPerLoss = leagueDto.PointsPerLoss ?? null
         };
 
         await dbContext.AddAsync(league);

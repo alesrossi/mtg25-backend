@@ -18,4 +18,5 @@ public class Score
     public int RoundsPlayed { get; set; }
     public int BestRound { get; set; }
     public double AvgScore { get; set; }
+    public required List<int> Rounds { get; set; }
 } 

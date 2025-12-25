@@ -299,8 +299,8 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var resultPayload = new List<UserWithScore>
         {
-            new() { UserId = owner.Id, Score = 10 },
-            new() { UserId = secondary.Id, Score = 5 }
+            new() { UserId = owner.Id, Wins = 1, Draws = 0, Losses = 0 },
+            new() { UserId = secondary.Id, Wins = 0, Draws = 0, Losses = 1 }
         };
 
         var response = await client.PatchAsync($"/api/leagues/{league.Id}/results",
@@ -367,7 +367,8 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
                 6,
                 4,
                 2
-            ]
+            ],
+            ScoringSystem = ScoringSystem.Positional
         };
 
         var json = JsonSerializer.Serialize(createRequest);
@@ -407,7 +408,8 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             TotalRounds = 0,
             RoundsToConsider = 0,
             MinimumRounds = -1,
-            PointsToGive = new List<int>()
+            PointsToGive = new List<int>(),
+            ScoringSystem = ScoringSystem.Positional
         };
 
         var response = await client.PostAsync("/api/leagues",
@@ -428,7 +430,8 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             TotalRounds = 5,
             RoundsToConsider = 4,
             MinimumRounds = 2,
-            PointsToGive = new List<int> { 3, 1 }
+            PointsToGive = new List<int> { 3, 1 },
+            ScoringSystem = ScoringSystem.Positional
         };
 
         var response = await client.PostAsync("/api/leagues",
@@ -917,6 +920,10 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             MinimumRounds = 2,
             TotalPlayers = 0,
             PointsToGive = new List<int> { 3, 1, 0 },
+            PointsPerWin = 3,
+            PointsPerDraw = 1,
+            PointsPerLoss = 0,
+            ScoringSystem = ScoringSystem.Positional,
             IsActive = isActive
         };
         
