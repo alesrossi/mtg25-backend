@@ -10,6 +10,6 @@ public class AppUserLeague
     public int RoundsPlayed { get; set; }
     public List<int> Rounds { get; set; } = [];
     public int BestRound { get; set; }
-    public double AvgScore { get; set; }
+    public double AvgPosition { get; set; }
     public bool IsPlaying {get; set; } = true;
 }

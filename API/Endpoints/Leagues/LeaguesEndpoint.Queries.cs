@@ -286,7 +286,7 @@ public static partial class LeaguesEndpoint
                 Points = player.Score,
                 RoundsPlayed = player.RoundsPlayed,
                 BestRound = player.BestRound,
-                AvgScore = player.AvgScore,
+                AvgPosition = player.AvgPosition,
                 Rounds = player.Rounds
             });
         }

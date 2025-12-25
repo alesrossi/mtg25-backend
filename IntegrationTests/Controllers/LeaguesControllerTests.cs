@@ -945,7 +945,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             RoundsPlayed = 0,
             Rounds = [],
             BestRound = 0,
-            AvgScore = 0,
+            AvgPosition = 0,
             IsPlaying = false
         });
 

@@ -209,7 +209,7 @@ public static partial class LeaguesEndpoint
                 userLeague.BestRound = userLeague.BestRound == 0 || count + 1 < userLeague.BestRound ? count+1 : userLeague.BestRound;
                 userLeague.RoundsPlayed += 1;
                 userLeague.Rounds.Add(count+1);
-                userLeague.AvgScore = userLeague.Rounds.Average();
+                userLeague.AvgPosition = userLeague.Rounds.Average();
                 league.TotalPrize += league.PrizePerPerson;
                 
             }
@@ -220,7 +220,7 @@ public static partial class LeaguesEndpoint
                 userLeague.BestRound = userLeague.BestRound == 0 || count + 1 < userLeague.BestRound ? count+1 : userLeague.BestRound;
                 userLeague.RoundsPlayed += 1;
                 userLeague.Rounds.Add(count+1);
-                userLeague.AvgScore = userLeague.Rounds.Average();
+                userLeague.AvgPosition = userLeague.Rounds.Average();
                 league.TotalPrize += league.PrizePerPerson;
             }
             count++;
@@ -388,7 +388,7 @@ public static partial class LeaguesEndpoint
             RoundsPlayed = 0,
             Rounds = [],
             BestRound = 0,
-            AvgScore = 0
+            AvgPosition = 0
         });
         
         league.TotalPlayers++;
@@ -538,7 +538,7 @@ public static partial class LeaguesEndpoint
             RoundsPlayed = 0,
             Rounds = [],
             BestRound = 0,
-            AvgScore = 0,
+            AvgPosition = 0,
             IsPlaying = false
         };
         

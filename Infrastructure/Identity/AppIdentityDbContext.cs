@@ -79,6 +79,10 @@ namespace Infrastructure.Identity
                 .WithMany(l => l.UserLeagues)
                 .HasForeignKey(ul => ul.LeagueId);
 
+            builder.Entity<AppUserLeague>()
+                .Property(ul => ul.AvgPosition)
+                .HasColumnName("AvgScore");
+
             builder.Entity<LeagueRoleAssignment>()
                 .HasIndex(lr => new { lr.LeagueId, lr.UserId })
                 .IsUnique();

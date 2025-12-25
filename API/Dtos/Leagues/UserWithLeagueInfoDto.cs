@@ -9,6 +9,6 @@ public class UserWithLeagueInfoDto
     public int RoundsPlayed { get; set; }
     public List<int>? Rounds { get; set; } = [];
     public int BestRound { get; set; }
-    public double AvgScore { get; set; }
+    public double AvgPosition { get; set; }
     public int? CurrentRound { get; set; }
 }
