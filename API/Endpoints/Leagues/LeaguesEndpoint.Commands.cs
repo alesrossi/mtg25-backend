@@ -313,16 +313,35 @@ public static partial class LeaguesEndpoint
             return Results.BadRequest("User already joined the league");
         }
 
-        var newNotification = new NewNotificationDto
+        var adminAssignments = await dbContext.LeagueRoleAssignments
+            .AsNoTracking()
+            .Where(lr => lr.LeagueId == league.Id)
+            .Select(lr => new { lr.UserId, lr.Roles })
+            .ToListAsync();
+
+        var adminRecipients = adminAssignments
+            .Where(a => a.Roles.HasFlag(LeagueRole.Admin))
+            .Select(a => a.UserId)
+            .ToList();
+
+        if (!adminRecipients.Contains(league.OwnerId))
         {
-            Name = "request_join_league",
-            Message = $"User {user.FirstName} {user.LastName} wants to join {league.Name}",
-            ObjectId = league.Id,
-            Origin = league.Id + "." + user.Id,
-            AppUserId = league.OwnerId
-        };
+            adminRecipients.Add(league.OwnerId);
+        }
+
+        foreach (var adminId in adminRecipients.Distinct().Where(id => id != user.Id))
+        {
+            var newNotification = new NewNotificationDto
+            {
+                Name = "request_join_league",
+                Message = $"User {user.FirstName} {user.LastName} wants to join {league.Name}",
+                ObjectId = league.Id,
+                Origin = league.Id + "." + user.Id,
+                AppUserId = adminId
+            };
         
-        await notificationService.CreateNotificationAsync(newNotification);
+            await notificationService.CreateNotificationAsync(newNotification);
+        }
 
         logger.LogOperationSuccess(operation, new { code, userId });
         return Results.Ok();
