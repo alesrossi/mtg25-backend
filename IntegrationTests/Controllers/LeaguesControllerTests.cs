@@ -959,16 +959,24 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
         
-        var userLeague = new AppUserLeague
+        var existingUserLeague = await dbContext.UserLeagues.FindAsync(userId, leagueId);
+        if (existingUserLeague == null)
         {
-            UserId = userId,
-            LeagueId = leagueId,
-            Score = 0,
-            IsPlaying = true
-        };
-        
-        dbContext.UserLeagues.Add(userLeague);
-        await dbContext.SaveChangesAsync();
+            dbContext.UserLeagues.Add(new AppUserLeague
+            {
+                UserId = userId,
+                LeagueId = leagueId,
+                Score = 0,
+                IsPlaying = true
+            });
+        }
+        else
+        {
+            // League creator is already inserted with IsPlaying = false in CreateTestLeagueAsync.
+            existingUserLeague.IsPlaying = true;
+            existingUserLeague.Score = 0;
+            dbContext.UserLeagues.Update(existingUserLeague);
+        }
 
         var assignment = await dbContext.LeagueRoleAssignments
             .FirstOrDefaultAsync(x => x.UserId == userId && x.LeagueId == leagueId);
