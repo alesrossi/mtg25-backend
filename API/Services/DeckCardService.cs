@@ -183,52 +183,124 @@ public class DeckCardService
     public async Task<DeckCardDto> CreateDeckCardAsync(int deckId, CreateDeckCardDto createDto)
     {
         using var scope = logger.BeginOperationScope(CreateDeckCardOperation, deckId);
-        logger.LogOperationStart(CreateDeckCardOperation, new { deckId, ScryfallId = createDto.ScryfallId, createDto.Name });
+        logger.LogOperationStart(CreateDeckCardOperation, new { deckId, createDto.Name });
 
-        if (string.IsNullOrWhiteSpace(createDto.ScryfallId) || 
-            string.IsNullOrWhiteSpace(createDto.Name) || 
-            string.IsNullOrWhiteSpace(createDto.SetCode) ||
-            string.IsNullOrWhiteSpace(createDto.ImageUrl))
+        if (string.IsNullOrWhiteSpace(createDto.Name))
         {
-            logger.LogOperationWarning(CreateDeckCardOperation, "Missing required fields", new { deckId, ScryfallId = createDto.ScryfallId });
-            throw new ArgumentException("ScryfallId, Name, SetCode, and ImageUrl are required");
+            logger.LogOperationWarning(CreateDeckCardOperation, "Missing card name", new { deckId });
+            throw new ArgumentException("Card name is required.");
         }
 
         var requestedQuantity = createDto.MaindeckQuantity + createDto.SideboardQuantity;
-        await EnsureCopyLimitAsync(deckId, createDto.Name, createDto.TypeLine, requestedQuantity, null, CreateDeckCardOperation);
+        if (requestedQuantity <= 0)
+        {
+            logger.LogOperationWarning(CreateDeckCardOperation, "Invalid quantity", new { deckId, createDto.Name });
+            throw new InvalidOperationException("You must add at least one copy of the card.");
+        }
+
+        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
+        if (deck == null)
+        {
+            logger.LogOperationWarning(CreateDeckCardOperation, "Deck not found after card creation", new { deckId });
+            throw new InvalidOperationException("Deck not found");
+        }
+
+        var trimmedName = createDto.Name.Trim();
+        var ownedCard = await FindOwnedCardByNameAsync(deck.OwnerId, trimmedName);
+
+        ScryfallCardDto? scryfallCard = null;
+        string resolvedName;
+        string resolvedScryfallId;
+        string setCode;
+        string? setName;
+        string typeLine;
+        string imageUrl;
+        string? backImageUrl;
+        string artCrop;
+        string? rarity;
+        string? collectorNumber;
+        int? ownedCardId = null;
+
+        if (ownedCard != null)
+        {
+            resolvedName = ownedCard.Name;
+            resolvedScryfallId = ownedCard.ScryfallId;
+            setCode = ownedCard.SetCode;
+            setName = ownedCard.SetName;
+            typeLine = ownedCard.TypeLine;
+            imageUrl = ownedCard.ImageUrl;
+            backImageUrl = ownedCard.BackImageUrl;
+            artCrop = ownedCard.ArtCrop;
+            rarity = ownedCard.Rarity;
+            collectorNumber = ownedCard.CollectorNumber;
+            ownedCardId = ownedCard.Id;
+
+            if (!cardDataService.CardDataById.TryGetValue(ownedCard.ScryfallId, out scryfallCard))
+            {
+                cardDataService.CardDataByName.TryGetValue(ownedCard.Name, out scryfallCard);
+            }
+        }
+        else
+        {
+            if (!cardDataService.CardDataByName.TryGetValue(trimmedName, out scryfallCard))
+            {
+                logger.LogOperationWarning(CreateDeckCardOperation, "Card not found in Scryfall data", new { deckId, Name = trimmedName });
+                throw new InvalidOperationException($"Card '{trimmedName}' was not found in the card database.");
+            }
+
+            var imageUris = CardDataService.ResolveImageUris(scryfallCard);
+            var resolvedImage = imageUris?.Normal ?? imageUris?.Large ?? imageUris?.Png;
+            if (string.IsNullOrWhiteSpace(resolvedImage) || string.IsNullOrWhiteSpace(imageUris?.ArtCrop))
+            {
+                logger.LogOperationWarning(CreateDeckCardOperation, "Card missing imagery", new { deckId, Name = trimmedName });
+                throw new InvalidOperationException($"Card '{trimmedName}' is missing image data.");
+            }
+
+            resolvedName = scryfallCard.Name;
+            resolvedScryfallId = scryfallCard.Id;
+            setCode = scryfallCard.Set;
+            setName = scryfallCard.SetName;
+            typeLine = scryfallCard.TypeLine ?? string.Empty;
+            imageUrl = resolvedImage;
+            backImageUrl = cardDataService.ResolveBackImageUrl(scryfallCard);
+            artCrop = imageUris.ArtCrop!;
+            rarity = scryfallCard.Rarity;
+            collectorNumber = scryfallCard.CollectorNumber;
+        }
+
+        var effectiveTypeLine = string.IsNullOrWhiteSpace(typeLine)
+            ? scryfallCard?.TypeLine ?? string.Empty
+            : typeLine;
+        await EnsureCopyLimitAsync(deckId, resolvedName, effectiveTypeLine, requestedQuantity, null, CreateDeckCardOperation);
+
+        var colorIdentity = NormalizeColorIdentity(scryfallCard?.ColorIdentity);
 
         var deckCard = new DeckCard
         {
             DeckId = deckId,
-            ScryfallId = createDto.ScryfallId,
-            Name = createDto.Name,
-            SetCode = createDto.SetCode,
-            SetName = createDto.SetName,
-            TypeLine = createDto.TypeLine,
-            ColorIdentity = NormalizeColorIdentity(createDto.ColorIdentity),
-            ImageUrl = createDto.ImageUrl,
-            BackImageUrl = createDto.BackImageUrl,
-            ArtCrop = createDto.ArtCrop,
-            Rarity = createDto.Rarity,
-            CollectorNumber = createDto.CollectorNumber,
+            ScryfallId = resolvedScryfallId,
+            Name = resolvedName,
+            SetCode = setCode,
+            SetName = setName,
+            TypeLine = string.IsNullOrWhiteSpace(effectiveTypeLine) ? "Card" : effectiveTypeLine,
+            ColorIdentity = colorIdentity,
+            ImageUrl = imageUrl,
+            BackImageUrl = backImageUrl,
+            ArtCrop = artCrop,
+            Rarity = rarity,
+            CollectorNumber = collectorNumber,
             MaindeckQuantity = createDto.MaindeckQuantity,
             SideboardQuantity = createDto.SideboardQuantity,
-            OwnedCardId = createDto.OwnedCardId
+            OwnedCardId = ownedCardId
         };
 
         unitOfWork.Repository<DeckCard>().Add(deckCard);
         await unitOfWork.Complete();
 
-        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
-        if (deck == null)
-        {
-            logger.LogOperationWarning(CreateDeckCardOperation, "Deck not found after card creation", new { deckId, ScryfallId = createDto.ScryfallId });
-            throw new InvalidOperationException("Deck not found");
-        }
-        
         var marketProvider = await ResolveMarketProviderAsync(deck.OwnerId);
         await UpdateDeckAggregatesAsync(deck, deckCard, marketProvider, previousMaindeck: 0, previousSideboard: 0);
         await UpdateDeckColorIdentityAsync(deck, deckCard.ColorIdentity);
+        await RecalculateDeckColorIdentityAsync(deck.Id);
         var dto = await MapToDtoAsync(deckCard, deck.OwnerId, marketProvider);
         logger.LogOperationSuccess(CreateDeckCardOperation, new { deckCard.Id, deckId });
         return dto;
@@ -276,6 +348,7 @@ public class DeckCardService
         var marketProvider = await ResolveMarketProviderAsync(deck.OwnerId);
         await UpdateDeckAggregatesAsync(deck, updatedDeckCard, marketProvider, previousMaindeck, previousSideboard);
         await UpdateDeckColorIdentityAsync(deck, updatedDeckCard.ColorIdentity);
+        await RecalculateDeckColorIdentityAsync(deck.Id);
         var dto = await MapToDtoAsync(updatedDeckCard, deck.OwnerId, marketProvider);
         logger.LogOperationSuccess(UpdateDeckCardOperation, new { id, updatedDeckCard.DeckId });
         return dto;
@@ -338,6 +411,7 @@ public class DeckCardService
         var marketProvider = await ResolveMarketProviderAsync(deck.OwnerId);
         await UpdateDeckAggregatesAsync(deck, updatedDeckCard, marketProvider, previousMaindeck, previousSideboard);
         await UpdateDeckColorIdentityAsync(deck, updatedDeckCard.ColorIdentity);
+        await RecalculateDeckColorIdentityAsync(deck.Id);
         var dto = await MapToDtoAsync(updatedDeckCard, deck.OwnerId, marketProvider);
         logger.LogOperationSuccess(UpdateDeckCardOperation, new { id, updatedDeckCard.DeckId });
         return dto;
@@ -371,6 +445,7 @@ public class DeckCardService
 
         unitOfWork.Repository<DeckCard>().Delete(deckCard);
         await unitOfWork.Complete();
+        await RecalculateDeckColorIdentityAsync(deck.Id);
 
         logger.LogOperationSuccess(DeleteDeckCardOperation, new { id, deckCard.DeckId });
         return true;
@@ -555,6 +630,62 @@ public class DeckCardService
             unitOfWork.Repository<Deck>().Update(deck);
             await unitOfWork.Complete();
         }
+    }
+
+    private async Task<Card?> FindOwnedCardByNameAsync(string ownerId, string cardName)
+    {
+        if (string.IsNullOrWhiteSpace(cardName))
+        {
+            return null;
+        }
+
+        var userCollectionsSpec = new CollectionWithOwnerSpecification(ownerId);
+        var collections = await unitOfWork.Repository<Collection>().ListAsync(userCollectionsSpec, tracking: false);
+        if (collections == null)
+        {
+            return null;
+        }
+
+        foreach (var collection in collections)
+        {
+            var cardsSpec = new CardsWithParamsSpecification(
+                new EntitySpecParams { Search = cardName },
+                collection.Id,
+                applySorting: false,
+                applyPaging: false);
+            var collectionCards = await unitOfWork.Repository<Card>().ListAsync(cardsSpec, tracking: false);
+            var ownedCard = collectionCards?.FirstOrDefault(c => string.Equals(c.Name, cardName, StringComparison.OrdinalIgnoreCase));
+            if (ownedCard != null)
+            {
+                return ownedCard;
+            }
+        }
+
+        return null;
+    }
+
+    private async Task RecalculateDeckColorIdentityAsync(int deckId)
+    {
+        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
+        if (deck == null)
+        {
+            return;
+        }
+
+        var spec = new DeckCardsWithDeckIdSpecification(deckId);
+        var deckCards = await unitOfWork.Repository<DeckCard>().ListAsync(spec, tracking: false) ?? [];
+
+        var colors = deckCards
+            .Where(dc => dc.ColorIdentity != null)
+            .SelectMany(dc => dc.ColorIdentity)
+            .Where(ci => !string.IsNullOrWhiteSpace(ci))
+            .Select(ci => ci!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        deck.ColorIdentity = colors;
+        unitOfWork.Repository<Deck>().Update(deck);
+        await unitOfWork.Complete();
     }
 
     private async Task EnsureCopyLimitAsync(int deckId, string cardName, string? typeLine, int requestedTotalQuantity, int? existingDeckCardId, string operation)

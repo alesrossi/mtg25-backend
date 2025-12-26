@@ -26,7 +26,7 @@ public class DecklistParserService : IDecklistParserService
     public Task<DecklistParseResult> ParseAsync(IEnumerable<string> decklistLines)
     {
         var errors = new List<string>();
-        var deckCards = new Dictionary<string, CreateDeckCardDto>();
+        var deckCards = new Dictionary<string, CreateDeckCardDto>(StringComparer.OrdinalIgnoreCase);
 
         if (decklistLines is null)
         {
@@ -141,33 +141,16 @@ public class DecklistParserService : IDecklistParserService
             return false;
         }
 
-        var artCrop = imageUris?.ArtCrop;
-        var backImageUrl = cardDataService.ResolveBackImageUrl(cardData);
-
-        if (!deckCards.TryGetValue(cardData.Id, out var existingDto))
+        if (!deckCards.TryGetValue(cardData.Name, out var existingDto))
         {
             existingDto = new CreateDeckCardDto
             {
-                ScryfallId = cardData.Id,
                 Name = cardData.Name,
-                SetCode = cardData.Set,
-                SetName = cardData.SetName,
-                TypeLine = cardData.TypeLine ?? string.Empty,
-                ImageUrl = imageUrl,
-                BackImageUrl = backImageUrl,
-                ArtCrop = artCrop!,
-                ColorIdentity = cardData.ColorIdentity?
-                    .Where(ci => !string.IsNullOrWhiteSpace(ci))
-                    .Select(ci => ci!)
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToList() ?? new List<string>(),
-                Rarity = cardData.Rarity,
-                CollectorNumber = cardData.CollectorNumber,
                 MaindeckQuantity = 0,
                 SideboardQuantity = 0
             };
 
-            deckCards[cardData.Id] = existingDto;
+            deckCards[cardData.Name] = existingDto;
         }
 
         if (inSideboard)

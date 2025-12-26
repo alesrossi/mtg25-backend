@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -193,19 +194,14 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         // Arrange
         var user = await CreateTestUserAsync("testuser@example.com", "testuser");
         var deck = await CreateTestDeckForUserAsync(user.Id);
+        await SeedDefaultCardDataAsync("Lightning Bolt");
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
         var createDto = new CreateDeckCardDto
         {
-            ScryfallId = "oracle-123",
             Name = "Lightning Bolt",
-            SetCode = "LEA",
-            SetName = "Limited Edition Alpha",
-            TypeLine = "Instant",
             MaindeckQuantity = 4,
-            SideboardQuantity = 0,
-            ImageUrl = "TEST",
-            ArtCrop = "TEST"
+            SideboardQuantity = 0
         };
 
         var content = SerializeToJson(createDto);
@@ -224,6 +220,27 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
+    public async Task CreateDeckCard_WithOwnedVersion_UsesOwnedCardDetails()
+    {
+        var user = await CreateTestUserAsync("deckcard-owned@example.com", "deckcard_owned");
+        var deck = await CreateTestDeckForUserAsync(user.Id);
+        await SeedDefaultCardDataAsync("Serra Angel", "Creature", new[] { "W" });
+        var collection = await CreateCollectionWithOwnedCards(user.Id);
+        await AddOwnedCardVersionAsync(collection.Id, Guid.NewGuid().ToString(), "Serra Angel", quantity: 1);
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var createDto = BuildDeckCardRequest("Serra Angel", 1);
+
+        var response = await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(createDto));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var createdDeckCard = DeserializeDeckCard(await response.Content.ReadAsStringAsync());
+        createdDeckCard!.IsOwned.Should().BeTrue();
+        createdDeckCard.OwnedQuantity.Should().BeGreaterThan(0);
+        createdDeckCard.OwnedCardId.Should().NotBeNull();
+    }
+
+    [Fact]
     public async Task CreateDeckCard_WithPriceData_UpdatesDeckTotalPrice()
     {
         // Arrange
@@ -238,16 +255,9 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
         var createDto = new CreateDeckCardDto
         {
-            ScryfallId = pricedCard.Id,
             Name = pricedCard.Name,
-            SetCode = pricedCard.Set,
-            SetName = pricedCard.SetName,
-            TypeLine = pricedCard.TypeLine ?? "Instant",
             MaindeckQuantity = 2,
-            SideboardQuantity = 1,
-            ImageUrl = pricedCard.ImageUris?.Normal ?? "https://example.com/card.png",
-            BackImageUrl = pricedCard.ImageUris?.BorderCrop,
-            ArtCrop = pricedCard.ImageUris?.ArtCrop ?? pricedCard.ImageUris?.Normal ?? "https://example.com/card.png"
+            SideboardQuantity = 1
         };
 
         // Act
@@ -268,20 +278,10 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
     {
         var user = await CreateTestUserAsync("deckcard-colors@example.com", "deckcard_colors");
         var deck = await CreateTestDeckForUserAsync(user.Id);
+        await SeedDefaultCardDataAsync("Izzet Charm", "Instant", new[] { "U", "R" });
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
-        var createDto = new CreateDeckCardDto
-        {
-            ScryfallId = "color-test",
-            Name = "Izzet Charm",
-            SetCode = "RTR",
-            TypeLine = "Instant",
-            ImageUrl = "TEST",
-            ArtCrop = "TEST",
-            MaindeckQuantity = 1,
-            SideboardQuantity = 0,
-            ColorIdentity = new List<string> { "U", "R" }
-        };
+        var createDto = BuildDeckCardRequest("Izzet Charm", 1);
 
         var response = await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(createDto));
 
@@ -297,17 +297,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         var deck = await CreateTestDeckForUserAsync(user.Id);
 
         using var client = _factory.CreateClient();
-        var createDto = new CreateDeckCardDto
-        {
-            ScryfallId = "oracle-unauth",
-            Name = "Unauthorized",
-            SetCode = "LEA",
-            TypeLine = "Instant",
-            ImageUrl = "TEST",
-            ArtCrop = "TEST",
-            MaindeckQuantity = 1,
-            SideboardQuantity = 0
-        };
+        var createDto = BuildDeckCardRequest("Unauthorized", 1);
 
         var response = await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(createDto));
 
@@ -319,31 +309,11 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
     {
         var user = await CreateTestUserAsync("deckcard-limit@example.com", "deckcard_limit");
         var deck = await CreateTestDeckForUserAsync(user.Id);
+        await SeedDefaultCardDataAsync("Lightning Bolt");
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
-        var initialDto = new CreateDeckCardDto
-        {
-            ScryfallId = "limit-1",
-            Name = "Lightning Bolt",
-            SetCode = "LEA",
-            TypeLine = "Instant",
-            ImageUrl = "TEST",
-            ArtCrop = "TEST",
-            MaindeckQuantity = 3,
-            SideboardQuantity = 1
-        };
-
-        var duplicateDto = new CreateDeckCardDto
-        {
-            ScryfallId = "limit-2",
-            Name = "Lightning Bolt",
-            SetCode = "LEA",
-            TypeLine = "Instant",
-            ImageUrl = "TEST",
-            ArtCrop = "TEST",
-            MaindeckQuantity = 1,
-            SideboardQuantity = 0
-        };
+        var initialDto = BuildDeckCardRequest("Lightning Bolt", 3, 1);
+        var duplicateDto = BuildDeckCardRequest("Lightning Bolt", 1);
 
         var firstResponse = await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(initialDto));
         firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -362,31 +332,11 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
     {
         var user = await CreateTestUserAsync("deckcard-basic@example.com", "deckcard_basic");
         var deck = await CreateTestDeckForUserAsync(user.Id);
+        await SeedDefaultCardDataAsync("Plains", "Basic Land — Plains");
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
-        var firstDto = new CreateDeckCardDto
-        {
-            ScryfallId = "plains-1",
-            Name = "Plains",
-            SetCode = "LEA",
-            TypeLine = "Basic Land — Plains",
-            ImageUrl = "TEST",
-            ArtCrop = "TEST",
-            MaindeckQuantity = 4,
-            SideboardQuantity = 0
-        };
-
-        var secondDto = new CreateDeckCardDto
-        {
-            ScryfallId = "plains-2",
-            Name = "Plains",
-            SetCode = "LEA",
-            TypeLine = "Basic Land — Plains",
-            ImageUrl = "TEST",
-            ArtCrop = "TEST",
-            MaindeckQuantity = 5,
-            SideboardQuantity = 0
-        };
+        var firstDto = BuildDeckCardRequest("Plains", 4);
+        var secondDto = BuildDeckCardRequest("Plains", 5);
 
         var firstResponse = await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(firstDto));
         firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -403,12 +353,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
 
         var createDto = new CreateDeckCardDto
         {
-            ScryfallId = "oracle-missing",
             Name = "Missing Deck",
-            SetCode = "SET",
-            TypeLine = "Instant",
-            ImageUrl = "TEST",
-            ArtCrop = "TEST",
             MaindeckQuantity = 1,
             SideboardQuantity = 0
         };
@@ -424,16 +369,12 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         // Arrange
         var user = await CreateTestUserAsync("validationuser@example.com", "validationuser");
         var deck = await CreateTestDeckForUserAsync(user.Id);
+        await SeedDefaultCardDataAsync("Validation Card");
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
         var createDto = new CreateDeckCardDto
         {
-            ScryfallId = string.Empty,
             Name = "",
-            SetCode = "LEA",
-            TypeLine = "Instant",
-            ImageUrl = "https://example.com/card.png",
-            ArtCrop = "https://example.com/card.png",
             MaindeckQuantity = 1,
             SideboardQuantity = 0
         };
@@ -449,11 +390,8 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         using var json = JsonDocument.Parse(responseContent);
         var errorsElement = json.RootElement.GetProperty("errors");
 
-        errorsElement.TryGetProperty("ScryfallId", out var oracleErrors).Should().BeTrue();
-        oracleErrors[0].GetString().Should().Be("Scryfall ID is required.");
-
         errorsElement.TryGetProperty("Name", out var nameErrors).Should().BeTrue();
-        nameErrors[0].GetString().Should().Be("Card name is required.");
+        nameErrors[0].GetString().Should().Be("Name is required.");
     }
 
     [Fact]
@@ -462,16 +400,12 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         // Arrange
         var user = await CreateTestUserAsync("quantityuser@example.com", "quantityuser");
         var deck = await CreateTestDeckForUserAsync(user.Id);
+        await SeedDefaultCardDataAsync("Lightning Bolt");
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
         var createDto = new CreateDeckCardDto
         {
-            ScryfallId = "97398ad2-675b-4a34-aab7-935dd6714f1c",
             Name = "Lightning Bolt",
-            SetCode = "LEA",
-            TypeLine = "Instant",
-            ImageUrl = "https://example.com/card.png",
-            ArtCrop = "https://example.com/card.png",
             MaindeckQuantity = 0,
             SideboardQuantity = 0
         };
@@ -577,19 +511,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         await SeedCardDataAsync(new[] { pricedCard });
 
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
-        var createDto = new CreateDeckCardDto
-        {
-            ScryfallId = pricedCard.Id,
-            Name = pricedCard.Name,
-            SetCode = pricedCard.Set,
-            SetName = pricedCard.SetName,
-            TypeLine = pricedCard.TypeLine ?? "Instant",
-            MaindeckQuantity = 2,
-            SideboardQuantity = 1,
-            ImageUrl = pricedCard.ImageUris?.Normal ?? "https://example.com/card.png",
-            BackImageUrl = pricedCard.ImageUris?.BorderCrop,
-            ArtCrop = pricedCard.ImageUris?.ArtCrop ?? pricedCard.ImageUris?.Normal ?? "https://example.com/card.png"
-        };
+        var createDto = BuildDeckCardRequest(pricedCard.Name, 2, 1);
 
         var createResponse = await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(createDto));
         createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -620,19 +542,10 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
     {
         var user = await CreateTestUserAsync("deckcard-update-limit@example.com", "deckcard_update_limit");
         var deck = await CreateTestDeckForUserAsync(user.Id);
+        await SeedDefaultCardDataAsync("Lightning Bolt");
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
-        var createDto = new CreateDeckCardDto
-        {
-            ScryfallId = "limit-update",
-            Name = "Lightning Bolt",
-            SetCode = "LEA",
-            TypeLine = "Instant",
-            ImageUrl = "TEST",
-            ArtCrop = "TEST",
-            MaindeckQuantity = 3,
-            SideboardQuantity = 0
-        };
+        var createDto = BuildDeckCardRequest("Lightning Bolt", 3);
 
         var createResponse = await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(createDto));
         createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -658,20 +571,10 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
     {
         var user = await CreateTestUserAsync("deckcard-version-colors@example.com", "deckcard_version_colors");
         var deck = await CreateTestDeckForUserAsync(user.Id);
+        await SeedDefaultCardDataAsync("Feral Hydra", "Creature", new[] { "G" });
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
-        var createDto = new CreateDeckCardDto
-        {
-            ScryfallId = "two-color-original",
-            Name = "Feral Hydra",
-            SetCode = "RTR",
-            TypeLine = "Creature",
-            ImageUrl = "TEST",
-            ArtCrop = "TEST",
-            MaindeckQuantity = 2,
-            SideboardQuantity = 0,
-            ColorIdentity = new List<string> { "G" }
-        };
+        var createDto = BuildDeckCardRequest("Feral Hydra", 2);
 
         var createResponse = await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(createDto));
         createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -718,6 +621,28 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
+    public async Task DeleteDeckCard_RemovesUnusedColorIdentity()
+    {
+        var owner = await CreateTestUserAsync("deckcard-delete-color@example.com", "deckcard_delete_color");
+        var deck = await CreateTestDeckForUserAsync(owner.Id);
+        await SeedDefaultCardDataAsync("Serra Angel", "Creature", new[] { "W" });
+        await SeedDefaultCardDataAsync("Counterspell", "Instant", new[] { "U" });
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(BuildDeckCardRequest("Serra Angel", 1)));
+        var secondResponse = await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(BuildDeckCardRequest("Counterspell", 1)));
+        secondResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var counterspell = DeserializeDeckCard(await secondResponse.Content.ReadAsStringAsync());
+
+        var deleteResponse = await client.DeleteAsync($"/api/decks/{deck.Id}/cards/{counterspell!.Id}");
+        deleteResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var refreshedDeck = await LoadDeckAsync(deck.Id);
+        refreshedDeck!.ColorIdentity.Should().NotContain("U");
+        refreshedDeck.ColorIdentity.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task DeleteDeckCard_UpdatesDeckAggregates()
     {
         var owner = await CreateTestUserAsync("deckcard-delete-agg@example.com", "deckcard_delete_agg");
@@ -730,18 +655,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         await SeedCardDataAsync(new[] { pricedCard });
 
         using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
-        var createDto = new CreateDeckCardDto
-        {
-            ScryfallId = pricedCard.Id,
-            Name = pricedCard.Name,
-            SetCode = pricedCard.Set,
-            SetName = pricedCard.SetName,
-            TypeLine = pricedCard.TypeLine ?? "Instant",
-            ImageUrl = "TEST",
-            ArtCrop = "TEST",
-            MaindeckQuantity = 2,
-            SideboardQuantity = 1
-        };
+        var createDto = BuildDeckCardRequest(pricedCard.Name, 2, 1);
 
         var createResponse = await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(createDto));
         createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -1097,6 +1011,24 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
 
     private DeckCard CreateDeckCardEntity(int deckId, string oracleId, string name, string setCode, int maindeckQuantity, int sideboardQuantity) =>
         _testDataBuilder.CreateDeckCard(deckId, oracleId, name, setCode, maindeckQuantity, sideboardQuantity);
+
+    private static CreateDeckCardDto BuildDeckCardRequest(string name, int mainQuantity, int sideQuantity = 0) =>
+        new()
+        {
+            Name = name,
+            MaindeckQuantity = mainQuantity,
+            SideboardQuantity = sideQuantity
+        };
+
+    private Task SeedDefaultCardDataAsync(string name, string typeLine = "Instant", IEnumerable<string?>? colorIdentity = null)
+    {
+        var card = CreateScryfallCard(Guid.NewGuid().ToString(), name, "TST", "Test Set") with
+        {
+            TypeLine = typeLine,
+            ColorIdentity = colorIdentity?.ToList() ?? new List<string?>()
+        };
+        return SeedCardDataAsync(new[] { card });
+    }
 
     private static StringContent SerializeToJson<T>(T obj) => JsonContentHelper.CreateContent(obj);
 

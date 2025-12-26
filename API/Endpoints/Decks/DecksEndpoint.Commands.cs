@@ -222,7 +222,7 @@ public static partial class DecksEndpoint
         }
 
         using var scope = logger.BeginOperationScope(operation, deckId);
-        logger.LogOperationStart(operation, new { deckId, ScryfallId = createDto.ScryfallId, createDto.Name });
+        logger.LogOperationStart(operation, new { deckId, createDto.Name });
 
         var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
         if (deck == null)
@@ -495,8 +495,8 @@ public static partial class DecksEndpoint
             deck.ColorIdentity.AddRange(created.ColorIdentity.Except(deck.ColorIdentity));
             createdCards.Add(created);
 
-            var cardPrice = ResolveCardMarketPrice(cardDataService, deckCardDto.ScryfallId, marketProvider);
-            var quantity = deckCardDto.MaindeckQuantity + deckCardDto.SideboardQuantity;
+            var cardPrice = ResolveCardMarketPrice(cardDataService, created.ScryfallId, marketProvider);
+            var quantity = created.MaindeckQuantity + created.SideboardQuantity;
             totalPrice += cardPrice * quantity;
         }
 
