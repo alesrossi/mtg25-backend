@@ -12,52 +12,6 @@ namespace API.Endpoints.Leagues;
 
 public static partial class LeaguesEndpoint
 {
-    private static void MapLeagueQueries(RouteGroupBuilder group)
-    {
-        group.MapGet("/user", GetLeaguesFromUserAsync)
-            .RequireAuthorization()
-            .WithSummary("Get user's leagues")
-            .WithDescription("Returns all leagues the authenticated user is participating in")
-            .Produces<List<UserWithLeaguesDto>>()
-            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
-
-        group.MapGet("/", GetLeaguesAsync)
-            .RequireAuthorization()
-            .WithSummary("Get all leagues")
-            .WithDescription("Returns all available leagues with pagination")
-            .Produces<Helpers.Pagination<LeagueDto>>()
-            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
-
-        group.MapGet("/{id:int}", GetLeagueFromIdAsync)
-            .RequireAuthorization()
-            .WithSummary("Get league by ID")
-            .WithDescription("Returns specific league details by ID")
-            .Produces<LeagueDto>()
-            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
-
-        group.MapGet("/{id:int}/invite", GetInviteCodeAsync)
-            .RequireAuthorization()
-            .WithSummary("Get league invite code")
-            .WithDescription("Generates or retrieves invite code for league participation. Only admins can call this route")
-            .Produces<string>()
-            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
-
-        group.MapGet("/{id:int}/scores", ListLeagueWithScores)
-            .RequireAuthorization()
-            .WithSummary("List Leagues and Users scores")
-            .WithDescription("List leagues and user scores ranked from first to last")
-            .Produces<LeagueWithScoresDto>()
-            .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
-    }
-
     private static async Task<IResult> GetLeaguesAsync(
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] AppIdentityDbContext dbContext,

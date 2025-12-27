@@ -10,40 +10,6 @@ namespace API.Endpoints.Binders;
 
 public static partial class BindersEndpoint
 {
-    private static void MapBinderQueries(RouteGroupBuilder group)
-    {
-        group.MapGet("/", GetBindersAsync)
-            .RequireAuthorization()
-            .WithSummary("Get binders for user")
-            .Produces<IEnumerable<BinderSummaryDto>>()
-            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
-
-        group.MapGet("/{id:int}", GetBinderByIdAsync)
-            .RequireAuthorization()
-            .WithSummary("Get binder by ID")
-            .Produces<BinderDto>()
-            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
-
-        group.MapGet("/{binderId:int}/cards", GetBinderCardsAsync)
-            .RequireAuthorization()
-            .WithSummary("Get binder cards")
-            .Produces<IEnumerable<BinderCardDto>>()
-            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
-
-        group.MapGet("/{binderId:int}/cards/{binderCardId:int}", GetBinderCardByIdAsync)
-            .RequireAuthorization()
-            .WithSummary("Get binder card")
-            .Produces<BinderCardDto>()
-            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
-    }
-
     private static async Task<IResult> GetBindersAsync(
         IUnitOfWork unitOfWork,
         ClaimsPrincipal user,

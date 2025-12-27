@@ -1,4 +1,3 @@
-using System.Linq;
 using System.Security.Claims;
 using API.Dtos.Leagues;
 using API.Dtos.Notifications;
@@ -15,87 +14,6 @@ namespace API.Endpoints.Leagues;
 
 public static partial class LeaguesEndpoint
 {
-    private static void MapLeagueCommands(RouteGroupBuilder group)
-    {
-        group.MapPut("/{id:int}", UpdateLeagueAsync)
-            .RequireAuthorization()
-            .WithSummary("Update league")
-            .WithDescription("Updates league information such as name, description, and settings. Only admins can call this route")
-            .Produces<League>()
-            .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
-
-        group.MapPatch("/{id:int}/results", UpdateLeagueFromResultsAsync)
-            .RequireAuthorization()
-            .WithSummary("Update league results")
-            .WithDescription("Updates league standings and match results . Only admins can call this route")
-            .Produces(StatusCodes.Status200OK)
-            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
-
-        group.MapPatch("/{code}/request", RequestJoinLeagueFromCodeAsync)
-            .RequireAuthorization()
-            .WithSummary("Request to join league")
-            .WithDescription("Request to join authenticated user to league using invite code")
-            .Produces(StatusCodes.Status200OK)
-            .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
-        
-        group.MapPatch("/{id:int}/join", JoinLeagueAsync)
-            .RequireAuthorization()
-            .WithSummary("Joins league")
-            .WithDescription("User joins league, requires previous approval")
-            .Produces(StatusCodes.Status200OK)
-            .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
-
-        group.MapPatch("/{id:int}/leave", LeaveLeagueAsync)
-            .RequireAuthorization()
-            .WithSummary("Leave league by id")
-            .WithDescription("User leaves league given id")
-            .Produces(StatusCodes.Status200OK)
-            .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
-
-        group.MapPost("/", CreateNewLeagueAsync)
-            .RequireAuthorization()
-            .WithSummary("Create new league")
-            .WithDescription("Creates new league with specified settings and options")
-            .Produces<League>()
-            .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
-
-        group.MapPatch("/{id:int}/owner-join", JoinAsPlayerAsync)
-            .RequireAuthorization()
-            .WithSummary("Owner of league joins as player")
-            .WithDescription("Owner of league joins as player")
-            .Produces(StatusCodes.Status200OK)
-            .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
-
-        group.MapPatch("/{leagueId:int}/promote/{userId}", PromoteLeagueAdminAsync)
-            .RequireAuthorization()
-            .WithSummary("Promote player to admin")
-            .WithDescription("Allows the league owner to grant admin role to a player")
-            .Produces(StatusCodes.Status200OK)
-            .Produces<ProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
-            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
-    }
-
     private static async Task<IResult> UpdateLeagueAsync(
         int id,
         [FromServices] UserManager<AppUser> userManager,

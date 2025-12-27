@@ -11,18 +11,6 @@ namespace API.Endpoints.Accounts;
 
 public static partial class AccountsEndpoints
 {
-    private static void MapAccountQueries(RouteGroupBuilder group)
-    {
-        group.MapGet("/emailexists/{email}", CheckEmailExistsAsync)
-            .WithSummary("Check if email exists")
-            .WithDescription("Verifies if an email address is already registered in the system")
-            .Produces<bool>();
-        group.MapGet("/settings", GetSettingsAsync)
-            .WithSummary("Check if email exists")
-            .WithDescription("Verifies if an email address is already registered in the system")
-            .Produces<bool>();
-    }
-
     private static async Task<IResult> CheckEmailExistsAsync(
         string email,
         [FromServices] UserManager<AppUser> userManager,
