@@ -291,7 +291,7 @@ public class Program
         }
 
         // Configure the HTTP request pipeline.
-        if (app.Environment.IsDevelopment())
+        if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Integration"))
         {
             app.MapOpenApi();
             app.MapScalarApiReference();
