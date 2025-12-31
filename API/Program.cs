@@ -30,6 +30,7 @@ using API.Endpoints.Decks;
 using API.Endpoints.Leagues;
 using API.Endpoints.Notifications;
 using API.Endpoints.Wishlists;
+using Scalar.AspNetCore;
 using Serilog;
 
 namespace API;
@@ -293,6 +294,7 @@ public class Program
         if (app.Environment.IsDevelopment())
         {
             app.MapOpenApi();
+            app.MapScalarApiReference();
             app.UseSwagger();
             app.UseSwaggerUI();
         }
