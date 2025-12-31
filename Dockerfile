@@ -23,7 +23,7 @@ WORKDIR /app/API
 RUN dotnet publish -c Release -o /app/out
 
 # Runtime stage - Use lightweight runtime image
-FROM mcr.microsoft.com/dotnet/aspnet:9.0
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
 
 # Install postgresql client for health checks and migrations
