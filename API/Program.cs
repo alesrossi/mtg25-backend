@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Nodes;
 using API.Configuration;
 using API.Endpoints;
 using API.Extensions;
@@ -19,8 +20,7 @@ using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
-using Microsoft.OpenApi.Any;
+using Microsoft.OpenApi;
 using System.IO.Compression;
 using API.Endpoints.Accounts;
 using API.Endpoints.Binders;
@@ -260,116 +260,6 @@ public class Program
                 Description = "JWT Authorization header using the Bearer scheme."
             });
 
-            c.AddSecurityRequirement(new OpenApiSecurityRequirement
-            {
-                {
-                    new OpenApiSecurityScheme
-                    {
-                        Reference = new OpenApiReference
-                        {
-                            Type = ReferenceType.SecurityScheme,
-                            Id = "Bearer"
-                        }
-                    },
-                    Array.Empty<string>()
-                }
-            });
-
-            c.MapType<ProblemDetails>(() => new OpenApiSchema
-            {
-                Type = "object",
-                Description = "Standard RFC 7807 envelope used for authentication, authorization, not found, and server errors.",
-                Required = new HashSet<string> { "type", "title", "status", "traceId" },
-                Properties = new Dictionary<string, OpenApiSchema>
-                {
-                    ["type"] = new OpenApiSchema { Type = "string", Description = "Reference URI that identifies the problem type (e.g. https://httpstatuses.io/404)." },
-                    ["title"] = new OpenApiSchema { Type = "string", Description = "Short, human-readable summary of the problem." },
-                    ["status"] = new OpenApiSchema { Type = "integer", Format = "int32", Description = "HTTP status code for this occurrence." },
-                    ["detail"] = new OpenApiSchema { Type = "string", Nullable = true, Description = "Detailed explanation helpful for debugging." },
-                    ["instance"] = new OpenApiSchema { Type = "string", Nullable = true, Description = "The request path that produced the error." },
-                    ["traceId"] = new OpenApiSchema { Type = "string", Description = "Server-generated trace identifier for correlating logs." },
-                    ["errorCode"] = new OpenApiSchema { Type = "string", Nullable = true, Description = "Stable application-specific code describing the error." }
-                },
-                Example = new OpenApiObject
-                {
-                    ["type"] = new OpenApiString("https://httpstatuses.io/{status}"),
-                    ["title"] = new OpenApiString("Meaningful summary of the failure"),
-                    ["status"] = new OpenApiInteger(0),
-                    ["detail"] = new OpenApiString("Optional human-readable detail about what went wrong."),
-                    ["instance"] = new OpenApiString("/api/resource/{id}"),
-                    ["traceId"] = new OpenApiString("00-TRACE_ID-HERE-00"),
-                    ["errorCode"] = new OpenApiString("application-specific-code")
-                }
-            });
-            
-            c.MapType<UnauthorizedResult>(() => new OpenApiSchema
-            {
-                Type = "object",
-                Description = "Standard RFC 7807 envelope used for 401, 404, and 500 errors.",
-                Required = new HashSet<string> { "type", "title", "status", "traceId" },
-                Properties = new Dictionary<string, OpenApiSchema>
-                {
-                    ["type"] = new OpenApiSchema { Type = "string", Description = "Reference URI that identifies the problem type." },
-                    ["title"] = new OpenApiSchema { Type = "string", Description = "Short, human-readable summary of the problem." },
-                    ["status"] = new OpenApiSchema { Type = "integer", Format = "int32", Description = "HTTP status code for this occurrence." },
-                    ["detail"] = new OpenApiSchema { Type = "string", Nullable = true, Description = "Detailed explanation helpful for debugging." },
-                    ["instance"] = new OpenApiSchema { Type = "string", Nullable = true, Description = "The request path that produced the error." },
-                    ["traceId"] = new OpenApiSchema { Type = "string", Description = "Server-generated trace identifier for correlating logs." },
-                    ["errorCode"] = new OpenApiSchema { Type = "string", Nullable = true, Description = "Stable application-specific code describing the error." }
-                },
-                Example = new OpenApiObject
-                {
-                    ["type"] = new OpenApiString("https://httpstatuses.io/401"),
-                    ["title"] = new OpenApiString("Unauthorized user access"),
-                    ["status"] = new OpenApiInteger(401),
-                    ["detail"] = new OpenApiString("Jwt token either missing, invalid or expired"),
-                    ["instance"] = new OpenApiString("/api/cards/42"),
-                    ["traceId"] = new OpenApiString("00-3d82f6cd2f0be945b27d1d7e7c92b5ce-949a13d67f0a3d43-00"),
-                    ["errorCode"] = new OpenApiString("card-unauthorized-error")
-                }
-            });
-
-            c.MapType<ValidationProblemDetails>(() => new OpenApiSchema
-            {
-                Type = "object",
-                Description = "RFC 7807 validation payload emitted for 400 Bad Request responses.",
-                Required = new HashSet<string> { "type", "title", "status", "traceId", "errors" },
-                Properties = new Dictionary<string, OpenApiSchema>
-                {
-                    ["type"] = new OpenApiSchema { Type = "string" },
-                    ["title"] = new OpenApiSchema { Type = "string" },
-                    ["status"] = new OpenApiSchema { Type = "integer", Format = "int32" },
-                    ["detail"] = new OpenApiSchema { Type = "string", Nullable = true },
-                    ["instance"] = new OpenApiSchema { Type = "string", Nullable = true },
-                    ["traceId"] = new OpenApiSchema { Type = "string" },
-                    ["errors"] = new OpenApiSchema
-                    {
-                        Type = "object",
-                        AdditionalProperties = new OpenApiSchema
-                        {
-                            Type = "array",
-                            Items = new OpenApiSchema { Type = "string" }
-                        },
-                        Description = "Keyed collection containing validation messages per field."
-                    }
-                },
-                Example = new OpenApiObject
-                {
-                    ["type"] = new OpenApiString("https://httpstatuses.io/400"),
-                    ["title"] = new OpenApiString("Request validation failed"),
-                    ["status"] = new OpenApiInteger(400),
-                    ["detail"] = new OpenApiString("See errors for additional information."),
-                    ["instance"] = new OpenApiString("/api/cards"),
-                    ["traceId"] = new OpenApiString("00-7fdd0ff221c6cf438eab4b137eea521a-1cba7c30dad59c4e-00"),
-                    ["errors"] = new OpenApiObject
-                    {
-                        ["quantity"] = new OpenApiArray
-                        {
-                            new OpenApiString("Quantity must be greater than zero.")
-                        }
-                    }
-                }
-            });
         });
         
         var app = builder.Build();
