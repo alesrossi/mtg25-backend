@@ -1,6 +1,6 @@
+using API.Dtos.Binders;
 using API.Dtos.Notifications;
 using API.Dtos.Trades;
-using API.Dtos.Wishlists;
 using Core.Interfaces;
 using Core.Models;
 using Core.Models.Identity;
@@ -60,14 +60,19 @@ public sealed class TradeConnectionService : ITradeConnectionService
             throw new KeyNotFoundException($"User '{partnerUserId}' was not found.");
         }
 
-        var initiatorWishlists = await LoadPublicWishlistsAsync(initiator.Id);
-        var partnerWishlists = await LoadPublicWishlistsAsync(partner.Id);
+        var initiatorWishlistCards = ExtractWishlistCards(await LoadPublicWishlistsAsync(initiator.Id));
+        var partnerWishlistCards = ExtractWishlistCards(await LoadPublicWishlistsAsync(partner.Id));
+
+        var initiatorBinderCards = MapBinderCards(await LoadPublicBinderCardsAsync(initiator.Id));
+        var partnerBinderCards = MapBinderCards(await LoadPublicBinderCardsAsync(partner.Id));
 
         var connection = new TradeConnectionDto
         {
             TradeId = Guid.NewGuid().ToString("N"),
-            Initiator = CreateParticipantDto(initiator, initiatorWishlists),
-            Partner = CreateParticipantDto(partner, partnerWishlists)
+            Initiator = CreateParticipantDto(initiator),
+            Partner = CreateParticipantDto(partner),
+            InitiatorMatches = FindMatches(initiatorBinderCards, partnerWishlistCards, initiator.Id, partner.Id),
+            PartnerMatches = FindMatches(partnerBinderCards, initiatorWishlistCards, partner.Id, initiator.Id)
         };
 
         await _sessionStore.StoreAsync(connection, cancellationToken);
@@ -107,31 +112,82 @@ public sealed class TradeConnectionService : ITradeConnectionService
         return await _unitOfWork.Repository<Wishlist>().ListAsync(spec, tracking: false) ?? [];
     }
 
-    private static TradeParticipantDto CreateParticipantDto(AppUser user, IReadOnlyList<Wishlist> wishlists)
+    private async Task<IReadOnlyList<BinderCard>> LoadPublicBinderCardsAsync(string ownerId)
+    {
+        var spec = new PublicBinderCardsForOwnerSpecification(ownerId);
+        return await _unitOfWork.Repository<BinderCard>().ListAsync(spec, tracking: false) ?? [];
+    }
+
+    private static TradeParticipantDto CreateParticipantDto(AppUser user)
     {
         return new TradeParticipantDto
         {
             UserId = user.Id,
             DisplayName = user.DisplayName,
-            Email = user.Email ?? string.Empty,
-            Wishlists = wishlists.Select(MapWishlistToSummary).ToList()
+            Email = user.Email ?? string.Empty
         };
     }
 
-    private static WishlistSummaryDto MapWishlistToSummary(Wishlist wishlist)
+    private static IReadOnlyList<WishlistCard> ExtractWishlistCards(IReadOnlyList<Wishlist> wishlists)
     {
-        var cards = wishlist.WishlistCards;
-        return new WishlistSummaryDto
+        return wishlists
+            .SelectMany(w => w.WishlistCards ?? Array.Empty<WishlistCard>())
+            .ToList();
+    }
+
+    private static IReadOnlyList<BinderCardDto> MapBinderCards(IReadOnlyList<BinderCard> cards)
+    {
+        return cards.Select(MapBinderCard).ToList();
+    }
+
+    private static BinderCardDto MapBinderCard(BinderCard card)
+    {
+        return new BinderCardDto
         {
-            Id = wishlist.Id,
-            Name = wishlist.Name,
-            Description = wishlist.Description,
-            IsPublic = wishlist.IsPublic,
-            TotalPrice = wishlist.TotalPrice,
-            TotalPriceCurrency = wishlist.TotalPriceCurrency,
-            CardsCount = cards.Sum(c => c.DesiredQuantity),
-            IndividualCardsCount = cards.Count
+            Id = card.Id,
+            TradeBinderId = card.TradeBinderId,
+            CardId = card.CardId,
+            Card = card.Card!,
+            Name = card.Name,
+            QuantityToTrade = card.QuantityToTrade,
+            Notes = card.Notes,
+            ImageUrl = card.Card?.ImageUrl,
+            SetCode = card.Card?.SetCode,
+            SetName = card.Card?.SetName,
+            CollectorNumber = card.Card?.CollectorNumber,
+            Rarity = card.Card?.Rarity
         };
+    }
+
+    private static IReadOnlyList<TradeMatchDto> FindMatches(
+        IEnumerable<BinderCardDto> offeringCards,
+        IEnumerable<WishlistCard> desiredCards,
+        string fromUserId,
+        string toUserId)
+    {
+        var desiredLookup = desiredCards
+            .GroupBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+        var matches = new List<TradeMatchDto>();
+        foreach (var binderCard in offeringCards)
+        {
+            if (desiredLookup.TryGetValue(binderCard.Name, out var wishlistCards))
+            {
+                foreach (var wishlistCard in wishlistCards)
+                {
+                    matches.Add(new TradeMatchDto
+                    {
+                        CardName = binderCard.Name,
+                        FromUserId = fromUserId,
+                        ToUserId = toUserId,
+                        OfferingCard = binderCard
+                    });
+                }
+            }
+        }
+
+        return matches;
     }
 
     private async Task NotifyParticipantsAsync(TradeConnectionDto connection, CancellationToken cancellationToken)

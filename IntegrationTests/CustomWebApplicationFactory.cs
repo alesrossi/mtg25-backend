@@ -189,6 +189,7 @@ namespace IntegrationTests
             client.DefaultRequestHeaders.Add("Test-UserId",  userId);
             client.DefaultRequestHeaders.Add("Test-UserName", userName);
             client.DefaultRequestHeaders.Add("Test-Email",   email);
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Test");
             return client;
         }
     }
