@@ -1,6 +1,4 @@
-using System;
 using System.Globalization;
-using System.Linq;
 using System.Security.Claims;
 using API.Dtos.Decks;
 using API.Logging;
@@ -73,8 +71,8 @@ public static partial class DecksEndpoint
             return Results.NotFound();
         }
 
-        deck.Name = updateDto.Name;
-        deck.Format = updateDto.Format;
+        if (updateDto.Name != null) deck.Name = updateDto.Name;
+        if (updateDto.Format != null) deck.Format = updateDto.Format;
         deck.Image = updateDto.Image;
 
         unitOfWork.Repository<Deck>().Update(deck);
@@ -437,7 +435,7 @@ public static partial class DecksEndpoint
     {
         var rawLines = decklist
             .Replace("\r", string.Empty)
-            .Split('\n', StringSplitOptions.None);
+            .Split('\n');
 
         var filteredLines = new List<string>();
         var dividerAdded = false;
@@ -467,7 +465,7 @@ public static partial class DecksEndpoint
 
     private static double ResolveCardMarketPrice(CardDataService cardDataService, string scryfallId, MarketProvider provider)
     {
-        if (!cardDataService.CardDataById.TryGetValue(scryfallId, out var cardData) || cardData?.Prices is null)
+        if (!cardDataService.CardDataById.TryGetValue(scryfallId, out var cardData) || cardData.Prices is null)
         {
             return 0;
         }

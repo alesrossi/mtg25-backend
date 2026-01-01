@@ -136,7 +136,7 @@ public class DeckRepositoryTests : IDisposable
 
         // Act - Filter by owner (in real implementation, this would use a specification)
         var allDecks = await _repository.ListAllAsync();
-        var user1DecksFiltered = allDecks.Where(d => d.OwnerId == user1.Id).ToList();
+        var user1DecksFiltered = allDecks!.Where(d => d.OwnerId == user1.Id).ToList();
 
         // Assert
         user1DecksFiltered.Should().HaveCount(2, "because user1 has exactly 2 decks");
@@ -287,7 +287,7 @@ public class DeckRepositoryTests : IDisposable
 
         // Assert
         var result = await _repository.ListAllAsync();
-        var userDecks = result.Where(d => d.OwnerId == user.Id);
+        var userDecks = result!.Where(d => d.OwnerId == user.Id);
         userDecks.Should().HaveCount(5, "because all 5 decks should be saved");
     }
 

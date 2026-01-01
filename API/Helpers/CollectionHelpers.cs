@@ -1,15 +1,10 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Threading.Tasks;
 using API.Dtos.Cards;
 using API.Dtos.Collections;
-using API.Scryfall;
 using API.Services;
 using Core.Models;
 using Core.Models.Identity;
 using CsvHelper;
-using Microsoft.AspNetCore.Http;
 
 namespace API.Helpers;
 
@@ -40,24 +35,18 @@ public static class CollectionHelpers
             catch (Exception ex)
             {
                 skippedLines++;
-                errors.Add($"Line {csv.Context.Parser.Row}: {ex.Message}");
+                errors.Add($"Line {csv.Context.Parser!.Row}: {ex.Message}");
                 continue;
             }
 
             if (!cds.CardDataById.TryGetValue(record.ScryfallId, out var ocd))
             {
                 skippedLines++;
-                errors.Add($"Line {csv.Context.Parser.Row}: Card with Scryfall ID '{record.ScryfallId}' was not found.");
+                errors.Add($"Line {csv.Context.Parser!.Row}: Card with Scryfall ID '{record.ScryfallId}' was not found.");
                 continue;
             }
 
             var imageUris = CardDataService.ResolveImageUris(ocd);
-            if (imageUris is null)
-            {
-                skippedLines++;
-                errors.Add($"Line {csv.Context.Parser.Row}: Card '{ocd.Name}' is missing image data.");
-                continue;
-            }
 
             var imageUrl = imageUris.Large ?? imageUris.Normal ?? imageUris.Png;
             var artCrop = imageUris.ArtCrop;
@@ -66,14 +55,14 @@ public static class CollectionHelpers
             if (string.IsNullOrWhiteSpace(imageUrl))
             {
                 skippedLines++;
-                errors.Add($"Line {csv.Context.Parser.Row}: Card '{ocd.Name}' is missing image URL.");
+                errors.Add($"Line {csv.Context.Parser!.Row}: Card '{ocd.Name}' is missing image URL.");
                 continue;
             }
 
             if (string.IsNullOrWhiteSpace(artCrop))
             {
                 skippedLines++;
-                errors.Add($"Line {csv.Context.Parser.Row}: Card '{ocd.Name}' is missing art crop image.");
+                errors.Add($"Line {csv.Context.Parser!.Row}: Card '{ocd.Name}' is missing art crop image.");
                 continue;
             }
 
@@ -157,7 +146,7 @@ public static class CollectionHelpers
 
         return double.TryParse(priceText, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
             ? parsed
-            : (double?)null;
+            : null;
     }
 
     private static string ConvertCurrencyToCode(Currency currency)

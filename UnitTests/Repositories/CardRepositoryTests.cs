@@ -250,8 +250,8 @@ public class CardRepositoryTests : IDisposable
         var allCards = await _repository.ListAllAsync();
         // Assert
         // Check that the cards were properly distributed across collections
-        var collection1Cards = allCards.Where(c => c.Name.StartsWith("Collection1")).ToList();
-        var collection2Cards = allCards.Where(c => c.Name == "Collection2 Card").ToList();
+        var collection1Cards = allCards!.Where(c => c.Name.StartsWith("Collection1")).ToList();
+        var collection2Cards = allCards!.Where(c => c.Name == "Collection2 Card").ToList();
         
         collection1Cards.Should().HaveCount(2, "because collection1 has 2 cards");
         collection2Cards.Should().HaveCount(1, "because collection2 has 1 card");
@@ -293,7 +293,7 @@ public class CardRepositoryTests : IDisposable
 
         // Assert
         var result = await _repository.ListAllAsync();
-        var userCards = result.Where(c => c.Name.StartsWith("Card "));
+        var userCards = result!.Where(c => c.Name.StartsWith("Card "));
         userCards.Should().HaveCount(5, "because all 5 cards should be saved");
     }
 

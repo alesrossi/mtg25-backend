@@ -12,13 +12,16 @@ namespace TestUtilities.Authentication;
 /// </summary>
 public class TestAuthenticationHandler : AuthenticationHandler<TestAuthenticationSchemeOptions>
 {
+    private readonly TimeProvider _timeProvider;
+
     public TestAuthenticationHandler(
         IOptionsMonitor<TestAuthenticationSchemeOptions> options,
         ILoggerFactory logger,
         UrlEncoder encoder,
-        ISystemClock clock)
-        : base(options, logger, encoder, clock)
+        TimeProvider timeProvider)
+        : base(options, logger, encoder, new TimeProviderSystemClock(timeProvider))
     {
+        _timeProvider = timeProvider;
     }
 
     /// <summary>
@@ -39,18 +42,19 @@ public class TestAuthenticationHandler : AuthenticationHandler<TestAuthenticatio
         }
 
         // Use header values if available, otherwise fall back to options or defaults
-        var finalUserId = userId ?? Options.UserId ?? "test-user-id";
-        var finalUserName = userName ?? Options.UserName ?? "test-user";
-        var finalEmail = email ?? Options.Email ?? "test@example.com";
+        var finalUserId = userId ?? Options.UserId;
+        var finalUserName = userName ?? Options.UserName;
+        var finalEmail = email ?? Options.Email;
 
         // Create claims that match your JWT token structure
+        var issuedAt = _timeProvider.GetUtcNow();
         var claims = new[]
         {
             new Claim(ClaimTypes.NameIdentifier, finalUserId),
             new Claim(ClaimTypes.Name, finalUserName),
             new Claim(ClaimTypes.Email, finalEmail),
             // Add additional claims as needed to match your JWT structure
-            new Claim("iat", DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()),
+            new Claim("iat", issuedAt.ToUnixTimeSeconds().ToString()),
             new Claim("jti", Guid.NewGuid().ToString())
         };
 
@@ -59,5 +63,17 @@ public class TestAuthenticationHandler : AuthenticationHandler<TestAuthenticatio
         var ticket = new AuthenticationTicket(principal, "Test");
 
         return Task.FromResult(AuthenticateResult.Success(ticket));
+    }
+
+    /// <summary>
+    /// Temporary adapter until AuthenticationHandler gains a TimeProvider constructor.
+    /// </summary>
+    private sealed class TimeProviderSystemClock : ISystemClock
+    {
+        private readonly TimeProvider _provider;
+
+        public TimeProviderSystemClock(TimeProvider provider) => this._provider = provider;
+
+        public DateTimeOffset UtcNow => _provider.GetUtcNow();
     }
 }

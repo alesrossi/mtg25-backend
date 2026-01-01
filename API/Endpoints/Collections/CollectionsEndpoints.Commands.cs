@@ -227,7 +227,7 @@ public static partial class CollectionsEndpoints
     private static async Task<IResult> MassDeleteCardsFromCollection(
         IUnitOfWork unitOfWork,
         int id,
-        [FromBody] List<int> ctbd,
+        [FromBody] List<int>? ctbd,
         HttpContext context,
         [FromServices] ILogger<CollectionsEndpointLogCategory> logger)
     {
@@ -258,13 +258,13 @@ public static partial class CollectionsEndpoints
         }
 
         var cardsToDelete = await unitOfWork.Repository<Card>().ListAsync(new CardsByIdsSpecification(ctbd, id));
-        if (cardsToDelete.Count == 0)
+        if (cardsToDelete is { Count: 0 })
         {
-            logger.LogOperationWarning(operation, "Cards not found", new { id, Count = ctbd.Count });
+            logger.LogOperationWarning(operation, "Cards not found", new { id, ctbd.Count });
             return Results.NotFound();
         }
 
-        foreach (var card in cardsToDelete)
+        foreach (var card in cardsToDelete!)
         {
             unitOfWork.Repository<Card>().Delete(card);
         }

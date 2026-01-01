@@ -230,7 +230,7 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
 
         var loginRequest = new LoginDto
         {
-            Email = user.Email,
+            Email = user.Email!,
             Password = password
         };
 

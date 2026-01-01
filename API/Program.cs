@@ -1,9 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text.Json.Nodes;
 using API.Configuration;
-using API.Endpoints;
 using API.Extensions;
 using API.Filters;
 using API.Helpers;
@@ -14,11 +12,9 @@ using Infrastructure.Data;
 using Infrastructure.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using System.IO.Compression;
@@ -188,7 +184,7 @@ public class Program
             // Configure Authentication
             var jwtSettings = builder.Configuration.GetSection("JWT").Get<JwtSettings>()!;
             // Only configure JWT if not in testing environment and JWT config is available
-            if (jwtSettings != null && !builder.Environment.IsEnvironment("Testing"))
+            if (!builder.Environment.IsEnvironment("Testing"))
             {
                 var key = Encoding.UTF8.GetBytes(jwtSettings.SecretKey);
         
@@ -246,143 +242,143 @@ public class Program
                         }
                     };
                 });
-        }
+            }
         
-        builder.Services.AddSwaggerGen(c =>
-        {
-            c.SwaggerDoc("v1", new OpenApiInfo { Title = "My API", Version = "v1" });
+            builder.Services.AddSwaggerGen(c =>
+            {
+                c.SwaggerDoc("v1", new OpenApiInfo { Title = "My API", Version = "v1" });
     
-            c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-            {
-                Type = SecuritySchemeType.Http,
-                Scheme = "bearer",
-                BearerFormat = "JWT",
-                In = ParameterLocation.Header,
-                Description = "JWT Authorization header using the Bearer scheme."
+                c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                {
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "bearer",
+                    BearerFormat = "JWT",
+                    In = ParameterLocation.Header,
+                    Description = "JWT Authorization header using the Bearer scheme."
+                });
+
             });
-
-        });
         
-        var app = builder.Build();
+            var app = builder.Build();
         
-        using (var scope = app.Services.CreateScope())
-        {
-            var services = scope.ServiceProvider;
-            try
+            using (var scope = app.Services.CreateScope())
             {
-                var context = services.GetRequiredService<MainContext>();
-                await context.Database.MigrateAsync();
-
-                var idContext = services.GetRequiredService<AppIdentityDbContext>();
-                await idContext.Database.MigrateAsync();
-            }
-            catch (Exception ex)
-            {
-                var logger = services.GetRequiredService<ILogger<Program>>();
-                logger.LogError(ex, "An error occurred while checking/applying migrations");
-                throw;
-            }
-        }
-        
-        if (!app.Environment.IsEnvironment("Testing"))
-        {
-            var cardDataService = app.Services.GetRequiredService<CardDataService>();
-            await cardDataService.LoadCardDataAsync();
-        }
-
-        // Configure the HTTP request pipeline.
-        if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Integration"))
-        {
-            app.UseDeveloperExceptionPage();
-            app.MapOpenApi();
-            app.MapScalarApiReference();
-            app.UseSwagger();
-            app.UseSwaggerUI();
-        }
-
-        // app.UseHttpsRedirection();
-
-        app.UseExceptionHandler(errorApp =>
-        {
-            errorApp.Run(async context =>
-            {
-                var exceptionFeature = context.Features.Get<IExceptionHandlerFeature>();
-                var exception = exceptionFeature?.Error;
-
-                var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
-                logger.LogError(exception, "Unhandled exception encountered while processing the request");
-
-                var statusCode = exception switch
+                var services = scope.ServiceProvider;
+                try
                 {
-                    BadHttpRequestException badRequestException => badRequestException.StatusCode,
-                    JsonException => StatusCodes.Status400BadRequest,
-                    _ => StatusCodes.Status500InternalServerError
-                };
-                var problemDetails = new ProblemDetails
+                    var context = services.GetRequiredService<MainContext>();
+                    await context.Database.MigrateAsync();
+
+                    var idContext = services.GetRequiredService<AppIdentityDbContext>();
+                    await idContext.Database.MigrateAsync();
+                }
+                catch (Exception ex)
                 {
-                    Status = statusCode,
-                    Title = "An unexpected error occurred",
-                    Detail = app.Environment.IsDevelopment() ? exception?.Message : "An unexpected error occurred while processing the request.",
-                    Instance = context.Request.Path,
-                    Type = $"https://httpstatuses.io/{statusCode}",
-                    Extensions =
+                    var logger = services.GetRequiredService<ILogger<Program>>();
+                    logger.LogError(ex, "An error occurred while checking/applying migrations");
+                    throw;
+                }
+            }
+        
+            if (!app.Environment.IsEnvironment("Testing"))
+            {
+                var cardDataService = app.Services.GetRequiredService<CardDataService>();
+                await cardDataService.LoadCardDataAsync();
+            }
+
+            // Configure the HTTP request pipeline.
+            if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Integration"))
+            {
+                app.UseDeveloperExceptionPage();
+                app.MapOpenApi();
+                app.MapScalarApiReference();
+                app.UseSwagger();
+                app.UseSwaggerUI();
+            }
+
+            // app.UseHttpsRedirection();
+
+            app.UseExceptionHandler(errorApp =>
+            {
+                errorApp.Run(async context =>
+                {
+                    var exceptionFeature = context.Features.Get<IExceptionHandlerFeature>();
+                    var exception = exceptionFeature?.Error;
+
+                    var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+                    logger.LogError(exception, "Unhandled exception encountered while processing the request");
+
+                    var statusCode = exception switch
                     {
-                        ["traceId"] = context.TraceIdentifier
-                    }
-                };
+                        BadHttpRequestException badRequestException => badRequestException.StatusCode,
+                        JsonException => StatusCodes.Status400BadRequest,
+                        _ => StatusCodes.Status500InternalServerError
+                    };
+                    var problemDetails = new ProblemDetails
+                    {
+                        Status = statusCode,
+                        Title = "An unexpected error occurred",
+                        Detail = app.Environment.IsDevelopment() ? exception?.Message : "An unexpected error occurred while processing the request.",
+                        Instance = context.Request.Path,
+                        Type = $"https://httpstatuses.io/{statusCode}",
+                        Extensions =
+                        {
+                            ["traceId"] = context.TraceIdentifier
+                        }
+                    };
 
-                context.Response.StatusCode = statusCode;
-                context.Response.ContentType = "application/problem+json";
-                await context.Response.WriteAsJsonAsync(problemDetails);
+                    context.Response.StatusCode = statusCode;
+                    context.Response.ContentType = "application/problem+json";
+                    await context.Response.WriteAsJsonAsync(problemDetails);
+                });
             });
-        });
         
-        app.UseRequestLogging();
-        app.UseResponseCompression();
+            app.UseRequestLogging();
+            app.UseResponseCompression();
 
-        app.UseAuthentication();
-        app.UseAuthorization();
+            app.UseAuthentication();
+            app.UseAuthorization();
         
-        app.Use(async (context, next) =>
-        {
-            await next();
-
-            if (context.Response.StatusCode == StatusCodes.Status404NotFound &&
-                !context.Response.HasStarted &&
-                context.GetEndpoint() is null)
+            app.Use(async (context, next) =>
             {
-                var result = ProblemResultFactory.Create(
-                    context,
-                    StatusCodes.Status404NotFound,
-                    "Endpoint not found",
-                    $"No endpoint matches '{context.Request.Path}'.",
-                    "endpoint-not-found");
+                await next();
 
-                await result.ExecuteAsync(context);
-            }
-        });
+                if (context.Response.StatusCode == StatusCodes.Status404NotFound &&
+                    !context.Response.HasStarted &&
+                    context.GetEndpoint() is null)
+                {
+                    var result = ProblemResultFactory.Create(
+                        context,
+                        StatusCodes.Status404NotFound,
+                        "Endpoint not found",
+                        $"No endpoint matches '{context.Request.Path}'.",
+                        "endpoint-not-found");
 
-        app.UseCors();
+                    await result.ExecuteAsync(context);
+                }
+            });
+
+            app.UseCors();
         
-        app.MapCardsEndpoints();
-        app.MapAccountEndpoints();
-        app.MapCollectionsEndpoints();
-        app.MapBindersEndpoints();
-        app.MapWishlistsEndpoints();
-        app.MapLeaguesEndpoints();
-        app.MapDecksEndpoints();
-        app.MapNotificationsEndpoints();
+            app.MapCardsEndpoints();
+            app.MapAccountEndpoints();
+            app.MapCollectionsEndpoints();
+            app.MapBindersEndpoints();
+            app.MapWishlistsEndpoints();
+            app.MapLeaguesEndpoints();
+            app.MapDecksEndpoints();
+            app.MapNotificationsEndpoints();
         
-        // Add health check endpoint
-        app.MapGet("/api/health", () => Results.Ok(new { 
-            status = "healthy", 
-            timestamp = DateTime.UtcNow,
-            environment = app.Environment.EnvironmentName,
-            version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString()
-        })).AllowAnonymous();
+            // Add health check endpoint
+            app.MapGet("/api/health", () => Results.Ok(new { 
+                status = "healthy", 
+                timestamp = DateTime.UtcNow,
+                environment = app.Environment.EnvironmentName,
+                version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString()
+            })).AllowAnonymous();
         
         
-        await app.RunAsync();
+            await app.RunAsync();
         }
         catch (HostAbortedException)
         {
@@ -395,7 +391,7 @@ public class Program
         }
         finally
         {
-            Log.CloseAndFlush();
+            await Log.CloseAndFlushAsync();
         }
     }
 }

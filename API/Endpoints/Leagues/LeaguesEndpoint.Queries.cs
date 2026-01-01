@@ -36,7 +36,7 @@ public static partial class LeaguesEndpoint
             .AsNoTracking()
             .Where(l => l.IsPublic)
             .ToListAsync();
-        logger.LogOperationSuccess("Leagues.QueryAll", new { Count = leagues.Count });
+        logger.LogOperationSuccess("Leagues.QueryAll", new { leagues.Count });
         return Results.Ok(leagues);
     }
 
@@ -126,7 +126,7 @@ public static partial class LeaguesEndpoint
             DisplayName = user.DisplayName,
             Leagues = leaguesDto
         };
-        logger.LogOperationSuccess("Leagues.QueryUser", new { userId, Count = leaguesDto.Count });
+        logger.LogOperationSuccess("Leagues.QueryUser", new { userId, leaguesDto.Count });
         return Results.Ok(dto);
     }
 
@@ -185,7 +185,7 @@ public static partial class LeaguesEndpoint
             TotalPrize = league.TotalPrize,
             PrizePerPerson = league.PrizePerPerson,
             TotalPlayers = league.TotalPlayers,
-            Score = res.Score,
+            Score = res!.Score,
             OwnerId = league.OwnerId,
             IsActive = league.IsActive,
             IsPlaying = res.IsPlaying,
