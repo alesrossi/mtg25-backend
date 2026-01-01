@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using API.Dtos.Cards;
 using API.Dtos.Trades;
 using API.Services;
 using Core.Interfaces;
@@ -16,29 +17,38 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using TestUtilities.Builders;
+using TestUtilities.Scryfall;
 
 namespace UnitTests.Services;
 
 public class TradeConnectionServiceTests : IDisposable
 {
-    private readonly Mock<IUnitOfWork> unitOfWorkMock = new();
-    private readonly Mock<IGenericRepository<Wishlist>> wishlistRepositoryMock = new();
-    private readonly Mock<IGenericRepository<BinderCard>> binderCardRepositoryMock = new();
-    private readonly Mock<ITradeSessionStore> sessionStoreMock = new();
-    private readonly AppIdentityDbContext identityDbContext;
-    private readonly NotificationService notificationService;
-    private readonly TestDataBuilder testDataBuilder = new();
-    private int idSequence = 1;
+    private readonly Mock<IUnitOfWork> _unitOfWorkMock = new();
+    private readonly Mock<IGenericRepository<Wishlist>> _wishlistRepositoryMock = new();
+    private readonly Mock<IGenericRepository<BinderCard>> _binderCardRepositoryMock = new();
+    private readonly Mock<ITradeSessionStore> _sessionStoreMock = new();
+    private readonly AppIdentityDbContext _identityDbContext;
+    private readonly NotificationService _notificationService;
+    private readonly CardDataService _cardDataService;
+    private readonly Mock<IUserSettingsService> _userSettingsServiceMock = new();
+    private readonly TestDataBuilder _testDataBuilder = new();
+    private int _idSequence = 1;
 
     public TradeConnectionServiceTests()
     {
-        identityDbContext = new AppIdentityDbContext(new DbContextOptionsBuilder<AppIdentityDbContext>()
+        _identityDbContext = new AppIdentityDbContext(new DbContextOptionsBuilder<AppIdentityDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
 
-        notificationService = new NotificationService(identityDbContext, NullLogger<NotificationService>.Instance);
-        unitOfWorkMock.Setup(x => x.Repository<Wishlist>()).Returns(wishlistRepositoryMock.Object);
-        unitOfWorkMock.Setup(x => x.Repository<BinderCard>()).Returns(binderCardRepositoryMock.Object);
+        _notificationService = new NotificationService(_identityDbContext, NullLogger<NotificationService>.Instance);
+        _cardDataService = CardDataServiceTestHelper.CreateWithCards(Array.Empty<ScryfallCardDto>());
+        _userSettingsServiceMock.Setup(s => s.GetMarketProviderAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(MarketProvider.Mkm);
+        _userSettingsServiceMock.Setup(s => s.ResolveCurrency(It.IsAny<MarketProvider>()))
+            .Returns((MarketProvider provider) => provider == MarketProvider.Mkm ? Currency.Eur : Currency.Usd);
+
+        _unitOfWorkMock.Setup(x => x.Repository<Wishlist>()).Returns(_wishlistRepositoryMock.Object);
+        _unitOfWorkMock.Setup(x => x.Repository<BinderCard>()).Returns(_binderCardRepositoryMock.Object);
     }
 
     [Fact]
@@ -60,7 +70,7 @@ public class TradeConnectionServiceTests : IDisposable
 
         var initiatorBinderCards = new List<BinderCard>
         {
-            CreateBinderCard(initiator.Id, "Trade Match")
+            CreateBinderCard(initiator.Id, "Trade Match", quantityToTrade: 2)
         };
 
         var partnerBinderCards = new List<BinderCard>
@@ -68,11 +78,13 @@ public class TradeConnectionServiceTests : IDisposable
             CreateBinderCard(partner.Id, "Other Card")
         };
 
+        SeedCardMarketData(initiatorBinderCards.Concat(partnerBinderCards));
+
         SetupWishlistRepository(initiatorWishlists.Concat(partnerWishlists).ToList());
         SetupBinderCardRepository(initiatorBinderCards.Concat(partnerBinderCards).ToList());
 
         var userManager = CreateUserManagerMock(initiator, partner);
-        sessionStoreMock.Setup(s => s.StoreAsync(It.IsAny<TradeConnectionDto>(), It.IsAny<CancellationToken>()))
+        _sessionStoreMock.Setup(s => s.StoreAsync(It.IsAny<TradeConnectionDto>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask)
             .Verifiable();
 
@@ -85,8 +97,15 @@ public class TradeConnectionServiceTests : IDisposable
         result.TradeId.Should().NotBeNullOrWhiteSpace();
         result.InitiatorMatches.Should().ContainSingle(m => m.CardName == "Trade Match");
         result.PartnerMatches.Should().BeEmpty();
-        identityDbContext.Notifications.Should().ContainSingle(n => n.AppUserId == partner.Id);
-        sessionStoreMock.Verify();
+        result.InitiatorTotalValue.Should().Be(4.00);
+        result.PartnerTotalValue.Should().Be(0);
+        result.ValueDifference.Should().Be(4.00);
+        result.PriceProvider.Should().Be(MarketProvider.Mkm);
+        result.PriceCurrency.Should().Be(Currency.Eur);
+        result.InitiatorMatches.Single().OfferingCard.MarketPrice.Should().Be(2);
+        result.InitiatorMatches.Single().OfferingCard.TotalValue.Should().Be(4.00);
+        _identityDbContext.Notifications.Should().ContainSingle(n => n.AppUserId == partner.Id);
+        _sessionStoreMock.Verify();
     }
 
     [Fact]
@@ -102,7 +121,7 @@ public class TradeConnectionServiceTests : IDisposable
             Partner = new TradeParticipantDto { UserId = "partner" }
         };
 
-        sessionStoreMock.Setup(s => s.GetAsync("trade-123", It.IsAny<CancellationToken>()))
+        _sessionStoreMock.Setup(s => s.GetAsync("trade-123", It.IsAny<CancellationToken>()))
             .ReturnsAsync(connection);
 
         // Act
@@ -116,14 +135,16 @@ public class TradeConnectionServiceTests : IDisposable
     {
         return new TradeConnectionService(
             userManager,
-            unitOfWorkMock.Object,
-            sessionStoreMock.Object,
-            notificationService);
+            _unitOfWorkMock.Object,
+            _sessionStoreMock.Object,
+            _notificationService,
+            _cardDataService,
+            _userSettingsServiceMock.Object);
     }
 
     private AppUser CreateUser(string key)
     {
-        var user = testDataBuilder.CreateUser($"{key}@test.com", key);
+        var user = _testDataBuilder.CreateUser($"{key}@test.com", key);
         user.Id = key;
         user.DisplayName = key;
         user.FirstName = "First";
@@ -133,37 +154,38 @@ public class TradeConnectionServiceTests : IDisposable
 
     private Wishlist CreateWishlistWithCard(string ownerId, string cardName)
     {
-        var wishlist = testDataBuilder.CreateWishlist(ownerId, isPublic: true);
+        var wishlist = _testDataBuilder.CreateWishlist(ownerId, isPublic: true);
         wishlist.Id = NextId();
-        var card = testDataBuilder.CreateWishlistCard(wishlist.Id, Guid.NewGuid().ToString(), cardName);
+        var card = _testDataBuilder.CreateWishlistCard(wishlist.Id, Guid.NewGuid().ToString(), cardName);
         card.Id = NextId();
         wishlist.WishlistCards = new List<WishlistCard> { card };
         return wishlist;
     }
 
-    private BinderCard CreateBinderCard(string ownerId, string cardName)
+    private BinderCard CreateBinderCard(string ownerId, string cardName, int quantityToTrade = 1)
     {
-        var binder = testDataBuilder.CreateTradeBinder(ownerId, isPublic: true);
+        var binder = _testDataBuilder.CreateTradeBinder(ownerId, isPublic: true);
         binder.Id = NextId();
 
-        var collection = testDataBuilder.CreateCollection(ownerId);
+        var collection = _testDataBuilder.CreateCollection(ownerId);
         collection.Id = NextId();
 
-        var ownedCard = testDataBuilder.CreateCard(collection.Id, cardName, price: 1);
+        var ownedCard = _testDataBuilder.CreateCard(collection.Id, cardName, price: 1);
         ownedCard.Id = NextId();
+        ownedCard.IsFoil = false;
 
-        var binderCard = testDataBuilder.CreateBinderCard(binder.Id, ownedCard.Id, cardName, quantityToTrade: 1);
+        var binderCard = _testDataBuilder.CreateBinderCard(binder.Id, ownedCard.Id, cardName, quantityToTrade);
         binderCard.Id = NextId();
         binderCard.Card = ownedCard;
         binderCard.TradeBinder = binder;
         return binderCard;
     }
 
-    private int NextId() => idSequence++;
+    private int NextId() => _idSequence++;
 
     private void SetupWishlistRepository(IReadOnlyList<Wishlist> wishlists)
     {
-        wishlistRepositoryMock
+        _wishlistRepositoryMock
             .Setup(r => r.ListAsync(It.IsAny<ISpecification<Wishlist>>(), It.IsAny<bool>()))
             .ReturnsAsync((ISpecification<Wishlist> spec, bool _) =>
             {
@@ -174,13 +196,35 @@ public class TradeConnectionServiceTests : IDisposable
 
     private void SetupBinderCardRepository(IReadOnlyList<BinderCard> cards)
     {
-        binderCardRepositoryMock
+        _binderCardRepositoryMock
             .Setup(r => r.ListAsync(It.IsAny<ISpecification<BinderCard>>(), It.IsAny<bool>()))
             .ReturnsAsync((ISpecification<BinderCard> spec, bool _) =>
             {
                 var predicate = spec.Criteria?.Compile() ?? (_ => true);
                 return cards.Where(predicate).ToList();
             });
+    }
+
+    private void SeedCardMarketData(IEnumerable<BinderCard> binderCards)
+    {
+        var entries = binderCards.Select(card =>
+        {
+            var scryfallCard = _testDataBuilder.CreateOracleCard(
+                id: card.Card!.ScryfallId,
+                name: card.Card!.Name);
+
+            return scryfallCard with
+            {
+                Prices = new Prices(
+                    Usd: "1.00",
+                    UsdFoil: "1.10",
+                    Eur: "2.00",
+                    EurFoil: "2.10",
+                    Tix: null)
+            };
+        }).ToList();
+
+        CardDataServiceTestHelper.Populate(_cardDataService, entries);
     }
 
     private static Mock<UserManager<AppUser>> CreateUserManagerMock(params AppUser[] users)
@@ -196,6 +240,6 @@ public class TradeConnectionServiceTests : IDisposable
 
     public void Dispose()
     {
-        identityDbContext.Dispose();
+        _identityDbContext.Dispose();
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using API.Dtos.Binders;
+using Core.Models.Identity;
 
 namespace API.Dtos.Trades;
 
@@ -11,6 +12,11 @@ public sealed class TradeConnectionDto
     public TradeParticipantDto Partner { get; init; } = new();
     public IReadOnlyList<TradeMatchDto> InitiatorMatches { get; init; } = Array.Empty<TradeMatchDto>();
     public IReadOnlyList<TradeMatchDto> PartnerMatches { get; init; } = Array.Empty<TradeMatchDto>();
+    public MarketProvider PriceProvider { get; init; } = MarketProvider.Mkm;
+    public Currency PriceCurrency { get; init; } = Currency.Eur;
+    public double InitiatorTotalValue { get; init; }
+    public double PartnerTotalValue { get; init; }
+    public double ValueDifference { get; init; }
 }
 
 public sealed class TradeParticipantDto

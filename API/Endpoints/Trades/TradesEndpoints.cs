@@ -19,6 +19,7 @@ public partial class TradesEndpoints
     private static void MapTradesQueries(RouteGroupBuilder group)
     {
         group.MapGet("/match", MatchUsersTradesAsync)
+            .RequireAuthorization()
             .WithSummary("Check if users have compatible items")
             .WithDescription("Checks if the two users have matching public wishlists and binders")
             .Produces<TradeConnectionDto>()

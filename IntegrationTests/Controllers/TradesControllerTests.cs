@@ -1,8 +1,10 @@
 using System;
+using System.Linq;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using API.Dtos.Trades;
+using API.Services;
 using Core.Models;
 using Core.Models.Identity;
 using FluentAssertions;
@@ -32,8 +34,8 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var initiator = await CreateTestUserAsync("trade-initiator@test.com", "trade_initiator");
         var partner = await CreateTestUserAsync("trade-partner@test.com", "trade_partner");
 
-        await CreatePublicBinderCardAsync(initiator.Id, "Shared Match");
-        await CreatePublicWishlistCardAsync(partner.Id, "Shared Match");
+        await CreatePublicBinderCardAsync(initiator.Id, "Lightning Bolt");
+        await CreatePublicWishlistCardAsync(partner.Id, "Lightning Bolt");
 
         using var client = factory.CreateClientWithUser(initiator.Id, initiator.UserName!, initiator.Email!);
 
@@ -44,8 +46,11 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var dto = JsonSerializer.Deserialize<TradeConnectionDto>(payload, JsonContentHelper.DefaultOptions);
 
         dto.Should().NotBeNull();
-        dto!.InitiatorMatches.Should().ContainSingle(m => m.OfferingCard.Name == "Shared Match" && m.ToUserId == partner.Id);
+        dto!.InitiatorMatches.Should().ContainSingle(m => m.OfferingCard.Name == "Lightning Bolt" && m.ToUserId == partner.Id);
         dto.PartnerMatches.Should().BeEmpty();
+        dto.InitiatorTotalValue.Should().BeGreaterThan(0);
+        dto.ValueDifference.Should().Be(dto.InitiatorTotalValue - dto.PartnerTotalValue);
+        dto.InitiatorMatches.Single().OfferingCard.MarketPrice.Should().NotBeNull();
     }
 
     [Fact]
@@ -92,12 +97,19 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         await using var scope = factory.Services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+        var cardDataService = scope.ServiceProvider.GetRequiredService<CardDataService>();
 
         var collection = testDataBuilder.CreateCollection(ownerId);
         context.Collections.Add(collection);
         await context.SaveChangesAsync();
 
+        var marketCard = cardDataService.CardDataByName.TryGetValue(cardName, out var cardData)
+            ? cardData
+            : cardDataService.CardDataById.Values.First();
+
         var ownedCard = testDataBuilder.CreateCard(collection.Id, cardName);
+        ownedCard.ScryfallId = marketCard.Id;
+        ownedCard.IsFoil = false;
         context.Cards.Add(ownedCard);
         await context.SaveChangesAsync();
 

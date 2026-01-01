@@ -1,6 +1,9 @@
+using System.Linq;
 using API.Dtos.Binders;
 using API.Dtos.Notifications;
 using API.Dtos.Trades;
+using API.Dtos.Cards;
+using System.Globalization;
 using Core.Interfaces;
 using Core.Models;
 using Core.Models.Identity;
@@ -21,17 +24,23 @@ public sealed class TradeConnectionService : ITradeConnectionService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ITradeSessionStore _sessionStore;
     private readonly NotificationService _notificationService;
+    private readonly CardDataService _cardDataService;
+    private readonly IUserSettingsService _userSettingsService;
 
     public TradeConnectionService(
         UserManager<AppUser> userManager,
         IUnitOfWork unitOfWork,
         ITradeSessionStore sessionStore,
-        NotificationService notificationService)
+        NotificationService notificationService,
+        CardDataService cardDataService,
+        IUserSettingsService userSettingsService)
     {
         _userManager = userManager;
         _unitOfWork = unitOfWork;
         _sessionStore = sessionStore;
         _notificationService = notificationService;
+        _cardDataService = cardDataService;
+        _userSettingsService = userSettingsService;
     }
 
     public async Task<TradeConnectionDto> PrepareConnectionAsync(string initiatorUserId, string partnerUserId, CancellationToken cancellationToken = default)
@@ -60,19 +69,33 @@ public sealed class TradeConnectionService : ITradeConnectionService
             throw new KeyNotFoundException($"User '{partnerUserId}' was not found.");
         }
 
+        var priceProvider = await _userSettingsService.GetMarketProviderAsync(initiator.Id, cancellationToken);
+        var priceCurrency = _userSettingsService.ResolveCurrency(priceProvider);
+
         var initiatorWishlistCards = ExtractWishlistCards(await LoadPublicWishlistsAsync(initiator.Id));
         var partnerWishlistCards = ExtractWishlistCards(await LoadPublicWishlistsAsync(partner.Id));
 
-        var initiatorBinderCards = MapBinderCards(await LoadPublicBinderCardsAsync(initiator.Id));
-        var partnerBinderCards = MapBinderCards(await LoadPublicBinderCardsAsync(partner.Id));
+        var initiatorBinderCards = MapBinderCards(await LoadPublicBinderCardsAsync(initiator.Id), priceProvider);
+        var partnerBinderCards = MapBinderCards(await LoadPublicBinderCardsAsync(partner.Id), priceProvider);
+
+        var initiatorMatches = FindMatches(initiatorBinderCards, partnerWishlistCards, initiator.Id, partner.Id);
+        var partnerMatches = FindMatches(partnerBinderCards, initiatorWishlistCards, partner.Id, initiator.Id);
+
+        var initiatorTotal = CalculateTotalValue(initiatorMatches);
+        var partnerTotal = CalculateTotalValue(partnerMatches);
 
         var connection = new TradeConnectionDto
         {
             TradeId = Guid.NewGuid().ToString("N"),
             Initiator = CreateParticipantDto(initiator),
             Partner = CreateParticipantDto(partner),
-            InitiatorMatches = FindMatches(initiatorBinderCards, partnerWishlistCards, initiator.Id, partner.Id),
-            PartnerMatches = FindMatches(partnerBinderCards, initiatorWishlistCards, partner.Id, initiator.Id)
+            InitiatorMatches = initiatorMatches,
+            PartnerMatches = partnerMatches,
+            PriceProvider = priceProvider,
+            PriceCurrency = priceCurrency,
+            InitiatorTotalValue = initiatorTotal,
+            PartnerTotalValue = partnerTotal,
+            ValueDifference = Math.Round(initiatorTotal - partnerTotal, 2, MidpointRounding.AwayFromZero)
         };
 
         await _sessionStore.StoreAsync(connection, cancellationToken);
@@ -135,13 +158,22 @@ public sealed class TradeConnectionService : ITradeConnectionService
             .ToList();
     }
 
-    private static IReadOnlyList<BinderCardDto> MapBinderCards(IReadOnlyList<BinderCard> cards)
+    private IReadOnlyList<BinderCardDto> MapBinderCards(IReadOnlyList<BinderCard> cards, MarketProvider preferredProvider)
     {
-        return cards.Select(MapBinderCard).ToList();
+        return cards.Select(card => MapBinderCard(card, preferredProvider)).ToList();
     }
 
-    private static BinderCardDto MapBinderCard(BinderCard card)
+    private BinderCardDto MapBinderCard(BinderCard card, MarketProvider preferredProvider)
     {
+        var (marketPrice, marketProvider) = ResolveMarketPrice(card, preferredProvider);
+        var quantity = Math.Max(0, card.QuantityToTrade);
+        var totalValue = marketPrice.HasValue
+            ? Math.Round(marketPrice.Value * quantity, 2, MidpointRounding.AwayFromZero)
+            : (double?)null;
+        var currency = marketProvider.HasValue
+            ? _userSettingsService.ResolveCurrency(marketProvider.Value)
+            : (Currency?)null;
+
         return new BinderCardDto
         {
             Id = card.Id,
@@ -155,7 +187,11 @@ public sealed class TradeConnectionService : ITradeConnectionService
             SetCode = card.Card?.SetCode,
             SetName = card.Card?.SetName,
             CollectorNumber = card.Card?.CollectorNumber,
-            Rarity = card.Card?.Rarity
+            Rarity = card.Card?.Rarity,
+            MarketPrice = marketPrice,
+            TotalValue = totalValue,
+            MarketProvider = marketProvider,
+            Currency = currency
         };
     }
 
@@ -188,6 +224,78 @@ public sealed class TradeConnectionService : ITradeConnectionService
         }
 
         return matches;
+    }
+
+    private static double CalculateTotalValue(IEnumerable<TradeMatchDto> matches)
+    {
+        return matches.Sum(match => match.OfferingCard.TotalValue ?? 0d);
+    }
+
+    private (double? Price, MarketProvider? Provider) ResolveMarketPrice(BinderCard card, MarketProvider preferredProvider)
+    {
+        var marketData = TryResolveCardData(card);
+        if (marketData?.Prices is null)
+        {
+            return (null, null);
+        }
+
+        var isFoil = card.Card?.IsFoil ?? false;
+
+        foreach (var provider in EnumerateProviders(preferredProvider))
+        {
+            var selected = provider == MarketProvider.Mkm
+                ? (isFoil ? marketData.Prices.EurFoil : marketData.Prices.Eur)
+                : (isFoil ? marketData.Prices.UsdFoil : marketData.Prices.Usd);
+
+            var parsed = TryParsePrice(selected);
+            if (parsed.HasValue)
+            {
+                return (parsed.Value, provider);
+            }
+        }
+
+        return (null, null);
+    }
+
+    private ScryfallCardDto? TryResolveCardData(BinderCard card)
+    {
+        if (card.Card is null)
+        {
+            return null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(card.Card.ScryfallId)
+            && _cardDataService.CardDataById.TryGetValue(card.Card.ScryfallId, out var byId))
+        {
+            return byId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(card.Card.Name)
+            && _cardDataService.CardDataByName.TryGetValue(card.Card.Name, out var byName))
+        {
+            return byName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(card.Name)
+            && _cardDataService.CardDataByName.TryGetValue(card.Name, out var byBinderName))
+        {
+            return byBinderName;
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<MarketProvider> EnumerateProviders(MarketProvider preferredProvider)
+    {
+        yield return preferredProvider;
+        yield return preferredProvider == MarketProvider.Mkm ? MarketProvider.Tcg : MarketProvider.Mkm;
+    }
+
+    private static double? TryParsePrice(string? value)
+    {
+        return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : null;
     }
 
     private async Task NotifyParticipantsAsync(TradeConnectionDto connection, CancellationToken cancellationToken)

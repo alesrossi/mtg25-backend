@@ -1,4 +1,5 @@
 using Core.Models;
+using Core.Models.Identity;
 
 namespace API.Dtos.Binders;
 
@@ -16,4 +17,8 @@ public class BinderCardDto
     public string? SetName { get; set; }
     public string? CollectorNumber { get; set; }
     public string? Rarity { get; set; }
+    public double? MarketPrice { get; set; }
+    public double? TotalValue { get; set; }
+    public MarketProvider? MarketProvider { get; set; }
+    public Currency? Currency { get; set; }
 }
