@@ -51,6 +51,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         dto.InitiatorTotalValue.Should().BeGreaterThan(0);
         dto.ValueDifference.Should().Be(dto.InitiatorTotalValue - dto.PartnerTotalValue);
         dto.InitiatorMatches.Single().OfferingCard.MarketPrice.Should().NotBeNull();
+        dto.InitiatorMatches.Single().IsSelected.Should().BeTrue();
     }
 
     [Fact]

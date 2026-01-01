@@ -72,6 +72,7 @@ public static partial class BindersEndpoint
             Card = card.Card!,
             Name = card.Name,
             QuantityToTrade = card.QuantityToTrade,
+            MaxQuantityToTrade = card.QuantityToTrade,
             Notes = card.Notes,
             ImageUrl = card.Card?.ImageUrl,
             SetCode = card.Card?.SetCode,

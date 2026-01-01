@@ -16,6 +16,8 @@ public interface ITradeConnectionService
 {
     Task<TradeConnectionDto> PrepareConnectionAsync(string initiatorUserId, string partnerUserId, CancellationToken cancellationToken = default);
     Task<TradeConnectionDto> GetConnectionAsync(string tradeId, string requesterUserId, CancellationToken cancellationToken = default);
+    Task<TradeConnectionDto> UpdateConnectionAsync(string tradeId, string requesterUserId, UpdateTradeRequest request, CancellationToken cancellationToken = default);
+    Task CancelConnectionAsync(string tradeId, string requesterUserId, CancellationToken cancellationToken = default);
 }
 
 public sealed class TradeConnectionService : ITradeConnectionService
@@ -129,6 +131,39 @@ public sealed class TradeConnectionService : ITradeConnectionService
         return !isParticipant ? throw new UnauthorizedAccessException("User is not part of this trade session.") : connection;
     }
 
+    public async Task<TradeConnectionDto> UpdateConnectionAsync(
+        string tradeId,
+        string requesterUserId,
+        UpdateTradeRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request is null)
+        {
+            throw new ArgumentNullException(nameof(request));
+        }
+
+        var connection = await GetConnectionAsync(tradeId, requesterUserId, cancellationToken);
+
+        var hasChanges = false;
+        hasChanges |= ApplyMatchUpdates(connection.InitiatorMatches, request.InitiatorMatches);
+        hasChanges |= ApplyMatchUpdates(connection.PartnerMatches, request.PartnerMatches);
+
+        if (!hasChanges)
+        {
+            return connection;
+        }
+
+        RecalculateTotals(connection);
+        await _sessionStore.StoreAsync(connection, cancellationToken);
+        return connection;
+    }
+
+    public async Task CancelConnectionAsync(string tradeId, string requesterUserId, CancellationToken cancellationToken = default)
+    {
+        await GetConnectionAsync(tradeId, requesterUserId, cancellationToken);
+        await _sessionStore.DeleteAsync(tradeId, cancellationToken);
+    }
+
     private async Task<IReadOnlyList<Wishlist>> LoadPublicWishlistsAsync(string ownerId)
     {
         var spec = new PublicWishlistsForOwnerSpecification(ownerId, includeCards: true);
@@ -182,6 +217,7 @@ public sealed class TradeConnectionService : ITradeConnectionService
             Card = card.Card!,
             Name = card.Name,
             QuantityToTrade = card.QuantityToTrade,
+            MaxQuantityToTrade = card.QuantityToTrade,
             Notes = card.Notes,
             ImageUrl = card.Card?.ImageUrl,
             SetCode = card.Card?.SetCode,
@@ -214,10 +250,12 @@ public sealed class TradeConnectionService : ITradeConnectionService
                 {
                     matches.Add(new TradeMatchDto
                     {
+                        MatchId = Guid.NewGuid().ToString("N"),
                         CardName = binderCard.Name,
                         FromUserId = fromUserId,
                         ToUserId = toUserId,
-                        OfferingCard = binderCard
+                        OfferingCard = binderCard,
+                        IsSelected = true
                     });
                 }
             }
@@ -228,7 +266,16 @@ public sealed class TradeConnectionService : ITradeConnectionService
 
     private static double CalculateTotalValue(IEnumerable<TradeMatchDto> matches)
     {
-        return matches.Sum(match => match.OfferingCard.TotalValue ?? 0d);
+        return matches
+            .Where(match => match.IsSelected)
+            .Sum(match => match.OfferingCard.TotalValue ?? 0d);
+    }
+
+    private static void RecalculateTotals(TradeConnectionDto connection)
+    {
+        connection.InitiatorTotalValue = CalculateTotalValue(connection.InitiatorMatches);
+        connection.PartnerTotalValue = CalculateTotalValue(connection.PartnerMatches);
+        connection.ValueDifference = Math.Round(connection.InitiatorTotalValue - connection.PartnerTotalValue, 2, MidpointRounding.AwayFromZero);
     }
 
     private (double? Price, MarketProvider? Provider) ResolveMarketPrice(BinderCard card, MarketProvider preferredProvider)
@@ -298,6 +345,61 @@ public sealed class TradeConnectionService : ITradeConnectionService
             : null;
     }
 
+    private static bool ApplyMatchUpdates(IReadOnlyList<TradeMatchDto> matches, IReadOnlyList<TradeMatchUpdateDto>? updates)
+    {
+        if (updates is null || updates.Count == 0)
+        {
+            return false;
+        }
+
+        var ensureIdentifiersChanged = EnsureMatchIdentifiers(matches);
+        var matchLookup = matches.ToDictionary(m => m.MatchId, StringComparer.Ordinal);
+        var hasChanges = ensureIdentifiersChanged;
+
+        foreach (var update in updates)
+        {
+            if (string.IsNullOrWhiteSpace(update.MatchId))
+            {
+                throw new ArgumentException("Match identifier is required.", nameof(updates));
+            }
+
+            if (!matchLookup.TryGetValue(update.MatchId, out var match))
+            {
+                throw new KeyNotFoundException($"Match '{update.MatchId}' was not found in this trade.");
+            }
+
+            if (update.QuantityToTrade.HasValue)
+            {
+                var quantity = update.QuantityToTrade.Value;
+                if (quantity < 0)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(update.QuantityToTrade), "Quantity cannot be negative.");
+                }
+
+                var maxQuantity = Math.Max(0, match.OfferingCard.MaxQuantityToTrade);
+                if (quantity > maxQuantity)
+                {
+                    throw new ArgumentException($"Quantity cannot exceed {maxQuantity} for match '{update.MatchId}'.");
+                }
+
+                if (match.OfferingCard.QuantityToTrade != quantity)
+                {
+                    match.OfferingCard.QuantityToTrade = quantity;
+                    UpdateCardTotals(match.OfferingCard);
+                    hasChanges = true;
+                }
+            }
+
+            if (update.IsSelected.HasValue && match.IsSelected != update.IsSelected.Value)
+            {
+                match.IsSelected = update.IsSelected.Value;
+                hasChanges = true;
+            }
+        }
+
+        return hasChanges;
+    }
+
     private async Task NotifyParticipantsAsync(TradeConnectionDto connection, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -313,5 +415,32 @@ public sealed class TradeConnectionService : ITradeConnectionService
         
         await _notificationService.CreateNotificationAsync(partnerNotification);
         cancellationToken.ThrowIfCancellationRequested();
+    }
+
+    private static void UpdateCardTotals(BinderCardDto card)
+    {
+        if (card.MarketPrice.HasValue)
+        {
+            card.TotalValue = Math.Round(card.MarketPrice.Value * card.QuantityToTrade, 2, MidpointRounding.AwayFromZero);
+        }
+        else
+        {
+            card.TotalValue = null;
+        }
+    }
+
+    private static bool EnsureMatchIdentifiers(IEnumerable<TradeMatchDto> matches)
+    {
+        var hasChanges = false;
+        foreach (var match in matches)
+        {
+            if (string.IsNullOrWhiteSpace(match.MatchId))
+            {
+                match.MatchId = Guid.NewGuid().ToString("N");
+                hasChanges = true;
+            }
+        }
+
+        return hasChanges;
     }
 }

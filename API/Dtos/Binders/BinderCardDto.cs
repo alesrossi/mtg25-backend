@@ -11,6 +11,7 @@ public class BinderCardDto
     public required Card Card { get; set; }
     public string Name { get; set; } = string.Empty;
     public int QuantityToTrade { get; set; }
+    public int MaxQuantityToTrade { get; set; }
     public string? Notes { get; set; }
     public string? ImageUrl { get; set; }
     public string? SetCode { get; set; }

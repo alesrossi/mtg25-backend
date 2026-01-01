@@ -13,7 +13,7 @@ public partial class TradesEndpoints
             .WithProblemDetailsContract();
 
         MapTradesQueries(group);
-        // MapTradesCommands(group);
+        MapTradesCommands(group);
     }
     
     private static void MapTradesQueries(RouteGroupBuilder group)
@@ -38,37 +38,25 @@ public partial class TradesEndpoints
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json");
     }
     
-    // private static void MapTradesCommands(RouteGroupBuilder group)
-    // {
-    //     group.MapPost("/register", RegisterUserAsync)
-    //         .WithSummary("Register new user")
-    //         .WithDescription("Creates a new user account with the provided registration details including name, email, and password")
-    //         .Produces<UserDto>()
-    //         .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
-    //         .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
-    //
-    //     group.MapPost("/login", LoginUserAsync)
-    //         .WithSummary("Authenticate user login")
-    //         .WithDescription("Authenticates a user with email and password credentials, returning user information upon successful login")
-    //         .Produces<AuthDto>()
-    //         .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
-    //         .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
-    //
-    //     group.MapGet("/logout", LogoutUserAsync)
-    //         .RequireAuthorization()
-    //         .WithSummary("Logout user")
-    //         .WithDescription("Logs out the authenticated user by blacklisting their JWT token")
-    //         .Produces<string>()
-    //         .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
-    //         .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
-    //
-    //     group.MapPut("/settings", UpdateSettingsAsync)
-    //         .RequireAuthorization()
-    //         .WithSummary("Update user settings")
-    //         .WithDescription("Updates the authenticated user's settings")
-    //         .Produces<SettingsForUserDto>()
-    //         .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
-    //         .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
-    //         .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
-    // }
+    private static void MapTradesCommands(RouteGroupBuilder group)
+    {
+        group.MapPut("/{tradeId}", UpdateTradeAsync)
+            .RequireAuthorization()
+            .WithSummary("Update current trade selection")
+            .WithDescription("Allows both participants to adjust selected matches or their quantities within the current trade session")
+            .Produces<TradeConnectionDto>()
+            .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status403Forbidden, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json");
+
+        group.MapDelete("/{tradeId}", CancelTradeAsync)
+            .RequireAuthorization()
+            .WithSummary("Cancel trade session")
+            .WithDescription("Allows any participant to stop and remove the current trade session")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status403Forbidden, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json");
+    }
 }

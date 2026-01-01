@@ -11,6 +11,7 @@ public interface ITradeSessionStore
 {
     Task StoreAsync(TradeConnectionDto connection, CancellationToken cancellationToken = default);
     Task<TradeConnectionDto?> GetAsync(string tradeId, CancellationToken cancellationToken = default);
+    Task DeleteAsync(string tradeId, CancellationToken cancellationToken = default);
 }
 
 public sealed class TradeSessionStore : ITradeSessionStore
@@ -53,6 +54,16 @@ public sealed class TradeSessionStore : ITradeSessionStore
         }
 
         return JsonSerializer.Deserialize<TradeConnectionDto>(payload, SerializerOptions);
+    }
+
+    public Task DeleteAsync(string tradeId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(tradeId))
+        {
+            return Task.CompletedTask;
+        }
+
+        return cache.RemoveAsync(GetCacheKey(tradeId), cancellationToken);
     }
 
     private static string GetCacheKey(string tradeId) => $"trade-session:{tradeId}";

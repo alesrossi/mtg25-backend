@@ -14,9 +14,9 @@ public sealed class TradeConnectionDto
     public IReadOnlyList<TradeMatchDto> PartnerMatches { get; init; } = Array.Empty<TradeMatchDto>();
     public MarketProvider PriceProvider { get; init; } = MarketProvider.Mkm;
     public Currency PriceCurrency { get; init; } = Currency.Eur;
-    public double InitiatorTotalValue { get; init; }
-    public double PartnerTotalValue { get; init; }
-    public double ValueDifference { get; init; }
+    public double InitiatorTotalValue { get; set; }
+    public double PartnerTotalValue { get; set; }
+    public double ValueDifference { get; set; }
 }
 
 public sealed class TradeParticipantDto
@@ -28,8 +28,10 @@ public sealed class TradeParticipantDto
 
 public sealed class TradeMatchDto
 {
+    public string MatchId { get; set; } = string.Empty;
     public string CardName { get; init; } = string.Empty;
     public string FromUserId { get; init; } = string.Empty;
     public string ToUserId { get; init; } = string.Empty;
     public BinderCardDto OfferingCard { get; init; } = null!;
+    public bool IsSelected { get; set; } = true;
 }
