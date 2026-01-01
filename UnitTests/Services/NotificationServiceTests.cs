@@ -25,7 +25,7 @@ public class NotificationServiceTests
             Name = "request_join_league",
             Message = "Player requested to join",
             Origin = "League",
-            ObjectId = 42,
+            ObjectId = "42",
             AppUserId = "user-1"
         };
 

@@ -34,7 +34,7 @@ public class NotificationService
             Name = newNotification.Name,
             Message = newNotification.Message,
             Origin = newNotification.Origin,
-            ObjectId = newNotification.ObjectId,
+            ObjectId = (string?)newNotification.ObjectId!,
             CreationDateTime = DateTime.UtcNow,
             AppUserId = newNotification.AppUserId,
             AppUser = null!,

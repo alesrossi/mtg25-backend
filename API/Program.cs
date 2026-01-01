@@ -25,6 +25,7 @@ using API.Endpoints.Collections;
 using API.Endpoints.Decks;
 using API.Endpoints.Leagues;
 using API.Endpoints.Notifications;
+using API.Endpoints.Trades;
 using API.Endpoints.Wishlists;
 using Scalar.AspNetCore;
 using Serilog;
@@ -155,6 +156,8 @@ public class Program
             builder.Services.AddScoped<DeckCardService>();
             builder.Services.AddScoped<WishlistPricingService>();
             builder.Services.AddScoped<IUserSettingsService, UserSettingsService>();
+            builder.Services.AddScoped<ITradeSessionStore, TradeSessionStore>();
+            builder.Services.AddScoped<ITradeConnectionService, TradeConnectionService>();
             builder.Services.AddScoped<NotificationService>();
             builder.Services.AddScoped<IDeckValidationService, DeckValidationService>();
             builder.Services.AddScoped<IDecklistParserService, DecklistParserService>();
@@ -367,6 +370,7 @@ public class Program
             app.MapWishlistsEndpoints();
             app.MapLeaguesEndpoints();
             app.MapDecksEndpoints();
+            app.MapTradeEndpoints();
             app.MapNotificationsEndpoints();
         
             // Add health check endpoint

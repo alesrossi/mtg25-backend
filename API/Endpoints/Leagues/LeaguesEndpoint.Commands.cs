@@ -254,7 +254,7 @@ public static partial class LeaguesEndpoint
             {
                 Name = "request_join_league",
                 Message = $"User {user.FirstName} {user.LastName} wants to join {league.Name}",
-                ObjectId = league.Id,
+                ObjectId = league.Id.ToString(),
                 Origin = league.Id + "." + user.Id,
                 AppUserId = adminId
             };
@@ -338,7 +338,7 @@ public static partial class LeaguesEndpoint
         {
             Name = "player_joined_league",
             Message = $"{user.FirstName} {user.LastName} has joined {league.Name}",
-            ObjectId = league.Id,
+            ObjectId = league.Id.ToString(),
             Origin = $"{league.Id}.{user.Id}",
             AppUserId = league.OwnerId
         };
@@ -402,7 +402,7 @@ public static partial class LeaguesEndpoint
         {
             Name = "user_leave_league",
             Message = $"User {user.FirstName} {user.LastName} left {league.Name}",
-            ObjectId = league.Id,
+            ObjectId = league.Id.ToString(),
             Origin = league.Id + "." + user.Id,
             AppUserId = league.OwnerId
         };
