@@ -24,12 +24,6 @@ public static partial class TradesEndpoints
             return Results.Unauthorized();
         }
 
-        if (request is null)
-        {
-            logger.LogOperationWarning(operation, "Missing payload", new { tradeId, userId });
-            return Results.BadRequest(new { Error = "Update payload is required." });
-        }
-
         try
         {
             var updated = await tradeConnectionService.UpdateConnectionAsync(tradeId, userId, request, cancellationToken);

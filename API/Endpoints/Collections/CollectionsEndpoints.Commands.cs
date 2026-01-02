@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Security.Claims;
 using API.Dtos.Collections;
 using API.Helpers;
@@ -9,6 +10,7 @@ using Core.Models.Identity;
 using Core.Specifications;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using static API.Helpers.CollectionValueCalculator;
 
 namespace API.Endpoints.Collections;
 
@@ -170,7 +172,13 @@ public static partial class CollectionsEndpoints
             }
 
             var importedCount = importResult.Cards.Sum(card => card.Quantity);
+            var existingCards = await unitOfWork.Repository<Card>()
+                .ListAsync(new CardsForCollectionSpecification(id), tracking: false) ?? Array.Empty<Card>();
+            var existingTotal = existingCards.Sum(card => card.PurchasePrice * Math.Max(0, card.Quantity));
+            var importedTotal = importResult.Cards.Sum(card => card.PurchasePrice * Math.Max(0, card.Quantity));
+
             collection.NumberOfCards += importedCount;
+            collection.TotalPrice = Math.Round(existingTotal + importedTotal, 2, MidpointRounding.AwayFromZero);
 
             unitOfWork.Repository<Card>().Add(importResult.Cards);
             unitOfWork.Repository<Collection>().Update(collection);
@@ -258,19 +266,23 @@ public static partial class CollectionsEndpoints
         }
 
         var cardsToDelete = await unitOfWork.Repository<Card>().ListAsync(new CardsByIdsSpecification(ctbd, id));
-        if (cardsToDelete is { Count: 0 })
+        if (cardsToDelete is null || cardsToDelete.Count == 0)
         {
             logger.LogOperationWarning(operation, "Cards not found", new { id, ctbd.Count });
             return Results.NotFound();
         }
 
-        foreach (var card in cardsToDelete!)
+        var totalRemovedQuantity = 0;
+        var totalRemovedValue = 0d;
+        foreach (var card in cardsToDelete)
         {
             unitOfWork.Repository<Card>().Delete(card);
+            totalRemovedQuantity += Math.Max(0, card.Quantity);
+            totalRemovedValue += CalculateCardValue(card.PurchasePrice, card.Quantity);
         }
 
-        var totalRemoved = cardsToDelete.Sum(card => card.Quantity);
-        collection.NumberOfCards = Math.Max(0, collection.NumberOfCards - totalRemoved);
+        collection.NumberOfCards = Math.Max(0, collection.NumberOfCards - totalRemovedQuantity);
+        collection.TotalPrice = ApplyTotalPriceDelta(collection.TotalPrice, -totalRemovedValue);
         unitOfWork.Repository<Collection>().Update(collection);
 
         await unitOfWork.Complete();

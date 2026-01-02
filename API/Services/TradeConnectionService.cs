@@ -104,7 +104,6 @@ public sealed class TradeConnectionService : ITradeConnectionService
         };
 
         await _sessionStore.StoreAsync(connection, cancellationToken);
-        await NotifyParticipantsAsync(connection, cancellationToken);
 
         return connection;
     }

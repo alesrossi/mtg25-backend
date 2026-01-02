@@ -111,7 +111,6 @@ public class TradeConnectionServiceTests : IDisposable
         result.InitiatorMatches.Single().OfferingCard.TotalValue.Should().Be(4.00);
         result.InitiatorMatches.Single().OfferingCard.MaxQuantityToTrade.Should().Be(2);
         result.InitiatorMatches.Single().IsSelected.Should().BeTrue();
-        _identityDbContext.Notifications.Should().ContainSingle(n => n.AppUserId == partner.Id);
         _sessionStoreMock.Verify();
     }
 

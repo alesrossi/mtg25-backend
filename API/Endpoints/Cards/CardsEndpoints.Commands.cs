@@ -8,6 +8,7 @@ using Core.Interfaces;
 using Core.Models;
 using Core.Models.Identity;
 using Microsoft.AspNetCore.Mvc;
+using static API.Helpers.CollectionValueCalculator;
 
 namespace API.Endpoints.Cards;
 
@@ -92,6 +93,8 @@ public static partial class CardsEndpoints
                     $"'{updateDto.Condition}' is not a supported condition value.",
                     "card-invalid-condition");
             }
+            var previousValue = CalculateCardValue(card.PurchasePrice, card.Quantity);
+
             card.Collection = collection;
             card.Collection.NumberOfCards = card.Collection.NumberOfCards - card.Quantity + updateDto.Quantity;
             card.CollectionId = updateDto.CollectionId;
@@ -103,6 +106,9 @@ public static partial class CardsEndpoints
             card.PurchasePriceCurrency = updateDto.PurchasePriceCurrency;
             card.IsMisprint = updateDto.IsMisprint;
             card.IsAltered = updateDto.IsAltered;
+
+            var updatedValue = CalculateCardValue(card.PurchasePrice, card.Quantity);
+            card.Collection.TotalPrice = ApplyTotalPriceDelta(card.Collection.TotalPrice, updatedValue - previousValue);
 
             unit.Repository<Card>().Update(card);
             unit.Repository<Collection>().Update(card.Collection);
@@ -226,6 +232,8 @@ public static partial class CardsEndpoints
                     "card-invalid-version");
             }
             
+            var previousValue = CalculateCardValue(card.PurchasePrice, card.Quantity);
+
             card.Collection = collection;
             card.Collection.NumberOfCards = card.Collection.NumberOfCards - card.Quantity + updateDto.Quantity;
             card.CollectionId = updateDto.CollectionId;
@@ -244,6 +252,9 @@ public static partial class CardsEndpoints
             card.SetName = scryfallCardDto.SetName!;
             card.CollectorNumber = scryfallCardDto.CollectorNumber!;
             card.Rarity = scryfallCardDto.Rarity!;
+
+            var updatedValue = CalculateCardValue(card.PurchasePrice, card.Quantity);
+            card.Collection.TotalPrice = ApplyTotalPriceDelta(card.Collection.TotalPrice, updatedValue - previousValue);
             
             unit.Repository<Card>().Update(card);
             unit.Repository<Collection>().Update(card.Collection);
@@ -323,8 +334,10 @@ public static partial class CardsEndpoints
                     "collection-access-denied");
             }
 
+            var removedValue = CalculateCardValue(card.PurchasePrice, card.Quantity);
             unit.Repository<Card>().Delete(card);
             collection.NumberOfCards = Math.Max(0, collection.NumberOfCards - card.Quantity);
+            collection.TotalPrice = ApplyTotalPriceDelta(collection.TotalPrice, -removedValue);
             unit.Repository<Collection>().Update(collection);
             await unit.Complete();
 
@@ -420,6 +433,8 @@ public static partial class CardsEndpoints
         unit.Repository<Card>().Add(card);
 
         collection.NumberOfCards += card.Quantity;
+        var addedValue = CalculateCardValue(card.PurchasePrice, card.Quantity);
+        collection.TotalPrice = ApplyTotalPriceDelta(collection.TotalPrice, addedValue);
         unit.Repository<Collection>().Update(collection);
 
         await unit.Complete();
