@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using API.Dtos.Binders;
 using API.Dtos.Cards;
 using API.Dtos.Trades;
 using API.Services;
@@ -11,6 +12,7 @@ using Core.Models;
 using Core.Models.Identity;
 using Core.Specifications;
 using FluentAssertions;
+using Infrastructure.Data;
 using Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -26,6 +28,7 @@ public class TradeConnectionServiceTests : IDisposable
     private readonly Mock<IUnitOfWork> _unitOfWorkMock = new();
     private readonly Mock<IGenericRepository<Wishlist>> _wishlistRepositoryMock = new();
     private readonly Mock<IGenericRepository<BinderCard>> _binderCardRepositoryMock = new();
+    private readonly Mock<IGenericRepository<Collection>> _collectionRepositoryMock = new();
     private readonly Mock<ITradeSessionStore> _sessionStoreMock = new();
     private readonly AppIdentityDbContext _identityDbContext;
     private readonly NotificationService _notificationService;
@@ -49,6 +52,7 @@ public class TradeConnectionServiceTests : IDisposable
 
         _unitOfWorkMock.Setup(x => x.Repository<Wishlist>()).Returns(_wishlistRepositoryMock.Object);
         _unitOfWorkMock.Setup(x => x.Repository<BinderCard>()).Returns(_binderCardRepositoryMock.Object);
+        _unitOfWorkMock.Setup(x => x.Repository<Collection>()).Returns(_collectionRepositoryMock.Object);
     }
 
     [Fact]
@@ -261,6 +265,166 @@ public class TradeConnectionServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task UpdateConnectionAsync_AllowsInitiatorToSelectCollection()
+    {
+        // Arrange
+        var initiator = CreateUser("initiator");
+        var partner = CreateUser("partner");
+
+        var initiatorWishlists = new List<Wishlist>
+        {
+            CreateWishlistWithCard(initiator.Id, "Trade Match")
+        };
+
+        var partnerWishlists = new List<Wishlist>
+        {
+            CreateWishlistWithCard(partner.Id, "Trade Match")
+        };
+
+        var initiatorBinderCards = new List<BinderCard>
+        {
+            CreateBinderCard(initiator.Id, "Trade Match", quantityToTrade: 2)
+        };
+
+        SeedCardMarketData(initiatorBinderCards);
+        SetupWishlistRepository(initiatorWishlists.Concat(partnerWishlists).ToList());
+        SetupBinderCardRepository(initiatorBinderCards);
+
+        var userManager = CreateUserManagerMock(initiator, partner);
+        TradeConnectionDto? storedConnection = null;
+        _sessionStoreMock.Setup(s => s.StoreAsync(It.IsAny<TradeConnectionDto>(), It.IsAny<CancellationToken>()))
+            .Callback<TradeConnectionDto, CancellationToken>((connection, _) => storedConnection = connection)
+            .Returns(Task.CompletedTask);
+
+        var destinationCollection = _testDataBuilder.CreateCollection(initiator.Id);
+        destinationCollection.Id = NextId();
+        _collectionRepositoryMock.Setup(r => r.GetByIdAsync(destinationCollection.Id, It.IsAny<bool>()))
+            .ReturnsAsync(destinationCollection);
+
+        var service = CreateService(userManager.Object);
+        var connection = await service.PrepareConnectionAsync(initiator.Id, partner.Id, CancellationToken.None);
+
+        _sessionStoreMock.Setup(s => s.GetAsync(connection.TradeId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(storedConnection);
+
+        var request = new UpdateTradeRequest
+        {
+            InitiatorCollectionId = destinationCollection.Id
+        };
+
+        // Act
+        var updated = await service.UpdateConnectionAsync(connection.TradeId, initiator.Id, request, CancellationToken.None);
+
+        // Assert
+        updated.InitiatorCollectionId.Should().Be(destinationCollection.Id);
+    }
+
+    [Fact]
+    public async Task UpdateConnectionAsync_WhenCollectionNotOwned_Throws()
+    {
+        // Arrange
+        var initiator = CreateUser("initiator");
+        var partner = CreateUser("partner");
+        var userManager = CreateUserManagerMock(initiator, partner);
+
+        var initiatorWishlists = new List<Wishlist>
+        {
+            CreateWishlistWithCard(initiator.Id, "Trade Match")
+        };
+
+        var partnerWishlists = new List<Wishlist>
+        {
+            CreateWishlistWithCard(partner.Id, "Trade Match")
+        };
+
+        var initiatorBinderCards = new List<BinderCard>
+        {
+            CreateBinderCard(initiator.Id, "Trade Match", quantityToTrade: 1)
+        };
+
+        SeedCardMarketData(initiatorBinderCards);
+        SetupWishlistRepository(initiatorWishlists.Concat(partnerWishlists).ToList());
+        SetupBinderCardRepository(initiatorBinderCards);
+
+        TradeConnectionDto? storedConnection = null;
+        _sessionStoreMock.Setup(s => s.StoreAsync(It.IsAny<TradeConnectionDto>(), It.IsAny<CancellationToken>()))
+            .Callback<TradeConnectionDto, CancellationToken>((connection, _) => storedConnection = connection)
+            .Returns(Task.CompletedTask);
+
+        var externalCollection = _testDataBuilder.CreateCollection("other-user");
+        externalCollection.Id = NextId();
+        _collectionRepositoryMock.Setup(r => r.GetByIdAsync(externalCollection.Id, It.IsAny<bool>()))
+            .ReturnsAsync(externalCollection);
+
+        var service = CreateService(userManager.Object);
+        var connection = await service.PrepareConnectionAsync(initiator.Id, partner.Id, CancellationToken.None);
+
+        _sessionStoreMock.Setup(s => s.GetAsync(connection.TradeId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(storedConnection);
+
+        var request = new UpdateTradeRequest
+        {
+            InitiatorCollectionId = externalCollection.Id
+        };
+
+        // Act
+        Func<Task> act = () => service.UpdateConnectionAsync(connection.TradeId, initiator.Id, request, CancellationToken.None);
+
+        // Assert
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task UpdateConnectionAsync_WhenRequesterUpdatesOtherParticipantCollection_Throws()
+    {
+        // Arrange
+        var initiator = CreateUser("initiator");
+        var partner = CreateUser("partner");
+        var userManager = CreateUserManagerMock(initiator, partner);
+
+        var initiatorWishlists = new List<Wishlist>
+        {
+            CreateWishlistWithCard(initiator.Id, "Trade Match")
+        };
+
+        var partnerWishlists = new List<Wishlist>
+        {
+            CreateWishlistWithCard(partner.Id, "Trade Match")
+        };
+
+        var initiatorBinderCards = new List<BinderCard>
+        {
+            CreateBinderCard(initiator.Id, "Trade Match", quantityToTrade: 1)
+        };
+
+        SeedCardMarketData(initiatorBinderCards);
+        SetupWishlistRepository(initiatorWishlists.Concat(partnerWishlists).ToList());
+        SetupBinderCardRepository(initiatorBinderCards);
+
+        TradeConnectionDto? storedConnection = null;
+        _sessionStoreMock.Setup(s => s.StoreAsync(It.IsAny<TradeConnectionDto>(), It.IsAny<CancellationToken>()))
+            .Callback<TradeConnectionDto, CancellationToken>((connection, _) => storedConnection = connection)
+            .Returns(Task.CompletedTask);
+
+        var service = CreateService(userManager.Object);
+        var connection = await service.PrepareConnectionAsync(initiator.Id, partner.Id, CancellationToken.None);
+
+        _sessionStoreMock.Setup(s => s.GetAsync(connection.TradeId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(storedConnection);
+
+        var request = new UpdateTradeRequest
+        {
+            InitiatorCollectionId = 42
+        };
+
+        // Act
+        Func<Task> act = () => service.UpdateConnectionAsync(connection.TradeId, partner.Id, request, CancellationToken.None);
+
+        // Assert
+        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+    }
+
+    [Fact]
     public async Task CancelConnectionAsync_RemovesTradeFromStore()
     {
         // Arrange
@@ -289,11 +453,237 @@ public class TradeConnectionServiceTests : IDisposable
         _sessionStoreMock.Verify();
     }
 
-    private TradeConnectionService CreateService(UserManager<AppUser> userManager)
+    [Fact]
+    public async Task CommitTradeAsync_TransfersCardsAndUpdatesWishlists()
+    {
+        // Arrange
+        var initiator = CreateUser("initiator");
+        var partner = CreateUser("partner");
+        var userManager = CreateUserManagerMock(initiator, partner);
+
+        var options = new DbContextOptionsBuilder<MainContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+
+        await using var mainContext = new MainContext(options);
+        var unitOfWork = new UnitOfWork(mainContext, NullLogger<UnitOfWork>.Instance, NullLoggerFactory.Instance);
+
+        var initiatorCollection = _testDataBuilder.CreateCollection(initiator.Id);
+        initiatorCollection.NumberOfCards = 2;
+        mainContext.Collections.Add(initiatorCollection);
+
+        var partnerCollection = _testDataBuilder.CreateCollection(partner.Id);
+        partnerCollection.NumberOfCards = 1;
+        mainContext.Collections.Add(partnerCollection);
+
+        var initiatorCard = _testDataBuilder.CreateCard(initiatorCollection.Id, "Lightning Bolt", price: 2);
+        initiatorCard.Collection = initiatorCollection;
+        initiatorCard.Quantity = 2;
+        mainContext.Cards.Add(initiatorCard);
+
+        var partnerCard = _testDataBuilder.CreateCard(partnerCollection.Id, "Counterspell", price: 3);
+        partnerCard.Collection = partnerCollection;
+        partnerCard.Quantity = 1;
+        mainContext.Cards.Add(partnerCard);
+
+        var initiatorBinder = _testDataBuilder.CreateTradeBinder(initiator.Id, isPublic: true);
+        mainContext.TradeBinders.Add(initiatorBinder);
+
+        var partnerBinder = _testDataBuilder.CreateTradeBinder(partner.Id, isPublic: true);
+        mainContext.TradeBinders.Add(partnerBinder);
+
+        var initiatorBinderCard = _testDataBuilder.CreateBinderCard(initiatorBinder.Id, initiatorCard.Id, "Lightning Bolt", quantityToTrade: 1);
+        initiatorBinderCard.TradeBinder = initiatorBinder;
+        initiatorBinderCard.Card = initiatorCard;
+        mainContext.BinderCards.Add(initiatorBinderCard);
+
+        var partnerBinderCard = _testDataBuilder.CreateBinderCard(partnerBinder.Id, partnerCard.Id, "Counterspell", quantityToTrade: 1);
+        partnerBinderCard.TradeBinder = partnerBinder;
+        partnerBinderCard.Card = partnerCard;
+        mainContext.BinderCards.Add(partnerBinderCard);
+
+        var partnerWishlist = _testDataBuilder.CreateWishlist(partner.Id, isPublic: true);
+        mainContext.Wishlists.Add(partnerWishlist);
+        var partnerWishlistCard = _testDataBuilder.CreateWishlistCard(partnerWishlist.Id, initiatorCard.ScryfallId, initiatorCard.Name);
+        partnerWishlistCard.WishlistId = partnerWishlist.Id;
+        partnerWishlistCard.Wishlist = partnerWishlist;
+        partnerWishlistCard.DesiredQuantity = 1;
+        partnerWishlist.WishlistCards = new List<WishlistCard> { partnerWishlistCard };
+        mainContext.WishlistCards.Add(partnerWishlistCard);
+
+        var initiatorWishlist = _testDataBuilder.CreateWishlist(initiator.Id, isPublic: true);
+        mainContext.Wishlists.Add(initiatorWishlist);
+        var initiatorWishlistCard = _testDataBuilder.CreateWishlistCard(initiatorWishlist.Id, partnerCard.ScryfallId, partnerCard.Name);
+        initiatorWishlistCard.WishlistId = initiatorWishlist.Id;
+        initiatorWishlistCard.Wishlist = initiatorWishlist;
+        initiatorWishlistCard.DesiredQuantity = 1;
+        initiatorWishlist.WishlistCards = new List<WishlistCard> { initiatorWishlistCard };
+        mainContext.WishlistCards.Add(initiatorWishlistCard);
+
+        await mainContext.SaveChangesAsync();
+
+        SeedCardMarketData(new[] { initiatorBinderCard, partnerBinderCard });
+
+        var connection = new TradeConnectionDto
+        {
+            TradeId = "trade-commit",
+            Initiator = new TradeParticipantDto { UserId = initiator.Id, DisplayName = initiator.DisplayName, Email = initiator.Email ?? string.Empty },
+            Partner = new TradeParticipantDto { UserId = partner.Id, DisplayName = partner.DisplayName, Email = partner.Email ?? string.Empty },
+            InitiatorCollectionId = initiatorCollection.Id,
+            PartnerCollectionId = partnerCollection.Id,
+            InitiatorMatches = new List<TradeMatchDto>
+            {
+                new TradeMatchDto
+                {
+                    MatchId = "init-match",
+                    CardName = initiatorCard.Name,
+                    FromUserId = initiator.Id,
+                    ToUserId = partner.Id,
+                    IsSelected = true,
+                    OfferingCard = new BinderCardDto
+                    {
+                        Id = initiatorBinderCard.Id,
+                        TradeBinderId = initiatorBinder.Id,
+                        CardId = initiatorCard.Id,
+                        Card = initiatorCard,
+                        Name = initiatorCard.Name,
+                        QuantityToTrade = 1,
+                        MaxQuantityToTrade = 1
+                    }
+                }
+            },
+            PartnerMatches = new List<TradeMatchDto>
+            {
+                new TradeMatchDto
+                {
+                    MatchId = "partner-match",
+                    CardName = partnerCard.Name,
+                    FromUserId = partner.Id,
+                    ToUserId = initiator.Id,
+                    IsSelected = true,
+                    OfferingCard = new BinderCardDto
+                    {
+                        Id = partnerBinderCard.Id,
+                        TradeBinderId = partnerBinder.Id,
+                        CardId = partnerCard.Id,
+                        Card = partnerCard,
+                        Name = partnerCard.Name,
+                        QuantityToTrade = 1,
+                        MaxQuantityToTrade = 1
+                    }
+                }
+            }
+        };
+
+        _sessionStoreMock.Setup(s => s.GetAsync("trade-commit", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(connection);
+        _sessionStoreMock.Setup(s => s.DeleteAsync("trade-commit", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask)
+            .Verifiable();
+
+        var service = CreateService(userManager.Object, unitOfWork);
+
+        // Act
+        await service.CommitTradeAsync("trade-commit", initiator.Id, CancellationToken.None);
+
+        // Assert
+        var updatedInitiatorCard = await mainContext.Cards.FindAsync(initiatorCard.Id);
+        updatedInitiatorCard!.Quantity.Should().Be(1);
+
+        var recipientCards = mainContext.Cards.Where(c => c.CollectionId == partnerCollection.Id && c.Name == initiatorCard.Name).ToList();
+        recipientCards.Should().ContainSingle(c => c.Quantity == 1);
+
+        var partnerWishlistCards = mainContext.WishlistCards.Where(c => c.WishlistId == partnerWishlist.Id).ToList();
+        partnerWishlistCards.Should().BeEmpty();
+
+        var initiatorWishlistCards = mainContext.WishlistCards.Where(c => c.WishlistId == initiatorWishlist.Id).ToList();
+        initiatorWishlistCards.Should().BeEmpty();
+
+        (await mainContext.BinderCards.FindAsync(initiatorBinderCard.Id)).Should().BeNull();
+        (await mainContext.BinderCards.FindAsync(partnerBinderCard.Id)).Should().BeNull();
+
+        _sessionStoreMock.Verify();
+    }
+
+    [Fact]
+    public async Task CommitTradeAsync_WhenRecipientCollectionMissing_Throws()
+    {
+        // Arrange
+        var initiator = CreateUser("initiator");
+        var partner = CreateUser("partner");
+        var userManager = CreateUserManagerMock(initiator, partner);
+
+        
+        
+        
+        var connection = new TradeConnectionDto
+        {
+            TradeId = "trade-commit",
+            Initiator = new TradeParticipantDto { UserId = initiator.Id },
+            Partner = new TradeParticipantDto { UserId = partner.Id },
+            PartnerCollectionId = 99,
+            InitiatorCollectionId = null,
+            InitiatorMatches = new List<TradeMatchDto>
+            {
+                new TradeMatchDto
+                {
+                    MatchId = "init-match",
+                    CardName = "Lightning Bolt",
+                    FromUserId = initiator.Id,
+                    ToUserId = partner.Id,
+                    IsSelected = true,
+                    OfferingCard = new BinderCardDto
+                    {
+                        Id = 1,
+                        TradeBinderId = 1,
+                        CardId = 1,
+                        Name = "Lightning Bolt",
+                        QuantityToTrade = 1,
+                        MaxQuantityToTrade = 1,
+                        Card = null
+                    }
+                }
+            },
+            PartnerMatches = new List<TradeMatchDto>
+            {
+                new TradeMatchDto
+                {
+                    MatchId = "partner-match",
+                    CardName = "Counterspell",
+                    FromUserId = partner.Id,
+                    ToUserId = initiator.Id,
+                    IsSelected = true,
+                    OfferingCard = new BinderCardDto
+                    {
+                        Id = 2,
+                        TradeBinderId = 2,
+                        CardId = 2,
+                        Name = "Counterspell",
+                        QuantityToTrade = 1,
+                        MaxQuantityToTrade = 1,
+                        Card = null
+                    }
+                }
+            }
+        };
+
+        _sessionStoreMock.Setup(s => s.GetAsync("trade-commit", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(connection);
+
+        var service = CreateService(userManager.Object);
+
+        // Act
+        Func<Task> act = () => service.CommitTradeAsync("trade-commit", initiator.Id, CancellationToken.None);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    private TradeConnectionService CreateService(UserManager<AppUser> userManager, IUnitOfWork? unitOfWorkOverride = null)
     {
         return new TradeConnectionService(
             userManager,
-            _unitOfWorkMock.Object,
+            unitOfWorkOverride ?? _unitOfWorkMock.Object,
             _sessionStoreMock.Object,
             _notificationService,
             _cardDataService,

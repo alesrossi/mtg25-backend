@@ -58,5 +58,15 @@ public partial class TradesEndpoints
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status403Forbidden, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json");
+
+        group.MapPut("/{tradeId}/commit", CommitTradeAsync)
+            .RequireAuthorization()
+            .WithSummary("Commit trade session")
+            .WithDescription("Finalizes the trade by transferring cards between collections, updating wishlists, and removing traded binder cards")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces<ProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status403Forbidden, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json");
     }
 }

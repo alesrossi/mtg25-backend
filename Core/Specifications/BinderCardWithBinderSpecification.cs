@@ -9,5 +9,6 @@ public class BinderCardWithBinderSpecification : BaseSpecification<BinderCard>
     {
         AddInclude(card => card.TradeBinder);
         AddInclude(card => card.Card);
+        AddInclude(card => card.Card!.Collection!);
     }
 }

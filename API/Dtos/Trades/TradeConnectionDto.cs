@@ -17,6 +17,8 @@ public sealed class TradeConnectionDto
     public double InitiatorTotalValue { get; set; }
     public double PartnerTotalValue { get; set; }
     public double ValueDifference { get; set; }
+    public int? InitiatorCollectionId { get; set; }
+    public int? PartnerCollectionId { get; set; }
 }
 
 public sealed class TradeParticipantDto

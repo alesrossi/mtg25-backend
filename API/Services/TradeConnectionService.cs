@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using API.Dtos.Binders;
 using API.Dtos.Notifications;
@@ -18,6 +20,7 @@ public interface ITradeConnectionService
     Task<TradeConnectionDto> GetConnectionAsync(string tradeId, string requesterUserId, CancellationToken cancellationToken = default);
     Task<TradeConnectionDto> UpdateConnectionAsync(string tradeId, string requesterUserId, UpdateTradeRequest request, CancellationToken cancellationToken = default);
     Task CancelConnectionAsync(string tradeId, string requesterUserId, CancellationToken cancellationToken = default);
+    Task CommitTradeAsync(string tradeId, string requesterUserId, CancellationToken cancellationToken = default);
 }
 
 public sealed class TradeConnectionService : ITradeConnectionService
@@ -147,6 +150,38 @@ public sealed class TradeConnectionService : ITradeConnectionService
         var hasChanges = false;
         hasChanges |= ApplyMatchUpdates(connection.InitiatorMatches, request.InitiatorMatches);
         hasChanges |= ApplyMatchUpdates(connection.PartnerMatches, request.PartnerMatches);
+        var requesterIsInitiator = string.Equals(connection.Initiator.UserId, requesterUserId, StringComparison.Ordinal);
+        var requesterIsPartner = string.Equals(connection.Partner.UserId, requesterUserId, StringComparison.Ordinal);
+
+        if (request.InitiatorCollectionId.HasValue)
+        {
+            if (!requesterIsInitiator)
+            {
+                throw new UnauthorizedAccessException("Only the trade initiator can choose their destination collection.");
+            }
+
+            hasChanges |= await UpdateCollectionSelectionAsync(
+                connection.Initiator.UserId,
+                request.InitiatorCollectionId.Value,
+                () => connection.InitiatorCollectionId,
+                id => connection.InitiatorCollectionId = id,
+                cancellationToken);
+        }
+
+        if (request.PartnerCollectionId.HasValue)
+        {
+            if (!requesterIsPartner)
+            {
+                throw new UnauthorizedAccessException("Only the invited partner can choose their destination collection.");
+            }
+
+            hasChanges |= await UpdateCollectionSelectionAsync(
+                connection.Partner.UserId,
+                request.PartnerCollectionId.Value,
+                () => connection.PartnerCollectionId,
+                id => connection.PartnerCollectionId = id,
+                cancellationToken);
+        }
 
         if (!hasChanges)
         {
@@ -161,6 +196,54 @@ public sealed class TradeConnectionService : ITradeConnectionService
     public async Task CancelConnectionAsync(string tradeId, string requesterUserId, CancellationToken cancellationToken = default)
     {
         await GetConnectionAsync(tradeId, requesterUserId, cancellationToken);
+        await _sessionStore.DeleteAsync(tradeId, cancellationToken);
+    }
+
+    public async Task CommitTradeAsync(string tradeId, string requesterUserId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var connection = await GetConnectionAsync(tradeId, requesterUserId, cancellationToken);
+
+        var initiatorTransfers = BuildTransfers(connection.InitiatorMatches, connection.Initiator.UserId, connection.Partner.UserId);
+        var partnerTransfers = BuildTransfers(connection.PartnerMatches, connection.Partner.UserId, connection.Initiator.UserId);
+
+        if (initiatorTransfers.Count == 0 && partnerTransfers.Count == 0)
+        {
+            throw new InvalidOperationException("No selected cards are available to trade.");
+        }
+
+        var collectionCache = new Dictionary<string, Collection>(StringComparer.Ordinal);
+        var wishlistCache = new Dictionary<string, IReadOnlyList<Wishlist>>(StringComparer.Ordinal);
+        var wishlistsToRecalculate = new HashSet<int>();
+        var recipientSelections = new Dictionary<string, int?>(StringComparer.Ordinal)
+        {
+            [connection.Initiator.UserId] = connection.InitiatorCollectionId,
+            [connection.Partner.UserId] = connection.PartnerCollectionId
+        };
+
+        EnsureRecipientCollectionsSelected(initiatorTransfers, partnerTransfers, recipientSelections);
+
+        foreach (var transfer in initiatorTransfers.Concat(partnerTransfers))
+        {
+            var recipientCollectionId = recipientSelections.TryGetValue(transfer.ToUserId, out var collectionId)
+                ? collectionId
+                : null;
+
+            await ExecuteTransferAsync(
+                transfer,
+                collectionCache,
+                wishlistCache,
+                wishlistsToRecalculate,
+                recipientCollectionId,
+                cancellationToken);
+        }
+
+        foreach (var wishlistId in wishlistsToRecalculate)
+        {
+            await RecalculateWishlistTotalsAsync(wishlistId, cancellationToken);
+        }
+
+        await _unitOfWork.Complete();
         await _sessionStore.DeleteAsync(tradeId, cancellationToken);
     }
 
@@ -400,6 +483,35 @@ public sealed class TradeConnectionService : ITradeConnectionService
         return hasChanges;
     }
 
+    private async Task<bool> UpdateCollectionSelectionAsync(
+        string participantUserId,
+        int requestedCollectionId,
+        Func<int?> getCurrentValue,
+        Action<int?> setCurrentValue,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (requestedCollectionId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(requestedCollectionId), "Collection identifier must be positive.");
+        }
+
+        var repository = _unitOfWork.Repository<Collection>();
+        var collection = await repository.GetByIdAsync(requestedCollectionId);
+        if (collection is null || !string.Equals(collection.OwnerId, participantUserId, StringComparison.Ordinal))
+        {
+            throw new ArgumentException("Collection not found or not owned by the participant.");
+        }
+
+        if (getCurrentValue() == collection.Id)
+        {
+            return false;
+        }
+
+        setCurrentValue(collection.Id);
+        return true;
+    }
+
     private async Task NotifyParticipantsAsync(TradeConnectionDto connection, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -429,6 +541,336 @@ public sealed class TradeConnectionService : ITradeConnectionService
         }
     }
 
+    private static IReadOnlyList<TradeTransfer> BuildTransfers(IEnumerable<TradeMatchDto> matches, string fromUserId, string toUserId)
+    {
+        return matches
+            .Where(match => match.IsSelected && match.OfferingCard.QuantityToTrade > 0)
+            .GroupBy(match => match.OfferingCard.Id)
+            .Select(group =>
+            {
+                var reference = group.First();
+                var quantity = Math.Max(0, Math.Min(reference.OfferingCard.QuantityToTrade, reference.OfferingCard.MaxQuantityToTrade));
+                return new TradeTransfer(
+                    reference.OfferingCard.Id,
+                    reference.OfferingCard.CardId,
+                    reference.OfferingCard.TradeBinderId,
+                    reference.CardName,
+                    quantity,
+                    fromUserId,
+                    toUserId);
+            })
+            .Where(transfer => transfer.Quantity > 0)
+            .ToList();
+    }
+
+    private static void EnsureRecipientCollectionsSelected(
+        IEnumerable<TradeTransfer> initiatorTransfers,
+        IEnumerable<TradeTransfer> partnerTransfers,
+        IReadOnlyDictionary<string, int?> selections)
+    {
+        var recipients = initiatorTransfers
+            .Concat(partnerTransfers)
+            .Select(transfer => transfer.ToUserId)
+            .Distinct(StringComparer.Ordinal);
+
+        foreach (var recipient in recipients)
+        {
+            if (!selections.TryGetValue(recipient, out var collectionId) || !collectionId.HasValue)
+            {
+                throw new InvalidOperationException("Both participants must select a destination collection before committing the trade.");
+            }
+        }
+    }
+
+    private async Task ExecuteTransferAsync(
+        TradeTransfer transfer,
+        IDictionary<string, Collection> collectionCache,
+        IDictionary<string, IReadOnlyList<Wishlist>> wishlistCache,
+        ISet<int> wishlistsToRecalculate,
+        int? recipientCollectionId,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var binderCard = await _unitOfWork.Repository<BinderCard>()
+            .GetEntityWithSpec(new BinderCardWithBinderSpecification(transfer.BinderCardId));
+
+        if (binderCard is null)
+        {
+            throw new KeyNotFoundException($"Binder card '{transfer.BinderCardId}' was not found.");
+        }
+
+        if (!string.Equals(binderCard.TradeBinder.OwnerId, transfer.FromUserId, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Trade data is no longer valid for one of the participants.");
+        }
+
+        if (binderCard.QuantityToTrade < transfer.Quantity)
+        {
+            throw new InvalidOperationException($"Not enough quantity available for binder card '{transfer.BinderCardId}'.");
+        }
+
+        var card = binderCard.Card ?? await _unitOfWork.Repository<Card>().GetByIdAsync(binderCard.CardId);
+        if (card is null)
+        {
+            throw new InvalidOperationException($"Card '{transfer.CardId}' was not found.");
+        }
+
+        var giverCollection = card.Collection ?? await _unitOfWork.Repository<Collection>().GetByIdAsync(card.CollectionId);
+        if (giverCollection is null || !string.Equals(giverCollection.OwnerId, transfer.FromUserId, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Collection ownership mismatch while committing trade.");
+        }
+
+        if (card.Quantity < transfer.Quantity)
+        {
+            throw new InvalidOperationException($"Not enough copies of '{card.Name}' to complete the trade.");
+        }
+
+        card.Quantity -= transfer.Quantity;
+        giverCollection.NumberOfCards = Math.Max(0, giverCollection.NumberOfCards - transfer.Quantity);
+
+        if (card.Quantity <= 0)
+        {
+            _unitOfWork.Repository<Card>().Delete(card);
+        }
+        else
+        {
+            _unitOfWork.Repository<Card>().Update(card);
+        }
+
+        _unitOfWork.Repository<Collection>().Update(giverCollection);
+        _unitOfWork.Repository<BinderCard>().Delete(binderCard);
+
+        var recipientCollection = await ResolveRecipientCollectionAsync(
+            transfer.ToUserId,
+            recipientCollectionId,
+            collectionCache,
+            cancellationToken);
+        await AddCardToCollectionAsync(recipientCollection, card, transfer.Quantity);
+
+        await RemoveWishlistEntriesAsync(
+            transfer.ToUserId,
+            transfer.CardName,
+            transfer.Quantity,
+            wishlistCache,
+            wishlistsToRecalculate,
+            cancellationToken);
+    }
+
+    private async Task<Collection> ResolveRecipientCollectionAsync(
+        string userId,
+        int? requestedCollectionId,
+        IDictionary<string, Collection> cache,
+        CancellationToken cancellationToken)
+    {
+        if (cache.TryGetValue(userId, out var cached)
+            && (!requestedCollectionId.HasValue || cached.Id == requestedCollectionId.Value))
+        {
+            return cached;
+        }
+
+        if (!requestedCollectionId.HasValue)
+        {
+            throw new InvalidOperationException("Destination collection must be provided by each participant before committing the trade.");
+        }
+
+        var repository = _unitOfWork.Repository<Collection>();
+        var collection = await repository.GetByIdAsync(requestedCollectionId.Value);
+        if (collection is null || !string.Equals(collection.OwnerId, userId, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("The selected collection is no longer available.");
+        }
+
+        cache[userId] = collection;
+        return collection;
+    }
+
+    private Task AddCardToCollectionAsync(Collection collection, Card sourceCard, int quantity)
+    {
+        var isNewCollection = collection.Id == 0;
+
+        var receivedCard = new Card
+        {
+            Name = sourceCard.Name,
+            ScryfallId = sourceCard.ScryfallId,
+            Collection = collection,
+            CollectionId = collection.Id,
+            Quantity = quantity,
+            Language = sourceCard.Language,
+            Condition = sourceCard.Condition,
+            IsFoil = sourceCard.IsFoil,
+            PurchasePrice = sourceCard.PurchasePrice,
+            PurchasePriceCurrency = sourceCard.PurchasePriceCurrency,
+            ImageUrl = sourceCard.ImageUrl,
+            BackImageUrl = sourceCard.BackImageUrl,
+            ArtCrop = sourceCard.ArtCrop,
+            SetCode = sourceCard.SetCode,
+            SetName = sourceCard.SetName,
+            TypeLine = sourceCard.TypeLine,
+            CollectorNumber = sourceCard.CollectorNumber,
+            Rarity = sourceCard.Rarity,
+            IsMisprint = sourceCard.IsMisprint,
+            IsAltered = sourceCard.IsAltered
+        };
+
+        _unitOfWork.Repository<Card>().Add(receivedCard);
+        collection.NumberOfCards += quantity;
+
+        if (!isNewCollection)
+        {
+            _unitOfWork.Repository<Collection>().Update(collection);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async Task<IReadOnlyList<Wishlist>> GetWishlistsForUserAsync(
+        string ownerId,
+        IDictionary<string, IReadOnlyList<Wishlist>> cache,
+        CancellationToken cancellationToken)
+    {
+        if (cache.TryGetValue(ownerId, out var cached))
+        {
+            return cached;
+        }
+
+        var spec = new WishlistsWithOwnerSpecification(ownerId, includeCards: true);
+        var wishlists = await _unitOfWork.Repository<Wishlist>().ListAsync(spec) ?? new List<Wishlist>();
+        cache[ownerId] = wishlists;
+        return wishlists;
+    }
+
+    private async Task RemoveWishlistEntriesAsync(
+        string ownerId,
+        string cardName,
+        int quantity,
+        IDictionary<string, IReadOnlyList<Wishlist>> wishlistCache,
+        ISet<int> wishlistsToRecalculate,
+        CancellationToken cancellationToken)
+    {
+        if (quantity <= 0)
+        {
+            return;
+        }
+
+        var wishlists = await GetWishlistsForUserAsync(ownerId, wishlistCache, cancellationToken);
+        var remaining = quantity;
+
+        foreach (var wishlist in wishlists)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (wishlist.WishlistCards is null || wishlist.WishlistCards.Count == 0)
+            {
+                continue;
+            }
+
+            var matchingCards = wishlist.WishlistCards
+                .Where(card => string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (matchingCards.Count == 0)
+            {
+                continue;
+            }
+
+            foreach (var wishlistCard in matchingCards)
+            {
+                if (remaining <= 0)
+                {
+                    break;
+                }
+
+                var desiredQuantity = Math.Max(0, wishlistCard.DesiredQuantity);
+                if (desiredQuantity <= remaining)
+                {
+                    remaining -= desiredQuantity == 0 ? 1 : desiredQuantity;
+                    _unitOfWork.Repository<WishlistCard>().Delete(wishlistCard);
+                    wishlist.WishlistCards.Remove(wishlistCard);
+                }
+                else
+                {
+                    wishlistCard.DesiredQuantity = desiredQuantity - remaining;
+                    _unitOfWork.Repository<WishlistCard>().Update(wishlistCard);
+                    remaining = 0;
+                }
+
+                wishlistsToRecalculate.Add(wishlist.Id);
+            }
+
+            if (remaining <= 0)
+            {
+                break;
+            }
+        }
+    }
+
+    private async Task RecalculateWishlistTotalsAsync(int wishlistId, CancellationToken cancellationToken)
+    {
+        var wishlist = await _unitOfWork.Repository<Wishlist>().GetByIdAsync(wishlistId);
+        if (wishlist is null)
+        {
+            return;
+        }
+
+        var cardsSpec = new WishlistCardsWithWishlistIdSpecification(wishlistId);
+        var cards = await _unitOfWork.Repository<WishlistCard>().ListAsync(cardsSpec, tracking: false) ?? Array.Empty<WishlistCard>();
+
+        var marketProvider = await _userSettingsService.GetMarketProviderAsync(wishlist.OwnerId, cancellationToken);
+        var currency = _userSettingsService.ResolveCurrency(marketProvider);
+
+        double total = 0;
+        foreach (var wishlistCard in cards)
+        {
+            var price = ResolveWishlistMarketPrice(wishlistCard.ScryfallId, wishlistCard.IsFoil ?? false, marketProvider);
+            if (!price.HasValue)
+            {
+                continue;
+            }
+
+            var desiredQuantity = Math.Max(0, wishlistCard.DesiredQuantity);
+            if (desiredQuantity == 0)
+            {
+                continue;
+            }
+
+            total += price.Value * desiredQuantity;
+        }
+
+        wishlist.TotalPrice = Math.Round(total, 2, MidpointRounding.AwayFromZero);
+        wishlist.TotalPriceCurrency = total > 0 ? currency : null;
+
+        _unitOfWork.Repository<Wishlist>().Update(wishlist);
+    }
+
+    private double? ResolveWishlistMarketPrice(string scryfallId, bool isFoil, MarketProvider marketProvider)
+    {
+        if (!_cardDataService.CardDataById.TryGetValue(scryfallId, out var marketData) || marketData?.Prices is null)
+        {
+            return null;
+        }
+
+        var priceText = marketProvider == MarketProvider.Mkm
+            ? (isFoil ? marketData.Prices.EurFoil : marketData.Prices.Eur)
+            : (isFoil ? marketData.Prices.UsdFoil : marketData.Prices.Usd);
+
+        if (string.IsNullOrWhiteSpace(priceText) && isFoil)
+        {
+            priceText = marketProvider == MarketProvider.Mkm
+                ? marketData.Prices.Eur
+                : marketData.Prices.Usd;
+        }
+
+        if (string.IsNullOrWhiteSpace(priceText))
+        {
+            return null;
+        }
+
+        return double.TryParse(priceText, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : null;
+    }
+
     private static bool EnsureMatchIdentifiers(IEnumerable<TradeMatchDto> matches)
     {
         var hasChanges = false;
@@ -443,4 +885,13 @@ public sealed class TradeConnectionService : ITradeConnectionService
 
         return hasChanges;
     }
+
+    private sealed record TradeTransfer(
+        int BinderCardId,
+        int CardId,
+        int TradeBinderId,
+        string CardName,
+        int Quantity,
+        string FromUserId,
+        string ToUserId);
 }

@@ -85,4 +85,47 @@ public static partial class TradesEndpoints
             return Results.NotFound(new { Error = ex.Message });
         }
     }
+
+    private static async Task<IResult> CommitTradeAsync(
+        string tradeId,
+        HttpContext context,
+        [FromServices] ITradeConnectionService tradeConnectionService,
+        [FromServices] ILogger<TradesEndpointLogCategory> logger,
+        CancellationToken cancellationToken)
+    {
+        const string operation = "Trades.Commit";
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { tradeId });
+            return Results.Unauthorized();
+        }
+
+        try
+        {
+            await tradeConnectionService.CommitTradeAsync(tradeId, userId, cancellationToken);
+            logger.LogOperationSuccess(operation, new { tradeId, userId });
+            return Results.NoContent();
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { tradeId, userId });
+            return Results.Forbid();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { tradeId, userId });
+            return Results.NotFound(new { Error = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { tradeId, userId });
+            return Results.BadRequest(new { Error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { tradeId, userId });
+            return Results.BadRequest(new { Error = ex.Message });
+        }
+    }
 }
