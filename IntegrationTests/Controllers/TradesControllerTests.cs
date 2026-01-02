@@ -1,15 +1,20 @@
 using System;
 using System.Linq;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using API;
 using API.Dtos.Trades;
 using API.Services;
 using Core.Models;
 using Core.Models.Identity;
 using FluentAssertions;
 using Infrastructure.Data;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using TestUtilities.Authentication;
 using TestUtilities.Builders;
 using TestUtilities.Serialization;
@@ -55,6 +60,50 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task Match_WhenPartnerUserIdMissing_ReturnsBadRequest()
+    {
+        var initiator = await CreateTestUserAsync("trade-initiator@test.com", "trade_initiator");
+        using var client = CreateClientWithUser(factory, initiator);
+
+        var response = await client.GetAsync($"/api/trades/match?initiatorUserId={initiator.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Match_WhenJwtDoesNotMatchInitiator_ReturnsUnauthorized()
+    {
+        var initiator = await CreateTestUserAsync("trade-initiator@test.com", "trade_initiator");
+        var partner = await CreateTestUserAsync("trade-partner@test.com", "trade_partner");
+
+        using var client = CreateClientWithUser(factory, partner);
+        var response = await client.GetAsync($"/api/trades/match?initiatorUserId={initiator.Id}&partnerUserId={partner.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Match_WhenServiceReportsMissingTrade_ReturnsNotFound()
+    {
+        using var customFactory = factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<ITradeConnectionService>();
+                services.AddSingleton<ITradeConnectionService>(new NotFoundTradeConnectionService());
+            });
+        });
+
+        var initiator = await CreateTestUserAsync("trade-initiator@test.com", "trade_initiator", customFactory.Services);
+        var partner = await CreateTestUserAsync("trade-partner@test.com", "trade_partner", customFactory.Services);
+
+        using var client = CreateClientWithUser(customFactory, initiator);
+        var response = await client.GetAsync($"/api/trades/match?initiatorUserId={initiator.Id}&partnerUserId={partner.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task GetTradeSession_WithUnauthorizedUser_ReturnsForbidden()
     {
         var initiator = await CreateTestUserAsync("trade-session-owner@test.com", "trade_session_owner");
@@ -76,12 +125,283 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         getResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
-    private async Task<AppUser> CreateTestUserAsync(string email, string userName) =>
-        await TestUserFactory.CreateAsync(factory.Services, testDataBuilder, email, userName, requirePassword: true);
-
-    private async Task CreatePublicWishlistCardAsync(string ownerId, string cardName)
+    [Fact]
+    public async Task GetTradeSession_ReturnsSnapshotForParticipant()
     {
-        await using var scope = factory.Services.CreateAsyncScope();
+        var (_, partner, trade) = await PrepareTradeSessionAsync();
+
+        using var partnerClient = CreateClientWithUser(factory, partner);
+        var response = await partnerClient.GetAsync($"/api/trades/{trade.TradeId}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var dto = await response.Content.ReadFromJsonAsync<TradeConnectionDto>(JsonContentHelper.DefaultOptions);
+        dto.Should().NotBeNull();
+        dto!.TradeId.Should().Be(trade.TradeId);
+        dto.PartnerMatches.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetTradeSession_WhenNotAuthenticated_ReturnsUnauthorized()
+    {
+        var (_, _, trade) = await PrepareTradeSessionAsync();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/trades/{trade.TradeId}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetTradeSession_WhenTradeDoesNotExist_ReturnsNotFound()
+    {
+        var user = await CreateTestUserAsync("trade-session-owner@test.com", "trade_session_owner");
+        using var client = CreateClientWithUser(factory, user);
+
+        var response = await client.GetAsync($"/api/trades/{Guid.NewGuid():N}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UpdateTradeSession_AllowsParticipantToAdjustSelection()
+    {
+        var (initiator, _, trade) = await PrepareTradeSessionAsync();
+        using var initiatorClient = CreateClientWithUser(factory, initiator);
+
+        var matchId = trade.InitiatorMatches.First().MatchId;
+        var request = new UpdateTradeRequest
+        {
+            InitiatorMatches = new[]
+            {
+                new TradeMatchUpdateDto
+                {
+                    MatchId = matchId,
+                    QuantityToTrade = 0,
+                    IsSelected = false
+                }
+            }
+        };
+
+        var response = await initiatorClient.PutAsJsonAsync($"/api/trades/{trade.TradeId}", request, JsonContentHelper.DefaultOptions);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var updated = await response.Content.ReadFromJsonAsync<TradeConnectionDto>(JsonContentHelper.DefaultOptions);
+        updated!.InitiatorMatches.Single().IsSelected.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateTradeSession_WhenQuantityTooHigh_ReturnsBadRequest()
+    {
+        var (initiator, _, trade) = await PrepareTradeSessionAsync();
+        using var initiatorClient = CreateClientWithUser(factory, initiator);
+
+        var matchId = trade.InitiatorMatches.First().MatchId;
+        var request = new UpdateTradeRequest
+        {
+            InitiatorMatches = new[]
+            {
+                new TradeMatchUpdateDto
+                {
+                    MatchId = matchId,
+                    QuantityToTrade = 5
+                }
+            }
+        };
+
+        var response = await initiatorClient.PutAsJsonAsync($"/api/trades/{trade.TradeId}", request, JsonContentHelper.DefaultOptions);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task UpdateTradeSession_WhenRequesterNotParticipant_ReturnsForbidden()
+    {
+        var (initiator, _, trade) = await PrepareTradeSessionAsync();
+        var intruder = await CreateTestUserAsync("trade-intruder@test.com", "trade_intruder");
+        using var intruderClient = CreateClientWithUser(factory, intruder);
+
+        var matchId = trade.InitiatorMatches.First().MatchId;
+        var request = new UpdateTradeRequest
+        {
+            InitiatorMatches = new[]
+            {
+                new TradeMatchUpdateDto
+                {
+                    MatchId = matchId,
+                    QuantityToTrade = 1
+                }
+            }
+        };
+
+        var response = await intruderClient.PutAsJsonAsync($"/api/trades/{trade.TradeId}", request, JsonContentHelper.DefaultOptions);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task UpdateTradeSession_WhenNotAuthenticated_ReturnsUnauthorized()
+    {
+        var (_, _, trade) = await PrepareTradeSessionAsync();
+        using var client = factory.CreateClient();
+
+        var request = new UpdateTradeRequest
+        {
+            InitiatorMatches = new[]
+            {
+                new TradeMatchUpdateDto
+                {
+                    MatchId = trade.InitiatorMatches.First().MatchId,
+                    QuantityToTrade = 1
+                }
+            }
+        };
+
+        var response = await client.PutAsJsonAsync($"/api/trades/{trade.TradeId}", request, JsonContentHelper.DefaultOptions);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task UpdateTradeSession_WhenTradeMissing_ReturnsNotFound()
+    {
+        var initiator = await CreateTestUserAsync("trade-initiator@test.com", "trade_initiator");
+        using var client = CreateClientWithUser(factory, initiator);
+
+        var request = new UpdateTradeRequest
+        {
+            InitiatorMatches = Array.Empty<TradeMatchUpdateDto>()
+        };
+
+        var response = await client.PutAsJsonAsync($"/api/trades/{Guid.NewGuid():N}", request, JsonContentHelper.DefaultOptions);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task CancelTradeSession_AllowsParticipantToDelete()
+    {
+        var (initiator, _, trade) = await PrepareTradeSessionAsync();
+        using var client = CreateClientWithUser(factory, initiator);
+
+        var response = await client.DeleteAsync($"/api/trades/{trade.TradeId}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var getResponse = await client.GetAsync($"/api/trades/{trade.TradeId}");
+        getResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task CancelTradeSession_WhenRequesterNotParticipant_ReturnsForbidden()
+    {
+        var (_, _, trade) = await PrepareTradeSessionAsync();
+        var intruder = await CreateTestUserAsync("trade-intruder@test.com", "trade_intruder");
+        using var client = CreateClientWithUser(factory, intruder);
+
+        var response = await client.DeleteAsync($"/api/trades/{trade.TradeId}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task CancelTradeSession_WhenNotAuthenticated_ReturnsUnauthorized()
+    {
+        var (_, _, trade) = await PrepareTradeSessionAsync();
+        using var client = factory.CreateClient();
+
+        var response = await client.DeleteAsync($"/api/trades/{trade.TradeId}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task CancelTradeSession_WhenTradeMissing_ReturnsNotFound()
+    {
+        var initiator = await CreateTestUserAsync("trade-initiator@test.com", "trade_initiator");
+        using var client = CreateClientWithUser(factory, initiator);
+
+        var response = await client.DeleteAsync($"/api/trades/{Guid.NewGuid():N}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task CommitTradeSession_CompletesAndRemovesSession()
+    {
+        var (initiator, partner, trade) = await PrepareTradeSessionAsync(includePartnerOffer: true);
+        var initiatorCollectionId = await GetAnyCollectionIdAsync(initiator.Id);
+        var partnerCollectionId = await GetAnyCollectionIdAsync(partner.Id);
+
+        using var initiatorClient = CreateClientWithUser(factory, initiator);
+        using var partnerClient = CreateClientWithUser(factory, partner);
+
+        var initiatorUpdate = new UpdateTradeRequest { InitiatorCollectionId = initiatorCollectionId };
+        var partnerUpdate = new UpdateTradeRequest { PartnerCollectionId = partnerCollectionId };
+
+        var initiatorUpdateResponse = await initiatorClient.PutAsJsonAsync($"/api/trades/{trade.TradeId}", initiatorUpdate, JsonContentHelper.DefaultOptions);
+        initiatorUpdateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var partnerUpdateResponse = await partnerClient.PutAsJsonAsync($"/api/trades/{trade.TradeId}", partnerUpdate, JsonContentHelper.DefaultOptions);
+        partnerUpdateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var response = await initiatorClient.PutAsync($"/api/trades/{trade.TradeId}/commit", content: null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        var getResponse = await initiatorClient.GetAsync($"/api/trades/{trade.TradeId}");
+        getResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task CommitTradeSession_WhenCollectionsMissing_ReturnsBadRequest()
+    {
+        var (initiator, _, trade) = await PrepareTradeSessionAsync(includePartnerOffer: true);
+        using var client = CreateClientWithUser(factory, initiator);
+
+        var response = await client.PutAsync($"/api/trades/{trade.TradeId}/commit", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task CommitTradeSession_WhenRequesterNotParticipant_ReturnsForbidden()
+    {
+        var (_, _, trade) = await PrepareTradeSessionAsync(includePartnerOffer: true);
+        var intruder = await CreateTestUserAsync("trade-intruder@test.com", "trade_intruder");
+        using var client = CreateClientWithUser(factory, intruder);
+
+        var response = await client.PutAsync($"/api/trades/{trade.TradeId}/commit", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task CommitTradeSession_WhenNotAuthenticated_ReturnsUnauthorized()
+    {
+        var (_, _, trade) = await PrepareTradeSessionAsync(includePartnerOffer: true);
+        using var client = factory.CreateClient();
+
+        var response = await client.PutAsync($"/api/trades/{trade.TradeId}/commit", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task CommitTradeSession_WhenTradeMissing_ReturnsNotFound()
+    {
+        var initiator = await CreateTestUserAsync("trade-initiator@test.com", "trade_initiator");
+        using var client = CreateClientWithUser(factory, initiator);
+
+        var response = await client.PutAsync($"/api/trades/{Guid.NewGuid():N}/commit", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    private async Task<AppUser> CreateTestUserAsync(string email, string userName, IServiceProvider? services = null) =>
+        await TestUserFactory.CreateAsync(services ?? factory.Services, testDataBuilder, email, userName, requirePassword: true);
+
+    private async Task CreatePublicWishlistCardAsync(string ownerId, string cardName, IServiceProvider? services = null)
+    {
+        services ??= factory.Services;
+        await using var scope = services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<MainContext>();
 
         var wishlist = testDataBuilder.CreateWishlist(ownerId, isPublic: true);
@@ -94,9 +414,10 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         await context.SaveChangesAsync();
     }
 
-    private async Task CreatePublicBinderCardAsync(string ownerId, string cardName)
+    private async Task CreatePublicBinderCardAsync(string ownerId, string cardName, IServiceProvider? services = null)
     {
-        await using var scope = factory.Services.CreateAsyncScope();
+        services ??= factory.Services;
+        await using var scope = services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<MainContext>();
         var cardDataService = scope.ServiceProvider.GetRequiredService<CardDataService>();
 
@@ -129,5 +450,83 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         };
         context.BinderCards.Add(binderCard);
         await context.SaveChangesAsync();
+    }
+
+    private async Task<(AppUser Initiator, AppUser Partner, TradeConnectionDto Trade)> PrepareTradeSessionAsync(
+        bool includePartnerOffer = false,
+        WebApplicationFactory<Program>? targetFactory = null)
+    {
+        targetFactory ??= factory;
+        var services = targetFactory.Services;
+
+        var initiator = await CreateTestUserAsync("trade-initiator@test.com", "trade_initiator", services);
+        var partner = await CreateTestUserAsync("trade-partner@test.com", "trade_partner", services);
+
+        await CreatePublicBinderCardAsync(initiator.Id, "Lightning Bolt", services);
+        await CreatePublicWishlistCardAsync(partner.Id, "Lightning Bolt", services);
+
+        if (includePartnerOffer)
+        {
+            await CreatePublicBinderCardAsync(partner.Id, "Counterspell", services);
+            await CreatePublicWishlistCardAsync(initiator.Id, "Counterspell", services);
+        }
+
+        using var initiatorClient = CreateClientWithUser(targetFactory, initiator);
+        var response = await initiatorClient.GetAsync($"/api/trades/match?initiatorUserId={initiator.Id}&partnerUserId={partner.Id}");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var trade = await response.Content.ReadFromJsonAsync<TradeConnectionDto>(JsonContentHelper.DefaultOptions);
+
+        trade.Should().NotBeNull();
+        return (initiator, partner, trade!);
+    }
+
+    private static HttpClient CreateClientWithUser(WebApplicationFactory<Program> targetFactory, AppUser user) =>
+        CreateClientWithUser(targetFactory, user.Id, user.UserName ?? "user", user.Email ?? $"{user.UserName}@example.com");
+
+    private static HttpClient CreateClientWithUser(WebApplicationFactory<Program> targetFactory, string userId, string userName, string email)
+    {
+        var client = targetFactory.CreateClient();
+        client.DefaultRequestHeaders.Add("Test-UserId", userId);
+        client.DefaultRequestHeaders.Add("Test-UserName", userName);
+        client.DefaultRequestHeaders.Add("Test-Email", email);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Test");
+        return client;
+    }
+
+    private async Task<int> GetAnyCollectionIdAsync(string ownerId, IServiceProvider? services = null)
+    {
+        services ??= factory.Services;
+        await using var scope = services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+        var collection = await context.Collections.FirstAsync(c => c.OwnerId == ownerId);
+        return collection.Id;
+    }
+
+    private sealed class NotFoundTradeConnectionService : ITradeConnectionService
+    {
+        public Task CancelConnectionAsync(string tradeId, string requesterUserId, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
+
+        public Task CommitTradeAsync(string tradeId, string requesterUserId, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
+
+        public Task<TradeConnectionDto> GetConnectionAsync(string tradeId, string requesterUserId, CancellationToken cancellationToken = default)
+        {
+            return Task.FromException<TradeConnectionDto>(new InvalidOperationException("This stub only supports PrepareConnectionAsync."));
+        }
+
+        public Task<TradeConnectionDto> PrepareConnectionAsync(string initiatorUserId, string partnerUserId, CancellationToken cancellationToken = default)
+        {
+            return Task.FromException<TradeConnectionDto>(new KeyNotFoundException("Trade connection missing."));
+        }
+
+        public Task<TradeConnectionDto> UpdateConnectionAsync(string tradeId, string requesterUserId, UpdateTradeRequest request, CancellationToken cancellationToken = default)
+        {
+            return Task.FromException<TradeConnectionDto>(new InvalidOperationException("This stub only supports PrepareConnectionAsync."));
+        }
     }
 }

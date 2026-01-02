@@ -557,7 +557,9 @@ public sealed class TradeConnectionService : ITradeConnectionService
                     reference.CardName,
                     quantity,
                     fromUserId,
-                    toUserId);
+                    toUserId,
+                    reference.OfferingCard.MarketPrice,
+                    reference.OfferingCard.Currency);
             })
             .Where(transfer => transfer.Quantity > 0)
             .ToList();
@@ -647,7 +649,12 @@ public sealed class TradeConnectionService : ITradeConnectionService
             recipientCollectionId,
             collectionCache,
             cancellationToken);
-        await AddCardToCollectionAsync(recipientCollection, card, transfer.Quantity);
+        await AddCardToCollectionAsync(
+            recipientCollection,
+            card,
+            transfer.Quantity,
+            transfer.MarketPrice,
+            transfer.Currency);
 
         await RemoveWishlistEntriesAsync(
             transfer.ToUserId,
@@ -686,9 +693,16 @@ public sealed class TradeConnectionService : ITradeConnectionService
         return collection;
     }
 
-    private Task AddCardToCollectionAsync(Collection collection, Card sourceCard, int quantity)
+    private Task AddCardToCollectionAsync(
+        Collection collection,
+        Card sourceCard,
+        int quantity,
+        double? livePrice,
+        Currency? liveCurrency)
     {
         var isNewCollection = collection.Id == 0;
+        var resolvedPrice = livePrice ?? sourceCard.PurchasePrice;
+        var resolvedCurrency = ResolvePurchaseCurrency(liveCurrency, sourceCard.PurchasePriceCurrency);
 
         var receivedCard = new Card
         {
@@ -700,8 +714,8 @@ public sealed class TradeConnectionService : ITradeConnectionService
             Language = sourceCard.Language,
             Condition = sourceCard.Condition,
             IsFoil = sourceCard.IsFoil,
-            PurchasePrice = sourceCard.PurchasePrice,
-            PurchasePriceCurrency = sourceCard.PurchasePriceCurrency,
+            PurchasePrice = resolvedPrice,
+            PurchasePriceCurrency = resolvedCurrency,
             ImageUrl = sourceCard.ImageUrl,
             BackImageUrl = sourceCard.BackImageUrl,
             ArtCrop = sourceCard.ArtCrop,
@@ -723,6 +737,23 @@ public sealed class TradeConnectionService : ITradeConnectionService
         }
 
         return Task.CompletedTask;
+    }
+
+    private static string ResolvePurchaseCurrency(Currency? currency, string fallbackCurrency)
+    {
+        if (currency.HasValue)
+        {
+            return ConvertCurrencyToCode(currency.Value);
+        }
+
+        return string.IsNullOrWhiteSpace(fallbackCurrency)
+            ? "USD"
+            : fallbackCurrency;
+    }
+
+    private static string ConvertCurrencyToCode(Currency currency)
+    {
+        return currency.ToString().ToUpperInvariant();
     }
 
     private async Task<IReadOnlyList<Wishlist>> GetWishlistsForUserAsync(
@@ -893,5 +924,7 @@ public sealed class TradeConnectionService : ITradeConnectionService
         string CardName,
         int Quantity,
         string FromUserId,
-        string ToUserId);
+        string ToUserId,
+        double? MarketPrice,
+        Currency? Currency);
 }

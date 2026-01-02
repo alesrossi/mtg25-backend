@@ -548,7 +548,9 @@ public class TradeConnectionServiceTests : IDisposable
                         Card = initiatorCard,
                         Name = initiatorCard.Name,
                         QuantityToTrade = 1,
-                        MaxQuantityToTrade = 1
+                        MaxQuantityToTrade = 1,
+                        MarketPrice = 9.25,
+                        Currency = Currency.Eur
                     }
                 }
             },
@@ -569,7 +571,9 @@ public class TradeConnectionServiceTests : IDisposable
                         Card = partnerCard,
                         Name = partnerCard.Name,
                         QuantityToTrade = 1,
-                        MaxQuantityToTrade = 1
+                        MaxQuantityToTrade = 1,
+                        MarketPrice = 7.75,
+                        Currency = Currency.Usd
                     }
                 }
             }
@@ -592,6 +596,15 @@ public class TradeConnectionServiceTests : IDisposable
 
         var recipientCards = mainContext.Cards.Where(c => c.CollectionId == partnerCollection.Id && c.Name == initiatorCard.Name).ToList();
         recipientCards.Should().ContainSingle(c => c.Quantity == 1);
+        var partnerReceivedCard = recipientCards.Single();
+        partnerReceivedCard.PurchasePrice.Should().Be(9.25);
+        partnerReceivedCard.PurchasePriceCurrency.Should().Be("EUR");
+
+        var initiatorReceivedCards = mainContext.Cards.Where(c => c.CollectionId == initiatorCollection.Id && c.Name == partnerCard.Name).ToList();
+        initiatorReceivedCards.Should().ContainSingle(c => c.Quantity == 1);
+        var initiatorReceivedCard = initiatorReceivedCards.Single();
+        initiatorReceivedCard.PurchasePrice.Should().Be(7.75);
+        initiatorReceivedCard.PurchasePriceCurrency.Should().Be("USD");
 
         var partnerWishlistCards = mainContext.WishlistCards.Where(c => c.WishlistId == partnerWishlist.Id).ToList();
         partnerWishlistCards.Should().BeEmpty();
