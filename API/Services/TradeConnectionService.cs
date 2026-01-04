@@ -11,6 +11,7 @@ using Core.Models;
 using Core.Models.Identity;
 using Core.Specifications;
 using Microsoft.AspNetCore.Identity;
+using static API.Helpers.CollectionValueCalculator;
 
 namespace API.Services;
 
@@ -628,8 +629,10 @@ public sealed class TradeConnectionService : ITradeConnectionService
             throw new InvalidOperationException($"Not enough copies of '{card.Name}' to complete the trade.");
         }
 
+        var removedValue = CalculateCardValue(card.PurchasePrice, transfer.Quantity);
         card.Quantity -= transfer.Quantity;
         giverCollection.NumberOfCards = Math.Max(0, giverCollection.NumberOfCards - transfer.Quantity);
+        giverCollection.TotalPrice = ApplyTotalPriceDelta(giverCollection.TotalPrice, -removedValue);
 
         if (card.Quantity <= 0)
         {
@@ -729,6 +732,8 @@ public sealed class TradeConnectionService : ITradeConnectionService
 
         _unitOfWork.Repository<Card>().Add(receivedCard);
         collection.NumberOfCards += quantity;
+        var addedValue = CalculateCardValue(receivedCard.PurchasePrice, receivedCard.Quantity);
+        collection.TotalPrice = ApplyTotalPriceDelta(collection.TotalPrice, addedValue);
 
         if (!isNewCollection)
         {

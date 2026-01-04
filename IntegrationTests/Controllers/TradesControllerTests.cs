@@ -349,6 +349,86 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task CommitTradeSession_RecalculatesCollectionTotals()
+    {
+        var (initiator, partner, trade) = await PrepareTradeSessionAsync(includePartnerOffer: true);
+        var initiatorCollectionId = await GetAnyCollectionIdAsync(initiator.Id);
+        var partnerCollectionId = await GetAnyCollectionIdAsync(partner.Id);
+
+        var initiatorMatch = trade.InitiatorMatches.Single();
+        var partnerMatch = trade.PartnerMatches.Single();
+        var initiatorTradeQuantity = initiatorMatch.OfferingCard.QuantityToTrade;
+        var partnerTradeQuantity = partnerMatch.OfferingCard.QuantityToTrade;
+
+        const double initiatorCardPrice = 12.5;
+        const double partnerCardPrice = 7.25;
+
+        double initiatorInitialTotal;
+        double partnerInitialTotal;
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+            var initiatorCollection = await context.Collections.FirstAsync(c => c.OwnerId == initiator.Id);
+            var partnerCollection = await context.Collections.FirstAsync(c => c.OwnerId == partner.Id);
+
+            var initiatorCard = await context.Cards.FirstAsync(c =>
+                c.CollectionId == initiatorCollection.Id && c.Name == initiatorMatch.CardName);
+            initiatorCard.PurchasePrice = initiatorCardPrice;
+            initiatorCard.Quantity = Math.Max(initiatorTradeQuantity + 1, 2);
+            initiatorCollection.NumberOfCards = initiatorCard.Quantity;
+            initiatorCollection.TotalPrice = CalculateValue(initiatorCardPrice, initiatorCard.Quantity);
+
+            var partnerCard = await context.Cards.FirstAsync(c =>
+                c.CollectionId == partnerCollection.Id && c.Name == partnerMatch.CardName);
+            partnerCard.PurchasePrice = partnerCardPrice;
+            partnerCard.Quantity = Math.Max(partnerTradeQuantity + 1, 2);
+            partnerCollection.NumberOfCards = partnerCard.Quantity;
+            partnerCollection.TotalPrice = CalculateValue(partnerCardPrice, partnerCard.Quantity);
+
+            await context.SaveChangesAsync();
+            initiatorInitialTotal = initiatorCollection.TotalPrice;
+            partnerInitialTotal = partnerCollection.TotalPrice;
+        }
+
+        var initiatorRemoved = CalculateValue(initiatorCardPrice, initiatorTradeQuantity);
+        var partnerRemoved = CalculateValue(partnerCardPrice, partnerTradeQuantity);
+        var initiatorAddition = partnerMatch.OfferingCard.MarketPrice.HasValue
+            ? CalculateValue(partnerMatch.OfferingCard.MarketPrice.Value, partnerTradeQuantity)
+            : 0;
+        var partnerAddition = initiatorMatch.OfferingCard.MarketPrice.HasValue
+            ? CalculateValue(initiatorMatch.OfferingCard.MarketPrice.Value, initiatorTradeQuantity)
+            : 0;
+
+        using var initiatorClient = CreateClientWithUser(factory, initiator);
+        using var partnerClient = CreateClientWithUser(factory, partner);
+
+        var initiatorUpdate = new UpdateTradeRequest { InitiatorCollectionId = initiatorCollectionId };
+        var partnerUpdate = new UpdateTradeRequest { PartnerCollectionId = partnerCollectionId };
+
+        (await initiatorClient.PutAsJsonAsync($"/api/trades/{trade.TradeId}", initiatorUpdate, JsonContentHelper.DefaultOptions))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        (await partnerClient.PutAsJsonAsync($"/api/trades/{trade.TradeId}", partnerUpdate, JsonContentHelper.DefaultOptions))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var response = await initiatorClient.PutAsync($"/api/trades/{trade.TradeId}/commit", content: null);
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        await using var verificationScope = factory.Services.CreateAsyncScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<MainContext>();
+        var initiatorCollectionAfter = await verificationContext.Collections.AsNoTracking()
+            .FirstAsync(c => c.OwnerId == initiator.Id);
+        var partnerCollectionAfter = await verificationContext.Collections.AsNoTracking()
+            .FirstAsync(c => c.OwnerId == partner.Id);
+
+        var initiatorExpected = initiatorInitialTotal - initiatorRemoved + initiatorAddition;
+        var partnerExpected = partnerInitialTotal - partnerRemoved + partnerAddition;
+
+        initiatorCollectionAfter.TotalPrice.Should().BeApproximately(initiatorExpected, 0.01);
+        partnerCollectionAfter.TotalPrice.Should().BeApproximately(partnerExpected, 0.01);
+    }
+
+    [Fact]
     public async Task CommitTradeSession_WhenCollectionsMissing_ReturnsBadRequest()
     {
         var (initiator, _, trade) = await PrepareTradeSessionAsync(includePartnerOffer: true);
@@ -498,6 +578,18 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var context = scope.ServiceProvider.GetRequiredService<MainContext>();
         var collection = await context.Collections.FirstAsync(c => c.OwnerId == ownerId);
         return collection.Id;
+    }
+
+    private static double CalculateValue(double price, int quantity)
+    {
+        var safeQuantity = Math.Max(0, quantity);
+        if (safeQuantity == 0 || price <= 0)
+        {
+            return 0;
+        }
+
+        var safePrice = Math.Max(0, price);
+        return Math.Round(safePrice * safeQuantity, 2, MidpointRounding.AwayFromZero);
     }
 
     private sealed class NotFoundTradeConnectionService : ITradeConnectionService
