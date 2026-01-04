@@ -7,4 +7,5 @@ public class BinderSummaryDto
     public string? Description { get; set; }
     public bool IsPublic { get; set; }
     public int CardsCount { get; set; }
+    public double TotalPrice { get; set; }
 }

@@ -11,5 +11,6 @@ public class BinderDto
     public bool IsPublic { get; set; }
     public string OwnerId { get; set; } = string.Empty;
     public int CardsCount { get; set; }
+    public double TotalPrice { get; set; }
     public IReadOnlyList<BinderCardDto> Cards { get; set; } = Array.Empty<BinderCardDto>();
 }

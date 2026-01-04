@@ -194,7 +194,9 @@ public static partial class BindersEndpoint
             unitOfWork.Repository<BinderCard>().Add(binderCard);
             await unitOfWork.Complete();
 
-            cardList.Add(MapToDto(await unitOfWork.Repository<BinderCard>().GetEntityWithSpec(new BinderCardWithBinderSpecification(binderCard.Id)) ?? binderCard));
+            var hydratedCard = await unitOfWork.Repository<BinderCard>()
+                .GetEntityWithSpec(new BinderCardWithBinderSpecification(binderCard.Id)) ?? binderCard;
+            cardList.Add(MapBinderCardToDto(hydratedCard));
         }
 
         logger.LogOperationSuccess(operation, new { binderId, Added = cardList.Count });
@@ -267,7 +269,7 @@ public static partial class BindersEndpoint
             .GetEntityWithSpec(new BinderCardWithBinderSpecification(binderCardId)) ?? binderCard;
 
         logger.LogOperationSuccess(operation, new { binderId, binderCardId });
-        return Results.Ok(MapToDto(updated));
+        return Results.Ok(MapBinderCardToDto(updated));
     }
 
     private static async Task<IResult> DeleteBinderCardAsync(

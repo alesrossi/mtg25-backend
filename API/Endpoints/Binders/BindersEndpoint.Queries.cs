@@ -1,6 +1,8 @@
+using System.Linq;
 using System.Security.Claims;
 using API.Dtos.Binders;
 using API.Logging;
+using API.Services;
 using Core.Interfaces;
 using Core.Models;
 using Core.Specifications;
@@ -26,6 +28,24 @@ public static partial class BindersEndpoint
         var spec = new TradeBindersWithOwnerSpecification(userId, includeCards: true);
         var binders = await unitOfWork.Repository<TradeBinder>().ListAsync(spec, tracking: false) ?? Array.Empty<TradeBinder>();
 
+        if (binders.Count > 0)
+        {
+            var binderIds = binders.Select(b => b.Id).ToArray();
+            var binderCards = await unitOfWork.Repository<BinderCard>()
+                .ListAsync(new BinderCardsByBinderIdsSpecification(binderIds), tracking: false) ?? Array.Empty<BinderCard>();
+            var cardsGrouped = binderCards
+                .GroupBy(card => card.TradeBinderId)
+                .ToDictionary(group => group.Key, group => group.ToList());
+
+            foreach (var binder in binders)
+            {
+                if (cardsGrouped.TryGetValue(binder.Id, out var cards))
+                {
+                    binder.BinderCards = cards;
+                }
+            }
+        }
+
         var dto = binders.Select(MapToSummaryDto).ToList();
         logger.LogOperationSuccess(operation, new { userId, Count = dto.Count });
         return Results.Ok(dto);
@@ -35,6 +55,8 @@ public static partial class BindersEndpoint
         int id,
         IUnitOfWork unitOfWork,
         ClaimsPrincipal user,
+        [FromServices] IUserSettingsService userSettingsService,
+        [FromServices] CardDataService cardDataService,
         [FromServices] ILogger<BindersEndpointLogCategory> logger)
     {
         const string operation = "Binders.Get";
@@ -47,7 +69,13 @@ public static partial class BindersEndpoint
         }
 
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        var isOwner = !string.IsNullOrEmpty(userId) && binder.OwnerId == userId;
+        if (string.IsNullOrEmpty(userId))
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { id });
+            return Results.Unauthorized();
+        }
+
+        var isOwner = binder.OwnerId == userId;
 
         if (!isOwner && !binder.IsPublic)
         {
@@ -55,17 +83,24 @@ public static partial class BindersEndpoint
             return Results.Unauthorized();
         }
 
+        var marketProvider = await userSettingsService.GetMarketProviderAsync(userId);
         var cards = await unitOfWork.Repository<BinderCard>()
             .ListAsync(new BinderCardsWithBinderIdSpecification(binder.Id), tracking: false) ?? Array.Empty<BinderCard>();
+        var pricedCards = MapBinderCardsWithMarketData(cards, marketProvider, userSettingsService, cardDataService);
 
         logger.LogOperationSuccess(operation, new { id, Cards = cards.Count });
-        return Results.Ok(MapToDto(binder, cards));
+        var dto = MapToDto(binder, cards);
+        dto.Cards = pricedCards;
+        dto.CardsCount = pricedCards.Count;
+        return Results.Ok(dto);
     }
 
     private static async Task<IResult> GetBinderCardsAsync(
         int binderId,
         IUnitOfWork unitOfWork,
         ClaimsPrincipal user,
+        [FromServices] IUserSettingsService userSettingsService,
+        [FromServices] CardDataService cardDataService,
         [FromServices] ILogger<BindersEndpointLogCategory> logger)
     {
         const string operation = "Binders.Cards.List";
@@ -76,10 +111,18 @@ public static partial class BindersEndpoint
             return result;
         }
 
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { binderId });
+            return Results.Unauthorized();
+        }
+
+        var marketProvider = await userSettingsService.GetMarketProviderAsync(userId);
         var cards = await unitOfWork.Repository<BinderCard>()
             .ListAsync(new BinderCardsWithBinderIdSpecification(binder!.Id), tracking: false) ?? Array.Empty<BinderCard>();
+        var dto = MapBinderCardsWithMarketData(cards, marketProvider, userSettingsService, cardDataService);
 
-        var dto = cards.Select(MapToDto).ToList();
         logger.LogOperationSuccess(operation, new { binderId, Count = dto.Count });
         return Results.Ok(dto);
     }
@@ -89,6 +132,8 @@ public static partial class BindersEndpoint
         int binderCardId,
         IUnitOfWork unitOfWork,
         ClaimsPrincipal user,
+        [FromServices] IUserSettingsService userSettingsService,
+        [FromServices] CardDataService cardDataService,
         [FromServices] ILogger<BindersEndpointLogCategory> logger)
     {
         const string operation = "Binders.Cards.Get";
@@ -99,6 +144,13 @@ public static partial class BindersEndpoint
             return result;
         }
 
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { binderId, binderCardId });
+            return Results.Unauthorized();
+        }
+
         var binderCard = await unitOfWork.Repository<BinderCard>().GetEntityWithSpec(new BinderCardWithBinderSpecification(binderCardId), tracking: false);
         if (binderCard == null || binderCard.TradeBinderId != binder!.Id)
         {
@@ -106,7 +158,9 @@ public static partial class BindersEndpoint
             return Results.NotFound();
         }
 
+        var marketProvider = await userSettingsService.GetMarketProviderAsync(userId);
+        var pricedCard = MapBinderCardsWithMarketData(new[] { binderCard }, marketProvider, userSettingsService, cardDataService).First();
         logger.LogOperationSuccess(operation, new { binderId, binderCardId });
-        return Results.Ok(MapToDto(binderCard));
+        return Results.Ok(pricedCard);
     }
 }

@@ -689,6 +689,62 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
+    [Fact]
+    public async Task GetBinderById_ReturnsTotalAndCardPricing()
+    {
+        var owner = await CreateTestUserAsync("binder-pricing-owner@test.com", "binder_pricing_owner");
+        TradeBinder binder;
+        Card card;
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+            var collection = _testDataBuilder.CreateCollection(owner.Id);
+            context.Collections.Add(collection);
+            await context.SaveChangesAsync();
+
+            card = _testDataBuilder.CreateCard(collection.Id, name: "Lightning Bolt", price: 2.5);
+            card.Quantity = 4;
+            context.Cards.Add(card);
+            await context.SaveChangesAsync();
+
+            binder = _testDataBuilder.CreateTradeBinder(owner.Id, isPublic: false);
+            context.TradeBinders.Add(binder);
+            await context.SaveChangesAsync();
+
+            var binderCard = new BinderCard
+            {
+                TradeBinderId = binder.Id,
+                CardId = card.Id,
+                Name = card.Name,
+                QuantityToTrade = 2,
+                Notes = "Pricing check",
+                Card = card
+            };
+
+            context.BinderCards.Add(binderCard);
+            await context.SaveChangesAsync();
+        }
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+        var response = await client.GetAsync($"/api/binders/{binder.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadAsStringAsync();
+        var dto = JsonSerializer.Deserialize<BinderDto>(payload, JsonContentHelper.DefaultOptions);
+
+        dto.Should().NotBeNull();
+        dto!.TotalPrice.Should().BeApproximately(5.0, 0.01, "2 cards at 2.5 each should total 5.0");
+        dto.Cards.Should().ContainSingle();
+
+        var pricedCard = dto.Cards[0];
+        pricedCard.MarketPrice.Should().NotBeNull();
+        pricedCard.TotalValue.Should().NotBeNull();
+        pricedCard.MarketProvider.Should().NotBeNull();
+        pricedCard.Currency.Should().NotBeNull();
+        pricedCard.TotalValue.Should().BeApproximately(pricedCard.MarketPrice!.Value * pricedCard.QuantityToTrade, 0.01);
+    }
+
     private async Task<TradeBinder> CreateBinderAsync(string ownerId, bool isPublic = false)
     {
         await using var scope = _factory.Services.CreateAsyncScope();
