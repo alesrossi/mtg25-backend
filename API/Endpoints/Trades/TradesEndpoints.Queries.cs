@@ -1,9 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Security.Claims;
-using System.Threading;
-using System.Threading.Tasks;
-using API.Dtos.Trades;
 using API.Logging;
 using API.Services;
 using Core.Models.Identity;

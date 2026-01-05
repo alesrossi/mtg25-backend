@@ -51,6 +51,12 @@ public static class CollectionHelpers
             var imageUrl = imageUris.Large ?? imageUris.Normal ?? imageUris.Png;
             var artCrop = imageUris.ArtCrop;
             var backImageUrl = cds.ResolveBackImageUrl(ocd);
+            var cardName = ocd.Name;
+            var setCode = ocd.Set;
+            var setName = ocd.SetName;
+            var collectorNumber = ocd.CollectorNumber ?? string.Empty;
+            var rarity = ocd.Rarity ?? string.Empty;
+            var typeLine = ocd.TypeLine ?? string.Empty;
 
             if (string.IsNullOrWhiteSpace(imageUrl))
             {
@@ -70,7 +76,7 @@ public static class CollectionHelpers
 
             importedCards.Add(new Card
             {
-                Name = record.Name,
+                Name = cardName,
                 ScryfallId = ocd.Id,
                 Quantity = record.Quantity,
                 Language = record.Language,
@@ -78,11 +84,11 @@ public static class CollectionHelpers
                 PurchasePrice = purchasePrice,
                 PurchasePriceCurrency = purchaseCurrency,
                 ImageUrl = imageUrl,
-                SetCode = record.SetCode,
-                SetName = record.SetName,
-                TypeLine = ocd.TypeLine ?? string.Empty,
-                CollectorNumber = record.CollectorNumber,
-                Rarity = record.Rarity,
+                SetCode = setCode,
+                SetName = setName,
+                TypeLine = typeLine,
+                CollectorNumber = collectorNumber,
+                Rarity = rarity,
                 IsMisprint = record.IsMisprint,
                 IsAltered = record.IsAltered,
                 CollectionId = collectionId,
