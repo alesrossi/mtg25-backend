@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq;
 using API.Dtos.Cards;
 using API.Dtos.Collections;
 using API.Services;
@@ -72,7 +73,13 @@ public static class CollectionHelpers
                 continue;
             }
 
-            var (purchasePrice, purchaseCurrency) = ResolvePurchasePrice(record, ocd, marketProvider, userCurrency);
+            var (purchasePrice, purchaseCurrency) = ResolvePurchasePrice(
+                record.PurchasePrice,
+                record.PurchasePriceCurrency,
+                record.IsFoil,
+                ocd,
+                marketProvider,
+                userCurrency);
 
             importedCards.Add(new Card
             {
@@ -100,18 +107,139 @@ public static class CollectionHelpers
         return new CollectionImportResult(importedCards, errors, skippedLines);
     }
 
+    public static async Task<CollectionImportResult> ProcessMoxfieldCsvFile(
+        IFormFile file,
+        CardDataService cds,
+        int collectionId,
+        MarketProvider marketProvider,
+        Currency userCurrency)
+    {
+        await using var stream = file.OpenReadStream();
+        using var reader = new StreamReader(stream);
+        using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
+
+        var importedCards = new List<Card>();
+        var errors = new List<string>();
+        var skippedLines = 0;
+
+        while (csv.Read())
+        {
+            MoxfieldCsvRecordDto record;
+            try
+            {
+                record = csv.GetRecord<MoxfieldCsvRecordDto>();
+            }
+            catch (Exception ex)
+            {
+                skippedLines++;
+                errors.Add($"Line {csv.Context.Parser!.Row}: {ex.Message}");
+                continue;
+            }
+
+            var normalizedName = record.Name?.Trim() ?? string.Empty;
+            var normalizedSet = record.SetCode?.Trim() ?? string.Empty;
+            var normalizedCollector = record.CollectorNumber?.Trim() ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(normalizedName) ||
+                string.IsNullOrWhiteSpace(normalizedSet) ||
+                string.IsNullOrWhiteSpace(normalizedCollector))
+            {
+                skippedLines++;
+                errors.Add($"Line {csv.Context.Parser!.Row}: Missing required card data (Name, Edition, or Collector Number).");
+                continue;
+            }
+
+            var matchingCards = cds.CardDataById.Values
+                .Where(card =>
+                    string.Equals(card.Name, normalizedName, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(card.Set, normalizedSet, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(card.CollectorNumber ?? string.Empty, normalizedCollector, StringComparison.OrdinalIgnoreCase))
+                .Take(2)
+                .ToList();
+
+            if (matchingCards.Count != 1)
+            {
+                skippedLines++;
+                var reason = matchingCards.Count == 0
+                    ? $"Card '{record.Name}' with set '{record.SetCode}' and collector number '{record.CollectorNumber}' was not found."
+                    : $"Multiple cards matched '{record.Name}' with set '{record.SetCode}' and collector number '{record.CollectorNumber}'.";
+                errors.Add($"Line {csv.Context.Parser!.Row}: {reason}");
+                continue;
+            }
+
+            var ocd = matchingCards[0];
+
+            var imageUris = CardDataService.ResolveImageUris(ocd);
+            var imageUrl = imageUris.Large ?? imageUris.Normal ?? imageUris.Png;
+            var artCrop = imageUris.ArtCrop;
+
+            if (string.IsNullOrWhiteSpace(imageUrl))
+            {
+                skippedLines++;
+                errors.Add($"Line {csv.Context.Parser!.Row}: Card '{ocd.Name}' is missing image URL.");
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(artCrop))
+            {
+                skippedLines++;
+                errors.Add($"Line {csv.Context.Parser!.Row}: Card '{ocd.Name}' is missing art crop image.");
+                continue;
+            }
+
+            var purchasePriceInput = ParsePurchasePrice(record.PurchasePrice);
+
+            var (purchasePrice, purchaseCurrency) = ResolvePurchasePrice(
+                purchasePriceInput,
+                string.Empty,
+                record.IsFoil,
+                ocd,
+                marketProvider,
+                userCurrency);
+
+            var backImageUrl = cds.ResolveBackImageUrl(ocd);
+            var language = record.Language?.Trim() ?? string.Empty;
+
+            importedCards.Add(new Card
+            {
+                Name = ocd.Name,
+                ScryfallId = ocd.Id,
+                Quantity = record.Quantity,
+                Language = language,
+                IsFoil = record.IsFoil,
+                PurchasePrice = purchasePrice,
+                PurchasePriceCurrency = purchaseCurrency,
+                ImageUrl = imageUrl,
+                SetCode = ocd.Set,
+                SetName = ocd.SetName,
+                TypeLine = ocd.TypeLine ?? string.Empty,
+                CollectorNumber = ocd.CollectorNumber ?? string.Empty,
+                Rarity = ocd.Rarity ?? string.Empty,
+                IsMisprint = false,
+                IsAltered = record.IsAltered,
+                CollectionId = collectionId,
+                ArtCrop = artCrop,
+                BackImageUrl = backImageUrl
+            });
+        }
+
+        return new CollectionImportResult(importedCards, errors, skippedLines);
+    }
+
     private static (double price, string currency) ResolvePurchasePrice(
-        CsvRecordDto record,
+        double purchasePrice,
+        string? purchaseCurrency,
+        bool isFoil,
         ScryfallCardDto cardData,
         MarketProvider marketProvider,
         Currency userCurrency)
     {
-        var price = record.PurchasePrice;
-        var currency = record.PurchasePriceCurrency;
+        var price = purchasePrice;
+        var currency = purchaseCurrency;
 
         if (price <= 0)
         {
-            var marketPrice = ResolveMarketPrice(cardData, record.IsFoil, marketProvider);
+            var marketPrice = ResolveMarketPrice(cardData, isFoil, marketProvider);
             if (marketPrice.HasValue)
             {
                 price = marketPrice.Value;
@@ -125,6 +253,18 @@ public static class CollectionHelpers
         }
 
         return (price, currency);
+    }
+
+    private static double ParsePurchasePrice(string? priceText)
+    {
+        if (string.IsNullOrWhiteSpace(priceText))
+        {
+            return 0;
+        }
+
+        return double.TryParse(priceText, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : 0;
     }
 
     private static double? ResolveMarketPrice(ScryfallCardDto cardData, bool isFoil, MarketProvider marketProvider)
