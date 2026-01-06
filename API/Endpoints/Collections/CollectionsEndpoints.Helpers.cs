@@ -7,6 +7,7 @@ public static partial class CollectionsEndpoints
         Manabox,
         Moxfield,
         Goldfish,
-        Archidekt
+        Archidekt,
+        Dragonshield
     }
 }
