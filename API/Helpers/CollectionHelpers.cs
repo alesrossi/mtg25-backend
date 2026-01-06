@@ -333,6 +333,131 @@ public static class CollectionHelpers
         return new CollectionImportResult(importedCards, errors, skippedLines);
     }
 
+    public static async Task<CollectionImportResult> ProcessArchidektCsvFile(
+        IFormFile file,
+        CardDataService cds,
+        int collectionId,
+        MarketProvider marketProvider,
+        Currency userCurrency)
+    {
+        await using var stream = file.OpenReadStream();
+        using var reader = new StreamReader(stream);
+        using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
+
+        var importedCards = new List<Card>();
+        var errors = new List<string>();
+        var skippedLines = 0;
+
+        while (csv.Read())
+        {
+            ArchidektCsvRecordDto record;
+            try
+            {
+                record = csv.GetRecord<ArchidektCsvRecordDto>();
+            }
+            catch (Exception ex)
+            {
+                skippedLines++;
+                errors.Add($"Line {csv.Context.Parser!.Row}: {ex.Message}");
+                continue;
+            }
+
+            var scryfallId = record.ScryfallId?.Trim();
+            ScryfallCardDto? ocd;
+
+            if (!string.IsNullOrWhiteSpace(scryfallId))
+            {
+                if (!cds.CardDataById.TryGetValue(scryfallId, out ocd))
+                {
+                    skippedLines++;
+                    errors.Add($"Line {csv.Context.Parser!.Row}: Card with Scryfall ID '{scryfallId}' was not found.");
+                    continue;
+                }
+            }
+            else
+            {
+                var normalizedName = record.Name?.Trim() ?? string.Empty;
+                var normalizedSet = record.EditionCode?.Trim() ?? string.Empty;
+                var normalizedCollector = record.CollectorNumber?.Trim() ?? string.Empty;
+
+                if (string.IsNullOrWhiteSpace(normalizedName) ||
+                    string.IsNullOrWhiteSpace(normalizedSet) ||
+                    string.IsNullOrWhiteSpace(normalizedCollector))
+                {
+                    skippedLines++;
+                    errors.Add($"Line {csv.Context.Parser!.Row}: Missing required card data (Name, Edition Code, or Collector Number).");
+                    continue;
+                }
+
+                if (!TryResolveCardByPrinting(cds, normalizedName, normalizedSet, normalizedCollector, out ocd, out var lookupError))
+                {
+                    skippedLines++;
+                    errors.Add($"Line {csv.Context.Parser!.Row}: {lookupError}");
+                    continue;
+                }
+            }
+
+            var imageUris = CardDataService.ResolveImageUris(ocd);
+            var imageUrl = imageUris.Large ?? imageUris.Normal ?? imageUris.Png;
+            var artCrop = imageUris.ArtCrop;
+
+            if (string.IsNullOrWhiteSpace(imageUrl))
+            {
+                skippedLines++;
+                errors.Add($"Line {csv.Context.Parser!.Row}: Card '{ocd.Name}' is missing image URL.");
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(artCrop))
+            {
+                skippedLines++;
+                errors.Add($"Line {csv.Context.Parser!.Row}: Card '{ocd.Name}' is missing art crop image.");
+                continue;
+            }
+
+            var purchasePriceInput = ParsePurchasePrice(record.PurchasePrice);
+            var initialCurrency = purchasePriceInput > 0
+                ? ConvertCurrencyToCode(userCurrency)
+                : string.Empty;
+
+            var (purchasePrice, purchaseCurrency) = ResolvePurchasePrice(
+                purchasePriceInput,
+                initialCurrency,
+                record.IsFoil,
+                ocd,
+                marketProvider,
+                userCurrency);
+
+            var backImageUrl = cds.ResolveBackImageUrl(ocd);
+            var language = string.IsNullOrWhiteSpace(record.Language) ? "en" : record.Language.Trim();
+
+            importedCards.Add(new Card
+            {
+                Name = ocd.Name,
+                ScryfallId = ocd.Id,
+                Quantity = record.Quantity,
+                Language = language,
+                Condition = Condition.NearMint,
+                IsFoil = record.IsFoil,
+                PurchasePrice = purchasePrice,
+                PurchasePriceCurrency = purchaseCurrency,
+                ImageUrl = imageUrl,
+                SetCode = ocd.Set,
+                SetName = ocd.SetName,
+                TypeLine = ocd.TypeLine ?? string.Empty,
+                CollectorNumber = ocd.CollectorNumber ?? string.Empty,
+                Rarity = ocd.Rarity ?? string.Empty,
+                IsMisprint = false,
+                IsAltered = false,
+                CollectionId = collectionId,
+                ArtCrop = artCrop,
+                BackImageUrl = backImageUrl
+            });
+        }
+
+        return new CollectionImportResult(importedCards, errors, skippedLines);
+    }
+
     private static bool TryResolveCardByPrinting(
         CardDataService cds,
         string name,

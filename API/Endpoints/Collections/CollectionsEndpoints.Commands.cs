@@ -1,4 +1,3 @@
-using System;
 using System.Security.Claims;
 using API.Dtos.Collections;
 using API.Helpers;
@@ -147,6 +146,7 @@ public static partial class CollectionsEndpoints
                 ImportSource.Manabox => await CollectionHelpers.ProcessCsvFIle(file, cds, id, marketProvider, userCurrency),
                 ImportSource.Moxfield => await CollectionHelpers.ProcessMoxfieldCsvFile(file, cds, id, marketProvider, userCurrency),
                 ImportSource.Goldfish => await CollectionHelpers.ProcessGoldfishCsvFile(file, cds, id, marketProvider, userCurrency),
+                ImportSource.Archidekt => await CollectionHelpers.ProcessArchidektCsvFile(file, cds, id, marketProvider, userCurrency),
                 _ => throw new ArgumentOutOfRangeException(nameof(source), source, "Unsupported import source.")
             };
 

@@ -6,6 +6,7 @@ public static partial class CollectionsEndpoints
     {
         Manabox,
         Moxfield,
-        Goldfish
+        Goldfish,
+        Archidekt
     }
 }
