@@ -1,4 +1,4 @@
-using System.Linq;
+using System;
 using System.Security.Claims;
 using API.Dtos.Collections;
 using API.Helpers;
@@ -105,14 +105,14 @@ public static partial class CollectionsEndpoints
         return Results.Ok(collection);
     }
 
-    private static async Task<IResult> ImportCardList(
-        IUnitOfWork unitOfWork,
+    private static async Task<IResult> ImportCardList(IUnitOfWork unitOfWork,
         CardDataService cds,
         IFormFile file,
         int id,
         HttpContext context,
         [FromServices] IUserSettingsService userSettingsService,
-        [FromServices] ILogger<CollectionsEndpointLogCategory> logger)
+        [FromServices] ILogger<CollectionsEndpointLogCategory> logger,
+        [FromQuery] ImportSource source = ImportSource.Manabox)
     {
         const string operation = "Collections.Import";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -142,7 +142,12 @@ public static partial class CollectionsEndpoints
 
             var marketProvider = await userSettingsService.GetMarketProviderAsync(userId);
             var userCurrency = userSettingsService.ResolveCurrency(marketProvider);
-            var importResult = await CollectionHelpers.ProcessCsvFIle(file, cds, id, marketProvider, userCurrency);
+            var importResult = source switch
+            {
+                ImportSource.Manabox => await CollectionHelpers.ProcessCsvFIle(file, cds, id, marketProvider, userCurrency),
+                ImportSource.Moxfield => await CollectionHelpers.ProcessMoxfieldCsvFile(file, cds, id, marketProvider, userCurrency),
+                _ => throw new ArgumentOutOfRangeException(nameof(source), source, "Unsupported import source.")
+            };
 
             var collection = await unitOfWork.Repository<Collection>().GetByIdAsync(id);
             if (collection is null)
@@ -160,7 +165,7 @@ public static partial class CollectionsEndpoints
             {
                 var errors = importResult.Errors.Any()
                     ? importResult.Errors
-                    : new List<string> { "CSV file did not contain any valid cards." };
+                    : ["CSV file did not contain any valid cards."];
 
                 logger.LogOperationWarning(operation, "No valid cards", new { id, errors, importResult.SkippedLines });
                 return Results.BadRequest(new
@@ -173,7 +178,7 @@ public static partial class CollectionsEndpoints
 
             var importedCount = importResult.Cards.Sum(card => card.Quantity);
             var existingCards = await unitOfWork.Repository<Card>()
-                .ListAsync(new CardsForCollectionSpecification(id), tracking: false) ?? Array.Empty<Card>();
+                .ListAsync(new CardsForCollectionSpecification(id), tracking: false) ?? [];
             var existingTotal = existingCards.Sum(card => card.PurchasePrice * Math.Max(0, card.Quantity));
             var importedTotal = importResult.Cards.Sum(card => card.PurchasePrice * Math.Max(0, card.Quantity));
 
