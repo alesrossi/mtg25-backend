@@ -8,6 +8,7 @@ public static partial class CollectionsEndpoints
         Moxfield,
         Goldfish,
         Archidekt,
-        Dragonshield
+        Dragonshield,
+        Delver
     }
 }

@@ -573,6 +573,104 @@ public static class CollectionHelpers
         return new CollectionImportResult(importedCards, errors, skippedLines);
     }
 
+    public static async Task<CollectionImportResult> ProcessDelverCsvFile(
+        IFormFile file,
+        CardDataService cds,
+        int collectionId,
+        MarketProvider marketProvider,
+        Currency userCurrency)
+    {
+        await using var stream = file.OpenReadStream();
+        using var reader = new StreamReader(stream);
+        using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
+
+        var importedCards = new List<Card>();
+        var errors = new List<string>();
+        var skippedLines = 0;
+
+        while (csv.Read())
+        {
+            DelverCsvRecordDto record;
+            try
+            {
+                record = csv.GetRecord<DelverCsvRecordDto>();
+            }
+            catch (Exception ex)
+            {
+                skippedLines++;
+                errors.Add($"Line {csv.Context.Parser!.Row}: {ex.Message}");
+                continue;
+            }
+
+            if (!cds.CardDataById.TryGetValue(record.ScryfallId, out var ocd))
+            {
+                skippedLines++;
+                errors.Add($"Line {csv.Context.Parser!.Row}: Card with Scryfall ID '{record.ScryfallId}' was not found.");
+                continue;
+            }
+
+            var imageUris = CardDataService.ResolveImageUris(ocd);
+            var imageUrl = imageUris.Large ?? imageUris.Normal ?? imageUris.Png;
+            var artCrop = imageUris.ArtCrop;
+
+            if (string.IsNullOrWhiteSpace(imageUrl))
+            {
+                skippedLines++;
+                errors.Add($"Line {csv.Context.Parser!.Row}: Card '{ocd.Name}' is missing image URL.");
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(artCrop))
+            {
+                skippedLines++;
+                errors.Add($"Line {csv.Context.Parser!.Row}: Card '{ocd.Name}' is missing art crop image.");
+                continue;
+            }
+
+            var purchasePriceInput = ParsePurchasePrice(record.Price);
+            var currencyInput = string.IsNullOrWhiteSpace(record.Currency)
+                ? string.Empty
+                : record.Currency.Trim();
+
+            var (purchasePrice, purchaseCurrency) = ResolvePurchasePrice(
+                purchasePriceInput,
+                currencyInput,
+                record.IsFoil,
+                ocd,
+                marketProvider,
+                userCurrency);
+
+            var backImageUrl = cds.ResolveBackImageUrl(ocd);
+            var language = string.IsNullOrWhiteSpace(record.Language) ? "en" : record.Language.Trim();
+            var cardCondition = ConvertCondition(record.Condition);
+
+            importedCards.Add(new Card
+            {
+                Name = ocd.Name,
+                ScryfallId = ocd.Id,
+                Quantity = record.Quantity,
+                Language = language,
+                Condition = cardCondition,
+                IsFoil = record.IsFoil,
+                PurchasePrice = purchasePrice,
+                PurchasePriceCurrency = purchaseCurrency,
+                ImageUrl = imageUrl,
+                SetCode = ocd.Set,
+                SetName = ocd.SetName,
+                TypeLine = ocd.TypeLine ?? string.Empty,
+                CollectorNumber = ocd.CollectorNumber ?? string.Empty,
+                Rarity = ocd.Rarity ?? string.Empty,
+                IsMisprint = false,
+                IsAltered = false,
+                CollectionId = collectionId,
+                ArtCrop = artCrop,
+                BackImageUrl = backImageUrl
+            });
+        }
+
+        return new CollectionImportResult(importedCards, errors, skippedLines);
+    }
+
     private static bool TryResolveCardByPrinting(
         CardDataService cds,
         string name,
@@ -676,5 +774,18 @@ public static class CollectionHelpers
     private static string ConvertCurrencyToCode(Currency currency)
     {
         return currency.ToString().ToUpperInvariant();
+    }
+
+    private static Condition ConvertCondition(string? condition)
+    {
+        if (string.IsNullOrWhiteSpace(condition))
+        {
+            return Condition.NearMint;
+        }
+
+        var normalized = condition.Replace(" ", string.Empty, StringComparison.OrdinalIgnoreCase);
+        return Enum.TryParse<Condition>(normalized, true, out var parsed)
+            ? parsed
+            : Condition.NearMint;
     }
 }

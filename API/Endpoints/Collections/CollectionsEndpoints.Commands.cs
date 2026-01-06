@@ -148,6 +148,7 @@ public static partial class CollectionsEndpoints
                 ImportSource.Goldfish => await CollectionHelpers.ProcessGoldfishCsvFile(file, cds, id, marketProvider, userCurrency),
                 ImportSource.Archidekt => await CollectionHelpers.ProcessArchidektCsvFile(file, cds, id, marketProvider, userCurrency),
                 ImportSource.Dragonshield => await CollectionHelpers.ProcessDragonshieldCsvFile(file, cds, id, marketProvider, userCurrency),
+                ImportSource.Delver => await CollectionHelpers.ProcessDelverCsvFile(file, cds, id, marketProvider, userCurrency),
                 _ => throw new ArgumentOutOfRangeException(nameof(source), source, "Unsupported import source.")
             };
 
