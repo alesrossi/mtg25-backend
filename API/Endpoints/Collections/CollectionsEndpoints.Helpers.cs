@@ -5,6 +5,7 @@ public static partial class CollectionsEndpoints
     public enum ImportSource
     {
         Manabox,
-        Moxfield
+        Moxfield,
+        Goldfish
     }
 }

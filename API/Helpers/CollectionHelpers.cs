@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using API.Dtos.Cards;
@@ -149,25 +150,12 @@ public static class CollectionHelpers
                 continue;
             }
 
-            var matchingCards = cds.CardDataById.Values
-                .Where(card =>
-                    string.Equals(card.Name, normalizedName, StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(card.Set, normalizedSet, StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(card.CollectorNumber ?? string.Empty, normalizedCollector, StringComparison.OrdinalIgnoreCase))
-                .Take(2)
-                .ToList();
-
-            if (matchingCards.Count != 1)
+            if (!TryResolveCardByPrinting(cds, normalizedName, normalizedSet, normalizedCollector, out var ocd, out var lookupError))
             {
                 skippedLines++;
-                var reason = matchingCards.Count == 0
-                    ? $"Card '{record.Name}' with set '{record.SetCode}' and collector number '{record.CollectorNumber}' was not found."
-                    : $"Multiple cards matched '{record.Name}' with set '{record.SetCode}' and collector number '{record.CollectorNumber}'.";
-                errors.Add($"Line {csv.Context.Parser!.Row}: {reason}");
+                errors.Add($"Line {csv.Context.Parser!.Row}: {lookupError}");
                 continue;
             }
-
-            var ocd = matchingCards[0];
 
             var imageUris = CardDataService.ResolveImageUris(ocd);
             var imageUrl = imageUris.Large ?? imageUris.Normal ?? imageUris.Png;
@@ -187,10 +175,8 @@ public static class CollectionHelpers
                 continue;
             }
 
-            var purchasePriceInput = ParsePurchasePrice(record.PurchasePrice);
-
             var (purchasePrice, purchaseCurrency) = ResolvePurchasePrice(
-                purchasePriceInput,
+                0,
                 string.Empty,
                 record.IsFoil,
                 ocd,
@@ -198,7 +184,8 @@ public static class CollectionHelpers
                 userCurrency);
 
             var backImageUrl = cds.ResolveBackImageUrl(ocd);
-            var language = record.Language?.Trim() ?? string.Empty;
+            const string language = "en";
+            const Condition defaultCondition = Condition.NearMint;
 
             importedCards.Add(new Card
             {
@@ -206,6 +193,7 @@ public static class CollectionHelpers
                 ScryfallId = ocd.Id,
                 Quantity = record.Quantity,
                 Language = language,
+                Condition = defaultCondition,
                 IsFoil = record.IsFoil,
                 PurchasePrice = purchasePrice,
                 PurchasePriceCurrency = purchaseCurrency,
@@ -224,6 +212,156 @@ public static class CollectionHelpers
         }
 
         return new CollectionImportResult(importedCards, errors, skippedLines);
+    }
+
+    public static async Task<CollectionImportResult> ProcessGoldfishCsvFile(
+        IFormFile file,
+        CardDataService cds,
+        int collectionId,
+        MarketProvider marketProvider,
+        Currency userCurrency)
+    {
+        await using var stream = file.OpenReadStream();
+        using var reader = new StreamReader(stream);
+        using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
+
+        var importedCards = new List<Card>();
+        var errors = new List<string>();
+        var skippedLines = 0;
+
+        while (csv.Read())
+        {
+            GoldfishCsvRecordDto record;
+            try
+            {
+                record = csv.GetRecord<GoldfishCsvRecordDto>();
+            }
+            catch (Exception ex)
+            {
+                skippedLines++;
+                errors.Add($"Line {csv.Context.Parser!.Row}: {ex.Message}");
+                continue;
+            }
+
+            var normalizedName = record.Name?.Trim() ?? string.Empty;
+            var normalizedSet = record.SetCode?.Trim() ?? string.Empty;
+            var normalizedCollector = record.CollectorNumber?.Trim() ?? string.Empty;
+            var normalizedScryfallId = record.ScryfallId?.Trim();
+
+            ScryfallCardDto? ocd;
+
+            if (!string.IsNullOrWhiteSpace(normalizedScryfallId))
+            {
+                if (!cds.CardDataById.TryGetValue(normalizedScryfallId, out ocd))
+                {
+                    skippedLines++;
+                    errors.Add($"Line {csv.Context.Parser!.Row}: Card with Scryfall ID '{normalizedScryfallId}' was not found.");
+                    continue;
+                }
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(normalizedName) ||
+                    string.IsNullOrWhiteSpace(normalizedSet) ||
+                    string.IsNullOrWhiteSpace(normalizedCollector))
+                {
+                    skippedLines++;
+                    errors.Add($"Line {csv.Context.Parser!.Row}: Missing required card data (Card, Set ID, or Collector Number).");
+                    continue;
+                }
+
+                if (!TryResolveCardByPrinting(cds, normalizedName, normalizedSet, normalizedCollector, out ocd, out var lookupError))
+                {
+                    skippedLines++;
+                    errors.Add($"Line {csv.Context.Parser!.Row}: {lookupError}");
+                    continue;
+                }
+            }
+
+            var imageUris = CardDataService.ResolveImageUris(ocd);
+            var imageUrl = imageUris.Large ?? imageUris.Normal ?? imageUris.Png;
+            var artCrop = imageUris.ArtCrop;
+
+            if (string.IsNullOrWhiteSpace(imageUrl))
+            {
+                skippedLines++;
+                errors.Add($"Line {csv.Context.Parser!.Row}: Card '{ocd.Name}' is missing image URL.");
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(artCrop))
+            {
+                skippedLines++;
+                errors.Add($"Line {csv.Context.Parser!.Row}: Card '{ocd.Name}' is missing art crop image.");
+                continue;
+            }
+
+            var (purchasePrice, purchaseCurrency) = ResolvePurchasePrice(
+                0,
+                string.Empty,
+                record.IsFoil,
+                ocd,
+                marketProvider,
+                userCurrency);
+
+            var backImageUrl = cds.ResolveBackImageUrl(ocd);
+            const string language = "en";
+
+            importedCards.Add(new Card
+            {
+                Name = ocd.Name,
+                ScryfallId = ocd.Id,
+                Quantity = record.Quantity,
+                Language = language,
+                IsFoil = record.IsFoil,
+                PurchasePrice = purchasePrice,
+                PurchasePriceCurrency = purchaseCurrency,
+                ImageUrl = imageUrl,
+                SetCode = ocd.Set,
+                SetName = ocd.SetName,
+                TypeLine = ocd.TypeLine ?? string.Empty,
+                CollectorNumber = ocd.CollectorNumber ?? string.Empty,
+                Rarity = ocd.Rarity ?? string.Empty,
+                IsMisprint = false,
+                IsAltered = false,
+                CollectionId = collectionId,
+                ArtCrop = artCrop,
+                BackImageUrl = backImageUrl
+            });
+        }
+
+        return new CollectionImportResult(importedCards, errors, skippedLines);
+    }
+
+    private static bool TryResolveCardByPrinting(
+        CardDataService cds,
+        string name,
+        string setCode,
+        string collectorNumber,
+        [NotNullWhen(true)] out ScryfallCardDto? card,
+        out string? errorMessage)
+    {
+        card = null;
+        errorMessage = null;
+
+        var matches = cds.CardDataById.Values
+            .Where(c =>
+                string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(c.Set, setCode, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(c.CollectorNumber ?? string.Empty, collectorNumber, StringComparison.OrdinalIgnoreCase))
+            .Take(2)
+            .ToList();
+
+        if (matches.Count != 1)
+        {
+            errorMessage = matches.Count == 0
+                ? $"Card '{name}' with set '{setCode}' and collector number '{collectorNumber}' was not found."
+                : $"Multiple cards matched '{name}' with set '{setCode}' and collector number '{collectorNumber}'.";
+            return false;
+        }
+
+        card = matches[0];
+        return true;
     }
 
     private static (double price, string currency) ResolvePurchasePrice(
