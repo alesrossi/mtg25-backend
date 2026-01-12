@@ -48,6 +48,16 @@ public static class FriendsEndpoints
             .Produces(StatusCodes.Status204NoContent)
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json");
+
+        group.MapPost("/{userId}/reject", RejectFriendRequestAsync)
+            .RequireAuthorization()
+            .WithSummary("Reject friend request")
+            .WithDescription("Allows the invited user to decline a pending friend request.")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces<ProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status403Forbidden, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json");
     }
 
     private static async Task<IResult> GetFriendsAsync(
@@ -180,6 +190,49 @@ public static class FriendsEndpoints
         catch (KeyNotFoundException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { requesterId, userId });
+            return Results.NotFound(new { Error = ex.Message });
+        }
+    }
+
+    private static async Task<IResult> RejectFriendRequestAsync(
+        string userId,
+        HttpContext context,
+        [FromServices] IFriendService friendService,
+        [FromServices] ILogger<FriendsEndpointLogCategory> logger,
+        CancellationToken cancellationToken)
+    {
+        const string operation = "Friends.Reject";
+        var recipientId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrWhiteSpace(recipientId))
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { userId });
+            return Results.Unauthorized();
+        }
+
+        try
+        {
+            await friendService.RejectFriendRequestAsync(userId, recipientId, cancellationToken);
+            logger.LogOperationSuccess(operation, new { requesterId = userId, recipientId });
+            return Results.NoContent();
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { requesterId = userId, recipientId });
+            return Results.Forbid();
+        }
+        catch (ArgumentException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { requesterId = userId, recipientId });
+            return Results.BadRequest(new { Error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { requesterId = userId, recipientId });
+            return Results.BadRequest(new { Error = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { requesterId = userId, recipientId });
             return Results.NotFound(new { Error = ex.Message });
         }
     }

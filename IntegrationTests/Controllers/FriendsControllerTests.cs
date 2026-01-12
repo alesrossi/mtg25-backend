@@ -110,6 +110,7 @@ public class FriendsControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
+    
 
     [Fact]
     public async Task GetFriends_ReturnsAcceptedFriendships()

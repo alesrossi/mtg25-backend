@@ -18,6 +18,7 @@ public interface IFriendService
 {
     Task SendFriendRequestAsync(string requesterUserId, string targetUserId, CancellationToken cancellationToken = default);
     Task AcceptFriendRequestAsync(string requesterUserId, string recipientUserId, CancellationToken cancellationToken = default);
+    Task RejectFriendRequestAsync(string otherUserId, string recipientUserId, CancellationToken cancellationToken = default);
     Task DeleteFriendshipAsync(string userId, string friendUserId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<FriendDto>> GetFriendsAsync(string userId, CancellationToken cancellationToken = default);
 }
@@ -146,6 +147,42 @@ public sealed class FriendService : IFriendService
 
         _identityDbContext.AppUserFriends.Remove(friendship);
         await _identityDbContext.SaveChangesAsync(cancellationToken);
+    }
+    
+    public async Task RejectFriendRequestAsync(string otherUserId, string recipientUserId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(otherUserId) || string.IsNullOrWhiteSpace(recipientUserId))
+        {
+            throw new ArgumentException("Both user identifiers are required.");
+        }
+
+        var friendship = await FindFriendshipAsync(otherUserId, recipientUserId, cancellationToken);
+        if (friendship is null)
+        {
+            throw new KeyNotFoundException("Friend request not found.");
+        }
+
+        var initiatorId = friendship.RequestedById;
+        var invitedUserId = string.Equals(initiatorId, friendship.UserId, StringComparison.Ordinal)
+            ? friendship.FriendId
+            : friendship.UserId;
+
+        if (!string.Equals(invitedUserId, recipientUserId, StringComparison.Ordinal))
+        {
+            throw new UnauthorizedAccessException("Only the invited user may reject the request.");
+        }
+
+        if (friendship.Status != FriendshipStatus.Pending)
+        {
+            throw new InvalidOperationException("This friend request has already been processed.");
+        }
+
+        var approvalKey = $"{initiatorId}:{invitedUserId}";
+        friendship.Status = FriendshipStatus.Rejected;
+        friendship.RespondedAt = DateTime.UtcNow;
+        await _identityDbContext.SaveChangesAsync(cancellationToken);
+
+        await _notificationService.DeleteNotificationsAsync(NotificationConstants.FriendRequest, approvalKey);
     }
 
     public async Task<IReadOnlyList<FriendDto>> GetFriendsAsync(string userId, CancellationToken cancellationToken = default)
