@@ -210,7 +210,7 @@ public sealed class TradeConnectionService : ITradeConnectionService
         {
             var originPrefix = $"{connection.TradeId}.";
             var hasApproval = await _notificationService.HasApprovedNotificationAsync(
-                TradeNotificationConstants.TradeCommitRequest,
+                NotificationConstants.TradeCommitRequest,
                 originPrefix,
                 cancellationToken);
             if (!hasApproval)

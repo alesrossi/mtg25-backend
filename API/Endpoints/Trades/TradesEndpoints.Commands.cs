@@ -96,7 +96,7 @@ public static partial class TradesEndpoints
 
             var notification = new NewNotificationDto
             {
-                Name = TradeNotificationConstants.TradeCommitRequest,
+                Name = NotificationConstants.TradeCommitRequest,
                 Message = $"{requester.DisplayName} is ready to commit the trade.",
                 Origin = $"{tradeId}.{userId}",
                 ObjectId = connection.TradeId,
@@ -141,7 +141,7 @@ public static partial class TradesEndpoints
             var updated = await tradeConnectionService.UpdateConnectionAsync(tradeId, userId, request, cancellationToken);
             if (!updated.IsLiveTrading)
             {
-                await notificationService.DeleteNotificationsAsync(TradeNotificationConstants.TradeCommitRequest, updated.TradeId);
+                await notificationService.DeleteNotificationsAsync(NotificationConstants.TradeCommitRequest, updated.TradeId);
             }
             logger.LogOperationSuccess(operation, new { tradeId, userId });
             return Results.Ok(updated);

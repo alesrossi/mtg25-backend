@@ -152,14 +152,14 @@ public class NotificationService
         await _context.SaveChangesAsync();
     }
     
-    public async Task<bool> HasApprovedNotificationAsync(string name, string originPrefix, CancellationToken cancellationToken = default)
+    public async Task<bool> HasApprovedNotificationAsync(string name, string key, CancellationToken cancellationToken = default)
     {
         return await _context.Notifications
             .AsNoTracking()
             .AnyAsync(
                 n => n.Name == name
                      && n.Approval
-                     && n.Origin.StartsWith(originPrefix),
+                     && (n.Origin.StartsWith(key) || n.ObjectId == key),
                 cancellationToken);
     }
     

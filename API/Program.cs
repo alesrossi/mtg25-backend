@@ -25,6 +25,7 @@ using API.Endpoints.Collections;
 using API.Endpoints.Decks;
 using API.Endpoints.Leagues;
 using API.Endpoints.Notifications;
+using API.Endpoints.Friends;
 using API.Endpoints.Trades;
 using API.Endpoints.Wishlists;
 using Scalar.AspNetCore;
@@ -158,6 +159,7 @@ public class Program
             builder.Services.AddScoped<IUserSettingsService, UserSettingsService>();
             builder.Services.AddScoped<ITradeSessionStore, TradeSessionStore>();
             builder.Services.AddScoped<ITradeConnectionService, TradeConnectionService>();
+            builder.Services.AddScoped<IFriendService, FriendService>();
             builder.Services.AddScoped<NotificationService>();
             builder.Services.AddScoped<IDeckValidationService, DeckValidationService>();
             builder.Services.AddScoped<IDecklistParserService, DecklistParserService>();
@@ -371,6 +373,7 @@ public class Program
             app.MapLeaguesEndpoints();
             app.MapDecksEndpoints();
             app.MapTradeEndpoints();
+            app.MapFriendEndpoints();
             app.MapNotificationsEndpoints();
         
             // Add health check endpoint
