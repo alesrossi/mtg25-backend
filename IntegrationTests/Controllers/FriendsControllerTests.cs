@@ -36,7 +36,7 @@ public class FriendsControllerTests : IClassFixture<CustomWebApplicationFactory>
         using var client = _factory.CreateClientWithUser(requester.Id, requester.UserName!, requester.Email!);
         var response = await client.PostAsync($"/api/friends/{target.Id}/request", null);
 
-        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         await using var scope = _factory.Services.CreateAsyncScope();
         var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
@@ -75,7 +75,7 @@ public class FriendsControllerTests : IClassFixture<CustomWebApplicationFactory>
         using var client = _factory.CreateClientWithUser(target.Id, target.UserName!, target.Email!);
         var response = await client.PostAsync($"/api/friends/{requester.Id}/accept", null);
 
-        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         await using var scope = _factory.Services.CreateAsyncScope();
         var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
