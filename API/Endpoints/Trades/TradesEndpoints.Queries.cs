@@ -2,8 +2,10 @@ using System.Security.Claims;
 using API.Logging;
 using API.Services;
 using Core.Models.Identity;
+using Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace API.Endpoints.Trades;
 
@@ -15,8 +17,10 @@ public static partial class TradesEndpoints
         [FromServices] ITradeConnectionService tradeConnectionService,
         [FromServices] ILogger<TradesEndpointLogCategory> logger,
         [FromServices] UserManager<AppUser> userManager,
+        [FromServices] AppIdentityDbContext identityDbContext,
         HttpContext context,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        [FromQuery] bool liveTrading = true)
     {
         const string operation = "Trades.Match";
 
@@ -47,9 +51,28 @@ public static partial class TradesEndpoints
             return Results.Unauthorized();
         }
 
+        if (!liveTrading)
+        {
+            var hasApproval = await identityDbContext.Notifications
+                .AsNoTracking()
+                .AnyAsync(n =>
+                    n.Name == "trade_request"
+                    && n.Approval
+                    && (
+                        (n.AppUserId == initiatorUserId && n.ObjectId == partnerUserId)
+                        || (n.AppUserId == partnerUserId && n.ObjectId == initiatorUserId)
+                    ), cancellationToken);
+
+            if (!hasApproval)
+            {
+                logger.LogOperationWarning(operation, "Trade request not approved", new { initiatorUserId, partnerUserId });
+                return Results.Forbid();
+            }
+        }
+
         try
         {
-            var connection = await tradeConnectionService.PrepareConnectionAsync(initiatorUserId, partnerUserId, cancellationToken);
+            var connection = await tradeConnectionService.PrepareConnectionAsync(initiatorUserId, partnerUserId, liveTrading, cancellationToken);
             logger.LogOperationSuccess(operation, new { initiatorUserId, partnerUserId });
             return Results.Ok(connection);
         }

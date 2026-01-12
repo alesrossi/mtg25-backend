@@ -9,7 +9,7 @@ namespace API.Services;
 
 public interface ITradeSessionStore
 {
-    Task StoreAsync(TradeConnectionDto connection, CancellationToken cancellationToken = default);
+    Task StoreAsync(TradeConnectionDto connection, TimeSpan? timeToLive = null, CancellationToken cancellationToken = default);
     Task<TradeConnectionDto?> GetAsync(string tradeId, CancellationToken cancellationToken = default);
     Task DeleteAsync(string tradeId, CancellationToken cancellationToken = default);
 }
@@ -24,7 +24,7 @@ public sealed class TradeSessionStore : ITradeSessionStore
         this.cache = cache;
     }
 
-    public async Task StoreAsync(TradeConnectionDto connection, CancellationToken cancellationToken = default)
+    public async Task StoreAsync(TradeConnectionDto connection, TimeSpan? timeToLive = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(connection.TradeId))
         {
@@ -32,9 +32,10 @@ public sealed class TradeSessionStore : ITradeSessionStore
         }
 
         var payload = JsonSerializer.SerializeToUtf8Bytes(connection, SerializerOptions);
+        var expiration = timeToLive ?? TimeSpan.FromMinutes(30);
         var options = new DistributedCacheEntryOptions
         {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30)
+            AbsoluteExpirationRelativeToNow = expiration
         };
 
         await cache.SetAsync(GetCacheKey(connection.TradeId), payload, options, cancellationToken);

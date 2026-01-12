@@ -17,7 +17,7 @@ namespace API.Services;
 
 public interface ITradeConnectionService
 {
-    Task<TradeConnectionDto> PrepareConnectionAsync(string initiatorUserId, string partnerUserId, CancellationToken cancellationToken = default);
+    Task<TradeConnectionDto> PrepareConnectionAsync(string initiatorUserId, string partnerUserId, bool liveTrading, CancellationToken cancellationToken = default);
     Task<TradeConnectionDto> GetConnectionAsync(string tradeId, string requesterUserId, CancellationToken cancellationToken = default);
     Task<TradeConnectionDto> UpdateConnectionAsync(string tradeId, string requesterUserId, UpdateTradeRequest request, CancellationToken cancellationToken = default);
     Task CancelConnectionAsync(string tradeId, string requesterUserId, CancellationToken cancellationToken = default);
@@ -49,7 +49,7 @@ public sealed class TradeConnectionService : ITradeConnectionService
         _userSettingsService = userSettingsService;
     }
 
-    public async Task<TradeConnectionDto> PrepareConnectionAsync(string initiatorUserId, string partnerUserId, CancellationToken cancellationToken = default)
+    public async Task<TradeConnectionDto> PrepareConnectionAsync(string initiatorUserId, string partnerUserId, bool liveTrading, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -101,10 +101,11 @@ public sealed class TradeConnectionService : ITradeConnectionService
             PriceCurrency = priceCurrency,
             InitiatorTotalValue = initiatorTotal,
             PartnerTotalValue = partnerTotal,
-            ValueDifference = Math.Round(initiatorTotal - partnerTotal, 2, MidpointRounding.AwayFromZero)
+            ValueDifference = Math.Round(initiatorTotal - partnerTotal, 2, MidpointRounding.AwayFromZero),
+            IsLiveTrading = liveTrading
         };
 
-        await _sessionStore.StoreAsync(connection, cancellationToken);
+        await _sessionStore.StoreAsync(connection, ResolveSessionDuration(connection.IsLiveTrading), cancellationToken);
 
         return connection;
     }
@@ -189,7 +190,7 @@ public sealed class TradeConnectionService : ITradeConnectionService
         }
 
         RecalculateTotals(connection);
-        await _sessionStore.StoreAsync(connection, cancellationToken);
+        await _sessionStore.StoreAsync(connection, ResolveSessionDuration(connection.IsLiveTrading), cancellationToken);
         return connection;
     }
 
@@ -360,6 +361,9 @@ public sealed class TradeConnectionService : ITradeConnectionService
         connection.PartnerTotalValue = CalculateTotalValue(connection.PartnerMatches);
         connection.ValueDifference = Math.Round(connection.InitiatorTotalValue - connection.PartnerTotalValue, 2, MidpointRounding.AwayFromZero);
     }
+
+    private static TimeSpan ResolveSessionDuration(bool isLiveTrading) =>
+        isLiveTrading ? TimeSpan.FromMinutes(30) : TimeSpan.FromHours(12);
 
     private (double? Price, MarketProvider? Provider) ResolveMarketPrice(BinderCard card, MarketProvider preferredProvider)
     {

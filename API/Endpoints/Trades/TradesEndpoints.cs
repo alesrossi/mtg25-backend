@@ -25,6 +25,7 @@ public partial class TradesEndpoints
             .Produces<TradeConnectionDto>()
             .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status403Forbidden, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
@@ -40,6 +41,15 @@ public partial class TradesEndpoints
     
     private static void MapTradesCommands(RouteGroupBuilder group)
     {
+        group.MapPost("/{userId}/request", RequestTradeAsync)
+            .RequireAuthorization()
+            .WithSummary("Request a trade with a user")
+            .WithDescription("Validates both users exist and notifies the requested user about the trade request")
+            .Produces(StatusCodes.Status202Accepted)
+            .Produces<ProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json");
+
         group.MapPut("/{tradeId}", UpdateTradeAsync)
             .RequireAuthorization()
             .WithSummary("Update current trade selection")

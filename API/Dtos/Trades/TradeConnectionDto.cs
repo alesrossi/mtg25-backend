@@ -19,6 +19,7 @@ public sealed class TradeConnectionDto
     public double ValueDifference { get; set; }
     public int? InitiatorCollectionId { get; set; }
     public int? PartnerCollectionId { get; set; }
+    public bool IsLiveTrading { get; set; } = true;
 }
 
 public sealed class TradeParticipantDto

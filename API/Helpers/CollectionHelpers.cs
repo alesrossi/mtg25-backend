@@ -131,7 +131,7 @@ public static class CollectionHelpers
         var errors = new List<string>();
         var skippedLines = 0;
 
-        while (csv.Read())
+        while (await csv.ReadAsync())
         {
             MoxfieldCsvRecordDto record;
             try
