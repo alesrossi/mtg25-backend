@@ -88,26 +88,26 @@ public sealed class FriendService : IFriendService
         await _notificationService.CreateNotificationAsync(notification);
     }
 
-    public async Task AcceptFriendRequestAsync(string requesterUserId, string recipientUserId, CancellationToken cancellationToken = default)
+    public async Task AcceptFriendRequestAsync(string otherUserId, string recipientUserId, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(requesterUserId) || string.IsNullOrWhiteSpace(recipientUserId))
+        if (string.IsNullOrWhiteSpace(otherUserId) || string.IsNullOrWhiteSpace(recipientUserId))
         {
             throw new ArgumentException("Both user identifiers are required.");
         }
 
-        var friendship = await _identityDbContext.AppUserFriends
-            .Include(f => f.User)
-            .Include(f => f.Friend)
-            .FirstOrDefaultAsync(
-                f => f.UserId == requesterUserId && f.FriendId == recipientUserId,
-                cancellationToken);
+        var friendship = await FindFriendshipAsync(otherUserId, recipientUserId, cancellationToken);
 
         if (friendship is null)
         {
             throw new KeyNotFoundException("Friend request not found.");
         }
 
-        if (!string.Equals(friendship.FriendId, recipientUserId, StringComparison.Ordinal))
+        var initiatorId = friendship.RequestedById;
+        var invitedUserId = string.Equals(initiatorId, friendship.UserId, StringComparison.Ordinal)
+            ? friendship.FriendId
+            : friendship.UserId;
+
+        if (!string.Equals(invitedUserId, recipientUserId, StringComparison.Ordinal))
         {
             throw new UnauthorizedAccessException("Only the invited user may accept the request.");
         }
@@ -117,7 +117,7 @@ public sealed class FriendService : IFriendService
             throw new InvalidOperationException("This friend request has already been processed.");
         }
 
-        var approvalKey = $"{requesterUserId}:{recipientUserId}";
+        var approvalKey = $"{initiatorId}:{invitedUserId}";
         var approved = await _notificationService.HasApprovedNotificationAsync(
             NotificationConstants.FriendRequest,
             approvalKey,

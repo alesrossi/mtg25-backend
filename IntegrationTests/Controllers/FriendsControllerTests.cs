@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using API;
+using API.Constants;
 using API.Dtos.Friends;
 using Core.Enums;
 using Core.Models.Identity;
