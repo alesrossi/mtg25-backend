@@ -16,6 +16,7 @@ namespace Infrastructure.Identity
         public DbSet<Settings> Settings { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<LeagueRoleAssignment> LeagueRoleAssignments { get; set; }
+        public DbSet<AppUserFriend> AppUserFriends { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -100,6 +101,36 @@ namespace Infrastructure.Identity
                 .HasOne(lr => lr.League)
                 .WithMany(l => l.RoleAssignments)
                 .HasForeignKey(lr => lr.LeagueId);
+
+            builder.Entity<AppUserFriend>()
+                .HasKey(f => new { f.UserId, f.FriendId });
+
+            builder.Entity<AppUserFriend>()
+                .HasOne(f => f.User)
+                .WithMany(u => u.Friendships)
+                .HasForeignKey(f => f.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<AppUserFriend>()
+                .HasOne(f => f.Friend)
+                .WithMany(u => u.FriendshipsReceived)
+                .HasForeignKey(f => f.FriendId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<AppUserFriend>()
+                .HasOne(f => f.RequestedBy)
+                .WithMany()
+                .HasForeignKey(f => f.RequestedById)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<AppUserFriend>()
+                .Property(f => f.Status)
+                .HasConversion<string>()
+                .HasDefaultValue(FriendshipStatus.Pending);
+
+            builder.Entity<AppUserFriend>()
+                .HasIndex(f => new { f.FriendId, f.UserId })
+                .IsUnique();
         }
     }
 }

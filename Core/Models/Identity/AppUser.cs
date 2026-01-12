@@ -16,4 +16,8 @@ public class AppUser : IdentityUser
     public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
     [JsonIgnore]
     public ICollection<LeagueRoleAssignment> LeagueRoles { get; set; } = new List<LeagueRoleAssignment>();
+    [JsonIgnore]
+    public ICollection<AppUserFriend> Friendships { get; set; } = new List<AppUserFriend>();
+    [JsonIgnore]
+    public ICollection<AppUserFriend> FriendshipsReceived { get; set; } = new List<AppUserFriend>();
 }
