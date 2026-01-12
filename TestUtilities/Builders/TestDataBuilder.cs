@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using API.Dtos.Cards;
 using AutoFixture;
+using Core.Enums;
 using Core.Models;
 using Core.Models.Identity;
 
@@ -43,6 +44,8 @@ public class TestDataBuilder
             .Without(u => u.LeagueRoles)
             .Without(u => u.Settings)
             .Without(u => u.Notifications)
+            .Without(u => u.Friendships)
+            .Without(u => u.FriendshipsReceived)
             .Without(u => u.Id)  // Let Identity/EF generate the ID
             .Create();
 
@@ -180,6 +183,32 @@ public class TestDataBuilder
             .Without(bc => bc.TradeBinder)
             .Without(bc => bc.Card)
             .Create();
+    }
+
+    public AppUserFriend CreateFriendship(
+        AppUser? user = null,
+        AppUser? friend = null,
+        AppUser? requestedBy = null,
+        FriendshipStatus? status = null,
+        DateTime? requestedAt = null,
+        DateTime? respondedAt = null)
+    {
+        user ??= CreateUser();
+        friend ??= CreateUser();
+        requestedBy ??= user;
+
+        return new AppUserFriend
+        {
+            UserId = user.Id,
+            User = user,
+            FriendId = friend.Id,
+            Friend = friend,
+            RequestedById = requestedBy.Id,
+            RequestedBy = requestedBy,
+            Status = status ?? FriendshipStatus.Pending,
+            RequestedAt = requestedAt ?? DateTime.UtcNow,
+            RespondedAt = respondedAt
+        };
     }
 
     /// <summary>
