@@ -11,6 +11,7 @@ using Core.Models;
 using Core.Models.Identity;
 using Core.Specifications;
 using Microsoft.AspNetCore.Identity;
+using API.Constants;
 using static API.Helpers.CollectionValueCalculator;
 
 namespace API.Services;
@@ -204,6 +205,19 @@ public sealed class TradeConnectionService : ITradeConnectionService
     {
         cancellationToken.ThrowIfCancellationRequested();
         var connection = await GetConnectionAsync(tradeId, requesterUserId, cancellationToken);
+
+        if (!connection.IsLiveTrading)
+        {
+            var originPrefix = $"{connection.TradeId}.";
+            var hasApproval = await _notificationService.HasApprovedNotificationAsync(
+                TradeNotificationConstants.TradeCommitRequest,
+                originPrefix,
+                cancellationToken);
+            if (!hasApproval)
+            {
+                throw new UnauthorizedAccessException("Trade commitment has not been approved by both participants.");
+            }
+        }
 
         var initiatorTransfers = BuildTransfers(connection.InitiatorMatches, connection.Initiator.UserId, connection.Partner.UserId);
         var partnerTransfers = BuildTransfers(connection.PartnerMatches, connection.Partner.UserId, connection.Initiator.UserId);

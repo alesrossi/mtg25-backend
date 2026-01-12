@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -157,6 +158,46 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
+    
+    [Fact]
+    public async Task RequestCommit_CreatesNotificationForOtherParticipant()
+    {
+        var (initiator, partner, trade) = await PrepareTradeSessionAsync();
+
+        using var client = CreateClientWithUser(factory, initiator);
+        var response = await client.PostAsync($"/api/trades/{trade.TradeId}/request-commit", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var notification = await identityContext.Notifications.SingleAsync(n =>
+            n.AppUserId == partner.Id && n.ObjectId == trade.TradeId && n.Name == "trade_commit_request");
+        notification.Message.Should().Contain(initiator.DisplayName);
+    }
+
+    [Fact]
+    public async Task RequestCommit_WhenNotParticipant_ReturnsForbidden()
+    {
+        var (_, _, trade) = await PrepareTradeSessionAsync();
+        var intruder = await CreateTestUserAsync("trade-intruder@test.com", "trade_intruder");
+
+        using var client = CreateClientWithUser(factory, intruder);
+        var response = await client.PostAsync($"/api/trades/{trade.TradeId}/request-commit", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task RequestCommit_WhenNotAuthenticated_ReturnsUnauthorized()
+    {
+        var (_, _, trade) = await PrepareTradeSessionAsync();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsync($"/api/trades/{trade.TradeId}/request-commit", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
 
     [Fact]
     public async Task Match_WhenLiveTradingDisabledWithoutApproval_ReturnsForbidden()
@@ -184,6 +225,44 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var response = await client.GetAsync($"/api/trades/match?initiatorUserId={initiator.Id}&partnerUserId={partner.Id}&liveTrading=false");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+    
+    [Fact]
+    public async Task UpdateTrade_WhenNotLive_RemovesCommitNotifications()
+    {
+        var (initiator, partner, trade) = await PrepareTradeSessionAsync(liveTrading: false, requireApproval: true);
+
+        using var initiatorClient = CreateClientWithUser(factory, initiator);
+        var requestCommitResponse = await initiatorClient.PostAsync($"/api/trades/{trade.TradeId}/request-commit", null);
+        requestCommitResponse.StatusCode.Should().Be(HttpStatusCode.Accepted);
+
+        var matchId = trade.InitiatorMatches.First().MatchId;
+        var updateRequest = new UpdateTradeRequest
+        {
+            InitiatorMatches = new[]
+            {
+                new TradeMatchUpdateDto
+                {
+                    MatchId = matchId,
+                    QuantityToTrade = 0
+                }
+            }
+        };
+
+        var updateResponse = await initiatorClient.PutAsJsonAsync(
+            $"/api/trades/{trade.TradeId}",
+            updateRequest,
+            JsonContentHelper.DefaultOptions);
+
+        updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var pendingNotifications = await identityContext.Notifications
+            .Where(n => n.Name == "trade_commit_request" && n.ObjectId == trade.TradeId)
+            .ToListAsync();
+
+        pendingNotifications.Should().BeEmpty();
     }
 
     [Fact]
@@ -558,6 +637,52 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
+    [Fact]
+    public async Task CommitTradeSession_WhenNotLiveWithoutApproval_ReturnsForbidden()
+    {
+        var (initiator, partner, trade) = await PrepareTradeSessionAsync(includePartnerOffer: true, liveTrading: false, requireApproval: true);
+
+        using var initiatorClient = CreateClientWithUser(factory, initiator);
+        using var partnerClient = CreateClientWithUser(factory, partner);
+
+        var initiatorCollectionId = await GetAnyCollectionIdAsync(initiator.Id);
+        var partnerCollectionId = await GetAnyCollectionIdAsync(partner.Id);
+
+        var initiatorUpdate = new UpdateTradeRequest { InitiatorCollectionId = initiatorCollectionId };
+        await initiatorClient.PutAsJsonAsync($"/api/trades/{trade.TradeId}", initiatorUpdate, JsonContentHelper.DefaultOptions);
+
+        var partnerUpdate = new UpdateTradeRequest { PartnerCollectionId = partnerCollectionId };
+        await partnerClient.PutAsJsonAsync($"/api/trades/{trade.TradeId}", partnerUpdate, JsonContentHelper.DefaultOptions);
+
+        var response = await initiatorClient.PutAsync($"/api/trades/{trade.TradeId}/commit", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task CommitTradeSession_WhenNotLiveWithApproval_Succeeds()
+    {
+        var (initiator, partner, trade) = await PrepareTradeSessionAsync(includePartnerOffer: true, liveTrading: false, requireApproval: true);
+
+        using var initiatorClient = CreateClientWithUser(factory, initiator);
+        using var partnerClient = CreateClientWithUser(factory, partner);
+
+        var initiatorCollectionId = await GetAnyCollectionIdAsync(initiator.Id);
+        var partnerCollectionId = await GetAnyCollectionIdAsync(partner.Id);
+
+        var initiatorUpdate = new UpdateTradeRequest { InitiatorCollectionId = initiatorCollectionId };
+        await initiatorClient.PutAsJsonAsync($"/api/trades/{trade.TradeId}", initiatorUpdate, JsonContentHelper.DefaultOptions);
+
+        var partnerUpdate = new UpdateTradeRequest { PartnerCollectionId = partnerCollectionId };
+        await partnerClient.PutAsJsonAsync($"/api/trades/{trade.TradeId}", partnerUpdate, JsonContentHelper.DefaultOptions);
+
+        await CreateCommitNotificationAsync(trade.TradeId, partner.Id, initiator.Id, approval: true);
+
+        var response = await initiatorClient.PutAsync($"/api/trades/{trade.TradeId}/commit", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
+
     private async Task<AppUser> CreateTestUserAsync(string email, string userName, IServiceProvider? services = null) =>
         await TestUserFactory.CreateAsync(services ?? factory.Services, testDataBuilder, email, userName, requirePassword: true);
 
@@ -635,8 +760,30 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         await identityContext.SaveChangesAsync();
     }
 
+    private async Task CreateCommitNotificationAsync(string tradeId, string requesterUserId, string recipientUserId, bool approval = false)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+
+        identityContext.Notifications.Add(new Notification
+        {
+            Name = "trade_commit_request",
+            Message = "Commit trade",
+            Origin = $"{tradeId}.{requesterUserId}",
+            ObjectId = tradeId,
+            AppUserId = recipientUserId,
+            Approval = approval,
+            CreationDateTime = DateTime.UtcNow,
+            AppUser = null!
+        });
+
+        await identityContext.SaveChangesAsync();
+    }
+
     private async Task<(AppUser Initiator, AppUser Partner, TradeConnectionDto Trade)> PrepareTradeSessionAsync(
         bool includePartnerOffer = false,
+        bool liveTrading = true,
+        bool requireApproval = false,
         WebApplicationFactory<Program>? targetFactory = null)
     {
         targetFactory ??= factory;
@@ -648,6 +795,12 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         await CreatePublicBinderCardAsync(initiator.Id, "Lightning Bolt", services);
         await CreatePublicWishlistCardAsync(partner.Id, "Lightning Bolt", services);
 
+        if (requireApproval)
+        {
+            await CreateApprovedTradeNotificationAsync(initiator.Id, partner.Id);
+            await CreateApprovedTradeNotificationAsync(partner.Id, initiator.Id);
+        }
+
         if (includePartnerOffer)
         {
             await CreatePublicBinderCardAsync(partner.Id, "Counterspell", services);
@@ -655,7 +808,13 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         }
 
         using var initiatorClient = CreateClientWithUser(targetFactory, initiator);
-        var response = await initiatorClient.GetAsync($"/api/trades/match?initiatorUserId={initiator.Id}&partnerUserId={partner.Id}");
+        var url = $"/api/trades/match?initiatorUserId={initiator.Id}&partnerUserId={partner.Id}";
+        if (!liveTrading)
+        {
+            url += "&liveTrading=false";
+        }
+
+        var response = await initiatorClient.GetAsync(url);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var trade = await response.Content.ReadFromJsonAsync<TradeConnectionDto>(JsonContentHelper.DefaultOptions);
 

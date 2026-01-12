@@ -41,6 +41,15 @@ public partial class TradesEndpoints
     
     private static void MapTradesCommands(RouteGroupBuilder group)
     {
+        group.MapPost("/{tradeId}/request-commit", RequestTradeCommitAsync)
+            .RequireAuthorization()
+            .WithSummary("Request trade commitment")
+            .WithDescription("Sends a notification asking the other participant to commit the trade session")
+            .Produces(StatusCodes.Status202Accepted)
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status403Forbidden, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json");
+
         group.MapPost("/{userId}/request", RequestTradeAsync)
             .RequireAuthorization()
             .WithSummary("Request a trade with a user")

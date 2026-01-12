@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using API.Constants;
 using API.Dtos.Notifications;
 using API.Dtos.Trades;
 using API.Logging;
@@ -11,6 +12,7 @@ namespace API.Endpoints.Trades;
 
 public static partial class TradesEndpoints
 {
+
     private static async Task<IResult> RequestTradeAsync(
         string userId,
         HttpContext context,
@@ -66,11 +68,63 @@ public static partial class TradesEndpoints
         return Results.Accepted();
     }
 
+    private static async Task<IResult> RequestTradeCommitAsync(
+        string tradeId,
+        HttpContext context,
+        [FromServices] ITradeConnectionService tradeConnectionService,
+        [FromServices] NotificationService notificationService,
+        [FromServices] ILogger<TradesEndpointLogCategory> logger,
+        CancellationToken cancellationToken)
+    {
+        const string operation = "Trades.RequestCommit";
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { tradeId });
+            return Results.Unauthorized();
+        }
+
+        try
+        {
+            var connection = await tradeConnectionService.GetConnectionAsync(tradeId, userId, cancellationToken);
+            var requester = string.Equals(connection.Initiator.UserId, userId, StringComparison.Ordinal)
+                ? connection.Initiator
+                : connection.Partner;
+            var recipient = string.Equals(connection.Initiator.UserId, userId, StringComparison.Ordinal)
+                ? connection.Partner
+                : connection.Initiator;
+
+            var notification = new NewNotificationDto
+            {
+                Name = TradeNotificationConstants.TradeCommitRequest,
+                Message = $"{requester.DisplayName} is ready to commit the trade.",
+                Origin = $"{tradeId}.{userId}",
+                ObjectId = connection.TradeId,
+                AppUserId = recipient.UserId
+            };
+
+            await notificationService.CreateNotificationAsync(notification);
+            logger.LogOperationSuccess(operation, new { tradeId, requester = requester.UserId, recipient = recipient.UserId });
+            return Results.Accepted();
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { tradeId, userId });
+            return Results.Forbid();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { tradeId, userId });
+            return Results.NotFound(new { Error = ex.Message });
+        }
+    }
+
     private static async Task<IResult> UpdateTradeAsync(
         string tradeId,
         [FromBody] UpdateTradeRequest request,
         HttpContext context,
         [FromServices] ITradeConnectionService tradeConnectionService,
+        [FromServices] NotificationService notificationService,
         [FromServices] ILogger<TradesEndpointLogCategory> logger,
         CancellationToken cancellationToken)
     {
@@ -85,6 +139,10 @@ public static partial class TradesEndpoints
         try
         {
             var updated = await tradeConnectionService.UpdateConnectionAsync(tradeId, userId, request, cancellationToken);
+            if (!updated.IsLiveTrading)
+            {
+                await notificationService.DeleteNotificationsAsync(TradeNotificationConstants.TradeCommitRequest, updated.TradeId);
+            }
             logger.LogOperationSuccess(operation, new { tradeId, userId });
             return Results.Ok(updated);
         }

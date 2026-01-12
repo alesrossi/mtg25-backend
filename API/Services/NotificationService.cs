@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using API.Dtos.Notifications;
 using API.Logging;
 using Core.Models.Identity;
@@ -134,6 +135,32 @@ public class NotificationService
 
         
         return true;
+    }
+    
+    public async Task DeleteNotificationsAsync(string name, string objectId)
+    {
+        var notifications = await _context.Notifications
+            .Where(n => n.Name == name && n.ObjectId == objectId)
+            .ToListAsync();
+
+        if (notifications.Count == 0)
+        {
+            return;
+        }
+
+        _context.Notifications.RemoveRange(notifications);
+        await _context.SaveChangesAsync();
+    }
+    
+    public async Task<bool> HasApprovedNotificationAsync(string name, string originPrefix, CancellationToken cancellationToken = default)
+    {
+        return await _context.Notifications
+            .AsNoTracking()
+            .AnyAsync(
+                n => n.Name == name
+                     && n.Approval
+                     && n.Origin.StartsWith(originPrefix),
+                cancellationToken);
     }
     
     public async Task<bool> UpdateNotificationAsync(List<int> ids, bool? isRead, bool? approval, string? userToUpdate)
