@@ -47,7 +47,7 @@ public sealed class BindersService : IBindersService
     {
         if (string.IsNullOrEmpty(userId))
         {
-            throw BindersServiceException.Unauthorized("Missing user id");
+            throw BindersServiceException.Unauthorized("Errors.Binders.MissingUserId");
         }
 
         var spec = new TradeBindersWithOwnerSpecification(userId, includeCards: true);
@@ -80,18 +80,18 @@ public sealed class BindersService : IBindersService
         var binder = await _unitOfWork.Repository<TradeBinder>().GetEntityWithSpec(spec, tracking: false);
         if (binder == null)
         {
-            throw BindersServiceException.NotFound("Binder not found");
+            throw BindersServiceException.NotFound("Errors.Binders.NotFound");
         }
 
         if (string.IsNullOrEmpty(userId))
         {
-            throw BindersServiceException.Unauthorized("Missing user id");
+            throw BindersServiceException.Unauthorized("Errors.Binders.MissingUserId");
         }
 
         var isOwner = binder.OwnerId == userId;
         if (!isOwner && !binder.IsPublic)
         {
-            throw BindersServiceException.Unauthorized("Unauthorized");
+            throw BindersServiceException.Unauthorized("Errors.Binders.Unauthorized");
         }
 
         var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId);
@@ -110,18 +110,18 @@ public sealed class BindersService : IBindersService
         var binder = await _unitOfWork.Repository<TradeBinder>().GetByIdAsync(binderId, tracking: false);
         if (binder == null)
         {
-            throw BindersServiceException.NotFound("Binder not found");
+            throw BindersServiceException.NotFound("Errors.Binders.NotFound");
         }
 
         if (string.IsNullOrEmpty(userId))
         {
-            throw BindersServiceException.Unauthorized("Missing user id");
+            throw BindersServiceException.Unauthorized("Errors.Binders.MissingUserId");
         }
 
         var isOwner = binder.OwnerId == userId;
         if (!isOwner && !binder.IsPublic)
         {
-            throw BindersServiceException.Unauthorized("Unauthorized");
+            throw BindersServiceException.Unauthorized("Errors.Binders.Unauthorized");
         }
 
         var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId);
@@ -136,25 +136,25 @@ public sealed class BindersService : IBindersService
         var binder = await _unitOfWork.Repository<TradeBinder>().GetByIdAsync(binderId, tracking: false);
         if (binder == null)
         {
-            throw BindersServiceException.NotFound("Binder not found");
+            throw BindersServiceException.NotFound("Errors.Binders.NotFound");
         }
 
         if (string.IsNullOrEmpty(userId))
         {
-            throw BindersServiceException.Unauthorized("Missing user id");
+            throw BindersServiceException.Unauthorized("Errors.Binders.MissingUserId");
         }
 
         var isOwner = binder.OwnerId == userId;
         if (!isOwner && !binder.IsPublic)
         {
-            throw BindersServiceException.Unauthorized("Unauthorized");
+            throw BindersServiceException.Unauthorized("Errors.Binders.Unauthorized");
         }
 
         var binderCard = await _unitOfWork.Repository<BinderCard>()
             .GetEntityWithSpec(new BinderCardWithBinderSpecification(binderCardId), tracking: false);
         if (binderCard == null || binderCard.TradeBinderId != binder.Id)
         {
-            throw BindersServiceException.NotFound("Binder card not found");
+            throw BindersServiceException.NotFound("Errors.Binders.CardNotFound");
         }
 
         var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId);
@@ -165,13 +165,13 @@ public sealed class BindersService : IBindersService
     {
         if (string.IsNullOrEmpty(userId))
         {
-            throw BindersServiceException.Unauthorized("Missing user id");
+            throw BindersServiceException.Unauthorized("Errors.Binders.MissingUserId");
         }
 
         var (isValid, errors) = _validationService.ValidateModel(createDto);
         if (!isValid)
         {
-            throw BindersServiceException.ValidationFailed(errors, "Validation failed");
+            throw BindersServiceException.ValidationFailed(errors, "Errors.Binders.ValidationFailed");
         }
 
         var binder = new TradeBinder
@@ -192,23 +192,23 @@ public sealed class BindersService : IBindersService
     {
         if (string.IsNullOrEmpty(userId))
         {
-            throw BindersServiceException.Unauthorized("Missing user id");
+            throw BindersServiceException.Unauthorized("Errors.Binders.MissingUserId");
         }
 
         var (isValid, errors) = _validationService.ValidateModel(updateDto);
         if (!isValid)
         {
-            throw BindersServiceException.ValidationFailed(errors, "Validation failed");
+            throw BindersServiceException.ValidationFailed(errors, "Errors.Binders.ValidationFailed");
         }
 
         var binder = await _unitOfWork.Repository<TradeBinder>().GetByIdAsync(id);
         if (binder == null)
         {
-            throw BindersServiceException.NotFound("Binder not found");
+            throw BindersServiceException.NotFound("Errors.Binders.NotFound");
         }
         if (binder.OwnerId != userId)
         {
-            throw BindersServiceException.Unauthorized("Unauthorized");
+            throw BindersServiceException.Unauthorized("Errors.Binders.Unauthorized");
         }
 
         binder.Name = updateDto.Name.Trim();
@@ -229,17 +229,17 @@ public sealed class BindersService : IBindersService
     {
         if (string.IsNullOrEmpty(userId))
         {
-            throw BindersServiceException.Unauthorized("Missing user id");
+            throw BindersServiceException.Unauthorized("Errors.Binders.MissingUserId");
         }
 
         var binder = await _unitOfWork.Repository<TradeBinder>().GetByIdAsync(id);
         if (binder == null)
         {
-            throw BindersServiceException.NotFound("Binder not found");
+            throw BindersServiceException.NotFound("Errors.Binders.NotFound");
         }
         if (binder.OwnerId != userId)
         {
-            throw BindersServiceException.Unauthorized("Unauthorized");
+            throw BindersServiceException.Unauthorized("Errors.Binders.Unauthorized");
         }
 
         _unitOfWork.Repository<TradeBinder>().Delete(binder);
@@ -260,7 +260,7 @@ public sealed class BindersService : IBindersService
             var (isValid, errors) = _validationService.ValidateModel(createDto);
             if (!isValid)
             {
-                throw BindersServiceException.ValidationFailed(errors, "Validation failed");
+                throw BindersServiceException.ValidationFailed(errors, "Errors.Binders.ValidationFailed");
             }
 
             var card = await _unitOfWork.Repository<Card>().GetByIdAsync(createDto.CardId);
@@ -272,7 +272,7 @@ public sealed class BindersService : IBindersService
             var collection = await _unitOfWork.Repository<Collection>().GetByIdAsync(card.CollectionId);
             if (collection == null || collection.OwnerId != binder.OwnerId)
             {
-                throw BindersServiceException.Unauthorized("Unauthorized");
+                throw BindersServiceException.Unauthorized("Errors.Binders.Unauthorized");
             }
 
             if (createDto.QuantityToTrade > card.Quantity)
@@ -318,18 +318,18 @@ public sealed class BindersService : IBindersService
         var (isValid, errors) = _validationService.ValidateModel(updateDto);
         if (!isValid)
         {
-            throw BindersServiceException.ValidationFailed(errors, "Validation failed");
+            throw BindersServiceException.ValidationFailed(errors, "Errors.Binders.ValidationFailed");
         }
 
         var binderCard = await _unitOfWork.Repository<BinderCard>().GetEntityWithSpec(new BinderCardWithBinderSpecification(binderCardId));
         if (binderCard == null || binderCard.TradeBinderId != binder.Id)
         {
-            throw BindersServiceException.NotFound("Binder card not found");
+            throw BindersServiceException.NotFound("Errors.Binders.CardNotFound");
         }
 
         if (binderCard.TradeBinder.OwnerId != binder.OwnerId)
         {
-            throw BindersServiceException.Unauthorized("Unauthorized");
+            throw BindersServiceException.Unauthorized("Errors.Binders.Unauthorized");
         }
 
         var card = binderCard.Card ?? await _unitOfWork.Repository<Card>().GetByIdAsync(binderCard.CardId);
@@ -368,7 +368,7 @@ public sealed class BindersService : IBindersService
         var binderCard = await _unitOfWork.Repository<BinderCard>().GetEntityWithSpec(new BinderCardWithBinderSpecification(binderCardId));
         if (binderCard == null || binderCard.TradeBinderId != binder.Id)
         {
-            throw BindersServiceException.NotFound("Binder card not found");
+            throw BindersServiceException.NotFound("Errors.Binders.CardNotFound");
         }
 
         _unitOfWork.Repository<BinderCard>().Delete(binderCard);
@@ -380,13 +380,13 @@ public sealed class BindersService : IBindersService
         var binder = await _unitOfWork.Repository<TradeBinder>().GetByIdAsync(binderId);
         if (binder == null)
         {
-            throw BindersServiceException.NotFound("Binder not found");
+            throw BindersServiceException.NotFound("Errors.Binders.NotFound");
         }
 
         var isOwner = !string.IsNullOrEmpty(userId) && binder.OwnerId == userId;
         if (requireOwner && !isOwner)
         {
-            throw BindersServiceException.Unauthorized("Unauthorized");
+            throw BindersServiceException.Unauthorized("Errors.Binders.Unauthorized");
         }
 
         return binder;

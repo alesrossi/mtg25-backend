@@ -15,6 +15,7 @@ public static partial class CollectionsEndpoints
         HttpContext context,
         [FromServices] ICollectionService collectionService,
         [FromServices] ILogger<CollectionsEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "Collections.GetById";
@@ -34,7 +35,7 @@ public static partial class CollectionsEndpoints
         catch (CollectionServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { id, userId });
-            return MapCollectionServiceException(ex);
+            return await MapCollectionServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -44,6 +45,7 @@ public static partial class CollectionsEndpoints
         HttpContext context,
         [FromServices] ICollectionService collectionService,
         [FromServices] ILogger<CollectionsEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "Collections.GetCards";
@@ -74,7 +76,7 @@ public static partial class CollectionsEndpoints
         catch (CollectionServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { id, userId });
-            return MapCollectionServiceException(ex);
+            return await MapCollectionServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -82,6 +84,7 @@ public static partial class CollectionsEndpoints
         HttpContext context,
         [FromServices] ICollectionService collectionService,
         [FromServices] ILogger<CollectionsEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "Collections.List";
@@ -101,7 +104,7 @@ public static partial class CollectionsEndpoints
         catch (CollectionServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { userId });
-            return MapCollectionServiceException(ex);
+            return await MapCollectionServiceException(ex, context, messageLocalizer, userId);
         }
     }
 }

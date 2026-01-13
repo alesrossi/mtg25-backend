@@ -246,4 +246,52 @@
   <data name="Errors.Decks.NoCardsParsed" xml:space="preserve">
     <value>No cards parsed.</value>
   </data>
+  <data name="Errors.Collections.MissingUserId" xml:space="preserve">
+    <value>Missing user identifier.</value>
+  </data>
+  <data name="Errors.Collections.NotFound" xml:space="preserve">
+    <value>Collection not found.</value>
+  </data>
+  <data name="Errors.Collections.Unauthorized" xml:space="preserve">
+    <value>Unauthorized.</value>
+  </data>
+  <data name="Errors.Collections.UnauthorizedAccess" xml:space="preserve">
+    <value>Unauthorized access.</value>
+  </data>
+  <data name="Errors.Collections.ValidationFailed" xml:space="preserve">
+    <value>Validation failed.</value>
+  </data>
+  <data name="Errors.Collections.UserNotFound" xml:space="preserve">
+    <value>User not found.</value>
+  </data>
+  <data name="Errors.Collections.NoFileUploaded" xml:space="preserve">
+    <value>No file uploaded.</value>
+  </data>
+  <data name="Errors.Collections.FileMustBeCsv" xml:space="preserve">
+    <value>File must be CSV.</value>
+  </data>
+  <data name="Errors.Collections.FileTooLarge" xml:space="preserve">
+    <value>File is too large.</value>
+  </data>
+  <data name="Errors.Collections.NoCardIdsProvided" xml:space="preserve">
+    <value>No card IDs provided.</value>
+  </data>
+  <data name="Errors.Collections.CardsNotFound" xml:space="preserve">
+    <value>Cards not found.</value>
+  </data>
+  <data name="Errors.Binders.MissingUserId" xml:space="preserve">
+    <value>Missing user identifier.</value>
+  </data>
+  <data name="Errors.Binders.NotFound" xml:space="preserve">
+    <value>Binder not found.</value>
+  </data>
+  <data name="Errors.Binders.Unauthorized" xml:space="preserve">
+    <value>Unauthorized.</value>
+  </data>
+  <data name="Errors.Binders.CardNotFound" xml:space="preserve">
+    <value>Binder card not found.</value>
+  </data>
+  <data name="Errors.Binders.ValidationFailed" xml:space="preserve">
+    <value>Validation failed.</value>
+  </data>
 </root>

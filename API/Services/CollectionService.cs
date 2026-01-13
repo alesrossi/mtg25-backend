@@ -54,18 +54,18 @@ public sealed class CollectionService : ICollectionService
     {
         if (userId is null)
         {
-            throw CollectionServiceException.Unauthorized("Missing user id");
+            throw CollectionServiceException.Unauthorized("Errors.Collections.MissingUserId");
         }
 
         var collection = await _unitOfWork.Repository<Collection>().GetByIdAsync(id, tracking: false);
         if (collection is null)
         {
-            throw CollectionServiceException.NotFound("Collection not found");
+            throw CollectionServiceException.NotFound("Errors.Collections.NotFound");
         }
 
         if (collection.OwnerId != userId)
         {
-            throw CollectionServiceException.Unauthorized("Unauthorized");
+            throw CollectionServiceException.Unauthorized("Errors.Collections.Unauthorized");
         }
 
         return collection;
@@ -79,17 +79,17 @@ public sealed class CollectionService : ICollectionService
     {
         if (userId is null)
         {
-            throw CollectionServiceException.Unauthorized("Missing user id");
+            throw CollectionServiceException.Unauthorized("Errors.Collections.MissingUserId");
         }
 
         var collection = await _unitOfWork.Repository<Collection>().GetByIdAsync(id, tracking: false);
         if (collection is null)
         {
-            throw CollectionServiceException.NotFound("Collection not found");
+            throw CollectionServiceException.NotFound("Errors.Collections.NotFound");
         }
         if (collection.OwnerId != userId)
         {
-            throw CollectionServiceException.Unauthorized("Unauthorized");
+            throw CollectionServiceException.Unauthorized("Errors.Collections.Unauthorized");
         }
 
         if (!string.IsNullOrEmpty(entityParams.GroupBy))
@@ -134,7 +134,7 @@ public sealed class CollectionService : ICollectionService
     {
         if (string.IsNullOrEmpty(userId))
         {
-            throw CollectionServiceException.Unauthorized("Missing user id");
+            throw CollectionServiceException.Unauthorized("Errors.Collections.MissingUserId");
         }
 
         var collections = await _unitOfWork.Repository<Collection>().ListAsync(new CollectionWithOwnerSpecification(userId), tracking: false);
@@ -145,19 +145,19 @@ public sealed class CollectionService : ICollectionService
     {
         if (userId is null)
         {
-            throw CollectionServiceException.Unauthorized("Missing user id");
+            throw CollectionServiceException.Unauthorized("Errors.Collections.MissingUserId");
         }
 
         var (isValid, errors) = _validationService.ValidateModel(collectionDto);
         if (!isValid)
         {
-            throw CollectionServiceException.ValidationFailed(errors, "Validation failed");
+            throw CollectionServiceException.ValidationFailed(errors, "Errors.Collections.ValidationFailed");
         }
 
         var user = await _userManager.FindByIdAsync(userId);
         if (user is null)
         {
-            throw CollectionServiceException.Unauthorized("User not found");
+            throw CollectionServiceException.Unauthorized("Errors.Collections.UserNotFound");
         }
 
         var collection = new Collection
@@ -178,23 +178,23 @@ public sealed class CollectionService : ICollectionService
     {
         if (userId is null)
         {
-            throw CollectionServiceException.Unauthorized("Missing user id");
+            throw CollectionServiceException.Unauthorized("Errors.Collections.MissingUserId");
         }
 
         var (isValid, errors) = _validationService.ValidateModel(collectionDto);
         if (!isValid)
         {
-            throw CollectionServiceException.ValidationFailed(errors, "Validation failed");
+            throw CollectionServiceException.ValidationFailed(errors, "Errors.Collections.ValidationFailed");
         }
 
         var collection = await _unitOfWork.Repository<Collection>().GetByIdAsync(id);
         if (collection is null)
         {
-            throw CollectionServiceException.NotFound("Collection not found");
+            throw CollectionServiceException.NotFound("Errors.Collections.NotFound");
         }
         if (collection.OwnerId != userId)
         {
-            throw CollectionServiceException.Unauthorized("Unauthorized access");
+            throw CollectionServiceException.Unauthorized("Errors.Collections.UnauthorizedAccess");
         }
 
         collection.Name = collectionDto.Name;
@@ -209,17 +209,17 @@ public sealed class CollectionService : ICollectionService
     {
         if (string.IsNullOrEmpty(userId))
         {
-            throw CollectionServiceException.Unauthorized("Missing user id");
+            throw CollectionServiceException.Unauthorized("Errors.Collections.MissingUserId");
         }
 
         var collection = await _unitOfWork.Repository<Collection>().GetByIdAsync(id);
         if (collection is null)
         {
-            throw CollectionServiceException.NotFound("Collection not found");
+            throw CollectionServiceException.NotFound("Errors.Collections.NotFound");
         }
         if (collection.OwnerId != userId)
         {
-            throw CollectionServiceException.Unauthorized("Unauthorized");
+            throw CollectionServiceException.Unauthorized("Errors.Collections.Unauthorized");
         }
 
         _unitOfWork.Repository<Collection>().Delete(collection);
@@ -232,20 +232,20 @@ public sealed class CollectionService : ICollectionService
         {
             if (userId is null)
             {
-                throw CollectionServiceException.Unauthorized("Missing user id");
+                throw CollectionServiceException.Unauthorized("Errors.Collections.MissingUserId");
             }
 
             if (file.Length <= 0)
             {
-                throw CollectionServiceException.BadRequest("No file uploaded", includeBody: true);
+                throw CollectionServiceException.BadRequest("Errors.Collections.NoFileUploaded", includeBody: true);
             }
             if (!file.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
             {
-                throw CollectionServiceException.BadRequest("File must be csv", includeBody: true);
+                throw CollectionServiceException.BadRequest("Errors.Collections.FileMustBeCsv", includeBody: true);
             }
             if (file.Length > 10 * 1024 * 1024)
             {
-                throw CollectionServiceException.BadRequest("File is too large", includeBody: true);
+                throw CollectionServiceException.BadRequest("Errors.Collections.FileTooLarge", includeBody: true);
             }
 
             var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId);
@@ -264,11 +264,11 @@ public sealed class CollectionService : ICollectionService
             var collection = await _unitOfWork.Repository<Collection>().GetByIdAsync(id);
             if (collection is null)
             {
-                throw CollectionServiceException.NotFound("Collection not found");
+                throw CollectionServiceException.NotFound("Errors.Collections.NotFound");
             }
             if (collection.OwnerId != userId)
             {
-                throw CollectionServiceException.Unauthorized("Unauthorized");
+                throw CollectionServiceException.Unauthorized("Errors.Collections.Unauthorized");
             }
 
             if (importResult.Cards.Count == 0)
@@ -314,28 +314,28 @@ public sealed class CollectionService : ICollectionService
     {
         if (userId is null)
         {
-            throw CollectionServiceException.Unauthorized("Missing user id");
+            throw CollectionServiceException.Unauthorized("Errors.Collections.MissingUserId");
         }
 
         var collection = await _unitOfWork.Repository<Collection>().GetByIdAsync(id);
         if (collection is null)
         {
-            throw CollectionServiceException.NotFound("Collection not found");
+            throw CollectionServiceException.NotFound("Errors.Collections.NotFound");
         }
         if (collection.OwnerId != userId)
         {
-            throw CollectionServiceException.Unauthorized("Unauthorized");
+            throw CollectionServiceException.Unauthorized("Errors.Collections.Unauthorized");
         }
 
         if (cardIds is null || cardIds.Count == 0)
         {
-            throw CollectionServiceException.BadRequest("No card ids provided.", includeBody: true);
+            throw CollectionServiceException.BadRequest("Errors.Collections.NoCardIdsProvided", includeBody: true);
         }
 
         var cardsToDelete = await _unitOfWork.Repository<Card>().ListAsync(new CardsByIdsSpecification(cardIds, id));
         if (cardsToDelete is null || cardsToDelete.Count == 0)
         {
-            throw CollectionServiceException.NotFound("Cards not found");
+            throw CollectionServiceException.NotFound("Errors.Collections.CardsNotFound");
         }
 
         var totalRemovedQuantity = 0;

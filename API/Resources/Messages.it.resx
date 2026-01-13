@@ -246,4 +246,52 @@
   <data name="Errors.Decks.NoCardsParsed" xml:space="preserve">
     <value>Nessuna carta trovata nel decklist.</value>
   </data>
+  <data name="Errors.Collections.MissingUserId" xml:space="preserve">
+    <value>Identificativo utente mancante.</value>
+  </data>
+  <data name="Errors.Collections.NotFound" xml:space="preserve">
+    <value>Collezione non trovata.</value>
+  </data>
+  <data name="Errors.Collections.Unauthorized" xml:space="preserve">
+    <value>Non autorizzato.</value>
+  </data>
+  <data name="Errors.Collections.UnauthorizedAccess" xml:space="preserve">
+    <value>Accesso non autorizzato.</value>
+  </data>
+  <data name="Errors.Collections.ValidationFailed" xml:space="preserve">
+    <value>Validazione non riuscita.</value>
+  </data>
+  <data name="Errors.Collections.UserNotFound" xml:space="preserve">
+    <value>Utente non trovato.</value>
+  </data>
+  <data name="Errors.Collections.NoFileUploaded" xml:space="preserve">
+    <value>Nessun file caricato.</value>
+  </data>
+  <data name="Errors.Collections.FileMustBeCsv" xml:space="preserve">
+    <value>Il file deve essere CSV.</value>
+  </data>
+  <data name="Errors.Collections.FileTooLarge" xml:space="preserve">
+    <value>Il file e troppo grande.</value>
+  </data>
+  <data name="Errors.Collections.NoCardIdsProvided" xml:space="preserve">
+    <value>Nessun ID carta fornito.</value>
+  </data>
+  <data name="Errors.Collections.CardsNotFound" xml:space="preserve">
+    <value>Carte non trovate.</value>
+  </data>
+  <data name="Errors.Binders.MissingUserId" xml:space="preserve">
+    <value>Identificativo utente mancante.</value>
+  </data>
+  <data name="Errors.Binders.NotFound" xml:space="preserve">
+    <value>Binder non trovato.</value>
+  </data>
+  <data name="Errors.Binders.Unauthorized" xml:space="preserve">
+    <value>Non autorizzato.</value>
+  </data>
+  <data name="Errors.Binders.CardNotFound" xml:space="preserve">
+    <value>Carta del binder non trovata.</value>
+  </data>
+  <data name="Errors.Binders.ValidationFailed" xml:space="preserve">
+    <value>Validazione non riuscita.</value>
+  </data>
 </root>

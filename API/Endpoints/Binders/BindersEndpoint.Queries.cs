@@ -11,7 +11,8 @@ public static partial class BindersEndpoint
     private static async Task<IResult> GetBindersAsync(
         HttpContext context,
         [FromServices] IBindersService bindersService,
-        [FromServices] ILogger<BindersEndpointLogCategory> logger)
+        [FromServices] ILogger<BindersEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer)
     {
         const string operation = "Binders.List";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -30,7 +31,7 @@ public static partial class BindersEndpoint
         catch (BindersServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { userId });
-            return MapBindersServiceException(ex);
+            return await MapBindersServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -38,7 +39,8 @@ public static partial class BindersEndpoint
         int id,
         HttpContext context,
         [FromServices] IBindersService bindersService,
-        [FromServices] ILogger<BindersEndpointLogCategory> logger)
+        [FromServices] ILogger<BindersEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer)
     {
         const string operation = "Binders.Get";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -52,7 +54,7 @@ public static partial class BindersEndpoint
         catch (BindersServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { id, userId });
-            return MapBindersServiceException(ex);
+            return await MapBindersServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -60,7 +62,8 @@ public static partial class BindersEndpoint
         int binderId,
         HttpContext context,
         [FromServices] IBindersService bindersService,
-        [FromServices] ILogger<BindersEndpointLogCategory> logger)
+        [FromServices] ILogger<BindersEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer)
     {
         const string operation = "Binders.Cards.List";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -74,7 +77,7 @@ public static partial class BindersEndpoint
         catch (BindersServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { binderId, userId });
-            return MapBindersServiceException(ex);
+            return await MapBindersServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -83,7 +86,8 @@ public static partial class BindersEndpoint
         int binderCardId,
         HttpContext context,
         [FromServices] IBindersService bindersService,
-        [FromServices] ILogger<BindersEndpointLogCategory> logger)
+        [FromServices] ILogger<BindersEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer)
     {
         const string operation = "Binders.Cards.Get";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -97,7 +101,7 @@ public static partial class BindersEndpoint
         catch (BindersServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { binderId, binderCardId, userId });
-            return MapBindersServiceException(ex);
+            return await MapBindersServiceException(ex, context, messageLocalizer, userId);
         }
     }
 }

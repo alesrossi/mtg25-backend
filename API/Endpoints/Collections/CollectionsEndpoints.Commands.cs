@@ -14,6 +14,7 @@ public static partial class CollectionsEndpoints
         NewCollectionDto collectionDto,
         [FromServices] ICollectionService collectionService,
         [FromServices] ILogger<CollectionsEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "Collections.Create";
@@ -33,7 +34,7 @@ public static partial class CollectionsEndpoints
         catch (CollectionServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { userId });
-            return MapCollectionServiceException(ex);
+            return await MapCollectionServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -43,6 +44,7 @@ public static partial class CollectionsEndpoints
         NewCollectionDto collectionDto,
         [FromServices] ICollectionService collectionService,
         [FromServices] ILogger<CollectionsEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "Collections.Update";
@@ -62,7 +64,7 @@ public static partial class CollectionsEndpoints
         catch (CollectionServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { id, userId });
-            return MapCollectionServiceException(ex);
+            return await MapCollectionServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -71,6 +73,7 @@ public static partial class CollectionsEndpoints
         int id,
         HttpContext context,
         [FromServices] ILogger<CollectionsEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ICollectionService collectionService,
         CancellationToken cancellationToken,
         [FromQuery] ImportSource source = ImportSource.Manabox)
@@ -105,7 +108,7 @@ public static partial class CollectionsEndpoints
             {
                 logger.LogOperationWarning(operation, ex.Message, new { id, userId });
             }
-            return MapCollectionServiceException(ex);
+            return await MapCollectionServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -114,6 +117,7 @@ public static partial class CollectionsEndpoints
         HttpContext context,
         [FromServices] ICollectionService collectionService,
         [FromServices] ILogger<CollectionsEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "Collections.Delete";
@@ -133,7 +137,7 @@ public static partial class CollectionsEndpoints
         catch (CollectionServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { id, userId });
-            return MapCollectionServiceException(ex);
+            return await MapCollectionServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -143,6 +147,7 @@ public static partial class CollectionsEndpoints
         HttpContext context,
         [FromServices] ICollectionService collectionService,
         [FromServices] ILogger<CollectionsEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "Collections.MassDelete";
@@ -162,7 +167,7 @@ public static partial class CollectionsEndpoints
         catch (CollectionServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { id, userId });
-            return MapCollectionServiceException(ex);
+            return await MapCollectionServiceException(ex, context, messageLocalizer, userId);
         }
     }
 }

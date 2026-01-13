@@ -12,7 +12,8 @@ public static partial class BindersEndpoint
         CreateBinderDto createDto,
         HttpContext context,
         [FromServices] IBindersService bindersService,
-        [FromServices] ILogger<BindersEndpointLogCategory> logger)
+        [FromServices] ILogger<BindersEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer)
     {
         const string operation = "Binders.Create";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -33,7 +34,7 @@ public static partial class BindersEndpoint
         catch (BindersServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { userId });
-            return MapBindersServiceException(ex);
+            return await MapBindersServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -42,7 +43,8 @@ public static partial class BindersEndpoint
         UpdateBinderDto updateDto,
         HttpContext context,
         [FromServices] IBindersService bindersService,
-        [FromServices] ILogger<BindersEndpointLogCategory> logger)
+        [FromServices] ILogger<BindersEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer)
     {
         const string operation = "Binders.Update";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -61,7 +63,7 @@ public static partial class BindersEndpoint
         catch (BindersServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { id, userId });
-            return MapBindersServiceException(ex);
+            return await MapBindersServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -69,7 +71,8 @@ public static partial class BindersEndpoint
         int id,
         HttpContext context,
         [FromServices] IBindersService bindersService,
-        [FromServices] ILogger<BindersEndpointLogCategory> logger)
+        [FromServices] ILogger<BindersEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer)
     {
         const string operation = "Binders.Delete";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -88,7 +91,7 @@ public static partial class BindersEndpoint
         catch (BindersServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { id, userId });
-            return MapBindersServiceException(ex);
+            return await MapBindersServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -97,7 +100,8 @@ public static partial class BindersEndpoint
         List<CreateBinderCardDto> createDtoList,
         HttpContext context,
         [FromServices] IBindersService bindersService,
-        [FromServices] ILogger<BindersEndpointLogCategory> logger)
+        [FromServices] ILogger<BindersEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer)
     {
         const string operation = "Binders.Cards.Create";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -111,7 +115,7 @@ public static partial class BindersEndpoint
         catch (BindersServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { binderId, userId });
-            return MapBindersServiceException(ex);
+            return await MapBindersServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -121,7 +125,8 @@ public static partial class BindersEndpoint
         UpdateBinderCardDto updateDto,
         HttpContext context,
         [FromServices] IBindersService bindersService,
-        [FromServices] ILogger<BindersEndpointLogCategory> logger)
+        [FromServices] ILogger<BindersEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer)
     {
         const string operation = "Binders.Cards.Update";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -135,7 +140,7 @@ public static partial class BindersEndpoint
         catch (BindersServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { binderId, binderCardId, userId });
-            return MapBindersServiceException(ex);
+            return await MapBindersServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -144,7 +149,8 @@ public static partial class BindersEndpoint
         int binderCardId,
         HttpContext context,
         [FromServices] IBindersService bindersService,
-        [FromServices] ILogger<BindersEndpointLogCategory> logger)
+        [FromServices] ILogger<BindersEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer)
     {
         const string operation = "Binders.Cards.Delete";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -158,7 +164,7 @@ public static partial class BindersEndpoint
         catch (BindersServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { binderId, binderCardId, userId });
-            return MapBindersServiceException(ex);
+            return await MapBindersServiceException(ex, context, messageLocalizer, userId);
         }
     }
 }
