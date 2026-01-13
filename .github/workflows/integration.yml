@@ -190,12 +190,15 @@ jobs:
           echo "### To deploy locally:" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
           echo "export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "export INT_POSTGRES_PASSWORD=supersecretlongpassword" >> $GITHUB_STEP_SUMMARY
+          echo "export INT_JWT_SECRET=yourjwtsecret" >> $GITHUB_STEP_SUMMARY
           echo "export IMAGE_TAG=int-latest" >> $GITHUB_STEP_SUMMARY
           echo "./scripts/start-integration.sh" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Services will be available at:" >> $GITHUB_STEP_SUMMARY
-          echo "- **API:** http://localhost:8082" >> $GITHUB_STEP_SUMMARY
-          echo "- **API Health:** http://localhost:8082/health" >> $GITHUB_STEP_SUMMARY
-          echo "- **Swagger:** http://localhost:8082/swagger" >> $GITHUB_STEP_SUMMARY
+          echo "- **API:** http://localhost:8086" >> $GITHUB_STEP_SUMMARY
+          echo "- **API (TLS):** https://localhost:8443" >> $GITHUB_STEP_SUMMARY
+          echo "- **API Health:** http://localhost:8086/api/health" >> $GITHUB_STEP_SUMMARY
+          echo "- **Swagger:** http://localhost:8086/scalar" >> $GITHUB_STEP_SUMMARY
           echo "- **Database Admin:** http://localhost:8084" >> $GITHUB_STEP_SUMMARY

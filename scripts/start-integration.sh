@@ -17,6 +17,16 @@ if [ -z "$DOCKER_USERNAME" ]; then
     echo "Export it with: export DOCKER_USERNAME=yourusername"
     exit 1
 fi
+if [ -z "$INT_POSTGRES_PASSWORD" ]; then
+    echo -e "${RED}❌ Error: INT_POSTGRES_PASSWORD environment variable is required${NC}"
+    echo "Export it with: export INT_POSTGRES_PASSWORD=yourpassword"
+    exit 1
+fi
+if [ -z "$INT_JWT_SECRET" ]; then
+    echo -e "${RED}❌ Error: INT_JWT_SECRET environment variable is required${NC}"
+    echo "Export it with: export INT_JWT_SECRET=yourjwtsecret"
+    exit 1
+fi
 
 export IMAGE_TAG=${IMAGE_TAG:-"int-latest"}
 export FRONTEND_REGISTRY=${FRONTEND_REGISTRY:-"alesrossi"}
@@ -27,6 +37,7 @@ echo "  Docker Username: $DOCKER_USERNAME"
 echo "  Image Tag: $IMAGE_TAG"
 echo "  Full Image: $DOCKER_USERNAME/mtg-api:$IMAGE_TAG"
 echo "  Frontend Image: $FRONTEND_REGISTRY/mtgfe-frontend:$FRONTEND_TAG"
+echo "  TLS Proxy: https://localhost:8443"
 echo ""
 
 # Stop existing containers
@@ -175,6 +186,7 @@ echo -e "${GREEN}🎉 Integration environment is ready!${NC}"
 echo "=================================================="
 echo -e "${BLUE}Services:${NC}"
 echo "  🌐 API:            http://localhost:8086"
+echo "  🔐 API (TLS):      https://localhost:8443"
 echo "  🏥 API Health:     http://localhost:8086/api/health"
 echo "  📚 API Docs:       http://localhost:8086/scalar"
 echo "  🗄️  Database Admin: http://localhost:8084"
@@ -191,5 +203,5 @@ echo -e "${YELLOW}Database Connection (for external tools):${NC}"
 echo "  Host: localhost"
 echo "  Port: 5434"
 echo "  Username: root"
-echo "  Password: supersecretlongpassword"
+echo "  Password: (use INT_POSTGRES_PASSWORD)"
 echo "  Databases: main_int, identity_int"

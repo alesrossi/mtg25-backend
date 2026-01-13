@@ -23,7 +23,7 @@ services:
     container_name: postgres-int
     restart: unless-stopped
     environment:
-      POSTGRES_PASSWORD: supersecretlongpassword
+      POSTGRES_PASSWORD: ${INT_POSTGRES_PASSWORD}
       POSTGRES_USER: root
       POSTGRES_DB: main_int
     ports:
@@ -47,10 +47,10 @@ services:
       - "8086:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Integration
-      - ConnectionStrings__DefaultConnection=Server=postgres-int;Port=5432;Database=main_int;User Id=root;Password=supersecretlongpassword;
-      - ConnectionStrings__IdentityConnection=Server=postgres-int;Port=5432;Database=identity_int;User Id=root;Password=supersecretlongpassword;
+      - ConnectionStrings__DefaultConnection=Server=postgres-int;Port=5432;Database=main_int;User Id=root;Password=${INT_POSTGRES_PASSWORD};
+      - ConnectionStrings__IdentityConnection=Server=postgres-int;Port=5432;Database=identity_int;User Id=root;Password=${INT_POSTGRES_PASSWORD};
       - ConnectionStrings__Redis=redis-int:6379
-      - JWT__SecretKey=A6e48opuUdbWcyLLHIwbeKVo826sEYYgepR9XtedHfRqhJ5drn7Nl85Yv1234567891234567COQvFzbxxqI3FQ2DUuf3C07Z50EaINValFi4FuuPX1pptcBHrzvl4qp
+      - JWT__SecretKey=${INT_JWT_SECRET}
       - JWT__Issuer=MTG25API
       - JWT__Audience=MTG25Users
       - JWT__ExpiryMinutes=60
@@ -66,7 +66,7 @@ services:
     networks:
       - mtg-int-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -125,6 +125,21 @@ services:
         condition: service_started
     ports:
       - "8088:80"
+  nginx-int:
+    image: nginx:1.27-alpine
+    container_name: nginx-int
+    restart: unless-stopped
+    depends_on:
+      api-int:
+        condition: service_started
+    ports:
+      - "8443:443"
+      - "8080:80"
+    volumes:
+      - ./scripts/nginx/int/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./scripts/nginx/int/certs:/etc/nginx/certs:ro
+    networks:
+      - mtg-int-network
 
 volumes:
   redis-int-data:

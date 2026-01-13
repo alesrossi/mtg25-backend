@@ -12,6 +12,7 @@ using Infrastructure.Data;
 using Infrastructure.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
@@ -119,11 +120,19 @@ public class Program
             // Add CORS policy
             builder.Services.AddCors(options =>
             {
-                options.AddDefaultPolicy(policy =>
+                var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+                options.AddPolicy("DefaultCors", policy =>
                 {
-                    policy.AllowAnyOrigin()
-                        .AllowAnyMethod()
-                        .AllowAnyHeader();
+                    if (allowedOrigins.Length == 0)
+                    {
+                        policy.SetIsOriginAllowed(_ => false);
+                    }
+                    else
+                    {
+                        policy.WithOrigins(allowedOrigins)
+                            .AllowAnyMethod()
+                            .AllowAnyHeader();
+                    }
                 });
             });
             
@@ -191,6 +200,12 @@ public class Program
                 options.Level = CompressionLevel.Fastest;
             });
 
+            builder.Services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+                options.KnownNetworks.Clear();
+                options.KnownProxies.Clear();
+            });
             
             // JWT Configuration
             
@@ -300,7 +315,7 @@ public class Program
             }
 
             // Configure the HTTP request pipeline.
-            if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Integration"))
+            if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Swagger:Enabled"))
             {
                 app.UseDeveloperExceptionPage();
                 app.MapOpenApi();
@@ -309,7 +324,13 @@ public class Program
                 app.UseSwaggerUI();
             }
 
-            // app.UseHttpsRedirection();
+            app.UseForwardedHeaders();
+
+            if (app.Environment.IsEnvironment("Integration") || app.Environment.IsProduction())
+            {
+                app.UseHsts();
+                app.UseHttpsRedirection();
+            }
 
             app.UseExceptionHandler(errorApp =>
             {
@@ -371,7 +392,7 @@ public class Program
                 }
             });
 
-            app.UseCors();
+            app.UseCors("DefaultCors");
         
             app.MapCardsEndpoints();
             app.MapAccountEndpoints();
