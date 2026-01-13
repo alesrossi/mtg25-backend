@@ -136,7 +136,7 @@ public sealed class LeagueService : ILeagueService
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
         {
-            throw LeagueServiceException.NotFound("League not found");
+            throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
         }
 
         var res = await _dbContext.UserLeagues
@@ -147,7 +147,7 @@ public sealed class LeagueService : ILeagueService
 
         if (userId != league.OwnerId && res is null)
         {
-            throw LeagueServiceException.Unauthorized("User not in league");
+            throw LeagueServiceException.Unauthorized("Errors.Leagues.UserNotInLeague");
         }
 
         return new LeagueDto
@@ -180,7 +180,7 @@ public sealed class LeagueService : ILeagueService
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
         {
-            throw LeagueServiceException.NotFound("League not found");
+            throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
         }
 
         var res = await _dbContext.UserLeagues
@@ -231,18 +231,18 @@ public sealed class LeagueService : ILeagueService
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
         {
-            throw LeagueServiceException.NotFound("League not found");
+            throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
         }
 
         if (!await IsLeagueAdminAsync(league, user.Id, cancellationToken))
         {
-            throw LeagueServiceException.Unauthorized("Unauthorized");
+            throw LeagueServiceException.Unauthorized("Errors.Leagues.Unauthorized");
         }
 
         var (isValid, errors) = _validationService.ValidateModel(updateLeague);
         if (!isValid)
         {
-            throw LeagueServiceException.ValidationFailed(errors, "Validation failed");
+            throw LeagueServiceException.ValidationFailed(errors, "Errors.Leagues.ValidationFailed");
         }
 
         if (updateLeague.Name != null) league.Name = updateLeague.Name;
@@ -254,7 +254,7 @@ public sealed class LeagueService : ILeagueService
         if (updateLeague.IsPublic.HasValue) league.IsPublic = updateLeague.IsPublic.Value;
         if (updateLeague.CurrentRound == null || updateLeague.CurrentRound > league.TotalRounds)
         {
-            throw LeagueServiceException.BadRequest("Invalid current round");
+            throw LeagueServiceException.BadRequest("Errors.Leagues.InvalidCurrentRound");
         }
 
         league.CurrentRound = (int)updateLeague.CurrentRound;
@@ -274,12 +274,12 @@ public sealed class LeagueService : ILeagueService
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
         {
-            throw LeagueServiceException.NotFound("League not found");
+            throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
         }
 
         if (!await IsLeagueAdminAsync(league, userId, cancellationToken))
         {
-            throw LeagueServiceException.Unauthorized("Unauthorized");
+            throw LeagueServiceException.Unauthorized("Errors.Leagues.Unauthorized");
         }
 
         var res = await _dbContext.UserLeagues
@@ -329,12 +329,12 @@ public sealed class LeagueService : ILeagueService
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
         {
-            throw LeagueServiceException.NotFound("League not found");
+            throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
         }
 
         if (!await IsLeagueAdminAsync(league, userId, cancellationToken))
         {
-            throw LeagueServiceException.Unauthorized("Unauthorized");
+            throw LeagueServiceException.Unauthorized("Errors.Leagues.Unauthorized");
         }
 
         return league.Code;
@@ -348,14 +348,14 @@ public sealed class LeagueService : ILeagueService
             .FirstOrDefaultAsync(l => l.Code == code, cancellationToken);
         if (league is null)
         {
-            throw LeagueServiceException.NotFound("League not found", includeBody: true);
+            throw LeagueServiceException.NotFound("Errors.Leagues.NotFound", includeBody: true);
         }
 
         var existingMember = await _dbContext.UserLeagues
             .AnyAsync(ul => ul.LeagueId == league.Id && ul.UserId == user.Id, cancellationToken);
         if (existingMember)
         {
-            throw LeagueServiceException.BadRequest("User already joined the league", includeBody: true);
+            throw LeagueServiceException.BadRequest("Errors.Leagues.UserAlreadyJoined", includeBody: true);
         }
 
         var adminAssignments = await _dbContext.LeagueRoleAssignments
@@ -398,14 +398,14 @@ public sealed class LeagueService : ILeagueService
         var league = await _dbContext.Leagues.FindAsync(new object?[] { leagueId }, cancellationToken);
         if (league is null)
         {
-            throw LeagueServiceException.NotFound("League not found", includeBody: true);
+            throw LeagueServiceException.NotFound("Errors.Leagues.NotFound", includeBody: true);
         }
 
         var existingMember = await _dbContext.UserLeagues
             .AnyAsync(ul => ul.LeagueId == league.Id && ul.UserId == user.Id, cancellationToken);
         if (existingMember)
         {
-            throw LeagueServiceException.BadRequest("User already joined the league", includeBody: true);
+            throw LeagueServiceException.BadRequest("Errors.Leagues.UserAlreadyJoined", includeBody: true);
         }
 
         var exactMatch = $"{league.Id}.{userId}";
@@ -416,7 +416,7 @@ public sealed class LeagueService : ILeagueService
                 && n.Approval, cancellationToken);
         if (!approved)
         {
-            throw LeagueServiceException.BadRequest("User has not been approved by an admin", includeBody: true);
+            throw LeagueServiceException.BadRequest("Errors.Leagues.UserNotApproved", includeBody: true);
         }
 
         await _dbContext.AddAsync(new AppUserLeague
@@ -460,18 +460,18 @@ public sealed class LeagueService : ILeagueService
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
         {
-            throw LeagueServiceException.NotFound("League not found", includeBody: true);
+            throw LeagueServiceException.NotFound("Errors.Leagues.NotFound", includeBody: true);
         }
 
         if (league.OwnerId == user.Id)
         {
-            throw LeagueServiceException.BadRequest("You can't leave a league you created", includeBody: true);
+            throw LeagueServiceException.BadRequest("Errors.Leagues.CannotLeaveOwner", includeBody: true);
         }
 
         var res = _dbContext.UserLeagues.FirstOrDefault(ul => ul.LeagueId == league.Id && ul.UserId == userId);
         if (res is null)
         {
-            throw LeagueServiceException.BadRequest("User not playing in league", includeBody: true);
+            throw LeagueServiceException.BadRequest("Errors.Leagues.UserNotPlaying", includeBody: true);
         }
 
         res.IsPlaying = false;
@@ -500,7 +500,7 @@ public sealed class LeagueService : ILeagueService
         var (isValid, errors) = _validationService.ValidateModel(leagueDto);
         if (!isValid)
         {
-            throw LeagueServiceException.ValidationFailed(errors, "Validation failed");
+            throw LeagueServiceException.ValidationFailed(errors, "Errors.Leagues.ValidationFailed");
         }
 
         var league = new League
@@ -556,29 +556,29 @@ public sealed class LeagueService : ILeagueService
             .FirstOrDefaultAsync(cancellationToken);
         if (league is null)
         {
-            throw LeagueServiceException.NotFound("League not found", includeBody: true);
+            throw LeagueServiceException.NotFound("Errors.Leagues.NotFound", includeBody: true);
         }
 
         if (league.OwnerId != userId)
         {
-            throw LeagueServiceException.Unauthorized("Unauthorized");
+            throw LeagueServiceException.Unauthorized("Errors.Leagues.Unauthorized");
         }
 
         if (!league.IsActive)
         {
-            throw LeagueServiceException.BadRequest("League inactive");
+            throw LeagueServiceException.BadRequest("Errors.Leagues.LeagueInactive");
         }
 
         var ownerMembership = await _dbContext.UserLeagues
             .FirstOrDefaultAsync(ul => ul.LeagueId == league.Id && ul.UserId == user.Id, cancellationToken);
         if (ownerMembership is null)
         {
-            throw LeagueServiceException.BadRequest("Owner membership not found", includeBody: true);
+            throw LeagueServiceException.BadRequest("Errors.Leagues.OwnerMembershipNotFound", includeBody: true);
         }
 
         if (ownerMembership.IsPlaying)
         {
-            throw LeagueServiceException.BadRequest("Owner already joined as player", includeBody: true);
+            throw LeagueServiceException.BadRequest("Errors.Leagues.OwnerAlreadyPlayer", includeBody: true);
         }
 
         ownerMembership.IsPlaying = true;
@@ -599,18 +599,18 @@ public sealed class LeagueService : ILeagueService
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
         {
-            throw LeagueServiceException.NotFound("League not found");
+            throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
         }
 
         if (league.OwnerId != caller.Id)
         {
-            throw LeagueServiceException.Unauthorized("Caller not owner");
+            throw LeagueServiceException.Unauthorized("Errors.Leagues.CallerNotOwner");
         }
 
         var targetUser = await _userManager.FindByIdAsync(targetUserId);
         if (targetUser is null)
         {
-            throw LeagueServiceException.NotFound("User not found", includeBody: true);
+            throw LeagueServiceException.NotFound("Errors.Leagues.UserNotFound", includeBody: true);
         }
 
         var isMember = await _dbContext.UserLeagues
@@ -618,7 +618,7 @@ public sealed class LeagueService : ILeagueService
             .AnyAsync(ul => ul.LeagueId == league.Id && ul.UserId == targetUser.Id && ul.IsPlaying, cancellationToken);
         if (!isMember)
         {
-            throw LeagueServiceException.BadRequest("User must be part of the league to be promoted", includeBody: true);
+            throw LeagueServiceException.BadRequest("Errors.Leagues.UserMustBeMember", includeBody: true);
         }
 
         await AssignLeagueRoleAsync(targetUser.Id, league.Id, LeagueRole.Admin, cancellationToken);
@@ -629,13 +629,13 @@ public sealed class LeagueService : ILeagueService
     {
         if (string.IsNullOrWhiteSpace(userId))
         {
-            throw LeagueServiceException.Unauthorized("Missing user id");
+            throw LeagueServiceException.Unauthorized("Errors.Leagues.MissingUserId");
         }
 
         var user = await _userManager.FindByIdAsync(userId);
         if (user is null)
         {
-            throw LeagueServiceException.Unauthorized("User not found");
+            throw LeagueServiceException.Unauthorized("Errors.Leagues.UserNotFound");
         }
 
         return user;

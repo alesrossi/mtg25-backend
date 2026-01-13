@@ -12,6 +12,7 @@ public static partial class DecksEndpoint
         HttpContext context,
         [FromServices] IDeckService deckService,
         [FromServices] ILogger<DecksEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "Decks.List";
@@ -34,7 +35,7 @@ public static partial class DecksEndpoint
         catch (DeckServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { userId });
-            return MapDeckServiceException(ex);
+            return await MapDeckServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -43,6 +44,7 @@ public static partial class DecksEndpoint
         HttpContext context,
         [FromServices] IDeckService deckService,
         [FromServices] ILogger<DecksEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "Decks.Get";
@@ -65,7 +67,7 @@ public static partial class DecksEndpoint
         catch (DeckServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { id, userId });
-            return MapDeckServiceException(ex);
+            return await MapDeckServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -77,6 +79,7 @@ public static partial class DecksEndpoint
         HttpContext context = null!,
         [FromServices] IDeckService deckService = null!,
         [FromServices] ILogger<DecksEndpointLogCategory> logger = null!,
+        [FromServices] IMessageLocalizer messageLocalizer = null!,
         CancellationToken cancellationToken = default)
     {
         const string operation = "DeckCards.Query";
@@ -99,7 +102,7 @@ public static partial class DecksEndpoint
         catch (DeckServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { deckId, userId });
-            return MapDeckServiceException(ex);
+            return await MapDeckServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -109,6 +112,7 @@ public static partial class DecksEndpoint
         HttpContext context,
         [FromServices] IDeckService deckService,
         [FromServices] ILogger<DecksEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "DeckCards.Get";
@@ -131,7 +135,7 @@ public static partial class DecksEndpoint
         catch (DeckServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { deckId, id, userId });
-            return MapDeckServiceException(ex);
+            return await MapDeckServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -140,6 +144,7 @@ public static partial class DecksEndpoint
         HttpContext context,
         [FromServices] IDeckService deckService,
         [FromServices] ILogger<DecksEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "DeckCards.Missing";
@@ -162,7 +167,7 @@ public static partial class DecksEndpoint
         catch (DeckServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { deckId, userId });
-            return MapDeckServiceException(ex);
+            return await MapDeckServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -171,6 +176,7 @@ public static partial class DecksEndpoint
         HttpContext context,
         [FromServices] IDeckService deckService,
         [FromServices] ILogger<DecksEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "Decks.Export";
@@ -197,7 +203,7 @@ public static partial class DecksEndpoint
         catch (DeckServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { deckId, userId });
-            return MapDeckServiceException(ex);
+            return await MapDeckServiceException(ex, context, messageLocalizer, userId);
         }
     }
 }

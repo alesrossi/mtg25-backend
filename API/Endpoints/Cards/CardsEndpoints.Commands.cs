@@ -14,6 +14,7 @@ public static partial class CardsEndpoints
         HttpContext context,
         [FromBody] UpdateCollectionCardDto updateDto,
         [FromServices] ICardsService cardsService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
         const string operation = "Cards.Update";
@@ -21,11 +22,13 @@ public static partial class CardsEndpoints
         if (userId is null)
         {
             logger.LogOperationWarning(operation, "Missing user id", new { id });
-            return ProblemResultFactory.Create(
+            return await LocalizedErrorResultFactory.ProblemAsync(
                 context,
+                messageLocalizer,
+                userId,
                 StatusCodes.Status401Unauthorized,
                 "Authentication required",
-                "You must be logged in to update cards.",
+                "Errors.Cards.UpdateAuthRequired",
                 "card-update-auth-required");
         }
 
@@ -40,7 +43,7 @@ public static partial class CardsEndpoints
         catch (CardsServiceException ex)
         {
             logger.LogOperationFailure(operation, ex, new { id });
-            return MapCardsServiceException(ex, context);
+            return await MapCardsServiceException(ex, context, messageLocalizer, userId);
         }
     }
     
@@ -49,6 +52,7 @@ public static partial class CardsEndpoints
         HttpContext context,
         [FromBody] UpdateCollectionCardWithSFIdDto updateDto,
         [FromServices] ICardsService cardsService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
         const string operation = "Cards.Update";
@@ -56,11 +60,13 @@ public static partial class CardsEndpoints
         if (userId is null)
         {
             logger.LogOperationWarning(operation, "Missing user id", new { id });
-            return ProblemResultFactory.Create(
+            return await LocalizedErrorResultFactory.ProblemAsync(
                 context,
+                messageLocalizer,
+                userId,
                 StatusCodes.Status401Unauthorized,
                 "Authentication required",
-                "You must be logged in to update cards.",
+                "Errors.Cards.UpdateAuthRequired",
                 "card-update-auth-required");
         }
 
@@ -75,7 +81,7 @@ public static partial class CardsEndpoints
         catch (CardsServiceException ex)
         {
             logger.LogOperationFailure(operation, ex, new { id });
-            return MapCardsServiceException(ex, context);
+            return await MapCardsServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -83,6 +89,7 @@ public static partial class CardsEndpoints
         int id,
         HttpContext context,
         [FromServices] ICardsService cardsService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
         const string operation = "Cards.Delete";
@@ -90,11 +97,13 @@ public static partial class CardsEndpoints
         if (userId is null)
         {
             logger.LogOperationWarning(operation, "Missing user id", new { id });
-            return ProblemResultFactory.Create(
+            return await LocalizedErrorResultFactory.ProblemAsync(
                 context,
+                messageLocalizer,
+                userId,
                 StatusCodes.Status401Unauthorized,
                 "Authentication required",
-                "You must be logged in to delete cards.",
+                "Errors.Cards.DeleteAuthRequired",
                 "card-delete-auth-required");
         }
 
@@ -109,7 +118,7 @@ public static partial class CardsEndpoints
         catch (CardsServiceException ex)
         {
             logger.LogOperationFailure(operation, ex, new { id });
-            return MapCardsServiceException(ex, context);
+            return await MapCardsServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -117,6 +126,7 @@ public static partial class CardsEndpoints
         HttpContext context,
         InternalCardDto cardDto,
         [FromServices] ICardsService cardsService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
         const string operation = "Cards.AddInternal";
@@ -136,7 +146,7 @@ public static partial class CardsEndpoints
         catch (CardsServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { cardDto.CollectionId, userId });
-            return MapCardsServiceException(ex, context);
+            return await MapCardsServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -144,6 +154,7 @@ public static partial class CardsEndpoints
         CardListDto cardListDto,
         HttpContext context,
         [FromServices] ICardsService cardsService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
         const string operation = "Cards.AddList";
@@ -163,7 +174,7 @@ public static partial class CardsEndpoints
         catch (CardsServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { userId });
-            return MapCardsServiceException(ex, context);
+            return await MapCardsServiceException(ex, context, messageLocalizer, userId);
         }
     }
 }

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using API.Helpers;
 using API.Logging;
 using API.Services;
 using Core.Models.Identity;
@@ -18,6 +19,7 @@ public static partial class TradesEndpoints
         [FromServices] ILogger<TradesEndpointLogCategory> logger,
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] AppIdentityDbContext identityDbContext,
+        [FromServices] IMessageLocalizer messageLocalizer,
         HttpContext context,
         CancellationToken cancellationToken,
         [FromQuery] bool liveTrading = true)
@@ -27,7 +29,11 @@ public static partial class TradesEndpoints
         if (string.IsNullOrWhiteSpace(initiatorUserId) || string.IsNullOrWhiteSpace(partnerUserId))
         {
             logger.LogOperationWarning(operation, "Missing user identifiers", new { initiatorUserId, partnerUserId });
-            return Results.BadRequest(new { Error = "Both user identifiers are required." });
+            return await LocalizedErrorResultFactory.BadRequestAsync(
+                context,
+                messageLocalizer,
+                context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value,
+                "Errors.Trades.MissingUserIds");
         }
         
         var jwtUserId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -79,12 +85,20 @@ public static partial class TradesEndpoints
         catch (ArgumentException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { initiatorUserId, partnerUserId });
-            return Results.BadRequest(new { Error = ex.Message });
+            return await LocalizedErrorResultFactory.BadRequestAsync(
+                context,
+                messageLocalizer,
+                initiatorUserId,
+                "Errors.Trades.InvalidRequest");
         }
         catch (KeyNotFoundException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { initiatorUserId, partnerUserId });
-            return Results.NotFound(new { Error = ex.Message });
+            return await LocalizedErrorResultFactory.NotFoundAsync(
+                context,
+                messageLocalizer,
+                initiatorUserId,
+                "Errors.Trades.NotFound");
         }
     }
 
@@ -93,6 +107,7 @@ public static partial class TradesEndpoints
         HttpContext context,
         [FromServices] ITradeConnectionService tradeConnectionService,
         [FromServices] ILogger<TradesEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "Trades.GetSession";
@@ -117,7 +132,11 @@ public static partial class TradesEndpoints
         catch (KeyNotFoundException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { tradeId, userId });
-            return Results.NotFound(new { Error = ex.Message });
+            return await LocalizedErrorResultFactory.NotFoundAsync(
+                context,
+                messageLocalizer,
+                userId,
+                "Errors.Trades.NotFound");
         }
     }
 }

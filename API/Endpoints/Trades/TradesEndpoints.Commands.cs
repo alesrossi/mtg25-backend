@@ -2,6 +2,7 @@ using System.Security.Claims;
 using API.Constants;
 using API.Dtos.Notifications;
 using API.Dtos.Trades;
+using API.Helpers;
 using API.Logging;
 using API.Services;
 using Core.Models.Identity;
@@ -18,6 +19,7 @@ public static partial class TradesEndpoints
         HttpContext context,
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] NotificationService notificationService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<TradesEndpointLogCategory> logger)
     {
         const string operation = "Trades.Request";
@@ -31,13 +33,21 @@ public static partial class TradesEndpoints
         if (string.IsNullOrWhiteSpace(userId))
         {
             logger.LogOperationWarning(operation, "Missing requested user id", new { requesterUserId });
-            return Results.BadRequest(new { Error = "Requested user identifier is required." });
+            return await LocalizedErrorResultFactory.BadRequestAsync(
+                context,
+                messageLocalizer,
+                requesterUserId,
+                "Errors.Trades.MissingRequestedUserId");
         }
 
         if (string.Equals(requesterUserId, userId, StringComparison.Ordinal))
         {
             logger.LogOperationWarning(operation, "Cannot request trade with self", new { requesterUserId });
-            return Results.BadRequest(new { Error = "Cannot request a trade with yourself." });
+            return await LocalizedErrorResultFactory.BadRequestAsync(
+                context,
+                messageLocalizer,
+                requesterUserId,
+                "Errors.Trades.CannotTradeSelf");
         }
 
         var requester = await userManager.FindByIdAsync(requesterUserId);
@@ -51,7 +61,11 @@ public static partial class TradesEndpoints
         if (requestedUser is null)
         {
             logger.LogOperationWarning(operation, "Requested user not found", new { userId });
-            return Results.NotFound(new { Error = "Requested user was not found." });
+            return await LocalizedErrorResultFactory.NotFoundAsync(
+                context,
+                messageLocalizer,
+                requesterUserId,
+                "Errors.Trades.RequestedUserNotFound");
         }
 
         var notification = new NewNotificationDto
@@ -75,6 +89,7 @@ public static partial class TradesEndpoints
         HttpContext context,
         [FromServices] ITradeConnectionService tradeConnectionService,
         [FromServices] NotificationService notificationService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<TradesEndpointLogCategory> logger,
         CancellationToken cancellationToken)
     {
@@ -119,7 +134,11 @@ public static partial class TradesEndpoints
         catch (KeyNotFoundException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { tradeId, userId });
-            return Results.NotFound(new { Error = ex.Message });
+            return await LocalizedErrorResultFactory.NotFoundAsync(
+                context,
+                messageLocalizer,
+                userId,
+                "Errors.Trades.NotFound");
         }
     }
 
@@ -129,6 +148,7 @@ public static partial class TradesEndpoints
         HttpContext context,
         [FromServices] ITradeConnectionService tradeConnectionService,
         [FromServices] NotificationService notificationService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<TradesEndpointLogCategory> logger,
         CancellationToken cancellationToken)
     {
@@ -158,12 +178,20 @@ public static partial class TradesEndpoints
         catch (KeyNotFoundException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { tradeId, userId });
-            return Results.NotFound(new { Error = ex.Message });
+            return await LocalizedErrorResultFactory.NotFoundAsync(
+                context,
+                messageLocalizer,
+                userId,
+                "Errors.Trades.NotFound");
         }
         catch (ArgumentException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { tradeId, userId });
-            return Results.BadRequest(new { Error = ex.Message });
+            return await LocalizedErrorResultFactory.BadRequestAsync(
+                context,
+                messageLocalizer,
+                userId,
+                "Errors.Trades.InvalidRequest");
         }
     }
 
@@ -171,6 +199,7 @@ public static partial class TradesEndpoints
         string tradeId,
         HttpContext context,
         [FromServices] ITradeConnectionService tradeConnectionService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<TradesEndpointLogCategory> logger,
         CancellationToken cancellationToken)
     {
@@ -196,7 +225,11 @@ public static partial class TradesEndpoints
         catch (KeyNotFoundException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { tradeId, userId });
-            return Results.NotFound(new { Error = ex.Message });
+            return await LocalizedErrorResultFactory.NotFoundAsync(
+                context,
+                messageLocalizer,
+                userId,
+                "Errors.Trades.NotFound");
         }
     }
 
@@ -204,6 +237,7 @@ public static partial class TradesEndpoints
         string tradeId,
         HttpContext context,
         [FromServices] ITradeConnectionService tradeConnectionService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<TradesEndpointLogCategory> logger,
         CancellationToken cancellationToken)
     {
@@ -229,17 +263,29 @@ public static partial class TradesEndpoints
         catch (KeyNotFoundException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { tradeId, userId });
-            return Results.NotFound(new { Error = ex.Message });
+            return await LocalizedErrorResultFactory.NotFoundAsync(
+                context,
+                messageLocalizer,
+                userId,
+                "Errors.Trades.NotFound");
         }
         catch (ArgumentException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { tradeId, userId });
-            return Results.BadRequest(new { Error = ex.Message });
+            return await LocalizedErrorResultFactory.BadRequestAsync(
+                context,
+                messageLocalizer,
+                userId,
+                "Errors.Trades.InvalidRequest");
         }
         catch (InvalidOperationException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { tradeId, userId });
-            return Results.BadRequest(new { Error = ex.Message });
+            return await LocalizedErrorResultFactory.BadRequestAsync(
+                context,
+                messageLocalizer,
+                userId,
+                "Errors.Trades.InvalidRequest");
         }
     }
 }

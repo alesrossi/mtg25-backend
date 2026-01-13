@@ -41,19 +41,19 @@ public sealed class CardsService : ICardsService
     {
         if (userId is null)
         {
-            throw CardsServiceException.Unauthorized("Missing user id");
+            throw CardsServiceException.Unauthorized("Errors.Cards.MissingUserId");
         }
 
         var card = await _unitOfWork.Repository<Card>().GetByIdAsync(id, tracking: false);
         if (card is null)
         {
-            throw CardsServiceException.NotFound("Card not found");
+            throw CardsServiceException.NotFound("Errors.Cards.NotFound");
         }
 
         var collection = await _unitOfWork.Repository<Collection>().GetByIdAsync(card.CollectionId, tracking: false);
         if (collection!.OwnerId != userId)
         {
-            throw CardsServiceException.Unauthorized("Unauthorized");
+            throw CardsServiceException.Unauthorized("Errors.Cards.Unauthorized");
         }
 
         var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId);
@@ -79,7 +79,7 @@ public sealed class CardsService : ICardsService
     {
         if (userId is null)
         {
-            throw CardsServiceException.Unauthorized("Missing user id");
+            throw CardsServiceException.Unauthorized("Errors.Cards.MissingUserId");
         }
 
         var cardList = _cardDataService.CardDataById
@@ -105,7 +105,7 @@ public sealed class CardsService : ICardsService
 
         if (result.Count == 0)
         {
-            throw CardsServiceException.NotFound("Card not found", includeBody: true, body: "Card not found");
+            throw CardsServiceException.NotFound("Errors.Cards.NotFound", includeBody: true, body: "Errors.Cards.NotFound");
         }
 
         return Task.FromResult(result);
@@ -115,12 +115,12 @@ public sealed class CardsService : ICardsService
     {
         if (userId is null)
         {
-            throw CardsServiceException.Unauthorized("Missing user id");
+            throw CardsServiceException.Unauthorized("Errors.Cards.MissingUserId");
         }
 
         if (!_cardDataService.CardDataByName.ContainsKey(name))
         {
-            throw CardsServiceException.NotFound("Card not found");
+            throw CardsServiceException.NotFound("Errors.Cards.NotFound");
         }
 
         var versions = _cardDataService.CardDataById
@@ -134,7 +134,7 @@ public sealed class CardsService : ICardsService
     {
         if (userId is null)
         {
-            throw CardsServiceException.Unauthorized("Missing user id");
+            throw CardsServiceException.Unauthorized("Errors.Cards.MissingUserId");
         }
 
         if (_cardDataService.CardDataByName.TryGetValue(name, out var card))
@@ -142,14 +142,14 @@ public sealed class CardsService : ICardsService
             return Task.FromResult(card);
         }
 
-        throw CardsServiceException.NotFound("Card not found");
+        throw CardsServiceException.NotFound("Errors.Cards.NotFound");
     }
 
     public Task<ScryfallCardDto> GetCardFromScryfallIdAsync(string id, string userId, CancellationToken cancellationToken = default)
     {
         if (userId is null)
         {
-            throw CardsServiceException.Unauthorized("Missing user id");
+            throw CardsServiceException.Unauthorized("Errors.Cards.MissingUserId");
         }
 
         if (_cardDataService.CardDataById.TryGetValue(id, out var card))
@@ -157,7 +157,7 @@ public sealed class CardsService : ICardsService
             return Task.FromResult(card);
         }
 
-        throw CardsServiceException.NotFound("Card not found");
+        throw CardsServiceException.NotFound("Errors.Cards.NotFound");
     }
 
     public async Task<Card> UpdateCardAsync(int id, UpdateCollectionCardDto updateDto, string userId, CancellationToken cancellationToken = default)
@@ -167,7 +167,7 @@ public sealed class CardsService : ICardsService
             throw CardsServiceException.Problem(
                 StatusCodes.Status401Unauthorized,
                 "Authentication required",
-                "You must be logged in to update cards.",
+                "Errors.Cards.UpdateAuthRequired",
                 "card-update-auth-required");
         }
 
@@ -177,7 +177,7 @@ public sealed class CardsService : ICardsService
             throw CardsServiceException.Problem(
                 StatusCodes.Status404NotFound,
                 "Card not found",
-                $"No card with id {id} exists in your collections.",
+                "Errors.Cards.NotFoundInCollection",
                 "card-not-found");
         }
 
@@ -187,7 +187,7 @@ public sealed class CardsService : ICardsService
             throw CardsServiceException.Problem(
                 StatusCodes.Status404NotFound,
                 "Collection not found",
-                "The collection associated with this card could not be located.",
+                "Errors.Cards.CollectionNotFound",
                 "collection-not-found");
         }
 
@@ -196,7 +196,7 @@ public sealed class CardsService : ICardsService
             throw CardsServiceException.Problem(
                 StatusCodes.Status401Unauthorized,
                 "Unauthorized collection access",
-                "You do not have permission to modify cards in this collection.",
+                "Errors.Cards.CollectionAccessDenied",
                 "collection-access-denied");
         }
 
@@ -205,7 +205,7 @@ public sealed class CardsService : ICardsService
             throw CardsServiceException.Problem(
                 StatusCodes.Status400BadRequest,
                 "Invalid quantity",
-                "Quantity must be greater than zero for a card update.",
+                "Errors.Cards.InvalidQuantity",
                 "card-invalid-quantity");
         }
 
@@ -216,7 +216,7 @@ public sealed class CardsService : ICardsService
                 throw CardsServiceException.Problem(
                     StatusCodes.Status400BadRequest,
                     "Invalid condition",
-                    $"'{updateDto.Condition}' is not a supported condition value.",
+                    "Errors.Cards.InvalidCondition",
                     "card-invalid-condition");
             }
 
@@ -250,7 +250,7 @@ public sealed class CardsService : ICardsService
             throw CardsServiceException.Problem(
                 StatusCodes.Status500InternalServerError,
                 "Card update failed",
-                "An unexpected error occurred while updating the card.",
+                "Errors.Cards.UpdateFailed",
                 "card-update-error");
         }
 
@@ -264,7 +264,7 @@ public sealed class CardsService : ICardsService
             throw CardsServiceException.Problem(
                 StatusCodes.Status401Unauthorized,
                 "Authentication required",
-                "You must be logged in to update cards.",
+                "Errors.Cards.UpdateAuthRequired",
                 "card-update-auth-required");
         }
 
@@ -274,7 +274,7 @@ public sealed class CardsService : ICardsService
             throw CardsServiceException.Problem(
                 StatusCodes.Status404NotFound,
                 "Card not found",
-                $"No card with id {id} exists in your collections.",
+                "Errors.Cards.NotFoundInCollection",
                 "card-not-found");
         }
 
@@ -284,7 +284,7 @@ public sealed class CardsService : ICardsService
             throw CardsServiceException.Problem(
                 StatusCodes.Status404NotFound,
                 "Collection not found",
-                "The collection associated with this card could not be located.",
+                "Errors.Cards.CollectionNotFound",
                 "collection-not-found");
         }
 
@@ -293,7 +293,7 @@ public sealed class CardsService : ICardsService
             throw CardsServiceException.Problem(
                 StatusCodes.Status401Unauthorized,
                 "Unauthorized collection access",
-                "You do not have permission to modify cards in this collection.",
+                "Errors.Cards.CollectionAccessDenied",
                 "collection-access-denied");
         }
 
@@ -302,7 +302,7 @@ public sealed class CardsService : ICardsService
             throw CardsServiceException.Problem(
                 StatusCodes.Status400BadRequest,
                 "Invalid quantity",
-                "Quantity must be greater than zero for a card update.",
+                "Errors.Cards.InvalidQuantity",
                 "card-invalid-quantity");
         }
 
@@ -313,7 +313,7 @@ public sealed class CardsService : ICardsService
                 throw CardsServiceException.Problem(
                     StatusCodes.Status400BadRequest,
                     "Invalid condition",
-                    $"'{updateDto.Condition}' is not a supported condition value.",
+                    "Errors.Cards.InvalidCondition",
                     "card-invalid-condition");
             }
 
@@ -322,7 +322,7 @@ public sealed class CardsService : ICardsService
                 throw CardsServiceException.Problem(
                     StatusCodes.Status400BadRequest,
                     "Invalid scryfallId",
-                    $"'{updateDto.ScryfallId}' is not a valid id.",
+                    "Errors.Cards.InvalidScryfallId",
                     "card-invalid-sf-id");
             }
 
@@ -331,7 +331,7 @@ public sealed class CardsService : ICardsService
                 throw CardsServiceException.Problem(
                     StatusCodes.Status400BadRequest,
                     "Invalid version",
-                    $"'{updateDto.ScryfallId}' is not a valid version for card '{card.Name}'.",
+                    "Errors.Cards.InvalidVersion",
                     "card-invalid-version");
             }
 
@@ -372,7 +372,7 @@ public sealed class CardsService : ICardsService
             throw CardsServiceException.Problem(
                 StatusCodes.Status500InternalServerError,
                 "Card update failed",
-                "An unexpected error occurred while updating the card.",
+                "Errors.Cards.UpdateFailed",
                 "card-update-error");
         }
 
@@ -386,7 +386,7 @@ public sealed class CardsService : ICardsService
             throw CardsServiceException.Problem(
                 StatusCodes.Status401Unauthorized,
                 "Authentication required",
-                "You must be logged in to delete cards.",
+                "Errors.Cards.DeleteAuthRequired",
                 "card-delete-auth-required");
         }
 
@@ -398,7 +398,7 @@ public sealed class CardsService : ICardsService
                 throw CardsServiceException.Problem(
                     StatusCodes.Status404NotFound,
                     "Card not found",
-                    $"No card with id {id} was found.",
+                    "Errors.Cards.NotFound",
                     "card-not-found");
             }
 
@@ -408,7 +408,7 @@ public sealed class CardsService : ICardsService
                 throw CardsServiceException.Problem(
                     StatusCodes.Status404NotFound,
                     "Collection not found",
-                    "The collection associated with this card could not be located.",
+                    "Errors.Cards.CollectionNotFound",
                     "collection-not-found");
             }
 
@@ -417,7 +417,7 @@ public sealed class CardsService : ICardsService
                 throw CardsServiceException.Problem(
                     StatusCodes.Status401Unauthorized,
                     "Unauthorized collection access",
-                    "You do not have permission to modify cards in this collection.",
+                    "Errors.Cards.CollectionAccessDenied",
                     "collection-access-denied");
             }
 
@@ -437,7 +437,7 @@ public sealed class CardsService : ICardsService
             throw CardsServiceException.Problem(
                 StatusCodes.Status500InternalServerError,
                 "Card deletion failed",
-                "An unexpected error occurred while removing the card.",
+                "Errors.Cards.DeleteFailed",
                 "card-delete-error");
         }
     }
@@ -446,32 +446,32 @@ public sealed class CardsService : ICardsService
     {
         if (userId is null)
         {
-            throw CardsServiceException.Unauthorized("Missing user id");
+            throw CardsServiceException.Unauthorized("Errors.Cards.MissingUserId");
         }
 
         var collection = await _unitOfWork.Repository<Collection>().GetByIdAsync(cardDto.CollectionId);
         if (collection is null)
         {
-            throw CardsServiceException.NotFound("Collection not found");
+            throw CardsServiceException.NotFound("Errors.Cards.CollectionNotFound");
         }
         if (collection.OwnerId != userId)
         {
-            throw CardsServiceException.Unauthorized("Unauthorized");
+            throw CardsServiceException.Unauthorized("Errors.Cards.Unauthorized");
         }
 
         if (userId != collection.OwnerId)
         {
-            throw CardsServiceException.BadRequest("Collection is not valid for logged user", includeBody: true);
+            throw CardsServiceException.BadRequest("Errors.Cards.CollectionInvalidForUser", includeBody: true);
         }
 
         if (!_cardDataService.CardDataById.TryGetValue(cardDto.ScryfallId, out var scryfallCardDto))
         {
-            throw CardsServiceException.BadRequest("Card not found for scryfallId", includeBody: true);
+            throw CardsServiceException.BadRequest("Errors.Cards.ScryfallNotFound", includeBody: true);
         }
 
         if (!Enum.TryParse(cardDto.Condition, out Condition myEnum))
         {
-            throw CardsServiceException.BadRequest("Invalid condition", includeBody: true);
+            throw CardsServiceException.BadRequest("Errors.Cards.InvalidConditionValue", includeBody: true);
         }
 
         var imageUris = CardDataService.ResolveImageUris(scryfallCardDto);
@@ -523,7 +523,7 @@ public sealed class CardsService : ICardsService
     {
         if (userId is null)
         {
-            throw CardsServiceException.Unauthorized("Missing user id");
+            throw CardsServiceException.Unauthorized("Errors.Cards.MissingUserId");
         }
 
         var scryfallCardList = new LinkedList<ScryfallCardDto>();

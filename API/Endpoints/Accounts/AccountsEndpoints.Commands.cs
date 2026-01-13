@@ -17,6 +17,8 @@ public static partial class AccountsEndpoints
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] IValidationService validationService,
         [FromBody] RegisterDto registerDto,
+        HttpContext context,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<AccountsEndpointLogCategory> logger)
     {
         const string operation = "Accounts.Register";
@@ -26,7 +28,11 @@ public static partial class AccountsEndpoints
         if (await CheckEmailExistsAsyncHelper(userManager, registerDto.Email))
         {
             logger.LogOperationWarning(operation, "Email exists", new { registerDto.Email });
-            return Results.BadRequest("Email address already in use");
+            return await LocalizedErrorResultFactory.BadRequestMessageAsync(
+                context,
+                messageLocalizer,
+                null,
+                "Errors.Accounts.EmailInUse");
         }
 
         var (isValid, errors) = validationService.ValidateModel(registerDto);
@@ -58,7 +64,11 @@ public static partial class AccountsEndpoints
         if (!result.Succeeded)
         {
             logger.LogOperationWarning(operation, "Identity creation failed", result.Errors);
-            return Results.BadRequest("Error in user creation");
+            return await LocalizedErrorResultFactory.BadRequestMessageAsync(
+                context,
+                messageLocalizer,
+                null,
+                "Errors.Accounts.UserCreationFailed");
         }
 
         logger.LogOperationSuccess(operation, new { registerDto.Email });
@@ -139,6 +149,7 @@ public static partial class AccountsEndpoints
         [FromBody] UpdateSettingsDto updateDto,
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] AppIdentityDbContext dbContext,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<AccountsEndpointLogCategory> logger)
     {
         const string operation = "Settings.Update";
@@ -148,11 +159,13 @@ public static partial class AccountsEndpoints
         if (userId is null)
         {
             logger.LogOperationWarning(operation, "Missing user id", new { userId });
-            return ProblemResultFactory.Create(
+            return await LocalizedErrorResultFactory.ProblemAsync(
                 context,
+                messageLocalizer,
+                userId,
                 StatusCodes.Status401Unauthorized,
                 "Authentication required",
-                "You must be logged in to update your settings.",
+                "Errors.Accounts.SettingsUpdateAuthRequired",
                 "settings-update-auth-required");
         }
 
@@ -160,11 +173,13 @@ public static partial class AccountsEndpoints
         if (user is null)
         {
             logger.LogOperationWarning(operation, "Missing user", new { userId });
-            return ProblemResultFactory.Create(
+            return await LocalizedErrorResultFactory.ProblemAsync(
                 context,
+                messageLocalizer,
+                userId,
                 StatusCodes.Status401Unauthorized,
                 "Authentication required",
-                "You must be logged in to update your settings.",
+                "Errors.Accounts.SettingsUpdateAuthRequired",
                 "settings-update-auth-required");
         }
 
@@ -180,7 +195,11 @@ public static partial class AccountsEndpoints
         if (updateDto is null)
         {
             logger.LogOperationWarning(operation, "Missing payload", new { userId });
-            return Results.BadRequest("Settings payload is required.");
+            return await LocalizedErrorResultFactory.BadRequestMessageAsync(
+                context,
+                messageLocalizer,
+                userId,
+                "Errors.Accounts.SettingsRequired");
         }
 
         if (updateDto.MarketProvider.HasValue)

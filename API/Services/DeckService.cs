@@ -59,19 +59,19 @@ public sealed class DeckService : IDeckService
     {
         if (userId is null)
         {
-            throw DeckServiceException.Unauthorized("Missing user identifier");
+            throw DeckServiceException.Unauthorized("Errors.Decks.MissingUserId");
         }
 
         var user = await _userManager.FindByIdAsync(userId);
         if (user is null)
         {
-            throw DeckServiceException.Unauthorized("User not found");
+            throw DeckServiceException.Unauthorized("Errors.Decks.UserNotFound");
         }
 
         var decks = await _unitOfWork.Repository<Deck>().ListAsync(new DecksWIthOwnerSpecification(user.Id), tracking: false);
         if (decks is null || decks.Count <= 0)
         {
-            throw DeckServiceException.NotFound("No decks found", includeBody: true, body: "No decks found");
+            throw DeckServiceException.NotFound("Errors.Decks.NoneFound", includeBody: true, body: "Errors.Decks.NoneFound");
         }
 
         return decks.Select(MapToDto).ToList();
@@ -81,13 +81,13 @@ public sealed class DeckService : IDeckService
     {
         if (userId is null)
         {
-            throw DeckServiceException.Unauthorized("Missing user identifier");
+            throw DeckServiceException.Unauthorized("Errors.Decks.MissingUserId");
         }
 
         var deck = await _unitOfWork.Repository<Deck>().GetByIdAsync(id, tracking: false);
         if (deck == null || deck.OwnerId != userId)
         {
-            throw DeckServiceException.NotFound("Deck not found or unauthorized");
+            throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
         }
 
         return MapToDto(deck);
@@ -103,13 +103,13 @@ public sealed class DeckService : IDeckService
     {
         if (userId is null)
         {
-            throw DeckServiceException.Unauthorized("Missing user identifier");
+            throw DeckServiceException.Unauthorized("Errors.Decks.MissingUserId");
         }
 
         var deck = await _unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
         if (deck == null || deck.OwnerId != userId)
         {
-            throw DeckServiceException.NotFound("Deck not found or unauthorized");
+            throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
         }
 
         var deckCards = await _deckCardService.GetDeckCardsAsync(deckId, maindeckOnly, sideboardOnly, ownedOnly);
@@ -120,19 +120,19 @@ public sealed class DeckService : IDeckService
     {
         if (userId is null)
         {
-            throw DeckServiceException.Unauthorized("Missing user identifier");
+            throw DeckServiceException.Unauthorized("Errors.Decks.MissingUserId");
         }
 
         var deck = await _unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
         if (deck == null || deck.OwnerId != userId)
         {
-            throw DeckServiceException.NotFound("Deck not found or unauthorized");
+            throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
         }
 
         var deckCard = await _deckCardService.GetDeckCardByIdAsync(id);
         if (deckCard == null || deckCard.DeckId != deckId)
         {
-            throw DeckServiceException.NotFound("Deck card not found");
+            throw DeckServiceException.NotFound("Errors.Decks.CardNotFound");
         }
 
         return deckCard;
@@ -142,13 +142,13 @@ public sealed class DeckService : IDeckService
     {
         if (userId is null)
         {
-            throw DeckServiceException.Unauthorized("Missing user identifier");
+            throw DeckServiceException.Unauthorized("Errors.Decks.MissingUserId");
         }
 
         var deck = await _unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
         if (deck == null || deck.OwnerId != userId)
         {
-            throw DeckServiceException.NotFound("Deck not found or unauthorized");
+            throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
         }
 
         return (await _deckCardService.GetDeckCardsAsync(deckId, ownedOnly: false)).ToList();
@@ -158,13 +158,13 @@ public sealed class DeckService : IDeckService
     {
         if (userId is null)
         {
-            throw DeckServiceException.Unauthorized("Missing user identifier");
+            throw DeckServiceException.Unauthorized("Errors.Decks.MissingUserId");
         }
 
         var deck = await _unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
         if (deck == null || deck.OwnerId != userId)
         {
-            throw DeckServiceException.NotFound("Deck not found or unauthorized");
+            throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
         }
 
         var deckCards = (await _deckCardService.GetDeckCardsAsync(deckId)).ToList();
@@ -205,7 +205,7 @@ public sealed class DeckService : IDeckService
     {
         if (userId == null)
         {
-            throw DeckServiceException.Unauthorized("Missing user identifier");
+            throw DeckServiceException.Unauthorized("Errors.Decks.MissingUserId");
         }
 
         var deck = new Deck
@@ -227,13 +227,13 @@ public sealed class DeckService : IDeckService
     {
         if (userId == null)
         {
-            throw DeckServiceException.Unauthorized("Missing user identifier");
+            throw DeckServiceException.Unauthorized("Errors.Decks.MissingUserId");
         }
 
         var deck = await _unitOfWork.Repository<Deck>().GetByIdAsync(id);
         if (deck == null || deck.OwnerId != userId)
         {
-            throw DeckServiceException.NotFound("Deck not found or unauthorized");
+            throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
         }
 
         if (updateDto.Name != null) deck.Name = updateDto.Name;
@@ -250,13 +250,13 @@ public sealed class DeckService : IDeckService
     {
         if (userId == null)
         {
-            throw DeckServiceException.Unauthorized("Missing user identifier");
+            throw DeckServiceException.Unauthorized("Errors.Decks.MissingUserId");
         }
 
         var deck = await _unitOfWork.Repository<Deck>().GetByIdAsync(id);
         if (deck == null || deck.OwnerId != userId)
         {
-            throw DeckServiceException.NotFound("Deck not found or unauthorized");
+            throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
         }
 
         var deckCardsSpec = new DeckCardsWithDeckIdSpecification(id);
@@ -277,24 +277,24 @@ public sealed class DeckService : IDeckService
     {
         if (userId == null)
         {
-            throw DeckServiceException.Unauthorized("Missing user identifier");
+            throw DeckServiceException.Unauthorized("Errors.Decks.MissingUserId");
         }
 
         var deck = await _unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
         if (deck == null)
         {
-            throw DeckServiceException.NotFound("Deck not found");
+            throw DeckServiceException.NotFound("Errors.Decks.NotFound");
         }
 
         if (deck.OwnerId != userId)
         {
-            throw DeckServiceException.Unauthorized("Deck unauthorized");
+            throw DeckServiceException.Unauthorized("Errors.Decks.Unauthorized");
         }
 
         var (isValid, errors) = _validationService.ValidateModel(createDto);
         if (!isValid || createDto.MaindeckQuantity + createDto.SideboardQuantity == 0)
         {
-            throw DeckServiceException.BadRequest("Validation failed", new { errors }, includeBody: true);
+            throw DeckServiceException.BadRequest("Errors.Decks.ValidationFailed", new { errors }, includeBody: true);
         }
 
         try
@@ -311,19 +311,19 @@ public sealed class DeckService : IDeckService
     {
         if (userId == null)
         {
-            throw DeckServiceException.Unauthorized("Missing user identifier");
+            throw DeckServiceException.Unauthorized("Errors.Decks.MissingUserId");
         }
 
         var deck = await _unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
         if (deck == null || deck.OwnerId != userId)
         {
-            throw DeckServiceException.NotFound("Deck not found or unauthorized");
+            throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
         }
 
         var existingDeckCard = await _deckCardService.GetDeckCardByIdAsync(id);
         if (existingDeckCard == null || existingDeckCard.DeckId != deckId)
         {
-            throw DeckServiceException.NotFound("Deck card not found or mismatched deck");
+            throw DeckServiceException.NotFound("Errors.Decks.CardNotFoundOrMismatched");
         }
 
         try
@@ -340,29 +340,29 @@ public sealed class DeckService : IDeckService
     {
         if (userId == null)
         {
-            throw DeckServiceException.Unauthorized("Missing user identifier");
+            throw DeckServiceException.Unauthorized("Errors.Decks.MissingUserId");
         }
 
         var deck = await _unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
         if (deck == null || deck.OwnerId != userId)
         {
-            throw DeckServiceException.NotFound("Deck not found or unauthorized");
+            throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
         }
 
         var deckCard = await _unitOfWork.Repository<DeckCard>().GetByIdAsync(id);
         if (deckCard == null || deckCard.DeckId != deckId)
         {
-            throw DeckServiceException.NotFound("Deck card not found or mismatched deck");
+            throw DeckServiceException.NotFound("Errors.Decks.CardNotFoundOrMismatched");
         }
 
         if (!_cardDataService.CardDataById.TryGetValue(updateDto.ScryfallId, out var scryfallCard))
         {
-            throw DeckServiceException.BadRequest("Invalid scryfall id", new { errors = new[] { "Invalid Scryfall ID provided." } }, includeBody: true);
+            throw DeckServiceException.BadRequest("Errors.Decks.InvalidScryfallId", new { errors = new[] { "Invalid Scryfall ID provided." } }, includeBody: true);
         }
 
         if (!string.Equals(scryfallCard.Name, deckCard.Name, StringComparison.OrdinalIgnoreCase))
         {
-            throw DeckServiceException.BadRequest("Scryfall name mismatch", new { errors = new[] { $"'{updateDto.ScryfallId}' is not a valid version for '{deckCard.Name}'." } }, includeBody: true);
+            throw DeckServiceException.BadRequest("Errors.Decks.ScryfallNameMismatch", new { errors = new[] { $"'{updateDto.ScryfallId}' is not a valid version for '{deckCard.Name}'." } }, includeBody: true);
         }
 
         try
@@ -382,7 +382,7 @@ public sealed class DeckService : IDeckService
         {
             throw DeckServiceException.Problem(
                 "Deck card update failed",
-                "An unexpected error occurred while updating the deck card.",
+                "Errors.Decks.CardUpdateFailed",
                 StatusCodes.Status500InternalServerError,
                 ex);
         }
@@ -392,25 +392,25 @@ public sealed class DeckService : IDeckService
     {
         if (userId == null)
         {
-            throw DeckServiceException.Unauthorized("Missing user identifier");
+            throw DeckServiceException.Unauthorized("Errors.Decks.MissingUserId");
         }
 
         var deck = await _unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
         if (deck == null || deck.OwnerId != userId)
         {
-            throw DeckServiceException.NotFound("Deck not found or unauthorized");
+            throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
         }
 
         var existingDeckCard = await _deckCardService.GetDeckCardByIdAsync(id);
         if (existingDeckCard == null || existingDeckCard.DeckId != deckId)
         {
-            throw DeckServiceException.NotFound("Deck card not found or mismatched deck");
+            throw DeckServiceException.NotFound("Errors.Decks.CardNotFoundOrMismatched");
         }
 
         var deleted = await _deckCardService.DeleteDeckCardAsync(id);
         if (!deleted)
         {
-            throw DeckServiceException.NotFound("Deck card deletion failed");
+            throw DeckServiceException.NotFound("Errors.Decks.CardDeleteFailed");
         }
     }
 
@@ -418,13 +418,13 @@ public sealed class DeckService : IDeckService
     {
         if (userId == null)
         {
-            throw DeckServiceException.Unauthorized("Missing user identifier");
+            throw DeckServiceException.Unauthorized("Errors.Decks.MissingUserId");
         }
 
         var (isValid, validationErrors) = _validationService.ValidateModel(importDto);
         if (!isValid)
         {
-            throw DeckServiceException.BadRequest("Invalid import payload", new { errors = validationErrors }, includeBody: true);
+            throw DeckServiceException.BadRequest("Errors.Decks.ImportInvalidPayload", new { errors = validationErrors }, includeBody: true);
         }
 
         var decklistLines = FilterDecklistLines(importDto.Decklist);
@@ -437,7 +437,7 @@ public sealed class DeckService : IDeckService
                 ? parseResult.Errors
                 : new[] { "Decklist did not contain any valid cards." };
 
-            throw DeckServiceException.BadRequest("No cards parsed", new
+            throw DeckServiceException.BadRequest("Errors.Decks.NoCardsParsed", new
             {
                 errors,
                 deckCards = parseResult.DeckCards,

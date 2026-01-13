@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using API.Helpers;
 using API.Logging;
 using API.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -11,6 +12,7 @@ public static partial class FriendsEndpoints
         string userId,
         HttpContext context,
         [FromServices] IFriendService friendService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<FriendsEndpointLogCategory> logger,
         CancellationToken cancellationToken)
     {
@@ -31,17 +33,29 @@ public static partial class FriendsEndpoints
         catch (ArgumentException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { requesterId, userId });
-            return Results.BadRequest(new { Error = ex.Message });
+            return await LocalizedErrorResultFactory.BadRequestAsync(
+                context,
+                messageLocalizer,
+                requesterId,
+                "Errors.Friends.InvalidRequest");
         }
         catch (InvalidOperationException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { requesterId, userId });
-            return Results.BadRequest(new { Error = ex.Message });
+            return await LocalizedErrorResultFactory.BadRequestAsync(
+                context,
+                messageLocalizer,
+                requesterId,
+                "Errors.Friends.InvalidRequest");
         }
         catch (KeyNotFoundException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { requesterId, userId });
-            return Results.NotFound(new { Error = ex.Message });
+            return await LocalizedErrorResultFactory.NotFoundAsync(
+                context,
+                messageLocalizer,
+                requesterId,
+                "Errors.Friends.NotFound");
         }
     }
 
@@ -49,6 +63,7 @@ public static partial class FriendsEndpoints
         string userId,
         HttpContext context,
         [FromServices] IFriendService friendService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<FriendsEndpointLogCategory> logger,
         CancellationToken cancellationToken)
     {
@@ -80,17 +95,29 @@ public static partial class FriendsEndpoints
         catch (ArgumentException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { requesterId = userId, recipientId });
-            return Results.BadRequest(new { Error = ex.Message });
+            return await LocalizedErrorResultFactory.BadRequestAsync(
+                context,
+                messageLocalizer,
+                recipientId,
+                "Errors.Friends.InvalidRequest");
         }
         catch (InvalidOperationException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { requesterId = userId, recipientId });
-            return Results.BadRequest(new { Error = ex.Message });
+            return await LocalizedErrorResultFactory.BadRequestAsync(
+                context,
+                messageLocalizer,
+                recipientId,
+                "Errors.Friends.InvalidRequest");
         }
         catch (KeyNotFoundException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { requesterId = userId, recipientId });
-            return Results.NotFound(new { Error = ex.Message });
+            return await LocalizedErrorResultFactory.NotFoundAsync(
+                context,
+                messageLocalizer,
+                recipientId,
+                "Errors.Friends.NotFound");
         }
     }
 
@@ -98,6 +125,7 @@ public static partial class FriendsEndpoints
         string userId,
         HttpContext context,
         [FromServices] IFriendService friendService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<FriendsEndpointLogCategory> logger,
         CancellationToken cancellationToken)
     {
@@ -118,7 +146,11 @@ public static partial class FriendsEndpoints
         catch (KeyNotFoundException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { requesterId, userId });
-            return Results.NotFound(new { Error = ex.Message });
+            return await LocalizedErrorResultFactory.NotFoundAsync(
+                context,
+                messageLocalizer,
+                requesterId,
+                "Errors.Friends.NotFound");
         }
     }
 
@@ -126,6 +158,7 @@ public static partial class FriendsEndpoints
         string userId,
         HttpContext context,
         [FromServices] IFriendService friendService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<FriendsEndpointLogCategory> logger,
         CancellationToken cancellationToken)
     {
@@ -151,17 +184,29 @@ public static partial class FriendsEndpoints
         catch (ArgumentException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { requesterId = userId, recipientId });
-            return Results.BadRequest(new { Error = ex.Message });
+            return await LocalizedErrorResultFactory.BadRequestAsync(
+                context,
+                messageLocalizer,
+                recipientId,
+                "Errors.Friends.InvalidRequest");
         }
         catch (InvalidOperationException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { requesterId = userId, recipientId });
-            return Results.BadRequest(new { Error = ex.Message });
+            return await LocalizedErrorResultFactory.BadRequestAsync(
+                context,
+                messageLocalizer,
+                recipientId,
+                "Errors.Friends.InvalidRequest");
         }
         catch (KeyNotFoundException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { requesterId = userId, recipientId });
-            return Results.NotFound(new { Error = ex.Message });
+            return await LocalizedErrorResultFactory.NotFoundAsync(
+                context,
+                messageLocalizer,
+                recipientId,
+                "Errors.Friends.NotFound");
         }
     }
 }

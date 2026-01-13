@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using API.Dtos.Notifications;
+using API.Helpers;
 using API.Logging;
 using API.Services;
 using Core.Models.Identity;
@@ -16,6 +17,7 @@ public static partial class NotificationsEndpoints
         HttpContext context,
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] NotificationService notificationService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<NotificationsEndpointsLogCategory> logger)
     {
         const string operation = "Notifications.GetById";
@@ -37,7 +39,11 @@ public static partial class NotificationsEndpoints
         if (notification is null)
         {
             logger.LogOperationWarning(operation, "Notification not found", new { id, userId });
-            return Results.NotFound("Notification not found");
+            return await LocalizedErrorResultFactory.NotFoundMessageAsync(
+                context,
+                messageLocalizer,
+                userId,
+                "Errors.Notifications.NotFound");
         }
 
         logger.LogOperationSuccess(operation, new { id, userId });

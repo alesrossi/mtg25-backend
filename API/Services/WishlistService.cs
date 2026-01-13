@@ -42,7 +42,7 @@ public sealed class WishlistService : IWishlistService
     {
         if (string.IsNullOrEmpty(userId))
         {
-            throw WishlistServiceException.Unauthorized("Missing user id");
+            throw WishlistServiceException.Unauthorized("Errors.Wishlists.MissingUserId");
         }
 
         var spec = new WishlistsWithOwnerSpecification(userId, includeCards: true);
@@ -55,14 +55,14 @@ public sealed class WishlistService : IWishlistService
     {
         if (string.IsNullOrEmpty(userId))
         {
-            throw WishlistServiceException.Unauthorized("Missing user id");
+            throw WishlistServiceException.Unauthorized("Errors.Wishlists.MissingUserId");
         }
 
         var spec = new WishlistWithCardsSpecification(id, userId);
         var wishlist = await _unitOfWork.Repository<Wishlist>().GetEntityWithSpec(spec, tracking: false);
         if (wishlist == null)
         {
-            throw WishlistServiceException.NotFound("Wishlist not found");
+            throw WishlistServiceException.NotFound("Errors.Wishlists.NotFound");
         }
 
         return MapToDto(wishlist);
@@ -85,7 +85,7 @@ public sealed class WishlistService : IWishlistService
         var wishlistCard = await _unitOfWork.Repository<WishlistCard>().GetByIdAsync(cardId, tracking: false);
         if (wishlistCard == null)
         {
-            throw WishlistServiceException.NotFound("Wishlist card not found");
+            throw WishlistServiceException.NotFound("Errors.Wishlists.CardNotFound");
         }
 
         return MapToDto(wishlistCard);
@@ -95,13 +95,13 @@ public sealed class WishlistService : IWishlistService
     {
         if (string.IsNullOrEmpty(userId))
         {
-            throw WishlistServiceException.Unauthorized("Missing user id");
+            throw WishlistServiceException.Unauthorized("Errors.Wishlists.MissingUserId");
         }
 
         var (isValid, errors) = _validationService.ValidateModel(createDto);
         if (!isValid)
         {
-            throw WishlistServiceException.ValidationFailed(errors, "Validation failed");
+            throw WishlistServiceException.ValidationFailed(errors, "Errors.Wishlists.ValidationFailed");
         }
 
         var wishlist = new Wishlist
@@ -122,23 +122,23 @@ public sealed class WishlistService : IWishlistService
     {
         if (string.IsNullOrEmpty(userId))
         {
-            throw WishlistServiceException.Unauthorized("Missing user id");
+            throw WishlistServiceException.Unauthorized("Errors.Wishlists.MissingUserId");
         }
 
         var (isValid, errors) = _validationService.ValidateModel(updateDto);
         if (!isValid)
         {
-            throw WishlistServiceException.ValidationFailed(errors, "Validation failed");
+            throw WishlistServiceException.ValidationFailed(errors, "Errors.Wishlists.ValidationFailed");
         }
 
         var wishlist = await _unitOfWork.Repository<Wishlist>().GetByIdAsync(id);
         if (wishlist == null)
         {
-            throw WishlistServiceException.NotFound("Wishlist not found");
+            throw WishlistServiceException.NotFound("Errors.Wishlists.NotFound");
         }
         if (wishlist.OwnerId != userId)
         {
-            throw WishlistServiceException.Unauthorized("Unauthorized");
+            throw WishlistServiceException.Unauthorized("Errors.Wishlists.Unauthorized");
         }
 
         wishlist.Name = updateDto.Name.Trim();
@@ -158,17 +158,17 @@ public sealed class WishlistService : IWishlistService
     {
         if (string.IsNullOrEmpty(userId))
         {
-            throw WishlistServiceException.Unauthorized("Missing user id");
+            throw WishlistServiceException.Unauthorized("Errors.Wishlists.MissingUserId");
         }
 
         var wishlist = await _unitOfWork.Repository<Wishlist>().GetByIdAsync(id);
         if (wishlist == null)
         {
-            throw WishlistServiceException.NotFound("Wishlist not found");
+            throw WishlistServiceException.NotFound("Errors.Wishlists.NotFound");
         }
         if (wishlist.OwnerId != userId)
         {
-            throw WishlistServiceException.Unauthorized("Unauthorized");
+            throw WishlistServiceException.Unauthorized("Errors.Wishlists.Unauthorized");
         }
 
         _unitOfWork.Repository<Wishlist>().Delete(wishlist);
@@ -186,7 +186,7 @@ public sealed class WishlistService : IWishlistService
         var (isValid, errors) = _validationService.ValidateModel(newWishlistCardList);
         if (!isValid)
         {
-            throw WishlistServiceException.ValidationFailed(errors, "Validation failed");
+            throw WishlistServiceException.ValidationFailed(errors, "Errors.Wishlists.ValidationFailed");
         }
 
         var cardList = newWishlistCardList
@@ -236,13 +236,13 @@ public sealed class WishlistService : IWishlistService
         var (isValid, errors) = _validationService.ValidateModel(updateDto);
         if (!isValid)
         {
-            throw WishlistServiceException.ValidationFailed(errors, "Validation failed");
+            throw WishlistServiceException.ValidationFailed(errors, "Errors.Wishlists.ValidationFailed");
         }
 
         var wishlistCard = await _unitOfWork.Repository<WishlistCard>().GetByIdAsync(cardId);
         if (wishlistCard == null || wishlistCard.WishlistId != wishlistId)
         {
-            throw WishlistServiceException.NotFound("Wishlist card not found");
+            throw WishlistServiceException.NotFound("Errors.Wishlists.CardNotFound");
         }
 
         if (updateDto.ScryfallId is not null)
@@ -262,7 +262,7 @@ public sealed class WishlistService : IWishlistService
             }
             else
             {
-                throw WishlistServiceException.BadRequest("Card version is not valid for this card", includeBody: true);
+                throw WishlistServiceException.BadRequest("Errors.Wishlists.InvalidVersion", includeBody: true);
             }
         }
         if (updateDto.DesiredQuantity is not null) wishlistCard.DesiredQuantity = (int)updateDto.DesiredQuantity;
@@ -287,7 +287,7 @@ public sealed class WishlistService : IWishlistService
         var wishlistCard = await _unitOfWork.Repository<WishlistCard>().GetByIdAsync(cardId);
         if (wishlistCard == null || wishlistCard.WishlistId != wishlistId)
         {
-            throw WishlistServiceException.NotFound("Wishlist card not found");
+            throw WishlistServiceException.NotFound("Errors.Wishlists.CardNotFound");
         }
 
         _unitOfWork.Repository<WishlistCard>().Delete(wishlistCard);
@@ -300,17 +300,17 @@ public sealed class WishlistService : IWishlistService
     {
         if (string.IsNullOrEmpty(userId))
         {
-            throw WishlistServiceException.Unauthorized("Missing user id");
+            throw WishlistServiceException.Unauthorized("Errors.Wishlists.MissingUserId");
         }
 
         var wishlist = await _unitOfWork.Repository<Wishlist>().GetByIdAsync(wishlistId, tracking);
         if (wishlist == null)
         {
-            throw WishlistServiceException.NotFound("Wishlist not found");
+            throw WishlistServiceException.NotFound("Errors.Wishlists.NotFound");
         }
         if (wishlist.OwnerId != userId)
         {
-            throw WishlistServiceException.Unauthorized("Unauthorized");
+            throw WishlistServiceException.Unauthorized("Errors.Wishlists.Unauthorized");
         }
 
         return wishlist;

@@ -13,6 +13,7 @@ public static partial class DecksEndpoint
         HttpContext context,
         [FromServices] IDeckService deckService,
         [FromServices] ILogger<DecksEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "Decks.Create";
@@ -35,7 +36,7 @@ public static partial class DecksEndpoint
         catch (DeckServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { userId });
-            return MapDeckServiceException(ex);
+            return await MapDeckServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -45,6 +46,7 @@ public static partial class DecksEndpoint
         HttpContext context,
         [FromServices] IDeckService deckService,
         [FromServices] ILogger<DecksEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "Decks.Update";
@@ -67,7 +69,7 @@ public static partial class DecksEndpoint
         catch (DeckServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { id, userId });
-            return MapDeckServiceException(ex);
+            return await MapDeckServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -76,6 +78,7 @@ public static partial class DecksEndpoint
         HttpContext context,
         [FromServices] IDeckService deckService,
         [FromServices] ILogger<DecksEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "Decks.Delete";
@@ -98,7 +101,7 @@ public static partial class DecksEndpoint
         catch (DeckServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { id, userId });
-            return MapDeckServiceException(ex);
+            return await MapDeckServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -108,6 +111,7 @@ public static partial class DecksEndpoint
         HttpContext context,
         [FromServices] IDeckService deckService,
         [FromServices] ILogger<DecksEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "DeckCards.Create";
@@ -130,7 +134,7 @@ public static partial class DecksEndpoint
         catch (DeckServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { deckId, userId });
-            return MapDeckServiceException(ex);
+            return await MapDeckServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -141,6 +145,7 @@ public static partial class DecksEndpoint
         HttpContext context,
         [FromServices] IDeckService deckService,
         [FromServices] ILogger<DecksEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "DeckCards.Update";
@@ -163,7 +168,7 @@ public static partial class DecksEndpoint
         catch (DeckServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { deckId, id, userId });
-            return MapDeckServiceException(ex);
+            return await MapDeckServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -174,6 +179,7 @@ public static partial class DecksEndpoint
         HttpContext context,
         [FromServices] IDeckService deckService,
         [FromServices] ILogger<DecksEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "DeckCards.UpdateVersion";
@@ -203,7 +209,7 @@ public static partial class DecksEndpoint
             {
                 logger.LogOperationWarning(operation, ex.Message, new { deckId, id, userId });
             }
-            return MapDeckServiceException(ex);
+            return await MapDeckServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -213,6 +219,7 @@ public static partial class DecksEndpoint
         HttpContext context,
         [FromServices] IDeckService deckService,
         [FromServices] ILogger<DecksEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "DeckCards.Delete";
@@ -235,7 +242,7 @@ public static partial class DecksEndpoint
         catch (DeckServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { deckId, id, userId });
-            return MapDeckServiceException(ex);
+            return await MapDeckServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -244,6 +251,7 @@ public static partial class DecksEndpoint
         HttpContext context,
         [FromServices] IDeckService deckService,
         [FromServices] ILogger<DecksEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "Decks.Import";
@@ -269,7 +277,7 @@ public static partial class DecksEndpoint
             {
                 logger.LogOperationWarning(operation, ex.Message, new { userId, ex.Body });
             }
-            return MapDeckServiceException(ex);
+            return await MapDeckServiceException(ex, context, messageLocalizer, userId);
         }
     }
 }

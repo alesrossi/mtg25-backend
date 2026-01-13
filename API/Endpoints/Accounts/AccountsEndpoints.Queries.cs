@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using API.Helpers;
 using API.Logging;
+using API.Services;
 using Core.Models.Identity;
 using Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
@@ -28,6 +29,7 @@ public static partial class AccountsEndpoints
         HttpContext context,
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] AppIdentityDbContext dbContext,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<AccountsEndpointLogCategory> logger)
     {
         const string operation = "Settings.Get";
@@ -35,11 +37,13 @@ public static partial class AccountsEndpoints
         if (userId is null)
         {
             logger.LogOperationWarning(operation, "Missing user id", new { userId });
-            return ProblemResultFactory.Create(
+            return await LocalizedErrorResultFactory.ProblemAsync(
                 context,
+                messageLocalizer,
+                userId,
                 StatusCodes.Status401Unauthorized,
                 "Authentication required",
-                "You must be logged in to access your settings.",
+                "Errors.Accounts.SettingsGetAuthRequired",
                 "settings-get-auth-required");
         }
         
@@ -47,11 +51,13 @@ public static partial class AccountsEndpoints
         if (user is null)
         {
             logger.LogOperationWarning(operation, "Missing user", new { userId });
-            return ProblemResultFactory.Create(
+            return await LocalizedErrorResultFactory.ProblemAsync(
                 context,
+                messageLocalizer,
+                userId,
                 StatusCodes.Status401Unauthorized,
                 "Authentication required",
-                "You must be logged in to access your settings.",
+                "Errors.Accounts.SettingsGetAuthRequired",
                 "settings-get-auth-required");
         }
 

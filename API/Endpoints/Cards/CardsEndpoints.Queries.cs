@@ -12,6 +12,7 @@ public static partial class CardsEndpoints
         int id,
         HttpContext context,
         [FromServices] ICardsService cardsService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<CardsEndpointsLogCategory> logger,
         CancellationToken cancellationToken)
     {
@@ -32,7 +33,7 @@ public static partial class CardsEndpoints
         catch (CardsServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { id, userId });
-            return MapCardsServiceException(ex, context);
+            return await MapCardsServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -40,6 +41,7 @@ public static partial class CardsEndpoints
         string find,
         HttpContext context,
         [FromServices] ICardsService cardsService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
         const string operation = "Cards.Search";
@@ -59,7 +61,7 @@ public static partial class CardsEndpoints
         catch (CardsServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { find, userId });
-            return MapCardsServiceException(ex, context);
+            return await MapCardsServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -67,6 +69,7 @@ public static partial class CardsEndpoints
         string name,
         HttpContext context,
         [FromServices] ICardsService cardsService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
         const string operation = "Cards.Versions";
@@ -86,7 +89,7 @@ public static partial class CardsEndpoints
         catch (CardsServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { name, userId });
-            return MapCardsServiceException(ex, context);
+            return await MapCardsServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -94,6 +97,7 @@ public static partial class CardsEndpoints
         string name,
         HttpContext context,
         [FromServices] ICardsService cardsService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
         const string operation = "Cards.ScryfallByName";
@@ -113,7 +117,7 @@ public static partial class CardsEndpoints
         catch (CardsServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { name, userId });
-            return MapCardsServiceException(ex, context);
+            return await MapCardsServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -121,6 +125,7 @@ public static partial class CardsEndpoints
         string id,
         HttpContext context,
         [FromServices] ICardsService cardsService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
         const string operation = "Cards.ScryfallById";
@@ -140,7 +145,7 @@ public static partial class CardsEndpoints
         catch (CardsServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { id, userId });
-            return MapCardsServiceException(ex, context);
+            return await MapCardsServiceException(ex, context, messageLocalizer, userId);
         }
     }
 }

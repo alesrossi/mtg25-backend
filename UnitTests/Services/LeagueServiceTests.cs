@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using API.Dtos.Leagues;
 using API.Services;
@@ -220,7 +219,7 @@ public class LeagueServiceTests
 
         var exception = await act.Should().ThrowAsync<LeagueServiceException>();
         exception.Which.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
-        exception.Which.Message.Should().Contain("approved");
+        exception.Which.Message.Should().Contain("Errors.Leagues.UserNotApproved");
         exception.Which.IncludeBody.Should().BeTrue();
         (await context.UserLeagues.CountAsync()).Should().Be(0);
     }
@@ -289,24 +288,7 @@ public class LeagueServiceTests
     {
         var manager = CreateUserManagerMock(users);
         var validationService = new ValidationService();
-        var settingsService = new Mock<IUserSettingsService>();
-        settingsService.Setup(s => s.GetSettingsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string userId, CancellationToken _) => new Settings
-            {
-                AppUserId = userId,
-                AppUser = null!,
-                LanguageUi = "it"
-            });
-
-        var messageLocalizer = new Mock<IMessageLocalizer>();
-        messageLocalizer.Setup(l => l.GetMessageForLanguage(It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<object[]>()))
-            .Returns("localized");
-
-        var notificationService = new NotificationService(
-            context,
-            NullLogger<NotificationService>.Instance,
-            settingsService.Object,
-            messageLocalizer.Object);
+        var notificationService = new NotificationService(context, NullLogger<NotificationService>.Instance);
         return new LeagueService(manager.Object, context, validationService, notificationService);
     }
 

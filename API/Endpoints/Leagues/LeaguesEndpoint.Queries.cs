@@ -11,6 +11,7 @@ public static partial class LeaguesEndpoint
         HttpContext context,
         [FromServices] ILeagueService leagueService,
         [FromServices] ILogger<LeaguesEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "Leagues.QueryAll";
@@ -30,7 +31,7 @@ public static partial class LeaguesEndpoint
         catch (LeagueServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { userId });
-            return MapLeagueServiceException(ex);
+            return await MapLeagueServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -38,6 +39,7 @@ public static partial class LeaguesEndpoint
         HttpContext context,
         [FromServices] ILeagueService leagueService,
         [FromServices] ILogger<LeaguesEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "Leagues.QueryUser";
@@ -57,7 +59,7 @@ public static partial class LeaguesEndpoint
         catch (LeagueServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { userId });
-            return MapLeagueServiceException(ex);
+            return await MapLeagueServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -66,6 +68,7 @@ public static partial class LeaguesEndpoint
         HttpContext context,
         [FromServices] ILeagueService leagueService,
         [FromServices] ILogger<LeaguesEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "Leagues.GetById";
@@ -85,7 +88,7 @@ public static partial class LeaguesEndpoint
         catch (LeagueServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { id, userId });
-            return MapLeagueServiceException(ex);
+            return await MapLeagueServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -94,6 +97,7 @@ public static partial class LeaguesEndpoint
         HttpContext context,
         [FromServices] ILeagueService leagueService,
         [FromServices] ILogger<LeaguesEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
         const string operation = "Leagues.ListScores";
@@ -109,7 +113,7 @@ public static partial class LeaguesEndpoint
         catch (LeagueServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { id, userId });
-            return MapLeagueServiceException(ex);
+            return await MapLeagueServiceException(ex, context, messageLocalizer, userId);
         }
     }
 }

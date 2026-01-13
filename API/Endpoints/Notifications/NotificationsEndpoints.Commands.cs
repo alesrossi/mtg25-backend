@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using API.Dtos.Notifications;
 using API.Endpoints.Leagues;
+using API.Helpers;
 using API.Logging;
 using API.Services;
 using Core.Models.Identity;
@@ -16,6 +17,7 @@ public static partial class NotificationsEndpoints
         HttpContext context,
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] NotificationService notificationService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<LeaguesEndpointLogCategory> logger)
     {
         const string operation = "Notifications.Delete";
@@ -37,7 +39,11 @@ public static partial class NotificationsEndpoints
         if (!successful)
         {
             logger.LogOperationWarning(operation, "Notification not found", new { id });
-            return Results.NotFound("Notification not found");
+            return await LocalizedErrorResultFactory.NotFoundMessageAsync(
+                context,
+                messageLocalizer,
+                userId,
+                "Errors.Notifications.NotFound");
         }
         
         return Results.NoContent();

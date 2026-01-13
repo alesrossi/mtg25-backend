@@ -10,6 +10,7 @@ public static partial class WishlistsEndpoint
     private static async Task<IResult> GetWishlistsAsync(
         HttpContext context,
         [FromServices] IWishlistService wishlistService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<WishlistsEndpointLogCategory> logger,
         CancellationToken cancellationToken)
     {
@@ -30,7 +31,7 @@ public static partial class WishlistsEndpoint
         catch (WishlistServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { userId });
-            return MapWishlistServiceException(ex);
+            return await MapWishlistServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -38,6 +39,7 @@ public static partial class WishlistsEndpoint
         int id,
         HttpContext context,
         [FromServices] IWishlistService wishlistService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<WishlistsEndpointLogCategory> logger,
         CancellationToken cancellationToken)
     {
@@ -58,7 +60,7 @@ public static partial class WishlistsEndpoint
         catch (WishlistServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { id });
-            return MapWishlistServiceException(ex);
+            return await MapWishlistServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -66,6 +68,7 @@ public static partial class WishlistsEndpoint
         int wishlistId,
         HttpContext context,
         [FromServices] IWishlistService wishlistService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<WishlistsEndpointLogCategory> logger,
         CancellationToken cancellationToken)
     {
@@ -86,7 +89,7 @@ public static partial class WishlistsEndpoint
         catch (WishlistServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { wishlistId });
-            return MapWishlistServiceException(ex);
+            return await MapWishlistServiceException(ex, context, messageLocalizer, userId);
         }
     }
 
@@ -95,6 +98,7 @@ public static partial class WishlistsEndpoint
         int cardId,
         HttpContext context,
         [FromServices] IWishlistService wishlistService,
+        [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<WishlistsEndpointLogCategory> logger,
         CancellationToken cancellationToken)
     {
@@ -115,7 +119,7 @@ public static partial class WishlistsEndpoint
         catch (WishlistServiceException ex)
         {
             logger.LogOperationWarning(operation, ex.Message, new { wishlistId, cardId });
-            return MapWishlistServiceException(ex);
+            return await MapWishlistServiceException(ex, context, messageLocalizer, userId);
         }
     }
 }

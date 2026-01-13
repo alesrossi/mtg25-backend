@@ -42,4 +42,208 @@
   <data name="Notifications.JoinedLeagueApproved" xml:space="preserve">
     <value>Sei stato approvato per unirti a una lega.</value>
   </data>
+  <data name="Errors.Trades.MissingUserIds" xml:space="preserve">
+    <value>Sono richiesti entrambi gli identificativi utente.</value>
+  </data>
+  <data name="Errors.Trades.InvalidRequest" xml:space="preserve">
+    <value>La richiesta di scambio non e valida.</value>
+  </data>
+  <data name="Errors.Trades.NotFound" xml:space="preserve">
+    <value>Lo scambio non e stato trovato.</value>
+  </data>
+  <data name="Errors.Trades.MissingRequestedUserId" xml:space="preserve">
+    <value>L'identificativo dell'utente richiesto e obbligatorio.</value>
+  </data>
+  <data name="Errors.Trades.CannotTradeSelf" xml:space="preserve">
+    <value>Non puoi richiedere uno scambio con te stesso.</value>
+  </data>
+  <data name="Errors.Trades.RequestedUserNotFound" xml:space="preserve">
+    <value>L'utente richiesto non e stato trovato.</value>
+  </data>
+  <data name="Errors.Friends.InvalidRequest" xml:space="preserve">
+    <value>La richiesta di amicizia non e valida.</value>
+  </data>
+  <data name="Errors.Friends.NotFound" xml:space="preserve">
+    <value>Richiesta di amicizia non trovata.</value>
+  </data>
+  <data name="Errors.Accounts.EmailInUse" xml:space="preserve">
+    <value>L'indirizzo email e gia in uso.</value>
+  </data>
+  <data name="Errors.Accounts.UserCreationFailed" xml:space="preserve">
+    <value>Errore durante la creazione dell'utente.</value>
+  </data>
+  <data name="Errors.Accounts.SettingsRequired" xml:space="preserve">
+    <value>Il payload delle impostazioni e obbligatorio.</value>
+  </data>
+  <data name="Errors.Accounts.SettingsGetAuthRequired" xml:space="preserve">
+    <value>Devi essere autenticato per accedere alle impostazioni.</value>
+  </data>
+  <data name="Errors.Accounts.SettingsUpdateAuthRequired" xml:space="preserve">
+    <value>Devi essere autenticato per aggiornare le impostazioni.</value>
+  </data>
+  <data name="Errors.Notifications.NotFound" xml:space="preserve">
+    <value>Notifica non trovata.</value>
+  </data>
+  <data name="Errors.Cards.UpdateAuthRequired" xml:space="preserve">
+    <value>Devi essere autenticato per aggiornare le carte.</value>
+  </data>
+  <data name="Errors.Cards.DeleteAuthRequired" xml:space="preserve">
+    <value>Devi essere autenticato per eliminare le carte.</value>
+  </data>
+  <data name="Errors.Cards.MissingUserId" xml:space="preserve">
+    <value>Identificativo utente mancante.</value>
+  </data>
+  <data name="Errors.Cards.NotFound" xml:space="preserve">
+    <value>Carta non trovata.</value>
+  </data>
+  <data name="Errors.Cards.Unauthorized" xml:space="preserve">
+    <value>Non autorizzato.</value>
+  </data>
+  <data name="Errors.Cards.NotFoundInCollection" xml:space="preserve">
+    <value>Carta non trovata nella collezione.</value>
+  </data>
+  <data name="Errors.Cards.CollectionNotFound" xml:space="preserve">
+    <value>Collezione non trovata.</value>
+  </data>
+  <data name="Errors.Cards.CollectionAccessDenied" xml:space="preserve">
+    <value>Accesso alla collezione non consentito.</value>
+  </data>
+  <data name="Errors.Cards.InvalidQuantity" xml:space="preserve">
+    <value>Quantita non valida.</value>
+  </data>
+  <data name="Errors.Cards.InvalidCondition" xml:space="preserve">
+    <value>Condizione non valida.</value>
+  </data>
+  <data name="Errors.Cards.UpdateFailed" xml:space="preserve">
+    <value>Aggiornamento carta non riuscito.</value>
+  </data>
+  <data name="Errors.Cards.InvalidScryfallId" xml:space="preserve">
+    <value>ID Scryfall non valido.</value>
+  </data>
+  <data name="Errors.Cards.InvalidVersion" xml:space="preserve">
+    <value>Versione Scryfall non valida per questa carta.</value>
+  </data>
+  <data name="Errors.Cards.DeleteFailed" xml:space="preserve">
+    <value>Eliminazione carta non riuscita.</value>
+  </data>
+  <data name="Errors.Cards.CollectionInvalidForUser" xml:space="preserve">
+    <value>Collezione non valida per l'utente.</value>
+  </data>
+  <data name="Errors.Cards.ScryfallNotFound" xml:space="preserve">
+    <value>Carta Scryfall non trovata.</value>
+  </data>
+  <data name="Errors.Cards.InvalidConditionValue" xml:space="preserve">
+    <value>Valore della condizione non valido.</value>
+  </data>
+  <data name="Errors.Wishlists.MissingUserId" xml:space="preserve">
+    <value>Identificativo utente mancante.</value>
+  </data>
+  <data name="Errors.Wishlists.NotFound" xml:space="preserve">
+    <value>Wishlist non trovata.</value>
+  </data>
+  <data name="Errors.Wishlists.CardNotFound" xml:space="preserve">
+    <value>Carta della wishlist non trovata.</value>
+  </data>
+  <data name="Errors.Wishlists.ValidationFailed" xml:space="preserve">
+    <value>Validazione non riuscita.</value>
+  </data>
+  <data name="Errors.Wishlists.Unauthorized" xml:space="preserve">
+    <value>Non autorizzato.</value>
+  </data>
+  <data name="Errors.Wishlists.InvalidVersion" xml:space="preserve">
+    <value>Versione Scryfall non valida per questa carta.</value>
+  </data>
+  <data name="Errors.Leagues.MissingUserId" xml:space="preserve">
+    <value>Identificativo utente mancante.</value>
+  </data>
+  <data name="Errors.Leagues.NotFound" xml:space="preserve">
+    <value>Lega non trovata.</value>
+  </data>
+  <data name="Errors.Leagues.UserNotInLeague" xml:space="preserve">
+    <value>Utente non presente nella lega.</value>
+  </data>
+  <data name="Errors.Leagues.Unauthorized" xml:space="preserve">
+    <value>Non autorizzato.</value>
+  </data>
+  <data name="Errors.Leagues.ValidationFailed" xml:space="preserve">
+    <value>Validazione non riuscita.</value>
+  </data>
+  <data name="Errors.Leagues.InvalidCurrentRound" xml:space="preserve">
+    <value>Round corrente non valido.</value>
+  </data>
+  <data name="Errors.Leagues.UserAlreadyJoined" xml:space="preserve">
+    <value>Utente gia iscritto alla lega.</value>
+  </data>
+  <data name="Errors.Leagues.UserNotApproved" xml:space="preserve">
+    <value>Utente non approvato.</value>
+  </data>
+  <data name="Errors.Leagues.CannotLeaveOwner" xml:space="preserve">
+    <value>Il proprietario non puo lasciare la lega.</value>
+  </data>
+  <data name="Errors.Leagues.UserNotPlaying" xml:space="preserve">
+    <value>Utente non in gioco nella lega.</value>
+  </data>
+  <data name="Errors.Leagues.LeagueInactive" xml:space="preserve">
+    <value>Lega inattiva.</value>
+  </data>
+  <data name="Errors.Leagues.OwnerMembershipNotFound" xml:space="preserve">
+    <value>Iscrizione del proprietario non trovata.</value>
+  </data>
+  <data name="Errors.Leagues.OwnerAlreadyPlayer" xml:space="preserve">
+    <value>Il proprietario e gia un giocatore.</value>
+  </data>
+  <data name="Errors.Leagues.CallerNotOwner" xml:space="preserve">
+    <value>Il chiamante non e il proprietario della lega.</value>
+  </data>
+  <data name="Errors.Leagues.UserNotFound" xml:space="preserve">
+    <value>Utente non trovato.</value>
+  </data>
+  <data name="Errors.Leagues.UserMustBeMember" xml:space="preserve">
+    <value>L'utente deve essere membro della lega.</value>
+  </data>
+  <data name="Errors.Decks.MissingUserId" xml:space="preserve">
+    <value>Identificativo utente mancante.</value>
+  </data>
+  <data name="Errors.Decks.UserNotFound" xml:space="preserve">
+    <value>Utente non trovato.</value>
+  </data>
+  <data name="Errors.Decks.NoneFound" xml:space="preserve">
+    <value>Nessun mazzo trovato.</value>
+  </data>
+  <data name="Errors.Decks.NotFoundOrUnauthorized" xml:space="preserve">
+    <value>Mazzo non trovato o non autorizzato.</value>
+  </data>
+  <data name="Errors.Decks.CardNotFound" xml:space="preserve">
+    <value>Carta del mazzo non trovata.</value>
+  </data>
+  <data name="Errors.Decks.CardNotFoundOrMismatched" xml:space="preserve">
+    <value>Carta del mazzo non trovata o non appartenente al mazzo.</value>
+  </data>
+  <data name="Errors.Decks.NotFound" xml:space="preserve">
+    <value>Mazzo non trovato.</value>
+  </data>
+  <data name="Errors.Decks.Unauthorized" xml:space="preserve">
+    <value>Mazzo non autorizzato.</value>
+  </data>
+  <data name="Errors.Decks.ValidationFailed" xml:space="preserve">
+    <value>Validazione non riuscita.</value>
+  </data>
+  <data name="Errors.Decks.InvalidScryfallId" xml:space="preserve">
+    <value>ID Scryfall non valido.</value>
+  </data>
+  <data name="Errors.Decks.ScryfallNameMismatch" xml:space="preserve">
+    <value>Nome Scryfall non corrispondente.</value>
+  </data>
+  <data name="Errors.Decks.CardUpdateFailed" xml:space="preserve">
+    <value>Si e verificato un errore imprevisto durante l'aggiornamento della carta del mazzo.</value>
+  </data>
+  <data name="Errors.Decks.CardDeleteFailed" xml:space="preserve">
+    <value>Eliminazione della carta del mazzo non riuscita.</value>
+  </data>
+  <data name="Errors.Decks.ImportInvalidPayload" xml:space="preserve">
+    <value>Payload di importazione non valido.</value>
+  </data>
+  <data name="Errors.Decks.NoCardsParsed" xml:space="preserve">
+    <value>Nessuna carta trovata nel decklist.</value>
+  </data>
 </root>

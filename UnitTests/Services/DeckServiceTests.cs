@@ -35,7 +35,7 @@ public class DeckServiceTests
         var exception = await act.Should().ThrowAsync<DeckServiceException>();
         exception.Which.StatusCode.Should().Be(StatusCodes.Status404NotFound);
         exception.Which.IncludeBody.Should().BeTrue();
-        exception.Which.Body.Should().Be("No decks found");
+        exception.Which.Body.Should().Be("Errors.Decks.NoneFound");
     }
 
     [Fact]

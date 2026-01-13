@@ -149,7 +149,7 @@ public class WishlistServiceTests
         var exception = await act.Should().ThrowAsync<WishlistServiceException>();
         exception.Which.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
         exception.Which.IncludeBody.Should().BeTrue();
-        exception.Which.Body.Should().Be("Card version is not valid for this card");
+        exception.Which.Body.Should().Be("Errors.Wishlists.InvalidVersion");
     }
 
     [Fact]
