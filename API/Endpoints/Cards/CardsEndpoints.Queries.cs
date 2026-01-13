@@ -1,11 +1,7 @@
-using System.Globalization;
 using System.Security.Claims;
 using API.Dtos.Cards;
 using API.Logging;
 using API.Services;
-using Core.Interfaces;
-using Core.Models;
-using Core.Models.Identity;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Endpoints.Cards;
@@ -13,12 +9,11 @@ namespace API.Endpoints.Cards;
 public static partial class CardsEndpoints
 {
     private static async Task<IResult> GetCardFromId(
-        IUnitOfWork unit,
         int id,
-        CardDataService cds,
         HttpContext context,
-        [FromServices] IUserSettingsService userSettingsService,
-        [FromServices] ILogger<CardsEndpointsLogCategory> logger)
+        [FromServices] ICardsService cardsService,
+        [FromServices] ILogger<CardsEndpointsLogCategory> logger,
+        CancellationToken cancellationToken)
     {
         const string operation = "Cards.GetById";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -28,45 +23,23 @@ public static partial class CardsEndpoints
             return Results.Unauthorized();
         }
 
-        var card = await unit.Repository<Card>().GetByIdAsync(id, tracking: false);
-        if (card is null)
+        try
         {
-            logger.LogOperationWarning(operation, "Card not found", new { id });
-            return Results.NotFound();
+            var card = await cardsService.GetCardByIdAsync(id, userId, cancellationToken);
+            logger.LogOperationSuccess(operation, new { id });
+            return Results.Ok(card);
         }
-
-        var collection = await unit.Repository<Collection>().GetByIdAsync(card.CollectionId, tracking: false);
-
-        if (collection!.OwnerId != userId)
+        catch (CardsServiceException ex)
         {
-            logger.LogOperationWarning(operation, "Unauthorized", new { collection.Id, userId });
-            return Results.Unauthorized();
+            logger.LogOperationWarning(operation, ex.Message, new { id, userId });
+            return MapCardsServiceException(ex, context);
         }
-        
-        var marketProvider = await userSettingsService.GetMarketProviderAsync(userId);
-
-        double? price = null;
-        if (cds.CardDataById.TryGetValue(card.ScryfallId, out var marketData) && marketData?.Prices is not null)
-        {
-            var priceText = marketProvider == MarketProvider.Mkm
-                ? (card.IsFoil ? marketData.Prices.EurFoil : marketData.Prices.Eur)
-                : (card.IsFoil ? marketData.Prices.UsdFoil : marketData.Prices.Usd);
-
-            if (!string.IsNullOrWhiteSpace(priceText) &&
-                double.TryParse(priceText, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
-            {
-                price = parsed;
-            }
-        }
-        
-        logger.LogOperationSuccess(operation, new { id });
-        return Results.Ok(CardsEndpointsHelpers.MapToDto(card, price, marketProvider));
     }
 
-    private static IResult SearchCards(
+    private static async Task<IResult> SearchCards(
         string find,
-        CardDataService cds,
         HttpContext context,
+        [FromServices] ICardsService cardsService,
         [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
         const string operation = "Cards.Search";
@@ -77,40 +50,23 @@ public static partial class CardsEndpoints
             return Results.Unauthorized();
         }
 
-        var cardList = cds.CardDataById
-            .Where(x => x.Value.Name.Contains(find, StringComparison.OrdinalIgnoreCase))
-            .GroupBy(x => x.Value.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.First())
-            .ToList();
-
-        var result = cardList.Select(card =>
+        try
         {
-            var imageUris = CardDataService.ResolveImageUris(card.Value);
-            var imageUrl = imageUris?.Normal ?? imageUris?.Large ?? imageUris?.Png;
-            var backImageUrl = cds.ResolveBackImageUrl(card.Value);
-
-            return new MinimalCardDto
-            {
-                Name = card.Value.Name,
-                ScryfallId = card.Key,
-                ImageUrl = imageUrl,
-                BackImageUrl = backImageUrl
-            };
-        }).ToList();
-        if (result.Count == 0)
-        {
-            logger.LogOperationWarning(operation, "No matches", new { find });
-            return Results.NotFound("Card not found");
+            var result = await cardsService.SearchCardsAsync(find, userId);
+            logger.LogOperationSuccess(operation, new { find, Count = result.Count });
+            return Results.Ok(result);
         }
-
-        logger.LogOperationSuccess(operation, new { find, Count = result.Count });
-        return Results.Ok(result);
+        catch (CardsServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { find, userId });
+            return MapCardsServiceException(ex, context);
+        }
     }
 
-    private static IResult GetCardVersionsAsync(
+    private static async Task<IResult> GetCardVersionsAsync(
         string name,
-        CardDataService cds,
         HttpContext context,
+        [FromServices] ICardsService cardsService,
         [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
         const string operation = "Cards.Versions";
@@ -121,24 +77,23 @@ public static partial class CardsEndpoints
             return Results.Unauthorized();
         }
 
-        if (!cds.CardDataByName.ContainsKey(name))
+        try
         {
-            logger.LogOperationWarning(operation, "Card not found", new { name });
-            return Results.NotFound();
+            var versions = await cardsService.GetCardVersionsAsync(name, userId);
+            logger.LogOperationSuccess(operation, new { name, Count = versions.Count });
+            return Results.Ok(versions);
         }
-
-        var versions = cds.CardDataById
-            .Where(x => x.Value.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        logger.LogOperationSuccess(operation, new { name, Count = versions.Count });
-        return Results.Ok(versions);
+        catch (CardsServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { name, userId });
+            return MapCardsServiceException(ex, context);
+        }
     }
 
-    private static IResult GetCardFromExactName(
+    private static async Task<IResult> GetCardFromExactName(
         string name,
-        CardDataService cds,
         HttpContext context,
+        [FromServices] ICardsService cardsService,
         [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
         const string operation = "Cards.ScryfallByName";
@@ -149,20 +104,23 @@ public static partial class CardsEndpoints
             return Results.Unauthorized();
         }
 
-        if (cds.CardDataByName.TryGetValue(name, out var card))
+        try
         {
+            var card = await cardsService.GetCardFromExactNameAsync(name, userId);
             logger.LogOperationSuccess(operation, new { name });
             return Results.Ok(card);
         }
-
-        logger.LogOperationWarning(operation, "Card not found", new { name });
-        return Results.NotFound();
+        catch (CardsServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { name, userId });
+            return MapCardsServiceException(ex, context);
+        }
     }
 
-    private static IResult GetCardFromScryfallId(
+    private static async Task<IResult> GetCardFromScryfallId(
         string id,
-        CardDataService cds,
         HttpContext context,
+        [FromServices] ICardsService cardsService,
         [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
         const string operation = "Cards.ScryfallById";
@@ -173,13 +131,16 @@ public static partial class CardsEndpoints
             return Results.Unauthorized();
         }
 
-        if (cds.CardDataById.TryGetValue(id, out var card))
+        try
         {
+            var card = await cardsService.GetCardFromScryfallIdAsync(id, userId);
             logger.LogOperationSuccess(operation, new { id });
             return Results.Ok(card);
         }
-
-        logger.LogOperationWarning(operation, "Card not found", new { id });
-        return Results.NotFound();
+        catch (CardsServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { id, userId });
+            return MapCardsServiceException(ex, context);
+        }
     }
 }

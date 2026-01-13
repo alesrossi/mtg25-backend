@@ -1,37 +1,28 @@
-using API.Dtos.Cards;
-using Core.Models;
-using Core.Models.Identity;
+using API.Helpers;
+using API.Services;
 
 namespace API.Endpoints.Cards;
 
-public static class CardsEndpointsHelpers
+public static partial class CardsEndpoints
 {
-    public static ExtensiveCardDto MapToDto(Card card, double? price, MarketProvider? priceCurrency)
+    private static IResult MapCardsServiceException(CardsServiceException exception, HttpContext context)
     {
-        return new ExtensiveCardDto
+        if (!string.IsNullOrWhiteSpace(exception.Title))
         {
-            Id = card.Id,
-            Name = card.Name,
-            ScryfallId = card.ScryfallId,
-            CollectionId = card.CollectionId,
-            Quantity = card.Quantity,
-            Language = card.Language,
-            Condition = card.Condition,
-            IsFoil = card.IsFoil,
-            PurchasePrice = card.PurchasePrice,
-            PurchasePriceCurrency = card.PurchasePriceCurrency,
-            ImageUrl = card.ImageUrl,
-            BackImageUrl = card.BackImageUrl,
-            ArtCrop = card.ArtCrop,
-            SetCode = card.SetCode,
-            SetName = card.SetName,
-            TypeLine = card.TypeLine,
-            CollectorNumber = card.CollectorNumber,
-            Rarity = card.Rarity,
-            IsMisprint = card.IsMisprint,
-            IsAltered = card.IsAltered,
-            Price = price,
-            PriceCurrency = priceCurrency
+            return ProblemResultFactory.Create(
+                context,
+                exception.StatusCode,
+                exception.Title!,
+                exception.Detail,
+                exception.ErrorCode);
+        }
+
+        return exception.StatusCode switch
+        {
+            StatusCodes.Status400BadRequest => exception.IncludeBody ? Results.BadRequest(exception.Body) : Results.BadRequest(),
+            StatusCodes.Status401Unauthorized => Results.Unauthorized(),
+            StatusCodes.Status404NotFound => exception.IncludeBody ? Results.NotFound(exception.Body) : Results.NotFound(),
+            _ => Results.StatusCode(exception.StatusCode)
         };
     }
 }

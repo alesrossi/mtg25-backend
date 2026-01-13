@@ -163,6 +163,7 @@ public class Program
             builder.Services.AddScoped<IFriendService, FriendService>();
             builder.Services.AddScoped<ILeagueService, LeagueService>();
             builder.Services.AddScoped<IWishlistService, WishlistService>();
+            builder.Services.AddScoped<ICardsService, CardsService>();
             builder.Services.AddScoped<NotificationService>();
             builder.Services.AddScoped<IDeckValidationService, DeckValidationService>();
             builder.Services.AddScoped<IDecklistParserService, DecklistParserService>();
