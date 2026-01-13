@@ -1,6 +1,5 @@
-using System.Security.Cryptography;
-using System.Text;
 using API.Logging;
+using API.Services;
 using Core.Models.Identity;
 using Microsoft.AspNetCore.Identity;
 
@@ -8,28 +7,6 @@ namespace API.Endpoints.Leagues;
 
 public static partial class LeaguesEndpoint
 {
-    private static class SecureCodeGenerator
-    {
-        private static readonly char[] Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".ToCharArray();
-
-        public static string GenerateCode(int length = 6)
-        {
-            var data = new byte[length];
-            using (var rng = RandomNumberGenerator.Create())
-            {
-                rng.GetBytes(data);
-            }
-
-            var result = new StringBuilder(length);
-            foreach (var b in data)
-            {
-                result.Append(Chars[b % Chars.Length]);
-            }
-
-            return result.ToString();
-        }
-    }
-    
     private static async Task<bool> EnsureRoleAsync(
         UserManager<AppUser> userManager,
         AppUser user,
@@ -56,5 +33,16 @@ public static partial class LeaguesEndpoint
         });
 
         return false;
+    }
+
+    private static IResult MapLeagueServiceException(LeagueServiceException exception)
+    {
+        return exception.StatusCode switch
+        {
+            StatusCodes.Status400BadRequest => exception.IncludeBody ? Results.BadRequest(exception.Body) : Results.BadRequest(),
+            StatusCodes.Status401Unauthorized => Results.Unauthorized(),
+            StatusCodes.Status404NotFound => exception.IncludeBody ? Results.NotFound(exception.Body) : Results.NotFound(),
+            _ => Results.StatusCode(exception.StatusCode)
+        };
     }
 }

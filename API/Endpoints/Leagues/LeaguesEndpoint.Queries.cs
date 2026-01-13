@@ -1,255 +1,115 @@
 using System.Security.Claims;
-using API.Dtos.Leagues;
 using API.Logging;
 using API.Services;
-using Core.Models.Identity;
-using Infrastructure.Identity;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace API.Endpoints.Leagues;
 
 public static partial class LeaguesEndpoint
 {
     private static async Task<IResult> GetLeaguesAsync(
-        [FromServices] UserManager<AppUser> userManager,
-        [FromServices] AppIdentityDbContext dbContext,
         HttpContext context,
-        [FromServices] ILogger<LeaguesEndpointLogCategory> logger)
+        [FromServices] ILeagueService leagueService,
+        [FromServices] ILogger<LeaguesEndpointLogCategory> logger,
+        CancellationToken cancellationToken)
     {
+        const string operation = "Leagues.QueryAll";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId is null)
         {
-            logger.LogOperationWarning("Leagues.QueryAll", "Missing user id");
+            logger.LogOperationWarning(operation, "Missing user id");
             return Results.Unauthorized();
         }
 
-        var user = await userManager.FindByIdAsync(userId);
-        if (user is null)
+        try
         {
-            logger.LogOperationWarning("Leagues.QueryAll", "User not found", new { userId });
-            return Results.Unauthorized();
+            var leagues = await leagueService.GetPublicLeaguesAsync(userId, cancellationToken);
+            logger.LogOperationSuccess(operation, new { leagues.Count });
+            return Results.Ok(leagues);
         }
-
-        var leagues = await dbContext.Leagues
-            .AsNoTracking()
-            .Where(l => l.IsPublic)
-            .ToListAsync();
-        logger.LogOperationSuccess("Leagues.QueryAll", new { leagues.Count });
-        return Results.Ok(leagues);
+        catch (LeagueServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { userId });
+            return MapLeagueServiceException(ex);
+        }
     }
 
     private static async Task<IResult> GetLeaguesFromUserAsync(
-        [FromServices] UserManager<AppUser> userManager,
-        [FromServices] AppIdentityDbContext dbContext,
         HttpContext context,
-        [FromServices] ILogger<LeaguesEndpointLogCategory> logger)
+        [FromServices] ILeagueService leagueService,
+        [FromServices] ILogger<LeaguesEndpointLogCategory> logger,
+        CancellationToken cancellationToken)
     {
+        const string operation = "Leagues.QueryUser";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId is null)
         {
-            logger.LogOperationWarning("Leagues.QueryUser", "Missing user id");
+            logger.LogOperationWarning(operation, "Missing user id");
             return Results.Unauthorized();
         }
 
-        var user = await userManager.FindByIdAsync(userId);
-        if (user is null)
+        try
         {
-            logger.LogOperationWarning("Leagues.QueryUser", "User not found", new { userId });
-            return Results.Unauthorized();
+            var dto = await leagueService.GetLeaguesForUserAsync(userId, cancellationToken);
+            logger.LogOperationSuccess(operation, new { userId, dto.Leagues.Count });
+            return Results.Ok(dto);
         }
-
-        var res = await dbContext.UserLeagues
-            .Where(ul => ul.UserId == userId)
-            .Include(ul => ul.League)
-            .AsNoTracking()
-            .ToListAsync();
-
-        var leaguesById = res
-            .Select(x => new LeagueDto
-            {
-                Code = x.League.Code,
-                Name = x.League.Name,
-                Score = x.Score,
-                Id = x.LeagueId,
-                Format = x.League.Format,
-                TotalRounds = x.League.TotalRounds,
-                CurrentRound = x.League.CurrentRound,
-                RoundsToConsider = x.League.RoundsToConsider,
-                MinimumRounds = x.League.MinimumRounds,
-                TotalPrize = x.League.TotalPrize,
-                PrizePerPerson = x.League.PrizePerPerson,
-                TotalPlayers = x.League.TotalPlayers,
-                IsActive = x.League.IsActive,
-                IsPlaying = x.IsPlaying,
-                OwnerId = x.League.OwnerId,
-                IsPublic = x.League.IsPublic
-            })
-            .ToDictionary(league => league.Id);
-
-        var ownedLeagues = await dbContext.Leagues
-            .Where(l => l.OwnerId == userId)
-            .Select(league => new LeagueDto
-            {
-                Code = league.Code,
-                Name = league.Name,
-                Score = 0,
-                Id = league.Id,
-                Format = league.Format,
-                TotalRounds = league.TotalRounds,
-                CurrentRound = league.CurrentRound,
-                RoundsToConsider = league.RoundsToConsider,
-                MinimumRounds = league.MinimumRounds,
-                TotalPrize = league.TotalPrize,
-                PrizePerPerson = league.PrizePerPerson,
-                TotalPlayers = league.TotalPlayers,
-                IsActive = league.IsActive,
-                IsPlaying = false,
-                OwnerId = league.OwnerId,
-                IsPublic = league.IsPublic
-            })
-            .AsNoTracking()
-            .ToListAsync();
-
-        foreach (var league in ownedLeagues)
+        catch (LeagueServiceException ex)
         {
-            leaguesById.TryAdd(league.Id, league);
+            logger.LogOperationWarning(operation, ex.Message, new { userId });
+            return MapLeagueServiceException(ex);
         }
-
-        var leaguesDto = leaguesById.Values.ToList();
-        var dto = new UserWithLeaguesDto
-        {
-            Id = user.Id,
-            FirstName = user.FirstName,
-            LastName = user.LastName,
-            DisplayName = user.DisplayName,
-            Leagues = leaguesDto
-        };
-        logger.LogOperationSuccess("Leagues.QueryUser", new { userId, leaguesDto.Count });
-        return Results.Ok(dto);
     }
 
     private static async Task<IResult> GetLeagueFromIdAsync(
         int id,
-        [FromServices] UserManager<AppUser> userManager,
-        [FromServices] AppIdentityDbContext dbContext,
         HttpContext context,
-        [FromServices] ILogger<LeaguesEndpointLogCategory> logger)
+        [FromServices] ILeagueService leagueService,
+        [FromServices] ILogger<LeaguesEndpointLogCategory> logger,
+        CancellationToken cancellationToken)
     {
+        const string operation = "Leagues.GetById";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId is null)
         {
-            logger.LogOperationWarning("Leagues.GetById", "Missing user id", new { id });
+            logger.LogOperationWarning(operation, "Missing user id", new { id });
             return Results.Unauthorized();
         }
 
-        var user = await userManager.FindByIdAsync(userId);
-        if (user is null)
+        try
         {
-            logger.LogOperationWarning("Leagues.GetById", "User not found", new { userId });
-            return Results.Unauthorized();
+            var leagueDto = await leagueService.GetLeagueByIdAsync(id, userId, cancellationToken);
+            logger.LogOperationSuccess(operation, new { id });
+            return Results.Ok(leagueDto);
         }
-
-        var league = await dbContext.Leagues
-            .AsNoTracking()
-            .FirstOrDefaultAsync(l => l.Id == id);
-        if (league is null)
+        catch (LeagueServiceException ex)
         {
-            logger.LogOperationWarning("Leagues.GetById", "League not found", new { id });
-            return Results.NotFound();
+            logger.LogOperationWarning(operation, ex.Message, new { id, userId });
+            return MapLeagueServiceException(ex);
         }
-
-        var res = await dbContext.UserLeagues
-            .Where(ul => ul.LeagueId == league.Id && ul.UserId == userId)
-            .Include(ul => ul.League)
-            .AsNoTracking()
-            .FirstOrDefaultAsync();
-
-        if (userId != league.OwnerId && res is null)
-        {
-            logger.LogOperationWarning("Leagues.GetById", "User not in league", new { id, userId });
-            return Results.Unauthorized();
-        }
-
-        var leagueDto = new LeagueDto
-        {
-            Id = league.Id,
-            Name = league.Name,
-            Code = league.Code,
-            Format = league.Format,
-            TotalRounds = league.TotalRounds,
-            CurrentRound = league.CurrentRound,
-            RoundsToConsider = league.RoundsToConsider,
-            MinimumRounds = league.MinimumRounds,
-            TotalPrize = league.TotalPrize,
-            PrizePerPerson = league.PrizePerPerson,
-            TotalPlayers = league.TotalPlayers,
-            Score = res!.Score,
-            OwnerId = league.OwnerId,
-            IsActive = league.IsActive,
-            IsPlaying = res.IsPlaying,
-            IsPublic = league.IsPublic
-        };
-
-        logger.LogOperationSuccess("Leagues.GetById", new { id });
-        return Results.Ok(leagueDto);
     }
 
     private static async Task<IResult> ListLeagueWithScores(
         int id,
-        [FromServices] UserManager<AppUser> userManager,
-        [FromServices] AppIdentityDbContext dbContext,
-        [FromServices] IValidationService validationService,
-        HttpContext context)
+        HttpContext context,
+        [FromServices] ILeagueService leagueService,
+        [FromServices] ILogger<LeaguesEndpointLogCategory> logger,
+        CancellationToken cancellationToken)
     {
+        const string operation = "Leagues.ListScores";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId is null) return Results.Unauthorized();
 
-        var user = await userManager.FindByIdAsync(userId);
-        if (user is null) return Results.Unauthorized();
-
-        var league = await dbContext.Leagues
-            .AsNoTracking()
-            .FirstOrDefaultAsync(l => l.Id == id);
-        if (league is null) return Results.NotFound();
-
-        var res = await dbContext.UserLeagues
-            .Where(ul => ul.LeagueId == league.Id)
-            .Include(ul => ul.User)
-            .AsNoTracking()
-            .ToListAsync();
-
-        var leagueWithScores = new LeagueWithScoresDto
+        try
         {
-            Id = league.Id,
-            Name = league.Name,
-            CurrentRound = league.CurrentRound,
-            OwnerId = league.OwnerId,
-            IsPublic = league.IsPublic
-        };
-
-        var orderedPlayers = res
-            .Where(x => x.LeagueId == league.Id && x.IsPlaying)
-            .OrderByDescending(x => x.Score)
-            .ThenBy(x => x.User.FirstName)
-            .ThenBy(x => x.User.LastName);
-
-        foreach (var player in orderedPlayers)
-        {
-            leagueWithScores.Scores.Add(new Score
-            {
-                FirstName = player.User.FirstName,
-                LastName = player.User.LastName,
-                UserId = player.User.Id,
-                Points = player.Score,
-                RoundsPlayed = player.RoundsPlayed,
-                BestRound = player.BestRound,
-                AvgPosition = player.AvgPosition,
-                Rounds = player.Rounds
-            });
+            var leagueWithScores = await leagueService.GetLeagueScoresAsync(id, userId, cancellationToken);
+            logger.LogOperationSuccess(operation, new { id, userId, leagueWithScores.Scores.Count });
+            return Results.Ok(leagueWithScores);
         }
-
-        return Results.Ok(leagueWithScores);
+        catch (LeagueServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { id, userId });
+            return MapLeagueServiceException(ex);
+        }
     }
 }
