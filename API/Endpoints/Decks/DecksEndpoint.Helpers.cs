@@ -1,25 +1,26 @@
-using API.Dtos.Decks;
-using Core.Models;
+using API.Services;
+using Microsoft.AspNetCore.Http;
 
 namespace API.Endpoints.Decks;
 
 public static partial class DecksEndpoint
 {
-    private static DeckDto MapToDto(Deck deck)
+    private static IResult MapDeckServiceException(DeckServiceException exception)
     {
-        return new DeckDto
+        if (exception.StatusCode == StatusCodes.Status500InternalServerError && exception.ProblemTitle is not null)
         {
-            Id = deck.Id,
-            Name = deck.Name,
-            Format = deck.Format,
-            Image = deck.Image,
-            NumberOfCards = deck.NumberOfCards,
-            NumberOfMainBoardCards = deck.NumberOfMainBoardCards,
-            NumberOfSideBoardCards = deck.NumberOfSideBoardCards,
-            TotalPrice = deck.TotalPrice,
-            TotalPriceCurrency = deck.TotalPriceCurrency,
-            ColorIdentity = deck.ColorIdentity.ToList(),
-            OwnerId = deck.OwnerId
+            return Results.Problem(
+                detail: exception.ProblemDetail,
+                statusCode: exception.StatusCode,
+                title: exception.ProblemTitle);
+        }
+
+        return exception.StatusCode switch
+        {
+            StatusCodes.Status400BadRequest => exception.IncludeBody ? Results.BadRequest(exception.Body) : Results.BadRequest(),
+            StatusCodes.Status401Unauthorized => Results.Unauthorized(),
+            StatusCodes.Status404NotFound => exception.IncludeBody ? Results.NotFound(exception.Body) : Results.NotFound(),
+            _ => Results.StatusCode(exception.StatusCode)
         };
     }
 }

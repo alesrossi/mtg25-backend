@@ -2,11 +2,6 @@ using System.Security.Claims;
 using API.Dtos.Decks;
 using API.Logging;
 using API.Services;
-using Core.Interfaces;
-using Core.Models;
-using Core.Models.Identity;
-using Core.Specifications;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Endpoints.Decks;
@@ -14,10 +9,10 @@ namespace API.Endpoints.Decks;
 public static partial class DecksEndpoint
 {
     private static async Task<IResult> GetAllDecksForUser(
-        IUnitOfWork unitOfWork,
-        [FromServices] UserManager<AppUser> userManager,
         HttpContext context,
-        [FromServices] ILogger<DecksEndpointLogCategory> logger)
+        [FromServices] IDeckService deckService,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger,
+        CancellationToken cancellationToken)
     {
         const string operation = "Decks.List";
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -27,36 +22,31 @@ public static partial class DecksEndpoint
             return Results.Unauthorized();
         }
 
-        var user = await userManager.FindByIdAsync(userId);
-        if (user is null)
-        {
-            logger.LogOperationWarning(operation, "User not found", new { userId });
-            return Results.Unauthorized();
-        }
-
         using var scope = logger.BeginOperationScope(operation, userId);
         logger.LogOperationStart(operation, new { userId });
 
-        var decks = await unitOfWork.Repository<Deck>().ListAsync(new DecksWIthOwnerSpecification(user.Id), tracking: false);
-        if (decks is null || decks.Count <= 0)
+        try
         {
-            logger.LogOperationWarning(operation, "No decks found", new { userId });
-            return Results.NotFound("No decks found");
+            var deckDtos = await deckService.GetDecksForUserAsync(userId, cancellationToken);
+            logger.LogOperationSuccess(operation, new { Count = deckDtos.Count });
+            return Results.Ok(deckDtos);
         }
-
-        var deckDtos = decks.Select(MapToDto).ToList();
-        logger.LogOperationSuccess(operation, new { Count = deckDtos.Count });
-        return Results.Ok(deckDtos);
+        catch (DeckServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { userId });
+            return MapDeckServiceException(ex);
+        }
     }
 
     private static async Task<IResult> GetDeckByIdAsync(
         int id,
-        IUnitOfWork unitOfWork,
-        ClaimsPrincipal user,
-        [FromServices] ILogger<DecksEndpointLogCategory> logger)
+        HttpContext context,
+        [FromServices] IDeckService deckService,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger,
+        CancellationToken cancellationToken)
     {
         const string operation = "Decks.Get";
-        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId == null)
         {
             logger.LogOperationWarning(operation, "Missing user identifier", new { id });
@@ -66,15 +56,17 @@ public static partial class DecksEndpoint
         using var scope = logger.BeginOperationScope(operation, id);
         logger.LogOperationStart(operation, new { id });
 
-        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(id, tracking: false);
-        if (deck == null || deck.OwnerId != userId)
+        try
         {
-            logger.LogOperationWarning(operation, "Deck not found or unauthorized", new { id, userId });
-            return Results.NotFound();
+            var deck = await deckService.GetDeckByIdAsync(id, userId, cancellationToken);
+            logger.LogOperationSuccess(operation, new { id });
+            return Results.Ok(deck);
         }
-
-        logger.LogOperationSuccess(operation, new { id });
-        return Results.Ok(MapToDto(deck));
+        catch (DeckServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { id, userId });
+            return MapDeckServiceException(ex);
+        }
     }
 
     private static async Task<IResult> GetDeckCardsAsync(
@@ -82,13 +74,13 @@ public static partial class DecksEndpoint
         bool maindeckOnly = false,
         bool sideboardOnly = false,
         bool? ownedOnly = null,
-        DeckCardService deckCardService = null!,
-        IUnitOfWork unitOfWork = null!,
-        ClaimsPrincipal user = null!,
-        [FromServices] ILogger<DecksEndpointLogCategory> logger = null!)
+        HttpContext context = null!,
+        [FromServices] IDeckService deckService = null!,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger = null!,
+        CancellationToken cancellationToken = default)
     {
         const string operation = "DeckCards.Query";
-        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId == null)
         {
             logger.LogOperationWarning(operation, "Missing user identifier", new { deckId });
@@ -98,28 +90,29 @@ public static partial class DecksEndpoint
         using var scope = logger.BeginOperationScope(operation, deckId);
         logger.LogOperationStart(operation, new { deckId, maindeckOnly, sideboardOnly, ownedOnly });
 
-        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
-        if (deck == null || deck.OwnerId != userId)
+        try
         {
-            logger.LogOperationWarning(operation, "Deck not found or unauthorized", new { deckId, userId });
-            return Results.NotFound();
+            var deckCards = await deckService.GetDeckCardsAsync(deckId, userId, maindeckOnly, sideboardOnly, ownedOnly, cancellationToken);
+            logger.LogOperationSuccess(operation, new { deckId, Count = deckCards.Count });
+            return Results.Ok(deckCards);
         }
-
-        var deckCards = await deckCardService.GetDeckCardsAsync(deckId, maindeckOnly, sideboardOnly, ownedOnly);
-        logger.LogOperationSuccess(operation, new { deckId, Count = deckCards.Count() });
-        return Results.Ok(deckCards);
+        catch (DeckServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { deckId, userId });
+            return MapDeckServiceException(ex);
+        }
     }
 
     private static async Task<IResult> GetDeckCardByIdAsync(
         int deckId,
         int id,
-        DeckCardService deckCardService,
-        IUnitOfWork unitOfWork,
-        ClaimsPrincipal user,
-        [FromServices] ILogger<DecksEndpointLogCategory> logger)
+        HttpContext context,
+        [FromServices] IDeckService deckService,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger,
+        CancellationToken cancellationToken)
     {
         const string operation = "DeckCards.Get";
-        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId == null)
         {
             logger.LogOperationWarning(operation, "Missing user identifier", new { deckId, id });
@@ -129,33 +122,28 @@ public static partial class DecksEndpoint
         using var scope = logger.BeginOperationScope(operation, id);
         logger.LogOperationStart(operation, new { deckId, id });
 
-        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
-        if (deck == null || deck.OwnerId != userId)
+        try
         {
-            logger.LogOperationWarning(operation, "Deck not found or unauthorized", new { deckId, userId });
-            return Results.NotFound();
+            var deckCard = await deckService.GetDeckCardByIdAsync(deckId, id, userId, cancellationToken);
+            logger.LogOperationSuccess(operation, new { deckId, id });
+            return Results.Ok(deckCard);
         }
-
-        var deckCard = await deckCardService.GetDeckCardByIdAsync(id);
-        if (deckCard == null || deckCard.DeckId != deckId)
+        catch (DeckServiceException ex)
         {
-            logger.LogOperationWarning(operation, "Deck card not found", new { deckId, id });
-            return Results.NotFound();
+            logger.LogOperationWarning(operation, ex.Message, new { deckId, id, userId });
+            return MapDeckServiceException(ex);
         }
-
-        logger.LogOperationSuccess(operation, new { deckId, id });
-        return Results.Ok(deckCard);
     }
 
     private static async Task<IResult> GetMissingDeckCardsAsync(
         int deckId,
-        DeckCardService deckCardService,
-        IUnitOfWork unitOfWork,
-        ClaimsPrincipal user,
-        [FromServices] ILogger<DecksEndpointLogCategory> logger)
+        HttpContext context,
+        [FromServices] IDeckService deckService,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger,
+        CancellationToken cancellationToken)
     {
         const string operation = "DeckCards.Missing";
-        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId == null)
         {
             logger.LogOperationWarning(operation, "Missing user identifier", new { deckId });
@@ -165,27 +153,28 @@ public static partial class DecksEndpoint
         using var scope = logger.BeginOperationScope(operation, deckId);
         logger.LogOperationStart(operation, new { deckId });
 
-        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
-        if (deck == null || deck.OwnerId != userId)
+        try
         {
-            logger.LogOperationWarning(operation, "Deck not found or unauthorized", new { deckId, userId });
-            return Results.NotFound();
+            var missingCards = await deckService.GetMissingDeckCardsAsync(deckId, userId, cancellationToken);
+            logger.LogOperationSuccess(operation, new { deckId, MissingCount = missingCards.Count });
+            return Results.Ok(missingCards);
         }
-
-        var missingCards = (await deckCardService.GetDeckCardsAsync(deckId, ownedOnly: false)).ToList();
-        logger.LogOperationSuccess(operation, new { deckId, MissingCount = missingCards.Count });
-        return Results.Ok(missingCards);
+        catch (DeckServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { deckId, userId });
+            return MapDeckServiceException(ex);
+        }
     }
 
     private static async Task<IResult> ExportDeckAsync(
         int deckId,
-        DeckCardService deckCardService,
-        IUnitOfWork unitOfWork,
-        ClaimsPrincipal user,
-        [FromServices] ILogger<DecksEndpointLogCategory> logger)
+        HttpContext context,
+        [FromServices] IDeckService deckService,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger,
+        CancellationToken cancellationToken)
     {
         const string operation = "Decks.Export";
-        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId == null)
         {
             logger.LogOperationWarning(operation, "Missing user identifier", new { deckId });
@@ -195,46 +184,20 @@ public static partial class DecksEndpoint
         using var scope = logger.BeginOperationScope(operation, deckId);
         logger.LogOperationStart(operation, new { deckId });
 
-        var deck = await unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
-        if (deck == null || deck.OwnerId != userId)
+        try
         {
-            logger.LogOperationWarning(operation, "Deck not found or unauthorized", new { deckId, userId });
-            return Results.NotFound();
-        }
-
-        var deckCards = (await deckCardService.GetDeckCardsAsync(deckId)).ToList();
-
-        if (deckCards.Count == 0)
-        {
-            logger.LogOperationWarning(operation, "Deck has no cards", new { deckId });
-            return Results.Ok(Array.Empty<string>());
-        }
-
-        var maindeckLines = deckCards
-            .Where(card => card.MaindeckQuantity > 0)
-            .OrderBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(card => $"{card.MaindeckQuantity} {card.Name}")
-            .ToList();
-
-        var sideboardLines = deckCards
-            .Where(card => card.SideboardQuantity > 0)
-            .OrderBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(card => $"{card.SideboardQuantity} {card.Name}")
-            .ToList();
-
-        var exportedLines = new List<string>(maindeckLines);
-
-        if (sideboardLines.Count > 0)
-        {
-            if (exportedLines.Count > 0)
+            var exportedLines = await deckService.ExportDeckAsync(deckId, userId, cancellationToken);
+            if (exportedLines.Count == 0)
             {
-                exportedLines.Add(string.Empty);
+                logger.LogOperationWarning(operation, "Deck has no cards", new { deckId });
             }
-
-            exportedLines.AddRange(sideboardLines);
+            logger.LogOperationSuccess(operation, new { deckId, Lines = exportedLines.Count });
+            return Results.Ok(exportedLines);
         }
-
-        logger.LogOperationSuccess(operation, new { deckId, Lines = exportedLines.Count });
-        return Results.Ok(exportedLines);
+        catch (DeckServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { deckId, userId });
+            return MapDeckServiceException(ex);
+        }
     }
 }
