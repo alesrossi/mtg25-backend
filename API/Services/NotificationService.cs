@@ -7,6 +7,7 @@ using API.Logging;
 using Core.Models.Identity;
 using Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Logging;
 
 namespace API.Services;
@@ -32,6 +33,15 @@ public class NotificationService
         _logger = logger;
         _userSettingsService = userSettingsService;
         _messageLocalizer = messageLocalizer;
+    }
+
+    public NotificationService(AppIdentityDbContext context, ILogger<NotificationService> logger)
+        : this(
+            context,
+            logger,
+            new UserSettingsService(context),
+            new MessageLocalizationService(new UserSettingsService(context), NullLogger<MessageLocalizationService>.Instance))
+    {
     }
 
     public async Task<Notification> CreateNotificationAsync(NewNotificationDto newNotification)
@@ -209,9 +219,9 @@ public class NotificationService
                 var newNotification = new Notification
                 {
                     Name = "joined_league",
-                    Message = "You have been approved for to join a league",
-                    MessageKey = null,
-                    MessageArgsJson = null,
+                    Message = "Notifications.JoinedLeagueApproved",
+                    MessageKey = "Notifications.JoinedLeagueApproved",
+                    MessageArgsJson = SerializeArgs(Array.Empty<string>()),
                     ObjectId = notification.ObjectId,
                     Origin = notification.Origin,
                     CreationDateTime = DateTime.UtcNow,

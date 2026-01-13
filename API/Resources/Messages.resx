@@ -21,4 +21,25 @@
   <data name="Notifications.FriendRequest" xml:space="preserve">
     <value>{0} sent you a friend request.</value>
   </data>
+  <data name="Notifications.TradeRequest" xml:space="preserve">
+    <value>{0} wants to trade with you.</value>
+  </data>
+  <data name="Notifications.TradeCommitRequest" xml:space="preserve">
+    <value>{0} is ready to commit the trade.</value>
+  </data>
+  <data name="Notifications.TradeSession" xml:space="preserve">
+    <value>{0} wants to trade with you.</value>
+  </data>
+  <data name="Notifications.RequestJoinLeague" xml:space="preserve">
+    <value>User {0} {1} wants to join {2}.</value>
+  </data>
+  <data name="Notifications.PlayerJoinedLeague" xml:space="preserve">
+    <value>{0} {1} has joined {2}.</value>
+  </data>
+  <data name="Notifications.UserLeftLeague" xml:space="preserve">
+    <value>User {0} {1} left {2}.</value>
+  </data>
+  <data name="Notifications.JoinedLeagueApproved" xml:space="preserve">
+    <value>You have been approved to join a league.</value>
+  </data>
 </root>

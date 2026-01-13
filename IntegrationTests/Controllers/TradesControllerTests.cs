@@ -121,7 +121,8 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var notification = await identityContext.Notifications.SingleAsync(n => n.AppUserId == target.Id);
 
         notification.Name.Should().Be("trade_request");
-        notification.Message.Should().Contain(requester.DisplayName);
+        notification.MessageKey.Should().Be("Notifications.TradeRequest");
+        notification.MessageArgsJson.Should().Contain(requester.DisplayName);
         notification.ObjectId.Should().Be(requester.Id);
         notification.Origin.Should().Be($"trade_request.{requester.Id}");
     }
@@ -173,7 +174,8 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
         var notification = await identityContext.Notifications.SingleAsync(n =>
             n.AppUserId == partner.Id && n.ObjectId == trade.TradeId && n.Name == "trade_commit_request");
-        notification.Message.Should().Contain(initiator.DisplayName);
+        notification.MessageKey.Should().Be("Notifications.TradeCommitRequest");
+        notification.MessageArgsJson.Should().Contain(initiator.DisplayName);
     }
 
     [Fact]

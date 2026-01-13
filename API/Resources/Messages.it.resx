@@ -21,4 +21,25 @@
   <data name="Notifications.FriendRequest" xml:space="preserve">
     <value>{0} ti ha inviato una richiesta di amicizia.</value>
   </data>
+  <data name="Notifications.TradeRequest" xml:space="preserve">
+    <value>{0} vuole scambiare con te.</value>
+  </data>
+  <data name="Notifications.TradeCommitRequest" xml:space="preserve">
+    <value>{0} e pronto a confermare lo scambio.</value>
+  </data>
+  <data name="Notifications.TradeSession" xml:space="preserve">
+    <value>{0} vuole scambiare con te.</value>
+  </data>
+  <data name="Notifications.RequestJoinLeague" xml:space="preserve">
+    <value>L'utente {0} {1} vuole unirsi a {2}.</value>
+  </data>
+  <data name="Notifications.PlayerJoinedLeague" xml:space="preserve">
+    <value>{0} {1} si e unito a {2}.</value>
+  </data>
+  <data name="Notifications.UserLeftLeague" xml:space="preserve">
+    <value>L'utente {0} {1} ha lasciato {2}.</value>
+  </data>
+  <data name="Notifications.JoinedLeagueApproved" xml:space="preserve">
+    <value>Sei stato approvato per unirti a una lega.</value>
+  </data>
 </root>

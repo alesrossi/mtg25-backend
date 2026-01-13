@@ -57,7 +57,9 @@ public static partial class TradesEndpoints
         var notification = new NewNotificationDto
         {
             Name = "trade_request",
-            Message = $"{requester.DisplayName} wants to trade with you.",
+            Message = "Notifications.TradeRequest",
+            MessageKey = "Notifications.TradeRequest",
+            MessageArgs = new[] { requester.DisplayName },
             Origin = $"trade_request.{requester.Id}",
             ObjectId = requester.Id,
             AppUserId = requestedUser.Id
@@ -97,7 +99,9 @@ public static partial class TradesEndpoints
             var notification = new NewNotificationDto
             {
                 Name = NotificationConstants.TradeCommitRequest,
-                Message = $"{requester.DisplayName} is ready to commit the trade.",
+                Message = "Notifications.TradeCommitRequest",
+                MessageKey = "Notifications.TradeCommitRequest",
+                MessageArgs = new[] { requester.DisplayName },
                 Origin = $"{tradeId}.{userId}",
                 ObjectId = connection.TradeId,
                 AppUserId = recipient.UserId

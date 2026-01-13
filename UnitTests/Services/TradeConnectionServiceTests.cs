@@ -34,6 +34,8 @@ public class TradeConnectionServiceTests : IDisposable
     private readonly NotificationService _notificationService;
     private readonly CardDataService _cardDataService;
     private readonly Mock<IUserSettingsService> _userSettingsServiceMock = new();
+    private readonly Mock<IUserSettingsService> _notificationSettingsMock = new();
+    private readonly Mock<IMessageLocalizer> _messageLocalizerMock = new();
     private readonly TestDataBuilder _testDataBuilder = new();
     private int _idSequence = 1;
 
@@ -43,7 +45,21 @@ public class TradeConnectionServiceTests : IDisposable
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
 
-        _notificationService = new NotificationService(_identityDbContext, NullLogger<NotificationService>.Instance);
+        _notificationSettingsMock.Setup(s => s.GetSettingsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string userId, CancellationToken _) => new Settings
+            {
+                AppUserId = userId,
+                AppUser = null!,
+                LanguageUi = "it"
+            });
+        _messageLocalizerMock.Setup(l => l.GetMessageForLanguage(It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<object[]>()))
+            .Returns("localized");
+
+        _notificationService = new NotificationService(
+            _identityDbContext,
+            NullLogger<NotificationService>.Instance,
+            _notificationSettingsMock.Object,
+            _messageLocalizerMock.Object);
         _cardDataService = CardDataServiceTestHelper.CreateWithCards(Array.Empty<ScryfallCardDto>());
         _userSettingsServiceMock.Setup(s => s.GetMarketProviderAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(MarketProvider.Mkm);

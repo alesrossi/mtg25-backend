@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using API.Dtos.Leagues;
 using API.Services;
@@ -288,7 +289,24 @@ public class LeagueServiceTests
     {
         var manager = CreateUserManagerMock(users);
         var validationService = new ValidationService();
-        var notificationService = new NotificationService(context, NullLogger<NotificationService>.Instance);
+        var settingsService = new Mock<IUserSettingsService>();
+        settingsService.Setup(s => s.GetSettingsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string userId, CancellationToken _) => new Settings
+            {
+                AppUserId = userId,
+                AppUser = null!,
+                LanguageUi = "it"
+            });
+
+        var messageLocalizer = new Mock<IMessageLocalizer>();
+        messageLocalizer.Setup(l => l.GetMessageForLanguage(It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<object[]>()))
+            .Returns("localized");
+
+        var notificationService = new NotificationService(
+            context,
+            NullLogger<NotificationService>.Instance,
+            settingsService.Object,
+            messageLocalizer.Object);
         return new LeagueService(manager.Object, context, validationService, notificationService);
     }
 

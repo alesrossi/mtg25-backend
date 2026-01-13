@@ -537,7 +537,9 @@ public sealed class TradeConnectionService : ITradeConnectionService
         var partnerNotification = new NewNotificationDto
         {
             Name = "trade_session",
-            Message = $"{connection.Initiator.DisplayName} wants to trade with you.",
+            Message = "Notifications.TradeSession",
+            MessageKey = "Notifications.TradeSession",
+            MessageArgs = new[] { connection.Initiator.DisplayName },
             Origin = $"{connection.TradeId}.{connection.Initiator.UserId}",
             ObjectId = connection.TradeId,
             AppUserId = connection.Partner.UserId

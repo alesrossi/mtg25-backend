@@ -379,7 +379,9 @@ public sealed class LeagueService : ILeagueService
             var newNotification = new NewNotificationDto
             {
                 Name = "request_join_league",
-                Message = $"User {user.FirstName} {user.LastName} wants to join {league.Name}",
+                Message = "Notifications.RequestJoinLeague",
+                MessageKey = "Notifications.RequestJoinLeague",
+                MessageArgs = new[] { user.FirstName, user.LastName, league.Name },
                 ObjectId = league.Id.ToString(),
                 Origin = league.Id + "." + user.Id,
                 AppUserId = adminId
@@ -438,7 +440,9 @@ public sealed class LeagueService : ILeagueService
         var newNotification = new NewNotificationDto
         {
             Name = "player_joined_league",
-            Message = $"{user.FirstName} {user.LastName} has joined {league.Name}",
+            Message = "Notifications.PlayerJoinedLeague",
+            MessageKey = "Notifications.PlayerJoinedLeague",
+            MessageArgs = new[] { user.FirstName, user.LastName, league.Name },
             ObjectId = league.Id.ToString(),
             Origin = $"{league.Id}.{user.Id}",
             AppUserId = league.OwnerId
@@ -478,7 +482,9 @@ public sealed class LeagueService : ILeagueService
         var newNotification = new NewNotificationDto
         {
             Name = "user_leave_league",
-            Message = $"User {user.FirstName} {user.LastName} left {league.Name}",
+            Message = "Notifications.UserLeftLeague",
+            MessageKey = "Notifications.UserLeftLeague",
+            MessageArgs = new[] { user.FirstName, user.LastName, league.Name },
             ObjectId = league.Id.ToString(),
             Origin = league.Id + "." + user.Id,
             AppUserId = league.OwnerId

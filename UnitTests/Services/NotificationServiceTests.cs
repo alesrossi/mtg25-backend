@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using API.Dtos.Notifications;
 using API.Services;
@@ -9,6 +10,7 @@ using FluentAssertions;
 using Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using Xunit;
 
 namespace UnitTests.Services;
@@ -23,7 +25,9 @@ public class NotificationServiceTests
         var dto = new NewNotificationDto
         {
             Name = "request_join_league",
-            Message = "Player requested to join",
+            Message = "Notifications.RequestJoinLeague",
+            MessageKey = "Notifications.RequestJoinLeague",
+            MessageArgs = new[] { "First", "Last", "League" },
             Origin = "League",
             ObjectId = "42",
             AppUserId = "user-1"
@@ -42,6 +46,8 @@ public class NotificationServiceTests
         var stored = await context.Notifications.SingleAsync();
         stored.Name.Should().Be(dto.Name);
         stored.Message.Should().Be(dto.Message);
+        stored.MessageKey.Should().Be(dto.MessageKey);
+        stored.MessageArgsJson.Should().NotBeNull();
         stored.CreationDateTime.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
     }
 
@@ -52,7 +58,9 @@ public class NotificationServiceTests
         var existing = new Notification
         {
             Name = "match_start",
-            Message = "Round one is starting",
+            Message = "Notifications.MatchStart",
+            MessageKey = "Notifications.MatchStart",
+            MessageArgsJson = "[\"Round 1\"]",
             Origin = "League",
             AppUserId = "user-2",
             CreationDateTime = DateTime.UtcNow.AddMinutes(-10),
@@ -68,7 +76,7 @@ public class NotificationServiceTests
         result.Should().NotBeNull();
         result!.Id.Should().Be(existing.Id);
         result.Name.Should().Be(existing.Name);
-        result.Message.Should().Be(existing.Message);
+        result.Message.Should().Be("localized");
         result.Origin.Should().Be(existing.Origin);
     }
 
@@ -104,7 +112,9 @@ public class NotificationServiceTests
             new Notification
             {
                 Name = "older",
-                Message = "Old message",
+                Message = "Notifications.Older",
+                MessageKey = "Notifications.Older",
+                MessageArgsJson = "[]",
                 Origin = "League",
                 AppUserId = userId,
                 CreationDateTime = DateTime.UtcNow.AddDays(-1),
@@ -113,7 +123,9 @@ public class NotificationServiceTests
             new Notification
             {
                 Name = "newer",
-                Message = "New message",
+                Message = "Notifications.Newer",
+                MessageKey = "Notifications.Newer",
+                MessageArgsJson = "[]",
                 Origin = "League",
                 AppUserId = userId,
                 CreationDateTime = DateTime.UtcNow,
@@ -225,6 +237,21 @@ public class NotificationServiceTests
         return context;
     }
 
-    private static NotificationService CreateService(AppIdentityDbContext context) =>
-        new(context, NullLogger<NotificationService>.Instance);
+    private static NotificationService CreateService(AppIdentityDbContext context)
+    {
+        var settingsService = new Mock<IUserSettingsService>();
+        settingsService.Setup(s => s.GetSettingsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string userId, CancellationToken _) => new Settings
+            {
+                AppUserId = userId,
+                AppUser = null!,
+                LanguageUi = "it"
+            });
+
+        var localizer = new Mock<IMessageLocalizer>();
+        localizer.Setup(l => l.GetMessageForLanguage(It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<object[]>()))
+            .Returns("localized");
+
+        return new NotificationService(context, NullLogger<NotificationService>.Instance, settingsService.Object, localizer.Object);
+    }
 }
