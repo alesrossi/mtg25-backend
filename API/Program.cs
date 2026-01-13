@@ -157,6 +157,7 @@ public class Program
             builder.Services.AddScoped<DeckCardService>();
             builder.Services.AddScoped<WishlistPricingService>();
             builder.Services.AddScoped<IUserSettingsService, UserSettingsService>();
+            builder.Services.AddScoped<ICollectionService, CollectionService>();
             builder.Services.AddScoped<ITradeSessionStore, TradeSessionStore>();
             builder.Services.AddScoped<ITradeConnectionService, TradeConnectionService>();
             builder.Services.AddScoped<IFriendService, FriendService>();
