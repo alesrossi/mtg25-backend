@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using API.Dtos.Notifications;
 using API.Logging;
@@ -14,15 +15,23 @@ public class NotificationService
 {
     private readonly AppIdentityDbContext _context;
     private readonly ILogger<NotificationService> _logger;
+    private readonly IUserSettingsService _userSettingsService;
+    private readonly IMessageLocalizer _messageLocalizer;
     
     private const string CreateNotificationOperation = "Notifications.Create";
     private const string DeleteNotificationOperation = "Notifications.Delete";
     private const string UpdateNotificationOperation = "Notifications.Update";
     
-    public NotificationService(AppIdentityDbContext context, ILogger<NotificationService> logger)
+    public NotificationService(
+        AppIdentityDbContext context,
+        ILogger<NotificationService> logger,
+        IUserSettingsService userSettingsService,
+        IMessageLocalizer messageLocalizer)
     {
         _context = context;
         _logger = logger;
+        _userSettingsService = userSettingsService;
+        _messageLocalizer = messageLocalizer;
     }
 
     public async Task<Notification> CreateNotificationAsync(NewNotificationDto newNotification)
@@ -34,6 +43,8 @@ public class NotificationService
         {
             Name = newNotification.Name,
             Message = newNotification.Message,
+            MessageKey = newNotification.MessageKey,
+            MessageArgsJson = SerializeArgs(newNotification.MessageArgs),
             Origin = newNotification.Origin,
             ObjectId = (string?)newNotification.ObjectId!,
             CreationDateTime = DateTime.UtcNow,
@@ -50,39 +61,50 @@ public class NotificationService
 
     public async Task<NotificationDto?> GetNotificationAsync(int id, string appUserId)
     {
-        return await _context.Notifications
+        var notification = await _context.Notifications
             .AsNoTracking()
-            .Where(n => n.Id == id && n.AppUserId == appUserId)
-            .Select(n => new NotificationDto
-            {
-                Id = n.Id,
-                Name = n.Name,
-                Message = n.Message,
-                IsRead = n.IsRead,
-                Approval = n.Approval,
-                Origin = n.Origin,
-                CreationDateTime = n.CreationDateTime
-            })
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(n => n.Id == id && n.AppUserId == appUserId);
+
+        if (notification is null)
+        {
+            return null;
+        }
+
+        var language = await ResolveUserLanguageAsync(appUserId);
+        var message = ResolveMessage(notification, language);
+
+        return new NotificationDto
+        {
+            Id = notification.Id,
+            Name = notification.Name,
+            Message = message,
+            IsRead = notification.IsRead,
+            Approval = notification.Approval,
+            Origin = notification.Origin,
+            CreationDateTime = notification.CreationDateTime
+        };
     }
 
     public async Task<IReadOnlyList<NotificationDto>> GetUserNotificationsAsync(string appUserId)
     {
-        return await _context.Notifications
+        var notifications = await _context.Notifications
             .AsNoTracking()
             .Where(n => n.AppUserId == appUserId)
             .OrderByDescending(n => n.CreationDateTime)
-            .Select(n => new NotificationDto
-            {
-                Id = n.Id,
-                Name = n.Name,
-                Message = n.Message,
-                IsRead = n.IsRead,
-                Approval = n.Approval,
-                Origin = n.Origin,
-                CreationDateTime = n.CreationDateTime
-            })
             .ToListAsync();
+
+        var language = await ResolveUserLanguageAsync(appUserId);
+
+        return notifications.Select(notification => new NotificationDto
+        {
+            Id = notification.Id,
+            Name = notification.Name,
+            Message = ResolveMessage(notification, language),
+            IsRead = notification.IsRead,
+            Approval = notification.Approval,
+            Origin = notification.Origin,
+            CreationDateTime = notification.CreationDateTime
+        }).ToList();
     }
     
     public async Task<bool> DeleteNotificationAsync(int id)
@@ -188,6 +210,8 @@ public class NotificationService
                 {
                     Name = "joined_league",
                     Message = "You have been approved for to join a league",
+                    MessageKey = null,
+                    MessageArgsJson = null,
                     ObjectId = notification.ObjectId,
                     Origin = notification.Origin,
                     CreationDateTime = DateTime.UtcNow,
@@ -206,5 +230,42 @@ public class NotificationService
 
         
         return true;
+    }
+
+    private static string? SerializeArgs(string[]? args)
+    {
+        if (args is null || args.Length == 0)
+        {
+            return null;
+        }
+
+        return JsonSerializer.Serialize(args);
+    }
+
+    private static string[] DeserializeArgs(string? argsJson)
+    {
+        if (string.IsNullOrWhiteSpace(argsJson))
+        {
+            return Array.Empty<string>();
+        }
+
+        return JsonSerializer.Deserialize<string[]>(argsJson) ?? Array.Empty<string>();
+    }
+
+    private async Task<string?> ResolveUserLanguageAsync(string userId)
+    {
+        var settings = await _userSettingsService.GetSettingsAsync(userId);
+        return settings?.LanguageUi;
+    }
+
+    private string ResolveMessage(Notification notification, string? language)
+    {
+        if (!string.IsNullOrWhiteSpace(notification.MessageKey))
+        {
+            var args = DeserializeArgs(notification.MessageArgsJson);
+            return _messageLocalizer.GetMessageForLanguage(language, notification.MessageKey, args);
+        }
+
+        return notification.Message;
     }
 }

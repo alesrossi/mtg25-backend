@@ -150,6 +150,7 @@ public class Program
 
             // Add model validation
             builder.Services.AddScoped<IValidationService, ValidationService>();
+            builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
             
             builder.Services.AddSingleton<CardDataService>();
             builder.Services.AddScoped<ProblemDetailsEndpointFilter>();
@@ -165,6 +166,7 @@ public class Program
             builder.Services.AddScoped<IWishlistService, WishlistService>();
             builder.Services.AddScoped<ICardsService, CardsService>();
             builder.Services.AddScoped<IBindersService, BindersService>();
+            builder.Services.AddScoped<IMessageLocalizer, MessageLocalizationService>();
             builder.Services.AddScoped<NotificationService>();
             builder.Services.AddScoped<IDeckValidationService, DeckValidationService>();
             builder.Services.AddScoped<IDecklistParserService, DecklistParserService>();

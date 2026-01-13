@@ -80,7 +80,9 @@ public sealed class FriendService : IFriendService
         var notification = new NewNotificationDto
         {
             Name = NotificationConstants.FriendRequest,
-            Message = $"{requester.DisplayName} sent you a friend request.",
+            Message = "Notifications.FriendRequest",
+            MessageKey = "Notifications.FriendRequest",
+            MessageArgs = new[] { requester.DisplayName },
             Origin = $"{requesterUserId}.{targetUserId}",
             ObjectId = $"{requesterUserId}:{targetUserId}",
             AppUserId = targetUserId
