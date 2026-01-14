@@ -1,6 +1,13 @@
 #!/bin/bash
 set -e
 
+# Load .env if present to populate environment variables for docker compose.
+if [ -f ".env" ]; then
+    set -a
+    . ./.env
+    set +a
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -12,11 +19,6 @@ echo -e "${BLUE}🚀 Starting MTG API Integration Environment${NC}"
 echo "=================================================="
 
 # Validate required environment variables
-if [ -z "$DOCKER_USERNAME" ]; then
-    echo -e "${RED}❌ Error: DOCKER_USERNAME environment variable is required${NC}"
-    echo "Export it with: export DOCKER_USERNAME=yourusername"
-    exit 1
-fi
 if [ -z "$INT_POSTGRES_PASSWORD" ]; then
     echo -e "${RED}❌ Error: INT_POSTGRES_PASSWORD environment variable is required${NC}"
     echo "Export it with: export INT_POSTGRES_PASSWORD=yourpassword"

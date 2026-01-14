@@ -315,7 +315,7 @@ public class Program
             }
 
             // Configure the HTTP request pipeline.
-            if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Swagger:Enabled"))
+            if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Integration") || app.Configuration.GetValue<bool>("Swagger:Enabled"))
             {
                 app.UseDeveloperExceptionPage();
                 app.MapOpenApi();

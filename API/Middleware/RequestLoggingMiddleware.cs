@@ -1,10 +1,12 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Text;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Net.Http.Headers;
 using Serilog.Context;
 using API.Configuration;
 
@@ -50,7 +52,8 @@ public class RequestLoggingMiddleware
             var requestPath = request.Path + request.QueryString;
             var captureRequestBody = options.IncludeRequestBody &&
                 (request.ContentLength ?? 0) > 0 &&
-                request.Body.CanRead;
+                request.Body.CanRead &&
+                IsTextContentType(request.ContentType);
             var captureResponseBody = options.IncludeResponseBody;
             string? requestBody = null;
             string? responseBody = null;
@@ -92,7 +95,11 @@ public class RequestLoggingMiddleware
             {
                 if (captureResponseBody && bufferedResponseBody != null)
                 {
-                    responseBody = await ReadResponseBodyAsync(bufferedResponseBody);
+                    if (IsTextContentType(context.Response.ContentType))
+                    {
+                        responseBody = await ReadResponseBodyAsync(context, bufferedResponseBody);
+                    }
+
                     bufferedResponseBody.Seek(0, SeekOrigin.Begin);
                     if (originalResponseBody != null)
                     {
@@ -181,10 +188,29 @@ public class RequestLoggingMiddleware
         return body;
     }
 
-    private async Task<string> ReadResponseBodyAsync(Stream responseBody)
+    private async Task<string> ReadResponseBodyAsync(HttpContext context, Stream responseBody)
     {
         responseBody.Seek(0, SeekOrigin.Begin);
-        return await ReadStreamAsync(responseBody);
+
+        if (!IsTextContentType(context.Response.ContentType))
+        {
+            return string.Empty;
+        }
+
+        var contentEncoding = context.Response.Headers[HeaderNames.ContentEncoding].ToString();
+        if (string.IsNullOrWhiteSpace(contentEncoding))
+        {
+            return await ReadStreamAsync(responseBody);
+        }
+
+        await using var decodedStream = await TryDecodeToMemoryStreamAsync(responseBody, contentEncoding);
+        if (decodedStream == null)
+        {
+            return string.Empty;
+        }
+
+        decodedStream.Seek(0, SeekOrigin.Begin);
+        return await ReadStreamAsync(decodedStream);
     }
 
     private async Task<string> ReadStreamAsync(Stream stream)
@@ -208,5 +234,89 @@ public class RequestLoggingMiddleware
         }
 
         return body[..limit] + "... (truncated)";
+    }
+
+    private static bool IsTextContentType(string? contentType)
+    {
+        if (string.IsNullOrWhiteSpace(contentType))
+        {
+            return false;
+        }
+
+        var mediaType = contentType;
+        var separatorIndex = contentType.IndexOf(';');
+        if (separatorIndex >= 0)
+        {
+            mediaType = contentType[..separatorIndex];
+        }
+
+        mediaType = mediaType.Trim();
+        if (mediaType.StartsWith("text/", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return mediaType.Equals("application/json", StringComparison.OrdinalIgnoreCase) ||
+            mediaType.Equals("application/problem+json", StringComparison.OrdinalIgnoreCase) ||
+            mediaType.EndsWith("+json", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task<Stream?> TryDecodeToMemoryStreamAsync(Stream source, string contentEncoding)
+    {
+        var encodings = contentEncoding.Split(
+            ',',
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (encodings.Length == 0)
+        {
+            return null;
+        }
+
+        Stream current = source;
+        var wrappers = new Stack<Stream>();
+
+        try
+        {
+            for (var i = encodings.Length - 1; i >= 0; i--)
+            {
+                var encoding = encodings[i].ToLowerInvariant();
+                if (encoding == "identity")
+                {
+                    continue;
+                }
+
+                Stream? wrapper = encoding switch
+                {
+                    "gzip" => new GZipStream(current, CompressionMode.Decompress, leaveOpen: true),
+                    "br" => new BrotliStream(current, CompressionMode.Decompress, leaveOpen: true),
+                    "deflate" => new DeflateStream(current, CompressionMode.Decompress, leaveOpen: true),
+                    _ => null
+                };
+
+                if (wrapper == null)
+                {
+                    return null;
+                }
+
+                wrappers.Push(wrapper);
+                current = wrapper;
+            }
+
+            var decoded = new MemoryStream();
+            await current.CopyToAsync(decoded);
+            decoded.Seek(0, SeekOrigin.Begin);
+            return decoded;
+        }
+        catch (InvalidDataException)
+        {
+            return null;
+        }
+        finally
+        {
+            while (wrappers.Count > 0)
+            {
+                wrappers.Pop().Dispose();
+            }
+        }
     }
 }
