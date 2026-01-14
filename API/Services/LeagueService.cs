@@ -17,6 +17,7 @@ public interface ILeagueService
     Task<LeagueDto> GetLeagueByIdAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
     Task<LeagueWithScoresDto> GetLeagueScoresAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
     Task<League> UpdateLeagueAsync(int leagueId, string userId, UpdateLeagueDto updateLeague, CancellationToken cancellationToken = default);
+    Task<Round> UpdateRoundAsync(int leagueId, int roundId, string userId, UpdateRoundDto updateRound, CancellationToken cancellationToken = default);
     Task UpdateLeagueResultsAsync(int leagueId, string userId, List<UserWithScore> userList, CancellationToken cancellationToken = default);
     Task<string> GetInviteCodeAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
     Task RequestJoinLeagueAsync(string code, string userId, CancellationToken cancellationToken = default);
@@ -263,6 +264,110 @@ public sealed class LeagueService : ILeagueService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return league;
+    }
+
+    public async Task<Round> UpdateRoundAsync(
+        int leagueId,
+        int roundId,
+        string userId,
+        UpdateRoundDto updateRound,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await EnsureUserAsync(userId);
+
+        var league = await _dbContext.Leagues
+            .AsTracking()
+            .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
+        if (league is null)
+        {
+            throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
+        }
+
+        if (!await IsLeagueAdminAsync(league, user.Id, cancellationToken))
+        {
+            throw LeagueServiceException.Unauthorized("Errors.Leagues.Unauthorized");
+        }
+
+        var round = await _dbContext.Rounds
+            .AsTracking()
+            .FirstOrDefaultAsync(r => r.Id == roundId && r.LeagueId == leagueId, cancellationToken);
+        if (round is null)
+        {
+            throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
+        }
+
+        var (isValid, errors) = _validationService.ValidateModel(updateRound);
+        if (!isValid)
+        {
+            throw LeagueServiceException.ValidationFailed(errors, "Errors.Leagues.ValidationFailed");
+        }
+
+        if (updateRound.StartDate.HasValue)
+        {
+            round.StartDate = updateRound.StartDate;
+        }
+
+        if (updateRound.Description != null)
+        {
+            round.Description = updateRound.Description;
+        }
+
+        if (updateRound.Players != null)
+        {
+            var distinctPlayerIds = updateRound.Players
+                .Distinct()
+                .ToList();
+
+            var eligiblePlayerIds = await _dbContext.UserLeagues
+                .Where(ul => ul.LeagueId == leagueId && ul.IsPlaying)
+                .Select(ul => ul.UserId)
+                .ToListAsync(cancellationToken);
+
+            var invalidPlayerIds = distinctPlayerIds
+                .Except(eligiblePlayerIds)
+                .ToList();
+
+            if (invalidPlayerIds.Count > 0)
+            {
+                throw LeagueServiceException.BadRequest("Errors.Leagues.UserMustBeMember", includeBody: true);
+            }
+
+            var existingRounds = await _dbContext.UserRounds
+                .Where(ur => ur.RoundId == round.Id)
+                .ToListAsync(cancellationToken);
+            _dbContext.UserRounds.RemoveRange(existingRounds);
+
+            if (distinctPlayerIds.Count > 0)
+            {
+                var users = await _dbContext.Users
+                    .Where(u => distinctPlayerIds.Contains(u.Id))
+                    .ToListAsync(cancellationToken);
+
+                var userRounds = users
+                    .Select(user => new AppUserRound
+                    {
+                        UserId = user.Id,
+                        User = user,
+                        RoundId = round.Id,
+                        Round = round,
+                        Position = 0,
+                        Score = 0
+                    })
+                    .ToList();
+
+                await _dbContext.UserRounds.AddRangeAsync(userRounds, cancellationToken);
+                round.Players = userRounds;
+            }
+            else
+            {
+                round.Players = [];
+            }
+        }
+
+        _dbContext.Update(round);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return round;
     }
 
     public async Task UpdateLeagueResultsAsync(int leagueId, string userId, List<UserWithScore> userList, CancellationToken cancellationToken = default)
@@ -526,6 +631,21 @@ public sealed class LeagueService : ILeagueService
 
         await _dbContext.AddAsync(league, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        if (league.TotalRounds > 0)
+        {
+            var rounds = Enumerable.Range(1, league.TotalRounds)
+                .Select(_ => new Round
+                {
+                    LeagueId = league.Id,
+                    League = league
+                })
+                .ToList();
+
+            await _dbContext.AddRangeAsync(rounds, cancellationToken);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
         await AssignLeagueRoleAsync(user.Id, league.Id, LeagueRole.Admin, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
 

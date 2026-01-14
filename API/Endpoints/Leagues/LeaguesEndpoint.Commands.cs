@@ -68,6 +68,54 @@ public static partial class LeaguesEndpoint
         }
     }
 
+    private static async Task<IResult> UpdateRoundAsync(
+        int leagueId,
+        int roundId,
+        [FromBody] UpdateRoundDto updateRound,
+        HttpContext context,
+        [FromServices] ILeagueService leagueService,
+        [FromServices] ILogger<LeaguesEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
+        CancellationToken cancellationToken)
+    {
+        const string operation = "Leagues.UpdateRound";
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { leagueId, roundId });
+            return Results.Unauthorized();
+        }
+
+        try
+        {
+            var round = await leagueService.UpdateRoundAsync(leagueId, roundId, userId, updateRound, cancellationToken);
+            logger.LogOperationSuccess(operation, new { leagueId, roundId });
+            var result = new RoundDto
+            {
+                Id = round.Id,
+                Status = round.Status,
+                StartDate = round.StartDate,
+                Description = round.Description,
+                LeagueId = round.LeagueId,
+                Players = round.Players
+                    .Select(player => new AppUserRoundDto
+                    {
+                        UserId = player.UserId,
+                        Position = player.Position,
+                        Score = player.Score
+                    })
+                    .ToList()
+            };
+
+            return Results.Ok(result);
+        }
+        catch (LeagueServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { leagueId, roundId, userId });
+            return await MapLeagueServiceException(ex, context, messageLocalizer, userId);
+        }
+    }
+
     private static async Task<IResult> GetInviteCodeAsync(
         int id,
         HttpContext context,

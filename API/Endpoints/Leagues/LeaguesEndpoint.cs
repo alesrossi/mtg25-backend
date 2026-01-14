@@ -84,6 +84,16 @@ public static partial class LeaguesEndpoint
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
+        group.MapPut("/{leagueId:int}/rounds/{roundId:int}", UpdateRoundAsync)
+            .RequireAuthorization()
+            .WithSummary("Update round")
+            .WithDescription("Updates round details and players for a league. Only admins can call this route")
+            .Produces<RoundDto>()
+            .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
+
         group.MapPatch("/{code}/request", RequestJoinLeagueFromCodeAsync)
             .RequireAuthorization()
             .WithSummary("Request to join league")

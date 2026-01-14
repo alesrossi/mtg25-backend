@@ -392,6 +392,13 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             createdLeague.OwnerId.Should().Be(user.Id);
             createdLeague.Code.Length.Should().Be(6);
             await VerifyRoleAssignmentAsync(user.Id, createdLeague!.Id, LeagueRole.Admin);
+
+            using var scope = _factory.Services.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var roundsCount = await dbContext.Rounds
+                .CountAsync(r => r.LeagueId == createdLeague.Id);
+            roundsCount.Should().Be(createRequest.TotalRounds,
+                "because creating a league should create a round for each total round");
         }
     }
 
@@ -414,6 +421,94 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var response = await client.PostAsync("/api/leagues",
             new StringContent(JsonSerializer.Serialize(invalidRequest), Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task UpdateRound_WithValidData_UpdatesRoundAndPlayers()
+    {
+        var owner = await CreateTestUserAsync("round-owner@example.com", "round_owner");
+        var player = await CreateTestUserAsync("round-player@example.com", "round_player");
+        var league = await CreateTestLeagueAsync("Round League", owner.Id);
+        await AssociateUserWithLeagueAsync(owner.Id, league.Id);
+        await AssociateUserWithLeagueAsync(player.Id, league.Id);
+
+        int roundId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            dbContext.Leagues.Attach(league);
+            var round = new Round
+            {
+                LeagueId = league.Id,
+                League = league
+            };
+            dbContext.Rounds.Add(round);
+            await dbContext.SaveChangesAsync();
+            roundId = round.Id;
+        }
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+        var updateRequest = new UpdateRoundDto
+        {
+            StartDate = DateTime.UtcNow,
+            Description = "Round 1 kickoff",
+            Players = new List<string> { owner.Id, player.Id }
+        };
+
+        var response = await client.PutAsync(
+            $"/api/leagues/{league.Id}/rounds/{roundId}",
+            new StringContent(JsonSerializer.Serialize(updateRequest), Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var updatedRound = await dbContext.Rounds
+                .AsNoTracking()
+                .FirstAsync(r => r.Id == roundId);
+            updatedRound.Description.Should().Be(updateRequest.Description);
+
+            var playerCount = await dbContext.UserRounds
+                .CountAsync(ur => ur.RoundId == roundId);
+            playerCount.Should().Be(2);
+        }
+    }
+
+    [Fact]
+    public async Task UpdateRound_WithNonMemberPlayers_ReturnsBadRequest()
+    {
+        var owner = await CreateTestUserAsync("round-owner2@example.com", "round_owner2");
+        var outsider = await CreateTestUserAsync("round-outsider@example.com", "round_outsider");
+        var league = await CreateTestLeagueAsync("Round League 2", owner.Id);
+        await AssociateUserWithLeagueAsync(owner.Id, league.Id);
+
+        int roundId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            dbContext.Leagues.Attach(league);
+            var round = new Round
+            {
+                LeagueId = league.Id,
+                League = league
+            };
+            dbContext.Rounds.Add(round);
+            await dbContext.SaveChangesAsync();
+            roundId = round.Id;
+        }
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+        var updateRequest = new UpdateRoundDto
+        {
+            Players = new List<string> { outsider.Id }
+        };
+
+        var response = await client.PutAsync(
+            $"/api/leagues/{league.Id}/rounds/{roundId}",
+            new StringContent(JsonSerializer.Serialize(updateRequest), Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
