@@ -26,6 +26,7 @@ public class RoundTests
         round.Status.Should().Be(Status.NotPlayed, "because NotPlayed is the default status");
         round.StartDate.Should().BeNull("because rounds start without a start date");
         round.Description.Should().BeNull("because rounds start without a description");
+        round.Order.Should().Be(0, "because order is assigned when rounds are created for a league");
         round.Players.Should().NotBeNull("because players collection should be initialized");
         round.Players.Should().BeEmpty("because rounds start with no assigned players");
         round.League.Should().BeSameAs(league, "because round belongs to the specified league");

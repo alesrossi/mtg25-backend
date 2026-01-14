@@ -96,6 +96,7 @@ public static partial class LeaguesEndpoint
                 Status = round.Status,
                 StartDate = round.StartDate,
                 Description = round.Description,
+                Order = round.Order,
                 LeagueId = round.LeagueId,
                 Players = round.Players
                     .Select(player => new AppUserRoundDto

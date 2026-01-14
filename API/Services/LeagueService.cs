@@ -635,10 +635,11 @@ public sealed class LeagueService : ILeagueService
         if (league.TotalRounds > 0)
         {
             var rounds = Enumerable.Range(1, league.TotalRounds)
-                .Select(_ => new Round
+                .Select(order => new Round
                 {
                     LeagueId = league.Id,
-                    League = league
+                    League = league,
+                    Order = order
                 })
                 .ToList();
 
