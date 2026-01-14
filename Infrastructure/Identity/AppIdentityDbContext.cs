@@ -17,6 +17,8 @@ namespace Infrastructure.Identity
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<LeagueRoleAssignment> LeagueRoleAssignments { get; set; }
         public DbSet<AppUserFriend> AppUserFriends { get; set; }
+        public DbSet<Round> Rounds { get; set; }
+        public DbSet<AppUserRound> UserRounds { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -131,6 +133,30 @@ namespace Infrastructure.Identity
             builder.Entity<AppUserFriend>()
                 .HasIndex(f => new { f.FriendId, f.UserId })
                 .IsUnique();
+
+            builder.Entity<Round>()
+                .HasOne(r => r.League)
+                .WithMany()
+                .HasForeignKey(r => r.LeagueId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<Round>()
+                .Property(r => r.Status)
+                .HasDefaultValue(Status.NotPlayed);
+
+            builder.Entity<AppUserRound>()
+                .HasKey(ur => new { ur.UserId, ur.RoundId });
+
+            builder.Entity<AppUserRound>()
+                .HasOne(ur => ur.User)
+                .WithMany()
+                .HasForeignKey(ur => ur.UserId);
+
+            builder.Entity<AppUserRound>()
+                .HasOne(ur => ur.Round)
+                .WithMany(r => r.Players)
+                .HasForeignKey(ur => ur.RoundId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

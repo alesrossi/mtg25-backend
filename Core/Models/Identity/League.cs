@@ -22,6 +22,7 @@ public class League : BaseModel
     public bool IsPublic { get; set; } = true;
     public ICollection<AppUserLeague> UserLeagues { get; set; } = new List<AppUserLeague>();
     public ICollection<LeagueRoleAssignment> RoleAssignments { get; set; } = new List<LeagueRoleAssignment>();
+    public ICollection<Round> Rounds = new List<Round>();
 }
 
 
