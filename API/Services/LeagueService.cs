@@ -17,6 +17,7 @@ public interface ILeagueService
     Task<UserWithLeaguesDto> GetLeaguesForUserAsync(string userId, CancellationToken cancellationToken = default);
     Task<LeagueDto> GetLeagueByIdAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
     Task<LeagueWithScoresDto> GetLeagueScoresAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
+    Task<RoundInfoDto> GetRoundByIdAsync(int leagueId, int roundId, string userId, CancellationToken cancellationToken = default);
     Task<League> UpdateLeagueAsync(int leagueId, string userId, UpdateLeagueDto updateLeague, CancellationToken cancellationToken = default);
     Task<Round> UpdateRoundAsync(int leagueId, int roundId, string userId, UpdateRoundDto updateRound, CancellationToken cancellationToken = default);
     Task UpdateLeagueResultsAsync(int leagueId, string userId, List<UserWithScore> userList, CancellationToken cancellationToken = default);
@@ -88,6 +89,7 @@ public sealed class LeagueService : ILeagueService
                 TotalPlayers = x.League.TotalPlayers,
                 IsActive = x.League.IsActive,
                 IsPlaying = x.IsPlaying,
+                ScoringSystem = x.League.ScoringSystem,
                 OwnerId = x.League.OwnerId,
                 IsPublic = x.League.IsPublic
             })
@@ -111,6 +113,7 @@ public sealed class LeagueService : ILeagueService
                 TotalPlayers = league.TotalPlayers,
                 IsActive = league.IsActive,
                 IsPlaying = false,
+                ScoringSystem = league.ScoringSystem,
                 OwnerId = league.OwnerId,
                 IsPublic = league.IsPublic
             })
@@ -169,6 +172,7 @@ public sealed class LeagueService : ILeagueService
             PrizePerPerson = league.PrizePerPerson,
             TotalPlayers = league.TotalPlayers,
             Score = res!.Score,
+            ScoringSystem = league.ScoringSystem,
             OwnerId = league.OwnerId,
             IsActive = league.IsActive,
             IsPlaying = res.IsPlaying,
@@ -198,8 +202,9 @@ public sealed class LeagueService : ILeagueService
         {
             Id = league.Id,
             Name = league.Name,
-            CurrentRound = league.CurrentRound,
             OwnerId = league.OwnerId,
+            CurrentRound = league.CurrentRound,
+            ScoringSystem = league.ScoringSystem,
             IsPublic = league.IsPublic
         };
 
@@ -225,6 +230,64 @@ public sealed class LeagueService : ILeagueService
         }
 
         return leagueWithScores;
+    }
+
+    public async Task<RoundInfoDto> GetRoundByIdAsync(int leagueId, int roundId, string userId, CancellationToken cancellationToken = default)
+    {
+        await EnsureUserAsync(userId);
+
+        var league = await _dbContext.Leagues
+            .AsNoTracking()
+            .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
+        if (league is null)
+        {
+            throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
+        }
+
+        var membership = await _dbContext.UserLeagues
+            .AsNoTracking()
+            .FirstOrDefaultAsync(ul => ul.LeagueId == leagueId && ul.UserId == userId, cancellationToken);
+        if (userId != league.OwnerId && membership is null)
+        {
+            throw LeagueServiceException.Unauthorized("Errors.Leagues.UserNotInLeague");
+        }
+
+        var round = await _dbContext.Rounds
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == roundId && r.LeagueId == leagueId, cancellationToken);
+        if (round is null)
+        {
+            throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
+        }
+
+        var userRounds = await _dbContext.UserRounds
+            .AsNoTracking()
+            .Where(ur => ur.RoundId == roundId)
+            .OrderBy(ur => ur.Position)
+            .Select(ur => new UserRoundInfoDto
+            {
+                UserId = ur.UserId,
+                Position = ur.Position,
+                Score = ur.Score,
+                Wins = ur.Wins,
+                Draws = ur.Draws,
+                Losses = ur.Losses,
+                Omw = ur.Omw,
+                Gw = ur.Gw,
+                Ogw = ur.Ogw
+            })
+            .ToListAsync(cancellationToken);
+
+        return new RoundInfoDto
+        {
+            Id = round.Id,
+            Status = round.Status,
+            StartDate = round.StartDate,
+            Description = round.Description,
+            Order = round.Order,
+            LeagueId = round.LeagueId,
+            Players = userRounds
+        };
     }
 
     public async Task<League> UpdateLeagueAsync(int leagueId, string userId, UpdateLeagueDto updateLeague, CancellationToken cancellationToken = default)

@@ -1,3 +1,5 @@
+using Core.Models.Identity;
+
 namespace API.Dtos.Leagues;
 
 public class LeagueDto // League from User point of view
@@ -14,6 +16,7 @@ public class LeagueDto // League from User point of view
     public double PrizePerPerson { get; set; } = 0;
     public int TotalPlayers { get; set; }
     public required int Score { get; set; }
+    public ScoringSystem ScoringSystem { get; set; }
     public bool IsActive { get; set; }
     public bool IsPlaying { get; set; }
     public required string OwnerId { get; set; }

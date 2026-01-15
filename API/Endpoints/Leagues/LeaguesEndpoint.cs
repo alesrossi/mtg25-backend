@@ -61,6 +61,15 @@ public static partial class LeaguesEndpoint
             .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
+
+        group.MapGet("/{leagueId:int}/rounds/{roundId:int}", GetRoundByIdAsync)
+            .RequireAuthorization()
+            .WithSummary("Get round by id")
+            .WithDescription("Returns round information with ordered player results")
+            .Produces<RoundInfoDto>()
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
     }
     
     private static void MapLeagueCommands(RouteGroupBuilder group)

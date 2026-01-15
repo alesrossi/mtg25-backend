@@ -123,6 +123,78 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task GetRoundFromId_WithValidId_ReturnsRoundInfo()
+    {
+        var owner = await CreateTestUserAsync("roundinfo-owner@example.com", "roundinfo_owner");
+        var player = await CreateTestUserAsync("roundinfo-player@example.com", "roundinfo_player");
+        var league = await CreateTestLeagueAsync("Round Info League", owner.Id);
+        await AssociateUserWithLeagueAsync(owner.Id, league.Id);
+        await AssociateUserWithLeagueAsync(player.Id, league.Id);
+
+        int roundId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var round = await dbContext.Rounds.FirstAsync(r => r.LeagueId == league.Id && r.Order == 1);
+            roundId = round.Id;
+
+            var ownerEntity = await dbContext.Users.FirstAsync(u => u.Id == owner.Id);
+            var playerEntity = await dbContext.Users.FirstAsync(u => u.Id == player.Id);
+
+            dbContext.UserRounds.AddRange(
+                new AppUserRound
+                {
+                    UserId = playerEntity.Id,
+                    User = playerEntity,
+                    RoundId = round.Id,
+                    Round = round,
+                    Position = 2,
+                    Score = 3,
+                    Wins = 1,
+                    Draws = 0,
+                    Losses = 0,
+                    Omw = 5,
+                    Gw = 2,
+                    Ogw = 1
+                },
+                new AppUserRound
+                {
+                    UserId = ownerEntity.Id,
+                    User = ownerEntity,
+                    RoundId = round.Id,
+                    Round = round,
+                    Position = 1,
+                    Score = 4,
+                    Wins = 1,
+                    Draws = 0,
+                    Losses = 0,
+                    Omw = 10,
+                    Gw = 3,
+                    Ogw = 2
+                });
+            await dbContext.SaveChangesAsync();
+        }
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+        var response = await client.GetAsync($"/api/leagues/{league.Id}/rounds/{roundId}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadAsStringAsync();
+        var roundInfo = JsonSerializer.Deserialize<RoundInfoDto>(payload, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        roundInfo.Should().NotBeNull();
+        roundInfo!.Id.Should().Be(roundId);
+        roundInfo.Players.Should().HaveCount(2);
+        roundInfo.Players[0].UserId.Should().Be(owner.Id);
+        roundInfo.Players[0].Position.Should().Be(1);
+        roundInfo.Players[1].UserId.Should().Be(player.Id);
+        roundInfo.Players[1].Position.Should().Be(2);
+    }
+
+    [Fact]
     public async Task GetLeagueFromId_WithInvalidId_ReturnsNotFound()
     {
         // Arrange
