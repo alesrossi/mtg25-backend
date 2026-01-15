@@ -6,6 +6,7 @@ using Core.Enums;
 using Core.Models.Identity;
 using Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Services;
@@ -34,17 +35,20 @@ public sealed class LeagueService : ILeagueService
     private readonly AppIdentityDbContext _dbContext;
     private readonly IValidationService _validationService;
     private readonly NotificationService _notificationService;
+    private readonly ILogger<LeagueService> _logger;
 
     public LeagueService(
         UserManager<AppUser> userManager,
         AppIdentityDbContext dbContext,
         IValidationService validationService,
-        NotificationService notificationService)
+        NotificationService notificationService,
+        ILogger<LeagueService> logger)
     {
         _userManager = userManager;
         _dbContext = dbContext;
         _validationService = validationService;
         _notificationService = notificationService;
+        _logger = logger;
     }
 
     public async Task<IReadOnlyList<League>> GetPublicLeaguesAsync(string userId, CancellationToken cancellationToken = default)
@@ -382,21 +386,30 @@ public sealed class LeagueService : ILeagueService
     {
         await EnsureUserAsync(userId);
 
+        _logger.LogInformation(
+            "UpdateLeagueResults start {LeagueId} {UserId} {UserCount}",
+            leagueId,
+            userId,
+            userList.Count);
+
         var league = await _dbContext.Leagues
             .AsTracking()
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
         {
+            _logger.LogWarning("UpdateLeagueResults league not found {LeagueId}", leagueId);
             throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
         }
 
         if (!await IsLeagueAdminAsync(league, userId, cancellationToken))
         {
+            _logger.LogWarning("UpdateLeagueResults unauthorized {LeagueId} {UserId}", leagueId, userId);
             throw LeagueServiceException.Unauthorized("Errors.Leagues.Unauthorized");
         }
 
         if (league.CurrentRound == 0)
         {
+            _logger.LogWarning("UpdateLeagueResults invalid current round {LeagueId} {CurrentRound}", leagueId, league.CurrentRound);
             throw LeagueServiceException.BadRequest("Errors.Leagues.InvalidCurrentRound");
         }
 
@@ -405,6 +418,10 @@ public sealed class LeagueService : ILeagueService
             .FirstOrDefaultAsync(r => r.LeagueId == league.Id && r.Id == league.CurrentRound, cancellationToken);
         if (round is null)
         {
+            _logger.LogWarning(
+                "UpdateLeagueResults round not found {LeagueId} {CurrentRound}",
+                leagueId,
+                league.CurrentRound);
             throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
         }
 
@@ -413,6 +430,7 @@ public sealed class LeagueService : ILeagueService
             .ToList();
         if (requestedUserIds.Any(string.IsNullOrWhiteSpace))
         {
+            _logger.LogWarning("UpdateLeagueResults invalid user ids {LeagueId}", leagueId);
             throw LeagueServiceException.BadRequest("Errors.Leagues.ValidationFailed");
         }
 
@@ -421,6 +439,7 @@ public sealed class LeagueService : ILeagueService
             .ToList();
         if (distinctUserIds.Count != requestedUserIds.Count)
         {
+            _logger.LogWarning("UpdateLeagueResults duplicate user ids {LeagueId}", leagueId);
             throw LeagueServiceException.BadRequest("Errors.Leagues.ValidationFailed");
         }
 
@@ -434,6 +453,7 @@ public sealed class LeagueService : ILeagueService
             .ToHashSet();
         if (distinctUserIds.Any(userId2 => !validUserIds.Contains(userId2)))
         {
+            _logger.LogWarning("UpdateLeagueResults non-member players {LeagueId}", leagueId);
             throw LeagueServiceException.BadRequest("Errors.Leagues.UserMustBeMember", includeBody: true);
         }
 
@@ -509,6 +529,9 @@ public sealed class LeagueService : ILeagueService
                 Round = round,
                 Position = position,
                 Score = roundScore,
+                Wins = userWithScore.Wins ?? 0,
+                Draws = userWithScore.Draws ?? 0,
+                Losses = userWithScore.Losses ?? 0,
                 Gw = userWithScore.Gw,
                 Ogw = userWithScore.Ogw,
                 Omw = userWithScore.Omw

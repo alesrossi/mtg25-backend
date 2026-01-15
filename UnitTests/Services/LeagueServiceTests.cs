@@ -523,7 +523,7 @@ public class LeagueServiceTests
         var manager = CreateUserManagerMock(users);
         var validationService = new ValidationService();
         var notificationService = new NotificationService(context, NullLogger<NotificationService>.Instance);
-        return new LeagueService(manager.Object, context, validationService, notificationService);
+        return new LeagueService(manager.Object, context, validationService, notificationService, NullLogger<LeagueService>.Instance);
     }
 
     private static Mock<UserManager<AppUser>> CreateUserManagerMock(params AppUser[] users)
