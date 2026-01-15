@@ -73,6 +73,7 @@ services:
       start_period: 60s
     volumes:
       - ./logs:/app/logs
+      - /app/mtg-api/appsettings.Integration.json:/app/appsettings.Integration.json:ro
 
   adminer-int:
     image: adminer:4
