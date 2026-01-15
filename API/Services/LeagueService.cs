@@ -253,12 +253,20 @@ public sealed class LeagueService : ILeagueService
         if (updateLeague.TotalPrize != null) league.TotalPrize = (double)updateLeague.TotalPrize;
         if (updateLeague.PrizePerPerson != null) league.PrizePerPerson = (double)updateLeague.PrizePerPerson;
         if (updateLeague.IsPublic.HasValue) league.IsPublic = updateLeague.IsPublic.Value;
-        if (updateLeague.CurrentRound == null || updateLeague.CurrentRound > league.TotalRounds)
+        if (updateLeague.CurrentRound == null)
         {
             throw LeagueServiceException.BadRequest("Errors.Leagues.InvalidCurrentRound");
         }
 
-        league.CurrentRound = (int)updateLeague.CurrentRound;
+        var currentRound = await _dbContext.Rounds
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == updateLeague.CurrentRound && r.LeagueId == league.Id, cancellationToken);
+        if (currentRound is null)
+        {
+            throw LeagueServiceException.BadRequest("Errors.Leagues.InvalidCurrentRound");
+        }
+
+        league.CurrentRound = currentRound.Id;
 
         _dbContext.Update(league);
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -344,10 +352,10 @@ public sealed class LeagueService : ILeagueService
                     .ToListAsync(cancellationToken);
 
                 var userRounds = users
-                    .Select(user => new AppUserRound
+                    .Select(user2 => new AppUserRound
                     {
-                        UserId = user.Id,
-                        User = user,
+                        UserId = user2.Id,
+                        User = user2,
                         RoundId = round.Id,
                         Round = round,
                         Position = 0,
@@ -387,42 +395,151 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.Unauthorized("Errors.Leagues.Unauthorized");
         }
 
-        var res = await _dbContext.UserLeagues
-            .Where(ul => ul.LeagueId == league.Id)
+        if (league.CurrentRound == 0)
+        {
+            throw LeagueServiceException.BadRequest("Errors.Leagues.InvalidCurrentRound");
+        }
+
+        var round = await _dbContext.Rounds
+            .AsTracking()
+            .FirstOrDefaultAsync(r => r.LeagueId == league.Id && r.Id == league.CurrentRound, cancellationToken);
+        if (round is null)
+        {
+            throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
+        }
+
+        var requestedUserIds = userList
+            .Select(user => user.UserId)
+            .ToList();
+        if (requestedUserIds.Any(string.IsNullOrWhiteSpace))
+        {
+            throw LeagueServiceException.BadRequest("Errors.Leagues.ValidationFailed");
+        }
+
+        var distinctUserIds = requestedUserIds
+            .Distinct()
+            .ToList();
+        if (distinctUserIds.Count != requestedUserIds.Count)
+        {
+            throw LeagueServiceException.BadRequest("Errors.Leagues.ValidationFailed");
+        }
+
+        var userLeagues = await _dbContext.UserLeagues
+            .Where(ul => ul.LeagueId == league.Id && ul.IsPlaying)
             .Include(ul => ul.User)
             .ToListAsync(cancellationToken);
 
-        var count = 0;
-        foreach (var userWithScore in userList)
+        var validUserIds = userLeagues
+            .Select(ul => ul.UserId)
+            .ToHashSet();
+        if (distinctUserIds.Any(userId2 => !validUserIds.Contains(userId2)))
         {
-            var userLeague = res.FirstOrDefault(x => x.UserId == userWithScore.UserId)!;
+            throw LeagueServiceException.BadRequest("Errors.Leagues.UserMustBeMember", includeBody: true);
+        }
+
+        var existingUserRounds = await _dbContext.UserRounds
+            .Where(ur => ur.RoundId == round.Id)
+            .ToListAsync(cancellationToken);
+        _dbContext.UserRounds.RemoveRange(existingUserRounds);
+
+        var orderedUsers = userList
+            .Select((user, index) => new UserResultEntry
+            {
+                User = user,
+                Index = index,
+                Score = league.ScoringSystem == ScoringSystem.Victories
+                    ? (user.Wins ?? 0) * (league.PointsPerWin ?? 0)
+                      + (user.Draws ?? 0) * (league.PointsPerDraw ?? 0)
+                      + (user.Losses ?? 0) * (league.PointsPerLoss ?? 0)
+                    : 0
+            })
+            .ToList();
+
+        if (league.ScoringSystem == ScoringSystem.Victories)
+        {
+            orderedUsers = orderedUsers
+                .OrderByDescending(x => x.Score)
+                .ThenByDescending(x => x.User.Omw)
+                .ThenByDescending(x => x.User.Gw)
+                .ThenByDescending(x => x.User.Ogw)
+                .ThenBy(x => x.Index)
+                .ToList();
+        }
+
+        var userRounds = new List<AppUserRound>();
+        for (var index = 0; index < orderedUsers.Count; index++)
+        {
+            var userWithScore = orderedUsers[index].User;
+            var userLeague = userLeagues.First(x => x.UserId == userWithScore.UserId);
+            var position = index + 1;
+
+            var roundScore = 0;
             if (league.ScoringSystem == ScoringSystem.Positional)
             {
-                userLeague.Score += league.PointsToGive!.Count <= count ? 0 : league.PointsToGive![count];
-                userLeague.BestRound = userLeague.BestRound == 0 || count + 1 < userLeague.BestRound ? count + 1 : userLeague.BestRound;
-                userLeague.RoundsPlayed += 1;
-                userLeague.Rounds.Add(count + 1);
-                userLeague.AvgPosition = userLeague.Rounds.Average();
-                league.TotalPrize += league.PrizePerPerson;
+                roundScore = league.PointsToGive != null && league.PointsToGive.Count > index
+                    ? league.PointsToGive[index]
+                    : 0;
             }
 
             if (league.ScoringSystem == ScoringSystem.Victories)
             {
-                userLeague.Score += (int)(userWithScore.Wins! * league.PointsPerWin! + userWithScore.Draws! * league.PointsPerDraw! + userWithScore.Losses! * league.PointsPerLoss!);
-                userLeague.BestRound = userLeague.BestRound == 0 || count + 1 < userLeague.BestRound ? count + 1 : userLeague.BestRound;
-                userLeague.RoundsPlayed += 1;
-                userLeague.Rounds.Add(count + 1);
-                userLeague.AvgPosition = userLeague.Rounds.Average();
-                league.TotalPrize += league.PrizePerPerson;
+                var wins = userWithScore.Wins ?? 0;
+                var draws = userWithScore.Draws ?? 0;
+                var losses = userWithScore.Losses ?? 0;
+                var pointsPerWin = league.PointsPerWin ?? 0;
+                var pointsPerDraw = league.PointsPerDraw ?? 0;
+                var pointsPerLoss = league.PointsPerLoss ?? 0;
+                roundScore = wins * pointsPerWin + draws * pointsPerDraw + losses * pointsPerLoss;
             }
 
-            count++;
+            userLeague.Score += roundScore;
+            userLeague.BestRound = userLeague.BestRound == 0 || position < userLeague.BestRound
+                ? position
+                : userLeague.BestRound;
+            userLeague.RoundsPlayed += 1;
+            userLeague.Rounds.Add(position);
+            userLeague.AvgPosition = userLeague.Rounds.Average();
+            league.TotalPrize += league.PrizePerPerson;
+
+            userRounds.Add(new AppUserRound
+            {
+                UserId = userLeague.UserId,
+                User = userLeague.User,
+                RoundId = round.Id,
+                Round = round,
+                Position = position,
+                Score = roundScore,
+                Gw = userWithScore.Gw,
+                Ogw = userWithScore.Ogw,
+                Omw = userWithScore.Omw
+            });
         }
 
-        if (league.CurrentRound + 1 <= league.TotalRounds) league.CurrentRound++;
+        round.Players = userRounds;
+        round.Status = Status.Played;
+
+        var nextRound = await _dbContext.Rounds
+            .AsNoTracking()
+            .Where(r => r.LeagueId == league.Id && r.Order > round.Order)
+            .OrderBy(r => r.Order)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (nextRound != null)
+        {
+            league.CurrentRound = nextRound.Id;
+        }
+
         _dbContext.Update(league);
-        _dbContext.UpdateRange(res);
+        _dbContext.Update(round);
+        _dbContext.UpdateRange(userLeagues);
+        await _dbContext.UserRounds.AddRangeAsync(userRounds, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private sealed class UserResultEntry
+    {
+        public required UserWithScore User { get; init; }
+        public int Index { get; init; }
+        public int Score { get; init; }
     }
 
     public async Task<string> GetInviteCodeAsync(int leagueId, string userId, CancellationToken cancellationToken = default)
@@ -644,6 +761,10 @@ public sealed class LeagueService : ILeagueService
                 .ToList();
 
             await _dbContext.AddRangeAsync(rounds, cancellationToken);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            league.CurrentRound = rounds[0].Id;
+            _dbContext.Update(league);
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
 

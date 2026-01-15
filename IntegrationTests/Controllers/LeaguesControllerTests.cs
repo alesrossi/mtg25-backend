@@ -297,16 +297,54 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         await AssociateUserWithLeagueAsync(secondary.Id, league.Id);
         using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
 
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var trackedLeague = await dbContext.Leagues.FirstAsync(l => l.Id == league.Id);
+            trackedLeague.ScoringSystem = ScoringSystem.Victories;
+            trackedLeague.PointsPerWin = 3;
+            trackedLeague.PointsPerDraw = 1;
+            trackedLeague.PointsPerLoss = 0;
+            dbContext.Leagues.Update(trackedLeague);
+            await dbContext.SaveChangesAsync();
+        }
+
         var resultPayload = new List<UserWithScore>
         {
-            new() { UserId = owner.Id, Wins = 1, Draws = 0, Losses = 0 },
-            new() { UserId = secondary.Id, Wins = 0, Draws = 0, Losses = 1 }
+            new() { UserId = owner.Id, Wins = 1, Draws = 0, Losses = 0, Omw = 10, Gw = 5, Ogw = 1 },
+            new() { UserId = secondary.Id, Wins = 1, Draws = 0, Losses = 0, Omw = 15, Gw = 1, Ogw = 0 }
         };
 
         var response = await client.PatchAsync($"/api/leagues/{league.Id}/results",
             new StringContent(JsonSerializer.Serialize(resultPayload), Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var scopeinner = _factory.Services.CreateScope();
+        var dbContext2 = scopeinner.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var round = await dbContext2.Rounds
+            .AsNoTracking()
+            .FirstAsync(r => r.LeagueId == league.Id && r.Order == 1);
+        round.Status.Should().Be(Status.Played);
+
+        var userRounds = await dbContext2.UserRounds
+            .AsNoTracking()
+            .Where(ur => ur.RoundId == round.Id)
+            .ToListAsync();
+        userRounds.Should().HaveCount(2);
+        var userRoundsByUser = userRounds.ToDictionary(ur => ur.UserId);
+        userRoundsByUser[secondary.Id].Position.Should().Be(1);
+        userRoundsByUser[owner.Id].Position.Should().Be(2);
+
+        var nextRoundId = await dbContext2.Rounds
+            .AsNoTracking()
+            .Where(r => r.LeagueId == league.Id && r.Order == 2)
+            .Select(r => r.Id)
+            .FirstAsync();
+        var updatedLeague = await dbContext2.Leagues
+            .AsNoTracking()
+            .FirstAsync(l => l.Id == league.Id);
+        updatedLeague.CurrentRound.Should().Be(nextRoundId);
     }
 
     [Fact]
@@ -1024,6 +1062,22 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         };
         
         dbContext.Leagues.Add(league);
+        await dbContext.SaveChangesAsync();
+
+        var rounds = Enumerable.Range(1, league.TotalRounds)
+            .Select(order => new Round
+            {
+                LeagueId = league.Id,
+                League = league,
+                Order = order
+            })
+            .ToList();
+
+        dbContext.Rounds.AddRange(rounds);
+        await dbContext.SaveChangesAsync();
+
+        league.CurrentRound = rounds[0].Id;
+        dbContext.Leagues.Update(league);
         await dbContext.SaveChangesAsync();
 
         dbContext.LeagueRoleAssignments.Add(new LeagueRoleAssignment

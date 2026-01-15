@@ -28,7 +28,7 @@ public class AppUserRoundTests
             RoundId = 1,
             Round = round,
             Position = 1,
-            Score = 3
+            Score = 3,
         };
 
         // Assert

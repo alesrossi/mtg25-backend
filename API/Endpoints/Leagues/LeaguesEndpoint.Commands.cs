@@ -103,7 +103,10 @@ public static partial class LeaguesEndpoint
                     {
                         UserId = player.UserId,
                         Position = player.Position,
-                        Score = player.Score
+                        Score = player.Score,
+                        Omw = player.Omw,
+                        Gw = player.Gw,
+                        Ogw = player.Ogw
                     })
                     .ToList()
             };

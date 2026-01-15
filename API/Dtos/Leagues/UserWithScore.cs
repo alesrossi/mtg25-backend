@@ -6,4 +6,7 @@ public class UserWithScore
     public int? Wins { get; set; }
     public int? Draws { get; set; }
     public int? Losses { get; set; }
+    public int Omw { get; set; }
+    public int Gw { get; set; }
+    public int Ogw { get; set; }
 }
