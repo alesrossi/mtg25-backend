@@ -2,7 +2,7 @@ using Core.Models.Identity;
 
 namespace API.Dtos.Leagues;
 
-public class LeagueDto // League from User point of view
+public class LeagueDto
 {
     public int Id { get; set; }
     public required string Name { get; set; }
