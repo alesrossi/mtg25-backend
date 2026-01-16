@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.postgresql.fullnameOverride }}
+spec:
+  serviceName: {{ .Values.postgresql.fullnameOverride }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.postgresql.fullnameOverride }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.postgresql.fullnameOverride }}
+    spec:
+      containers:
+        - name: postgres
+          image: "{{ .Values.postgresql.image.repository }}:{{ .Values.postgresql.image.tag }}"
+          imagePullPolicy: {{ .Values.postgresql.image.pullPolicy }}
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: "{{ .Values.postgresql.auth.username }}"
+            - name: POSTGRES_PASSWORD
+              value: "{{ .Values.postgresql.auth.password }}"
+            - name: POSTGRES_DB
+              value: "{{ .Values.postgresql.auth.database }}"
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "{{ .Values.postgresql.auth.username }}", "-d", "{{ .Values.postgresql.auth.database }}"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "{{ .Values.postgresql.auth.username }}", "-d", "{{ .Values.postgresql.auth.database }}"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d/init-identity-db.sql
+              subPath: init-identity-db.sql
+      volumes:
+        - name: initdb
+          configMap:
+            name: {{ .Values.postgresql.initdb.configMap }}
+        {{- if not .Values.postgresql.persistence.enabled }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+  {{- if .Values.postgresql.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.postgresql.persistence.size }}
+        storageClassName: {{ .Values.postgresql.persistence.storageClass }}
+  {{- end }}

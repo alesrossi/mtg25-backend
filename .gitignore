@@ -29,6 +29,8 @@ AGENTS.md
 MODERN_API_REVIEW.md
 logging_guide.txt
 
+charts/mtg-int/values-secrets.yaml
+
 # .NET Core
 project.lock.json
 project.fragment.lock.json

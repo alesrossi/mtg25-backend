@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-int
+spec:
+  replicas: {{ .Values.frontend.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app: frontend-int
+  template:
+    metadata:
+      labels:
+        app: frontend-int
+    spec:
+      containers:
+        - name: frontend-int
+          image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
+          imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.frontend.service.port }}

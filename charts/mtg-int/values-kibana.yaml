@@ -1,0 +1,6 @@
+kibana:
+  enabled: true
+  elasticsearchCertificateSecret: elasticsearch-int-certs
+  elasticsearchCredentialSecret: elasticsearch-int-credentials
+  elasticsearchCertificateAuthoritiesFile: ca.crt
+  elasticsearchHosts: "https://elasticsearch-int:9200"

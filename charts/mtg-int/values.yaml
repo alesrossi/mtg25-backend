@@ -1,0 +1,120 @@
+# Umbrella values for MTG integration environment
+
+postgresql:
+  fullnameOverride: postgres-int
+  image:
+    repository: postgres
+    tag: 15-alpine
+    pullPolicy: IfNotPresent
+  auth:
+    username: root
+    database: main_int
+    password: ""
+  persistence:
+    enabled: true
+    storageClass: microk8s-hostpath
+    size: 10Gi
+  initdb:
+    configMap: postgres-int-initdb
+
+redis:
+  fullnameOverride: redis-int
+  image:
+    repository: redis
+    tag: 7-alpine
+    pullPolicy: IfNotPresent
+  command:
+    - redis-server
+    - --appendonly
+    - "yes"
+  persistence:
+    enabled: true
+    storageClass: microk8s-hostpath
+    size: 2Gi
+
+elasticsearch:
+  fullnameOverride: elasticsearch-int
+  replicas: 1
+  esConfig:
+    elasticsearch.yml: |
+      discovery.type: single-node
+  volumeClaimTemplate:
+    accessModes: ["ReadWriteOnce"]
+    resources:
+      requests:
+        storage: 10Gi
+    storageClassName: microk8s-hostpath
+  extraEnvs:
+    - name: ES_JAVA_OPTS
+      value: "-Xms512m -Xmx512m"
+
+kibana:
+  enabled: false
+  fullnameOverride: kibana-int
+  elasticsearchHosts: "http://elasticsearch-int:9200"
+  annotations:
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+  preInstallHook:
+    enabled: false
+  preUpgradeHook:
+    enabled: false
+
+api:
+  image:
+    repository: alesrossi/mtg-api
+    tag: int-latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8080
+  env:
+    ASPNETCORE_ENVIRONMENT: Integration
+    ConnectionStrings__Redis: "redis-int:6379"
+    JWT__Issuer: MTG25API
+    JWT__Audience: MTG25Users
+    JWT__ExpiryMinutes: "60"
+    Scryfall__BasePath: https://api.scryfall.com/
+    Paths__Bulk: /app/bulk-data
+  persistence:
+    logs:
+      enabled: true
+      storageClass: microk8s-hostpath
+      size: 5Gi
+  config:
+    appsettingsIntegrationConfigMap: api-int-appsettings
+
+frontend:
+  image:
+    repository: alesrossi/mtgfe-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 80
+
+adminer:
+  image:
+    repository: adminer
+    tag: "4"
+    pullPolicy: IfNotPresent
+  service:
+    port: 8080
+  env:
+    ADMINER_DEFAULT_SERVER: postgres-int
+
+nginx:
+  image:
+    repository: nginx
+    tag: 1.27-alpine
+    pullPolicy: IfNotPresent
+  service:
+    ports:
+      http: 80
+      https: 443
+  config:
+    nginxConfigMap: nginx-int-config
+    certsSecret: nginx-int-certs
+
+ingress:
+  enabled: false
+  className: ""
+  hosts: []
+  tls: []

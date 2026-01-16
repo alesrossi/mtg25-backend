@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: adminer-int
+spec:
+  replicas: {{ .Values.adminer.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app: adminer-int
+  template:
+    metadata:
+      labels:
+        app: adminer-int
+    spec:
+      containers:
+        - name: adminer-int
+          image: "{{ .Values.adminer.image.repository }}:{{ .Values.adminer.image.tag }}"
+          imagePullPolicy: {{ .Values.adminer.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.adminer.service.port }}
+          env:
+            - name: ADMINER_DEFAULT_SERVER
+              value: "{{ .Values.adminer.env.ADMINER_DEFAULT_SERVER }}"

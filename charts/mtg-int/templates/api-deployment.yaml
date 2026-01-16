@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-int
+spec:
+  replicas: {{ .Values.api.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app: api-int
+  template:
+    metadata:
+      labels:
+        app: api-int
+    spec:
+      containers:
+        - name: api-int
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.api.service.port }}
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "{{ .Values.api.env.ASPNETCORE_ENVIRONMENT }}"
+            - name: ConnectionStrings__Redis
+              value: "{{ .Values.api.env.ConnectionStrings__Redis }}"
+            - name: JWT__Issuer
+              value: "{{ .Values.api.env.JWT__Issuer }}"
+            - name: JWT__Audience
+              value: "{{ .Values.api.env.JWT__Audience }}"
+            - name: JWT__ExpiryMinutes
+              value: "{{ .Values.api.env.JWT__ExpiryMinutes }}"
+            - name: Scryfall__BasePath
+              value: "{{ .Values.api.env.Scryfall__BasePath }}"
+            - name: Paths__Bulk
+              value: "{{ .Values.api.env.Paths__Bulk }}"
+            - name: ConnectionStrings__DefaultConnection
+              valueFrom:
+                secretKeyRef:
+                  name: api-int-secrets
+                  key: connectionStringsDefault
+            - name: ConnectionStrings__IdentityConnection
+              valueFrom:
+                secretKeyRef:
+                  name: api-int-secrets
+                  key: connectionStringsIdentity
+            - name: JWT__SecretKey
+              valueFrom:
+                secretKeyRef:
+                  name: api-int-secrets
+                  key: jwtSecret
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: {{ .Values.api.service.port }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: {{ .Values.api.service.port }}
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: appsettings
+              mountPath: /app/appsettings.Integration.json
+              subPath: appsettings.Integration.json
+{{- if .Values.api.persistence.logs.enabled }}
+            - name: logs
+              mountPath: /app/logs
+{{- end }}
+      volumes:
+        - name: appsettings
+          configMap:
+            name: {{ .Values.api.config.appsettingsIntegrationConfigMap }}
+{{- if .Values.api.persistence.logs.enabled }}
+        - name: logs
+          persistentVolumeClaim:
+            claimName: api-int-logs
+{{- end }}

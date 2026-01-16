@@ -1,0 +1,17 @@
+apiVersion: v2
+name: mtg-int
+description: Umbrella chart for MTG integration environment
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+dependencies:
+  - name: elasticsearch
+    version: 8.5.1
+    repository: https://helm.elastic.co
+    alias: elasticsearch
+  - name: kibana
+    version: 8.5.1
+    repository: https://helm.elastic.co
+    alias: kibana
+    condition: kibana.enabled

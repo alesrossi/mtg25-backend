@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-int
+spec:
+  replicas: {{ .Values.nginx.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app: nginx-int
+  template:
+    metadata:
+      labels:
+        app: nginx-int
+    spec:
+      containers:
+        - name: nginx-int
+          image: "{{ .Values.nginx.image.repository }}:{{ .Values.nginx.image.tag }}"
+          imagePullPolicy: {{ .Values.nginx.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.nginx.service.ports.http }}
+            - containerPort: {{ .Values.nginx.service.ports.https }}
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: nginx-certs
+              mountPath: /etc/nginx/certs
+              readOnly: true
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: {{ .Values.nginx.config.nginxConfigMap }}
+        - name: nginx-certs
+          secret:
+            secretName: {{ .Values.nginx.config.certsSecret }}
+            items:
+              - key: tls.crt
+                path: int.crt
+              - key: tls.key
+                path: int.key

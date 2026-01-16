@@ -1,0 +1,13 @@
+{{- if .Values.api.persistence.logs.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: api-int-logs
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.api.persistence.logs.size }}
+  storageClassName: {{ .Values.api.persistence.logs.storageClass }}
+{{- end }}

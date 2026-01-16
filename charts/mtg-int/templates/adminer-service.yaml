@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: adminer-int
+spec:
+  selector:
+    app: adminer-int
+  ports:
+    - name: http
+      port: {{ .Values.adminer.service.port }}
+      targetPort: {{ .Values.adminer.service.port }}
+  type: ClusterIP
