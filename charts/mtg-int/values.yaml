@@ -37,7 +37,8 @@ elasticsearch:
   replicas: 1
   esConfig:
     elasticsearch.yml: |
-      discovery.type: single-node
+      ingest.geoip.downloader.enabled: false
+  clusterHealthCheckParams: "wait_for_status=yellow&timeout=1s"
   volumeClaimTemplate:
     accessModes: ["ReadWriteOnce"]
     resources:
@@ -74,8 +75,28 @@ api:
     JWT__ExpiryMinutes: "60"
     Scryfall__BasePath: https://api.scryfall.com/
     Paths__Bulk: /app/bulk-data
+  extraEnv:
+    - name: DOTNET_SYSTEM_NET_DISABLEIPV6
+      value: "true"
+    - name: DOTNET_SYSTEM_NET_HTTP_USESOCKETSHTTPHANDLER
+      value: "0"
+    - name: DOTNET_SYSTEM_NET_HTTP_DISABLEHTTP2
+      value: "1"
+    - name: DOTNET_SYSTEM_NET_HTTP_DISABLEHTTP3
+      value: "1"
+  scryfall:
+    waitForBasePath: true
+    waitImage: curlimages/curl:8.8.0
+    retrySeconds: 5
+    prefetch:
+      enabled: true
+      image: python:3.12-alpine
   persistence:
     logs:
+      enabled: true
+      storageClass: microk8s-hostpath
+      size: 5Gi
+    bulkData:
       enabled: true
       storageClass: microk8s-hostpath
       size: 5Gi

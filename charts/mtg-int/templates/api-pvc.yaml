@@ -11,3 +11,17 @@ spec:
       storage: {{ .Values.api.persistence.logs.size }}
   storageClassName: {{ .Values.api.persistence.logs.storageClass }}
 {{- end }}
+{{- if .Values.api.persistence.bulkData.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: api-int-bulk-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.api.persistence.bulkData.size }}
+  storageClassName: {{ .Values.api.persistence.bulkData.storageClass }}
+{{- end }}

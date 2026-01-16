@@ -12,6 +12,60 @@ spec:
       labels:
         app: api-int
     spec:
+      {{- if .Values.api.scryfall.waitForBasePath }}
+      initContainers:
+        - name: wait-for-scryfall
+          image: "{{ .Values.api.scryfall.waitImage }}"
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              echo "Waiting for Scryfall at {{ .Values.api.env.Scryfall__BasePath }}..."
+              while true; do
+                code=$(curl -sS -o /dev/null -w "%{http_code}" "{{ .Values.api.env.Scryfall__BasePath }}")
+                if [ "$code" != "000" ]; then
+                  exit 0
+                fi
+                sleep {{ .Values.api.scryfall.retrySeconds }}
+              done
+{{- if .Values.api.scryfall.prefetch.enabled }}
+        - name: scryfall-prefetch
+          image: "{{ .Values.api.scryfall.prefetch.image }}"
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              mkdir -p /app/bulk-data
+              python - <<'PY'
+              import datetime
+              import json
+              import os
+              import urllib.request
+
+              base = "https://api.scryfall.com/"
+              bulk_url = base + "bulk-data/default_cards"
+              with urllib.request.urlopen(bulk_url) as response:
+                  bulk = json.load(response)
+              download_url = bulk["download_uri"]
+              target_dir = "/app/bulk-data"
+              os.makedirs(target_dir, exist_ok=True)
+              file_name = datetime.date.today().strftime("%Y%m%d") + ".json"
+              dest = os.path.join(target_dir, file_name)
+              if not os.path.exists(dest):
+                  with urllib.request.urlopen(download_url) as response:
+                      with open(dest, "wb") as handle:
+                          handle.write(response.read())
+              print(f"Downloaded Scryfall bulk data to {dest}")
+              PY
+          volumeMounts:
+            - name: bulk-data
+              mountPath: /app/bulk-data
+{{- end }}
+      {{- end }}
       containers:
         - name: api-int
           image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
@@ -48,6 +102,9 @@ spec:
                 secretKeyRef:
                   name: api-int-secrets
                   key: jwtSecret
+{{- if .Values.api.extraEnv }}
+{{ toYaml .Values.api.extraEnv | indent 12 }}
+{{- end }}
           readinessProbe:
             httpGet:
               path: /api/health
@@ -72,6 +129,8 @@ spec:
             - name: logs
               mountPath: /app/logs
 {{- end }}
+            - name: bulk-data
+              mountPath: /app/bulk-data
       volumes:
         - name: appsettings
           configMap:
@@ -80,4 +139,11 @@ spec:
         - name: logs
           persistentVolumeClaim:
             claimName: api-int-logs
+{{- end }}
+        - name: bulk-data
+{{- if .Values.api.persistence.bulkData.enabled }}
+          persistentVolumeClaim:
+            claimName: api-int-bulk-data
+{{- else }}
+          emptyDir: {}
 {{- end }}
