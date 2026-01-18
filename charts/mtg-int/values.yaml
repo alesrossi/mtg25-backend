@@ -60,7 +60,7 @@ kibana:
   imageTag: "8.5.1"
   imagePullPolicy: IfNotPresent
   preInstall:
-    enabled: true
+    enabled: false
   annotations:
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
   preInstallHook:
@@ -114,6 +114,9 @@ api:
     caSecretName: elasticsearch-int-certs
     caSecretKey: ca.crt
     caMountPath: /app/certs/elastic-ca.crt
+    credentialsSecretName: elasticsearch-int-credentials
+    credentialsUsernameKey: username
+    credentialsPasswordKey: password
 
 frontend:
   image:

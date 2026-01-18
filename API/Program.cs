@@ -460,12 +460,28 @@ public class Program
             sinkOptions.AutoRegisterTemplateVersion = parsedVersion;
         }
 
+        var username = section["Username"];
+        var password = section["Password"];
+        if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(password))
+        {
+            sinkOptions.ModifyConnectionSettings = connection =>
+                connection.BasicAuthentication(username, password);
+        }
+
         var caPath = section["CaCertificatePath"];
         if (!string.IsNullOrWhiteSpace(caPath))
         {
+            var existing = sinkOptions.ModifyConnectionSettings;
             sinkOptions.ModifyConnectionSettings = connection =>
-                connection.ServerCertificateValidationCallback(
+            {
+                if (existing != null)
+                {
+                    connection = existing(connection);
+                }
+
+                return connection.ServerCertificateValidationCallback(
                     (sender, certificate, chain, errors) => ValidateElasticCertificate(certificate, caPath, errors));
+            };
         }
 
         loggerConfiguration.WriteTo.Elasticsearch(sinkOptions);

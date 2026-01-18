@@ -3,6 +3,8 @@ kind: Deployment
 metadata:
   name: api-int
 spec:
+  strategy:
+    type: Recreate
   replicas: {{ .Values.api.replicas | default 1 }}
   selector:
     matchLabels:
@@ -102,6 +104,16 @@ spec:
                 secretKeyRef:
                   name: api-int-secrets
                   key: jwtSecret
+            - name: ElasticsearchLogging__Username
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.api.elasticsearch.credentialsSecretName }}
+                  key: {{ .Values.api.elasticsearch.credentialsUsernameKey }}
+            - name: ElasticsearchLogging__Password
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.api.elasticsearch.credentialsSecretName }}
+                  key: {{ .Values.api.elasticsearch.credentialsPasswordKey }}
 {{- if .Values.api.extraEnv }}
 {{ toYaml .Values.api.extraEnv | indent 12 }}
 {{- end }}
