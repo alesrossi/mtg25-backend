@@ -1,0 +1,19 @@
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: api.167.235.109.6.nip.io
+      paths:
+        - path: /
+          serviceName: api-int
+          servicePort: 8080
+    - host: app.167.235.109.6.nip.io
+      paths:
+        - path: /
+          serviceName: frontend-int
+          servicePort: 80
+    - host: kibana.167.235.109.6.nip.io
+      paths:
+        - path: /
+          serviceName: kibana-int
+          servicePort: 5601

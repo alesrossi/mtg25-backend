@@ -125,6 +125,10 @@ spec:
             - name: appsettings
               mountPath: /app/appsettings.Integration.json
               subPath: appsettings.Integration.json
+            - name: elasticsearch-certs
+              mountPath: {{ .Values.api.elasticsearch.caMountPath }}
+              subPath: elastic-ca.crt
+              readOnly: true
 {{- if .Values.api.persistence.logs.enabled }}
             - name: logs
               mountPath: /app/logs
@@ -135,6 +139,12 @@ spec:
         - name: appsettings
           configMap:
             name: {{ .Values.api.config.appsettingsIntegrationConfigMap }}
+        - name: elasticsearch-certs
+          secret:
+            secretName: {{ .Values.api.elasticsearch.caSecretName }}
+            items:
+              - key: {{ .Values.api.elasticsearch.caSecretKey }}
+                path: elastic-ca.crt
 {{- if .Values.api.persistence.logs.enabled }}
         - name: logs
           persistentVolumeClaim:

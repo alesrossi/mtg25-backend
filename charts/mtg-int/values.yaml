@@ -53,7 +53,14 @@ elasticsearch:
 kibana:
   enabled: false
   fullnameOverride: kibana-int
-  elasticsearchHosts: "http://elasticsearch-int:9200"
+  elasticsearchHosts: "https://elasticsearch-int:9200"
+  elasticsearchCertificateSecret: elasticsearch-int-certs
+  elasticsearchCredentialSecret: elasticsearch-int-credentials
+  image: "docker.io/elastic/kibana"
+  imageTag: "8.5.1"
+  imagePullPolicy: IfNotPresent
+  preInstall:
+    enabled: true
   annotations:
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
   preInstallHook:
@@ -103,6 +110,10 @@ api:
       size: 5Gi
   config:
     appsettingsIntegrationConfigMap: api-int-appsettings
+  elasticsearch:
+    caSecretName: elasticsearch-int-certs
+    caSecretKey: ca.crt
+    caMountPath: /app/certs/elastic-ca.crt
 
 frontend:
   image:
