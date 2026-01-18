@@ -23,13 +23,16 @@ spec:
             - name: nginx-config
               mountPath: /etc/nginx/nginx.conf
               subPath: nginx.conf
+{{- if .Values.nginx.certs.enabled }}
             - name: nginx-certs
               mountPath: /etc/nginx/certs
               readOnly: true
+{{- end }}
       volumes:
         - name: nginx-config
           configMap:
             name: {{ .Values.nginx.config.nginxConfigMap }}
+{{- if .Values.nginx.certs.enabled }}
         - name: nginx-certs
           secret:
             secretName: {{ .Values.nginx.config.certsSecret }}
@@ -38,3 +41,4 @@ spec:
                 path: int.crt
               - key: tls.key
                 path: int.key
+{{- end }}

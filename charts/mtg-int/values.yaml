@@ -6,13 +6,14 @@ postgresql:
     repository: postgres
     tag: 15-alpine
     pullPolicy: IfNotPresent
+  pgdata: /var/lib/postgresql/data/pgdata
   auth:
     username: root
     database: main_int
     password: ""
   persistence:
     enabled: true
-    storageClass: microk8s-hostpath
+    storageClass: hcloud-volumes
     size: 10Gi
   initdb:
     configMap: postgres-int-initdb
@@ -29,7 +30,7 @@ redis:
     - "yes"
   persistence:
     enabled: true
-    storageClass: microk8s-hostpath
+    storageClass: hcloud-volumes
     size: 2Gi
 
 elasticsearch:
@@ -44,7 +45,7 @@ elasticsearch:
     resources:
       requests:
         storage: 10Gi
-    storageClassName: microk8s-hostpath
+    storageClassName: hcloud-volumes
   extraEnvs:
     - name: ES_JAVA_OPTS
       value: "-Xms512m -Xmx512m"
@@ -94,11 +95,11 @@ api:
   persistence:
     logs:
       enabled: true
-      storageClass: microk8s-hostpath
+      storageClass: hcloud-volumes
       size: 5Gi
     bulkData:
       enabled: true
-      storageClass: microk8s-hostpath
+      storageClass: hcloud-volumes
       size: 5Gi
   config:
     appsettingsIntegrationConfigMap: api-int-appsettings
@@ -133,6 +134,8 @@ nginx:
   config:
     nginxConfigMap: nginx-int-config
     certsSecret: nginx-int-certs
+  certs:
+    enabled: false
 
 ingress:
   enabled: false

@@ -4,4 +4,8 @@ metadata:
   name: {{ .Values.nginx.config.nginxConfigMap }}
 data:
   nginx.conf: |
+{{- if .Values.nginx.certs.enabled }}
 {{ .Files.Get "files/nginx.conf" | indent 4 }}
+{{- else }}
+{{ .Files.Get "files/nginx-http.conf" | indent 4 }}
+{{- end }}
