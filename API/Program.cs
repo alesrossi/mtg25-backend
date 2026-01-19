@@ -446,6 +446,7 @@ public class Program
         var nodeUris = section["NodeUris"];
         if (string.IsNullOrWhiteSpace(nodeUris))
         {
+            Console.Error.WriteLine("Elasticsearch logging disabled: missing ElasticsearchLogging:NodeUris");
             return;
         }
 
@@ -471,6 +472,7 @@ public class Program
 
         var username = section["Username"];
         var password = section["Password"];
+        Console.Error.WriteLine($"Elasticsearch logging enabled: nodeUris={nodeUris}, auth={(string.IsNullOrWhiteSpace(username) ? "none" : "basic")}");
         if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(password))
         {
             sinkOptions.ModifyConnectionSettings = connection =>
@@ -491,6 +493,7 @@ public class Program
                 return connection.ServerCertificateValidationCallback(
                     (sender, certificate, chain, errors) => ValidateElasticCertificate(certificate, caPath, errors));
             };
+            Console.Error.WriteLine($"Elasticsearch logging CA path: {caPath} exists={File.Exists(caPath)}");
         }
 
         loggerConfiguration.WriteTo.Elasticsearch(sinkOptions);
