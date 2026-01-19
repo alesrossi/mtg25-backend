@@ -16,6 +16,7 @@ public static class CardDataServiceTestHelper
         var service = new CardDataService(
             Options.Create(new PathsConfig()),
             Options.Create(new ScryfallConfig()),
+            Options.Create(new MinioConfig()),
             NullLogger<CardDataService>.Instance);
 
         Populate(service, cards);

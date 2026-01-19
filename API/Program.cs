@@ -69,6 +69,7 @@ public class Program
             // Bind the Scryfall configuration
             builder.Services.Configure<ScryfallConfig>(builder.Configuration.GetSection("Scryfall"));
             builder.Services.Configure<PathsConfig>(builder.Configuration.GetSection("Paths"));
+            builder.Services.Configure<MinioConfig>(builder.Configuration.GetSection("Minio"));
             builder.Services.Configure<RequestLoggingOptions>(builder.Configuration.GetSection("RequestLogging"));
             builder.Services.AddControllers()
                 .AddJsonOptions(options =>

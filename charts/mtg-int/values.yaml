@@ -84,7 +84,7 @@ api:
     JWT__Audience: MTG25Users
     JWT__ExpiryMinutes: "60"
     Scryfall__BasePath: https://api.scryfall.com/
-    Paths__Bulk: /app/bulk-data
+    Paths__Bulk: /tmp/mtg25-bulk
   extraEnv:
     - name: DOTNET_SYSTEM_NET_DISABLEIPV6
       value: "true"
@@ -99,15 +99,15 @@ api:
     waitImage: curlimages/curl:8.8.0
     retrySeconds: 5
     prefetch:
-      enabled: true
+      enabled: false
       image: python:3.12-alpine
   persistence:
     logs:
-      enabled: true
+      enabled: false
       storageClass: hcloud-volumes
       size: 5Gi
     bulkData:
-      enabled: true
+      enabled: false
       storageClass: hcloud-volumes
       size: 5Gi
   config:
@@ -119,6 +119,28 @@ api:
     credentialsSecretName: elasticsearch-int-credentials
     credentialsUsernameKey: username
     credentialsPasswordKey: password
+
+minio:
+  enabled: true
+  fullnameOverride: minio-int
+  image:
+    repository: minio/minio
+    tag: latest
+    pullPolicy: IfNotPresent
+  endpoint: http://minio-int:9000
+  bucket: mtg25-bulk
+  useSsl: false
+  prefix: scryfall
+  persistence:
+    enabled: true
+    storageClass: hcloud-volumes
+    size: 10Gi
+  service:
+    apiPort: 9000
+    consolePort: 9001
+  credentialsSecretName: minio-int-credentials
+  credentialsAccessKeyKey: accessKey
+  credentialsSecretKeyKey: secretKey
 
 frontend:
   image:

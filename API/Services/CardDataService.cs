@@ -12,14 +12,20 @@ public class CardDataService
 {
     private readonly PathsConfig _pathsConfig;
     private readonly ScryfallConfig _scryfallConfig;
+    private readonly MinioConfig _minioConfig;
     private readonly ILogger<CardDataService> logger;
 
     private const string LoadOperation = "CardData.Load";
 
-    public CardDataService(IOptions<PathsConfig> pathsConfig, IOptions<ScryfallConfig> scryfallConfig, ILogger<CardDataService> logger)
+    public CardDataService(
+        IOptions<PathsConfig> pathsConfig,
+        IOptions<ScryfallConfig> scryfallConfig,
+        IOptions<MinioConfig> minioConfig,
+        ILogger<CardDataService> logger)
     {
         _pathsConfig = pathsConfig.Value;
         _scryfallConfig = scryfallConfig.Value;
+        _minioConfig = minioConfig.Value;
         this.logger = logger;
     }
 
@@ -43,6 +49,7 @@ public class CardDataService
             await foreach (var card in ScryfallUtility.FetchCardListStreamAsync(
                            _pathsConfig.Bulk,
                            _scryfallConfig.BasePath,
+                           _minioConfig,
                            cancellationToken))
             {
                 processed++;

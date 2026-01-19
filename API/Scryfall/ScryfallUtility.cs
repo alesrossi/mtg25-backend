@@ -1,9 +1,14 @@
 using System.Globalization;
 using System.Linq;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading;
+using Amazon;
+using Amazon.S3;
+using Amazon.S3.Model;
+using API.Configuration;
 using API.Dtos.Cards;
 using API.Dtos.Collections;
 
@@ -14,10 +19,12 @@ public static class ScryfallUtility
     public static async IAsyncEnumerable<ScryfallCardDto> FetchCardListStreamAsync(
         string bulkBasePath,
         string endpoint,
+        MinioConfig? minioConfig,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var filePath = await GetScryfallBulkDataAsync(bulkBasePath, endpoint);
-        var resolvedBasePath = ResolveBasePath(bulkBasePath);
+        var useMinio = minioConfig?.Enabled == true;
+        var resolvedBasePath = ResolveBasePath(bulkBasePath, useMinio);
+        var filePath = await GetScryfallBulkDataAsync(resolvedBasePath, endpoint, minioConfig, cancellationToken);
 
         var options = new JsonSerializerOptions
         {
@@ -28,7 +35,7 @@ public static class ScryfallUtility
         await foreach (var card in DeserializeWithRecoveryAsync(
                            filePath,
                            resolvedBasePath,
-                           bulkBasePath,
+                           resolvedBasePath,
                            options,
                            cancellationToken))
         {
@@ -155,9 +162,12 @@ public static class ScryfallUtility
             : null;
     }
     
-    private static async Task<string> GetScryfallBulkDataAsync(string basePath, string endpoint)
+    private static async Task<string> GetScryfallBulkDataAsync(
+        string resolvedBasePath,
+        string endpoint,
+        MinioConfig? minioConfig,
+        CancellationToken cancellationToken)
     {
-        var resolvedBasePath = ResolveBasePath(basePath);
         Directory.CreateDirectory(resolvedBasePath);
 
         var fileName = DateTime.Now.ToString("yyyyMMdd") + ".json";
@@ -167,6 +177,18 @@ public static class ScryfallUtility
         if (File.Exists(destinationPath))
         {
             return destinationPath;
+        }
+
+        if (minioConfig?.Enabled == true)
+        {
+            var minioKey = BuildMinioObjectKey(minioConfig, fileName);
+            using var s3 = CreateS3Client(minioConfig);
+
+            if (await TryDownloadFromMinioAsync(s3, minioConfig, minioKey, destinationPath, cancellationToken))
+            {
+                Console.WriteLine($"Loaded Scryfall data from MinIO: {minioKey}");
+                return destinationPath;
+            }
         }
 
         try
@@ -187,13 +209,32 @@ public static class ScryfallUtility
 
             await using var fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None);
             await using var stream = await responseFile.Content.ReadAsStreamAsync();
-            await stream.CopyToAsync(fileStream);
+            await stream.CopyToAsync(fileStream, cancellationToken);
 
             Console.WriteLine($"File downloaded successfully to {destinationPath}");
+
+            if (minioConfig?.Enabled == true)
+            {
+                var minioKey = BuildMinioObjectKey(minioConfig, fileName);
+                using var s3 = CreateS3Client(minioConfig);
+                await UploadToMinioAsync(s3, minioConfig, minioKey, destinationPath, cancellationToken);
+            }
+
             return destinationPath;
         }
         catch (Exception ex)
         {
+            if (minioConfig?.Enabled == true)
+            {
+                var fallbackKey = BuildMinioObjectKey(minioConfig, Path.GetFileName(fallbackPath));
+                using var s3 = CreateS3Client(minioConfig);
+                if (await TryDownloadFromMinioAsync(s3, minioConfig, fallbackKey, fallbackPath, cancellationToken))
+                {
+                    Console.WriteLine($"Failed to download latest Scryfall data ({ex.Message}). Using MinIO fallback {fallbackKey}.");
+                    return fallbackPath;
+                }
+            }
+
             if (!string.IsNullOrWhiteSpace(fallbackPath) && File.Exists(fallbackPath))
             {
                 Console.WriteLine($"Failed to download latest Scryfall data ({ex.Message}). Using fallback file {fallbackPath}.");
@@ -212,7 +253,7 @@ public static class ScryfallUtility
         }
         catch (Exception primaryException)
         {
-            var resolvedBasePath = ResolveBasePath(basePath);
+            var resolvedBasePath = ResolveBasePath(basePath, false);
             var fallbackPath = BuildFallbackFilePath(resolvedBasePath);
 
             if (!string.IsNullOrWhiteSpace(fallbackPath) && !string.Equals(primaryPath, fallbackPath, StringComparison.OrdinalIgnoreCase) && File.Exists(fallbackPath))
@@ -232,8 +273,13 @@ public static class ScryfallUtility
         }
     }
 
-    private static string ResolveBasePath(string basePath)
+    private static string ResolveBasePath(string basePath, bool useTempCache)
     {
+        if (useTempCache)
+        {
+            return Path.Combine(Path.GetTempPath(), "mtg25-bulk");
+        }
+
         if (string.IsNullOrWhiteSpace(basePath))
         {
             return Path.Combine(AppContext.BaseDirectory, "bulk-data");
@@ -245,6 +291,69 @@ public static class ScryfallUtility
         }
 
         return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, basePath));
+    }
+
+    private static string BuildMinioObjectKey(MinioConfig minioConfig, string fileName)
+    {
+        var prefix = minioConfig.Prefix?.Trim('/');
+        return string.IsNullOrWhiteSpace(prefix)
+            ? fileName
+            : $"{prefix}/{fileName}";
+    }
+
+    private static IAmazonS3 CreateS3Client(MinioConfig minioConfig)
+    {
+        var config = new AmazonS3Config
+        {
+            ServiceURL = minioConfig.Endpoint,
+            ForcePathStyle = true,
+            RegionEndpoint = RegionEndpoint.USEast1
+        };
+
+        config.UseHttp = !minioConfig.UseSsl;
+
+        return new AmazonS3Client(minioConfig.AccessKey, minioConfig.SecretKey, config);
+    }
+
+    private static async Task<bool> TryDownloadFromMinioAsync(
+        IAmazonS3 s3,
+        MinioConfig minioConfig,
+        string key,
+        string destinationPath,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await s3.GetObjectMetadataAsync(minioConfig.Bucket, key, cancellationToken);
+        }
+        catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+
+        var response = await s3.GetObjectAsync(minioConfig.Bucket, key, cancellationToken);
+        await using var responseStream = response.ResponseStream;
+        await using var fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None);
+        await responseStream.CopyToAsync(fileStream, cancellationToken);
+        return true;
+    }
+
+    private static async Task UploadToMinioAsync(
+        IAmazonS3 s3,
+        MinioConfig minioConfig,
+        string key,
+        string sourcePath,
+        CancellationToken cancellationToken)
+    {
+        var putRequest = new PutObjectRequest
+        {
+            BucketName = minioConfig.Bucket,
+            Key = key,
+            FilePath = sourcePath
+        };
+
+        await s3.PutObjectAsync(putRequest, cancellationToken);
+        Console.WriteLine($"Uploaded Scryfall data to MinIO: {key}");
     }
 
     private static string BuildFallbackFilePath(string resolvedBasePath)

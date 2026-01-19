@@ -32,7 +32,7 @@ spec:
                 fi
                 sleep {{ .Values.api.scryfall.retrySeconds }}
               done
-{{- if .Values.api.scryfall.prefetch.enabled }}
+{{- if and .Values.api.scryfall.prefetch.enabled (not .Values.minio.enabled) }}
         - name: scryfall-prefetch
           image: "{{ .Values.api.scryfall.prefetch.image }}"
           imagePullPolicy: IfNotPresent
@@ -89,6 +89,28 @@ spec:
               value: "{{ .Values.api.env.Scryfall__BasePath }}"
             - name: Paths__Bulk
               value: "{{ .Values.api.env.Paths__Bulk }}"
+{{- if .Values.minio.enabled }}
+            - name: Minio__Enabled
+              value: "{{ .Values.minio.enabled }}"
+            - name: Minio__Endpoint
+              value: "{{ .Values.minio.endpoint }}"
+            - name: Minio__Bucket
+              value: "{{ .Values.minio.bucket }}"
+            - name: Minio__UseSsl
+              value: "{{ .Values.minio.useSsl }}"
+            - name: Minio__Prefix
+              value: "{{ .Values.minio.prefix }}"
+            - name: Minio__AccessKey
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.minio.credentialsSecretName }}
+                  key: {{ .Values.minio.credentialsAccessKeyKey }}
+            - name: Minio__SecretKey
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.minio.credentialsSecretName }}
+                  key: {{ .Values.minio.credentialsSecretKeyKey }}
+{{- end }}
             - name: ConnectionStrings__DefaultConnection
               valueFrom:
                 secretKeyRef:
