@@ -60,9 +60,9 @@ kibana:
   imageTag: "8.5.1"
   imagePullPolicy: IfNotPresent
   preInstall:
-    enabled: false
-  esTokenInit:
     enabled: true
+  esTokenInit:
+    enabled: false
   annotations:
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
   preInstallHook:

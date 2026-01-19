@@ -4,3 +4,7 @@ kibana:
   elasticsearchCredentialSecret: elasticsearch-int-credentials
   elasticsearchCertificateAuthoritiesFile: ca.crt
   elasticsearchHosts: "https://elasticsearch-int:9200"
+  preInstall:
+    enabled: true
+  esTokenInit:
+    enabled: false
