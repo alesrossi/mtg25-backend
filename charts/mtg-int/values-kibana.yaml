@@ -1,5 +1,6 @@
 kibana:
   enabled: true
+  replicas: 2
   elasticsearchCertificateSecret: elasticsearch-int-certs
   elasticsearchCredentialSecret: elasticsearch-int-credentials
   elasticsearchCertificateAuthoritiesFile: ca.crt

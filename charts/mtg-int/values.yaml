@@ -52,6 +52,7 @@ elasticsearch:
 
 kibana:
   enabled: false
+  replicas: 2
   fullnameOverride: kibana-int
   elasticsearchHosts: "https://elasticsearch-int:9200"
   elasticsearchCertificateSecret: elasticsearch-int-certs
@@ -71,6 +72,7 @@ kibana:
     enabled: false
 
 api:
+  replicas: 2
   image:
     repository: alesrossi/mtg-api
     tag: int-latest
@@ -120,29 +122,8 @@ api:
     credentialsUsernameKey: username
     credentialsPasswordKey: password
 
-minio:
-  enabled: true
-  fullnameOverride: minio-int
-  image:
-    repository: minio/minio
-    tag: latest
-    pullPolicy: IfNotPresent
-  endpoint: http://minio-int:9000
-  bucket: mtg25-bulk
-  useSsl: false
-  prefix: scryfall
-  persistence:
-    enabled: true
-    storageClass: hcloud-volumes
-    size: 10Gi
-  service:
-    apiPort: 9000
-    consolePort: 9001
-  credentialsSecretName: minio-int-credentials
-  credentialsAccessKeyKey: accessKey
-  credentialsSecretKeyKey: secretKey
-
 frontend:
+  replicas: 2
   image:
     repository: alesrossi/mtgfe-frontend
     tag: latest
