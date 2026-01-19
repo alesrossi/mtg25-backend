@@ -217,7 +217,18 @@ public static class ScryfallUtility
             {
                 var minioKey = BuildMinioObjectKey(minioConfig, fileName);
                 using var s3 = CreateS3Client(minioConfig);
-                await UploadToMinioAsync(s3, minioConfig, minioKey, destinationPath, cancellationToken);
+                try
+                {
+                    await UploadToMinioAsync(s3, minioConfig, minioKey, destinationPath, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to upload Scryfall data to MinIO ({minioKey}): {ex.Message}");
+                }
             }
 
             return destinationPath;
@@ -330,12 +341,47 @@ public static class ScryfallUtility
         {
             return false;
         }
+        catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.Forbidden
+            || ex.StatusCode == HttpStatusCode.Unauthorized
+            || ex.StatusCode == HttpStatusCode.BadRequest)
+        {
+            Console.WriteLine($"MinIO access denied for {minioConfig.Bucket}/{key} ({(int)ex.StatusCode} {ex.StatusCode}).");
+            return false;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"MinIO metadata check failed for {minioConfig.Bucket}/{key}: {ex.Message}");
+            return false;
+        }
 
-        var response = await s3.GetObjectAsync(minioConfig.Bucket, key, cancellationToken);
-        await using var responseStream = response.ResponseStream;
-        await using var fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None);
-        await responseStream.CopyToAsync(fileStream, cancellationToken);
-        return true;
+        try
+        {
+            var response = await s3.GetObjectAsync(minioConfig.Bucket, key, cancellationToken);
+            await using var responseStream = response.ResponseStream;
+            await using var fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None);
+            await responseStream.CopyToAsync(fileStream, cancellationToken);
+            return true;
+        }
+        catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.Forbidden
+            || ex.StatusCode == HttpStatusCode.Unauthorized
+            || ex.StatusCode == HttpStatusCode.BadRequest)
+        {
+            Console.WriteLine($"MinIO access denied for {minioConfig.Bucket}/{key} ({(int)ex.StatusCode} {ex.StatusCode}).");
+            return false;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"MinIO download failed for {minioConfig.Bucket}/{key}: {ex.Message}");
+            return false;
+        }
     }
 
     private static async Task UploadToMinioAsync(

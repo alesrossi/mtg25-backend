@@ -1,6 +1,10 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Net;
+using Amazon;
+using Amazon.S3;
+using Amazon.S3.Model;
 using API.Configuration;
 using API.Extensions;
 using API.Filters;
@@ -16,6 +20,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using System.IO.Compression;
@@ -416,12 +421,36 @@ public class Program
             app.MapNotificationsEndpoints();
         
             // Add health check endpoint
-            app.MapGet("/api/health", () => Results.Ok(new { 
-                status = "healthy", 
-                timestamp = DateTime.UtcNow,
-                environment = app.Environment.EnvironmentName,
-                version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString()
-            })).AllowAnonymous();
+            app.MapGet("/api/health", async (IOptions<MinioConfig> minioOptions, CancellationToken cancellationToken) =>
+            {
+                var minioConfig = minioOptions.Value;
+                string minioStatus;
+                string? minioDetail = null;
+
+                if (minioConfig.Enabled)
+                {
+                    using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    timeoutCts.CancelAfter(TimeSpan.FromSeconds(3));
+                    (minioStatus, minioDetail) = await CheckMinioAsync(minioConfig, timeoutCts.Token);
+                }
+                else
+                {
+                    minioStatus = "disabled";
+                }
+
+                return Results.Ok(new
+                {
+                    status = "healthy",
+                    timestamp = DateTime.UtcNow,
+                    environment = app.Environment.EnvironmentName,
+                    version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(),
+                    minio = new
+                    {
+                        status = minioStatus,
+                        detail = minioDetail
+                    }
+                });
+            }).AllowAnonymous();
         
         
             await app.RunAsync();
@@ -498,6 +527,58 @@ public class Program
         }
 
         loggerConfiguration.WriteTo.Elasticsearch(sinkOptions);
+    }
+
+    private static async Task<(string Status, string? Detail)> CheckMinioAsync(
+        MinioConfig minioConfig,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(minioConfig.Endpoint) || string.IsNullOrWhiteSpace(minioConfig.Bucket))
+        {
+            return ("misconfigured", "Missing MinIO endpoint or bucket.");
+        }
+
+        try
+        {
+            var config = new AmazonS3Config
+            {
+                ServiceURL = minioConfig.Endpoint,
+                ForcePathStyle = true,
+                RegionEndpoint = RegionEndpoint.USEast1,
+                UseHttp = !minioConfig.UseSsl
+            };
+
+            using var s3 = new AmazonS3Client(minioConfig.AccessKey, minioConfig.SecretKey, config);
+            var request = new ListObjectsV2Request
+            {
+                BucketName = minioConfig.Bucket,
+                MaxKeys = 1
+            };
+
+            if (!string.IsNullOrWhiteSpace(minioConfig.Prefix))
+            {
+                request.Prefix = minioConfig.Prefix.Trim('/') + "/";
+            }
+
+            await s3.ListObjectsV2Async(request, cancellationToken);
+            return ("ok", null);
+        }
+        catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.Forbidden || ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            return ("forbidden", ex.Message);
+        }
+        catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            return ("missing-bucket", ex.Message);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return ("timeout", "MinIO check timed out.");
+        }
+        catch (Exception ex)
+        {
+            return ("error", ex.Message);
+        }
     }
 
     private static void EnableSerilogSelfLog(IConfiguration configuration)
