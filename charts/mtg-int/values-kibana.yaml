@@ -9,3 +9,6 @@ kibana:
     enabled: true
   esTokenInit:
     enabled: false
+  kibanaConfig:
+    kibana.yml: |
+      server.publicBaseUrl: "https://kibana.167.235.109.6.nip.io"
