@@ -34,6 +34,7 @@ using API.Endpoints.Trades;
 using API.Endpoints.Wishlists;
 using Scalar.AspNetCore;
 using Serilog;
+using Serilog.Events;
 using Serilog.Sinks.Elasticsearch;
 using Serilog.Debugging;
 
@@ -454,8 +455,12 @@ public class Program
             AutoRegisterTemplate = section.GetValue("AutoRegisterTemplate", true),
             EmitEventFailure = ParseEmitEventFailure(section["EmitEventFailure"]) | EmitEventFailureHandling.RaiseCallback
         };
-        sinkOptions.FailureCallback = message =>
-            Console.Error.WriteLine($"Elasticsearch sink failure: {message}");
+        sinkOptions.FailureCallback = (logEvent, exception) =>
+        {
+            var rendered = logEvent?.RenderMessage() ?? "<null>";
+            var error = exception?.Message ?? "<no exception>";
+            Console.Error.WriteLine($"Elasticsearch sink failure: {rendered} | {error}");
+        };
 
         var templateVersion = section["AutoRegisterTemplateVersion"];
         if (!string.IsNullOrWhiteSpace(templateVersion) &&
