@@ -1,0 +1,184 @@
+{{- if and .Values.kibana.enabled .Values.kibana.esTokenInit.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kibana-es-token-init
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kibana-es-token-init
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - create
+      - delete
+      - get
+      - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kibana-es-token-init
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+subjects:
+  - kind: ServiceAccount
+    name: kibana-es-token-init
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kibana-es-token-init
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kibana-es-token-init
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      serviceAccountName: kibana-es-token-init
+      restartPolicy: OnFailure
+      containers:
+        - name: init-token
+          image: python:3.12-alpine
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ES_URL
+              value: "{{ .Values.kibana.elasticsearchHosts }}"
+            - name: ES_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.kibana.elasticsearchCredentialSecret }}
+                  key: username
+            - name: ES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.kibana.elasticsearchCredentialSecret }}
+                  key: password
+            - name: TOKEN_NAME
+              value: kibana-int
+          volumeMounts:
+            - name: es-certs
+              mountPath: /certs
+              readOnly: true
+          command:
+            - /bin/sh
+            - -c
+            - |
+              python - <<'PY'
+              import base64
+              import json
+              import os
+              import ssl
+              import time
+              import urllib.error
+              import urllib.request
+
+              es_url = os.environ["ES_URL"].rstrip("/")
+              es_user = os.environ["ES_USERNAME"]
+              es_pass = os.environ["ES_PASSWORD"]
+              token_name = os.environ["TOKEN_NAME"]
+              namespace = open("/var/run/secrets/kubernetes.io/serviceaccount/namespace", "r", encoding="utf-8").read().strip()
+
+              es_ca = "/certs/ca.crt"
+              es_ctx = ssl.create_default_context(cafile=es_ca)
+
+              def es_request(method, path):
+                  req = urllib.request.Request(
+                      es_url + path,
+                      method=method,
+                      headers={"Authorization": "Basic " + base64.b64encode(f"{es_user}:{es_pass}".encode()).decode()},
+                  )
+                  return urllib.request.urlopen(req, context=es_ctx, timeout=10)
+
+              def wait_for_es():
+                  for _ in range(60):
+                      try:
+                          with es_request("GET", "/_cluster/health?wait_for_status=yellow&timeout=5s") as resp:
+                              if resp.status == 200:
+                                  return
+                      except Exception:
+                          time.sleep(5)
+                  raise RuntimeError("Elasticsearch not ready")
+
+              wait_for_es()
+
+              # Ensure security index exists
+              es_request("GET", "/_security/_authenticate").read()
+
+              # Delete existing token if present
+              try:
+                  es_request("DELETE", f"/_security/service/elastic/kibana/credential/token/{token_name}").read()
+              except urllib.error.HTTPError as exc:
+                  if exc.code not in (404,):
+                      raise
+
+              # Create new token
+              body = json.loads(es_request("POST", f"/_security/service/elastic/kibana/credential/token/{token_name}").read())
+              token_value = body["token"]["value"]
+
+              # Create or replace secret
+              k8s_host = os.environ["KUBERNETES_SERVICE_HOST"]
+              k8s_port = os.environ["KUBERNETES_SERVICE_PORT_HTTPS"]
+              k8s_base = f"https://{k8s_host}:{k8s_port}"
+              k8s_token = open("/var/run/secrets/kubernetes.io/serviceaccount/token", "r", encoding="utf-8").read().strip()
+              k8s_ca = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+              k8s_ctx = ssl.create_default_context(cafile=k8s_ca)
+
+              secret_name = "kibana-int-es-token"
+              payload = json.dumps({
+                  "apiVersion": "v1",
+                  "kind": "Secret",
+                  "metadata": {"name": secret_name, "namespace": namespace},
+                  "type": "Opaque",
+                  "data": {"token": base64.b64encode(token_value.encode()).decode()},
+              }).encode()
+
+              def k8s_request(method, url, data=None):
+                  req = urllib.request.Request(
+                      url,
+                      method=method,
+                      data=data,
+                      headers={
+                          "Authorization": f"Bearer {k8s_token}",
+                          "Content-Type": "application/json",
+                          "Accept": "application/json",
+                      },
+                  )
+                  return urllib.request.urlopen(req, context=k8s_ctx, timeout=10)
+
+              try:
+                  k8s_request("PUT", f"{k8s_base}/api/v1/namespaces/{namespace}/secrets/{secret_name}", payload).read()
+              except urllib.error.HTTPError as exc:
+                  if exc.code == 404:
+                      k8s_request("POST", f"{k8s_base}/api/v1/namespaces/{namespace}/secrets", payload).read()
+                  else:
+                      raise
+              PY
+      volumes:
+        - name: es-certs
+          secret:
+            secretName: {{ .Values.kibana.elasticsearchCertificateSecret }}
+            items:
+              - key: ca.crt
+                path: ca.crt
+{{- end }}

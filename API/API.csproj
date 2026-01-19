@@ -45,15 +45,9 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Content Include="appsettings.Integration.json">
+      <Content Update="appsettings.Integration.json">
         <CopyToPublishDirectory>Always</CopyToPublishDirectory>
       </Content>
-    </ItemGroup>
-
-    <ItemGroup>
-        <Content Include="appsettings.Production.json">
-            <CopyToPublishDirectory>Always</CopyToPublishDirectory>
-        </Content>
     </ItemGroup>
 
     <ItemGroup>

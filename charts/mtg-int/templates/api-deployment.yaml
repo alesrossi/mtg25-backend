@@ -114,6 +114,8 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.api.elasticsearch.credentialsSecretName }}
                   key: {{ .Values.api.elasticsearch.credentialsPasswordKey }}
+            - name: SerilogSelfLog__Enabled
+              value: "true"
 {{- if .Values.api.extraEnv }}
 {{ toYaml .Values.api.extraEnv | indent 12 }}
 {{- end }}

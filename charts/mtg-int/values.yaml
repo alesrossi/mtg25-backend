@@ -61,6 +61,8 @@ kibana:
   imagePullPolicy: IfNotPresent
   preInstall:
     enabled: false
+  esTokenInit:
+    enabled: true
   annotations:
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
   preInstallHook:

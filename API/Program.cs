@@ -35,6 +35,7 @@ using API.Endpoints.Wishlists;
 using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Sinks.Elasticsearch;
+using Serilog.Debugging;
 
 namespace API;
 
@@ -54,6 +55,7 @@ public class Program
 
             builder.Host.UseSerilog((context, services, loggerConfiguration) =>
             {
+                EnableSerilogSelfLog(context.Configuration);
                 loggerConfiguration
                     .ReadFrom.Configuration(context.Configuration)
                     .ReadFrom.Services(services)
@@ -485,6 +487,17 @@ public class Program
         }
 
         loggerConfiguration.WriteTo.Elasticsearch(sinkOptions);
+    }
+
+    private static void EnableSerilogSelfLog(IConfiguration configuration)
+    {
+        var enabled = configuration.GetValue("SerilogSelfLog:Enabled", false);
+        if (!enabled)
+        {
+            return;
+        }
+
+        SelfLog.Enable(message => Console.Error.WriteLine($"SerilogSelfLog: {message}"));
     }
 
     private static EmitEventFailureHandling ParseEmitEventFailure(string? value)
