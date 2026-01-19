@@ -212,3 +212,44 @@ jobs:
           echo "- **API Health:** http://localhost:8086/api/health" >> $GITHUB_STEP_SUMMARY
           echo "- **Swagger:** http://localhost:8086/scalar" >> $GITHUB_STEP_SUMMARY
           echo "- **Database Admin:** http://localhost:8084" >> $GITHUB_STEP_SUMMARY
+
+  deploy-integration:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    name: Deploy to Hetzner Integration
+    if: github.event_name == 'push' && github.ref == 'refs/heads/int'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.15.2
+
+      - name: Configure kubeconfig
+        env:
+          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
+        run: |
+          if [ -z "$KUBECONFIG_B64" ]; then
+            echo "KUBECONFIG_B64 is not set"
+            exit 1
+          fi
+          mkdir -p "$HOME/.kube"
+          echo "$KUBECONFIG_B64" | base64 -d > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+
+      - name: Deploy integration chart
+        env:
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.image-tag }}
+        run: |
+          helm upgrade --install mtg-int ./charts/mtg-int \
+            -n integration \
+            -f ./charts/mtg-int/values.yaml \
+            -f ./charts/mtg-int/values-secrets.yaml \
+            -f ./charts/mtg-int/ingress-values.yaml \
+            -f ./charts/mtg-int/values-kibana.yaml \
+            --set api.image.tag="$IMAGE_TAG" \
+            --set kibana.enabled=true \
+            --debug
