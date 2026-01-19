@@ -56,20 +56,11 @@ services:
       - JWT__ExpiryMinutes=60
       - Scryfall__BasePath=https://api.scryfall.com/
       - Paths__Bulk=/tmp/mtg25-bulk
-      - Minio__Enabled=true
-      - Minio__Endpoint=http://minio-int:9000
-      - Minio__Bucket=mtg25-bulk
-      - Minio__AccessKey=${INT_MINIO_ACCESS_KEY}
-      - Minio__SecretKey=${INT_MINIO_SECRET_KEY}
-      - Minio__UseSsl=false
-      - Minio__Prefix=scryfall
     depends_on:
       postgres-int:
         condition: service_healthy
       redis-int:
         condition: service_healthy
-      minio-int:
-        condition: service_started
       elasticsearch-int:
         condition: service_started
     networks:
@@ -151,22 +142,6 @@ services:
     networks:
       - mtg-int-network
 
-  minio-int:
-    image: minio/minio:latest
-    container_name: minio-int
-    restart: unless-stopped
-    command: ["server", "/data", "--console-address", ":9001"]
-    environment:
-      - MINIO_ROOT_USER=${INT_MINIO_ACCESS_KEY}
-      - MINIO_ROOT_PASSWORD=${INT_MINIO_SECRET_KEY}
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio-int-data:/data
-    networks:
-      - mtg-int-network
-
 volumes:
   redis-int-data:
     name: mtg-redis-int-data
@@ -174,8 +149,6 @@ volumes:
     name: mtg-postgres-int-data
   es-int-data:
     name: mtg-es-int-data
-  minio-int-data:
-    name: mtg-minio-int-data
 
 networks:
   mtg-int-network:
