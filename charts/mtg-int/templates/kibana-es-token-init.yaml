@@ -135,6 +135,7 @@ spec:
               # Create new token
               body = json.loads(es_request("POST", f"/_security/service/elastic/kibana/credential/token/{token_name}").read())
               token_value = body["token"]["value"]
+              print("Created Kibana service account token", flush=True)
 
               # Create or replace secret
               k8s_host = os.environ["KUBERNETES_SERVICE_HOST"]
@@ -173,6 +174,7 @@ spec:
                       k8s_request("POST", f"{k8s_base}/api/v1/namespaces/{namespace}/secrets", payload).read()
                   else:
                       raise
+              print("Stored token in secret", flush=True)
               PY
       volumes:
         - name: es-certs

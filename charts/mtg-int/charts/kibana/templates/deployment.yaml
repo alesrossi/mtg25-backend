@@ -115,7 +115,7 @@ spec:
               secretKeyRef:
                 name: {{ template "kibana.fullname" . }}-es-token
                 key: token
-                optional: false
+                optional: true
 {{- if .Values.extraEnvs }}
 {{ toYaml .Values.extraEnvs | indent 10 }}
 {{- end }}
