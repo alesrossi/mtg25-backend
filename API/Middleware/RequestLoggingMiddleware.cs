@@ -32,6 +32,12 @@ public class RequestLoggingMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
+        if (context.Request.Path.Equals("/api/health", StringComparison.OrdinalIgnoreCase))
+        {
+            await next(context);
+            return;
+        }
+
         var headerName = string.IsNullOrWhiteSpace(options.CorrelationHeaderName)
             ? RequestLoggingOptions.DefaultCorrelationHeaderName
             : options.CorrelationHeaderName;

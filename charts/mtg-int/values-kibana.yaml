@@ -1,6 +1,6 @@
 kibana:
   enabled: true
-  replicas: 2
+  replicas: 1
   elasticsearchCertificateSecret: elasticsearch-int-certs
   elasticsearchCredentialSecret: elasticsearch-int-credentials
   elasticsearchCertificateAuthoritiesFile: ca.crt
@@ -12,3 +12,7 @@ kibana:
   kibanaConfig:
     kibana.yml: |
       server.publicBaseUrl: "https://kibana.167.235.109.6.nip.io"
+      xpack.security.secureCookies: true
+      xpack.security.encryptionKey: "CHANGE_ME_SECURITY_KEY_32_CHARS_MIN"
+      xpack.encryptedSavedObjects.encryptionKey: "CHANGE_ME_SAVED_OBJECTS_KEY_32_CHARS_MIN"
+      xpack.reporting.encryptionKey: "CHANGE_ME_REPORTING_KEY_32_CHARS_MIN"
