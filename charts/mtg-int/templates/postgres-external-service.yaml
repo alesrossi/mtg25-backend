@@ -1,0 +1,21 @@
+{{- if .Values.postgres.external.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.postgresql.fullnameOverride }}-external
+spec:
+  type: {{ .Values.postgres.external.type }}
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+{{- if and (eq .Values.postgres.external.type "NodePort") .Values.postgres.external.nodePort }}
+      nodePort: {{ .Values.postgres.external.nodePort }}
+{{- end }}
+  selector:
+    app: {{ .Values.postgresql.fullnameOverride }}
+{{- if and (eq .Values.postgres.external.type "LoadBalancer") .Values.postgres.external.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+{{ toYaml .Values.postgres.external.loadBalancerSourceRanges | indent 4 }}
+{{- end }}
+{{- end }}

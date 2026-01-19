@@ -18,6 +18,13 @@ postgresql:
   initdb:
     configMap: postgres-int-initdb
 
+postgres:
+  external:
+    enabled: false
+    type: NodePort
+    nodePort: 32105
+    loadBalancerSourceRanges: []
+
 redis:
   fullnameOverride: redis-int
   image:
