@@ -452,8 +452,10 @@ public class Program
         {
             IndexFormat = section["IndexFormat"],
             AutoRegisterTemplate = section.GetValue("AutoRegisterTemplate", true),
-            EmitEventFailure = ParseEmitEventFailure(section["EmitEventFailure"])
+            EmitEventFailure = ParseEmitEventFailure(section["EmitEventFailure"]) | EmitEventFailureHandling.RaiseCallback
         };
+        sinkOptions.FailureCallback = message =>
+            Console.Error.WriteLine($"Elasticsearch sink failure: {message}");
 
         var templateVersion = section["AutoRegisterTemplateVersion"];
         if (!string.IsNullOrWhiteSpace(templateVersion) &&
