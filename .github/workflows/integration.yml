@@ -130,7 +130,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/int'
 
     outputs:
-      image-tag: ${{ steps.meta.outputs.tags }}
+      image-tag: ${{ steps.vars.outputs.image_tag }}
       image-digest: ${{ steps.build.outputs.digest }}
 
     steps:
@@ -146,13 +146,20 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Set image tag
+        id: vars
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          echo "IMAGE_TAG=int-${SHORT_SHA}" >> "$GITHUB_ENV"
+          echo "image_tag=int-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch,suffix=-{{sha}}
+            type=raw,value=${{ env.IMAGE_TAG }}
             type=raw,value=int-latest,enable=true
             type=raw,value=int-{{date 'YYYYMMDD-HHmmss'}}
 
@@ -174,7 +181,7 @@ jobs:
       - name: Build Summary
         run: |
           echo "## Docker Image Built Successfully 🐳" >> $GITHUB_STEP_SUMMARY
-          echo "**Image:** \`${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:int-latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Tags:** ${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
           echo "**Digest:** ${{ steps.build.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
   
@@ -194,7 +201,8 @@ jobs:
           echo "export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}" >> $GITHUB_STEP_SUMMARY
           echo "export INT_POSTGRES_PASSWORD=supersecretlongpassword" >> $GITHUB_STEP_SUMMARY
           echo "export INT_JWT_SECRET=yourjwtsecret" >> $GITHUB_STEP_SUMMARY
-          echo "export IMAGE_TAG=int-latest" >> $GITHUB_STEP_SUMMARY
+          echo "export IMAGE_TAG=${{ needs.build-and-push.outputs.image-tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "export FRONTEND_TAG=latest" >> $GITHUB_STEP_SUMMARY
           echo "./scripts/start-integration.sh" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

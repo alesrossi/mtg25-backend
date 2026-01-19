@@ -426,7 +426,7 @@ public class Program
         }
         catch (HostAbortedException)
         {
-            Log.Information("MTG25 host aborted by tooling  request");
+            Log.Information("MTG25 host aborted by tooling request");
         }
         catch (Exception ex)
         {

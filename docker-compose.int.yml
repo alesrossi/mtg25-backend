@@ -40,7 +40,7 @@ services:
       retries: 5
 
   api-int:
-    image: ${DOCKER_USERNAME:-alesrossi}/mtg-api:${IMAGE_TAG:-int-latest}
+    image: ${DOCKER_USERNAME:-alesrossi}/mtg-api:${IMAGE_TAG}
     container_name: api-int
     restart: unless-stopped
     ports:
@@ -118,7 +118,7 @@ services:
     networks:
       - mtg-int-network
   frontend-int:
-    image: ${FRONTEND_REGISTRY:-alesrossi}/mtgfe-frontend:${FRONTEND_TAG:-latest}
+    image: ${FRONTEND_REGISTRY:-alesrossi}/mtgfe-frontend:${FRONTEND_TAG}
     container_name: frontend-int
     restart: unless-stopped
     depends_on:
