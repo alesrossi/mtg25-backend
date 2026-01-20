@@ -244,12 +244,50 @@ jobs:
         env:
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image-tag }}
         run: |
+          set -euo pipefail
           helm upgrade --install mtg-int ./charts/mtg-int \
             -n integration \
-            -f ./charts/mtg-int/values.yaml \
-            -f ./charts/mtg-int/values-secrets.yaml \
-            -f ./charts/mtg-int/ingress-values.yaml \
-            -f ./charts/mtg-int/values-kibana.yaml \
+            --reuse-values \
             --set api.image.tag="$IMAGE_TAG" \
             --set kibana.enabled=true \
             --debug
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.30.3
+
+      - name: Wait for rollout
+        run: |
+          set -euo pipefail
+          kubectl -n integration rollout status deploy/api-int --timeout=5m
+          kubectl -n integration rollout status deploy/frontend-int --timeout=5m
+          kubectl -n integration rollout status deploy/kibana-int --timeout=5m
+
+      - name: Health check
+        run: |
+          set -euo pipefail
+          curl -fsS https://api.167.235.109.6.nip.io/api/health
+
+      - name: Debug on failure
+        if: ${{ failure() }}
+        run: |
+          echo "## Deployment Debug Info" >> "$GITHUB_STEP_SUMMARY"
+          kubectl -n integration get pods -o wide | tee /tmp/pods.txt
+          kubectl -n integration get events --sort-by=.metadata.creationTimestamp | tail -n 100 | tee /tmp/events.txt
+          kubectl -n integration get deploy -o wide | tee /tmp/deploys.txt
+          kubectl -n integration get rs -o wide | tee /tmp/replicasets.txt
+          for pod in $(kubectl -n integration get pods --no-headers | awk '$2 != $3 || $4 != "Running" {print $1}'); do
+            echo "## ${pod}" >> "$GITHUB_STEP_SUMMARY"
+            kubectl -n integration describe "pod/$pod" | tee "/tmp/describe-${pod}.txt"
+            kubectl -n integration logs "pod/$pod" --all-containers --tail=200 | tee "/tmp/logs-${pod}.txt" || true
+            kubectl -n integration logs "pod/$pod" --all-containers --tail=200 --previous | tee "/tmp/logs-prev-${pod}.txt" || true
+          done
+          echo "### Pods" >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/pods.txt >> "$GITHUB_STEP_SUMMARY"
+          echo "### Deployments" >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/deploys.txt >> "$GITHUB_STEP_SUMMARY"
+          echo "### ReplicaSets" >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/replicasets.txt >> "$GITHUB_STEP_SUMMARY"
+          echo "### Events (last 100)" >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/events.txt >> "$GITHUB_STEP_SUMMARY"
