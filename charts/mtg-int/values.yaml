@@ -176,3 +176,10 @@ certManager:
   issuerName: ""
   email: ""
   server: ""
+
+maintenance:
+  restartCron:
+    enabled: false
+    schedule: "0 3 * * *"
+    timeZone: "UTC"
+    image: "bitnami/kubectl:1.30.3"
