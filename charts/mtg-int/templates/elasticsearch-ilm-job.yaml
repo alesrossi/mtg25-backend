@@ -1,0 +1,52 @@
+{{- if .Values.loggingRetention.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mtg-int-ilm-setup
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: ilm-setup
+          image: curlimages/curl:8.8.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ES_HOST
+              value: "{{ .Values.loggingRetention.elasticsearchHost }}"
+            - name: ES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.api.elasticsearch.credentialsSecretName }}
+                  key: {{ .Values.api.elasticsearch.credentialsUsernameKey }}
+            - name: ES_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.api.elasticsearch.credentialsSecretName }}
+                  key: {{ .Values.api.elasticsearch.credentialsPasswordKey }}
+          volumeMounts:
+            - name: es-certs
+              mountPath: /certs
+              readOnly: true
+            - name: ilm-script
+              mountPath: /scripts
+              readOnly: true
+          terminationMessagePolicy: FallbackToLogsOnError
+          command:
+            - /bin/sh
+            - -c
+            - /scripts/{{ .Values.loggingRetention.scriptFileName }} || (echo "ILM setup failed; sleeping for inspection" && sleep 300 && exit 1)
+      volumes:
+        - name: es-certs
+          secret:
+            secretName: {{ .Values.api.elasticsearch.caSecretName }}
+            items:
+              - key: {{ .Values.api.elasticsearch.caSecretKey }}
+                path: ca.crt
+        - name: ilm-script
+          configMap:
+            name: {{ .Values.loggingRetention.scriptConfigMapName }}
+            defaultMode: 0755
+{{- end }}

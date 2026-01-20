@@ -1,0 +1,10 @@
+{{- if and .Values.loggingRetention.enabled .Values.loggingRetention.manageScriptConfigMap }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.loggingRetention.scriptConfigMapName }}
+data:
+  {{ .Values.loggingRetention.scriptFileName }}: |
+{{- $script := .Files.Get "files/ilm-setup.sh" -}}
+{{ required "Missing files/ilm-setup.sh in chart" $script | indent 4 }}
+{{- end }}

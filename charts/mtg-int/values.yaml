@@ -183,3 +183,14 @@ maintenance:
     schedule: "0 3 * * *"
     timeZone: "UTC"
     image: "bitnami/kubectl:1.30.3"
+
+loggingRetention:
+  enabled: false
+  elasticsearchHost: "https://elasticsearch-int:9200"
+  policyName: "mtg25-api-int-ilm"
+  templateName: "mtg25-api-int-template"
+  indexPattern: "mtg25-api-int-*"
+  deleteAfterDays: 180
+  manageScriptConfigMap: true
+  scriptConfigMapName: "mtg-int-ilm-script"
+  scriptFileName: "ilm-setup.sh"
