@@ -129,7 +129,7 @@ api:
     credentialsSecretName: elasticsearch-int-credentials
     credentialsUsernameKey: username
     credentialsPasswordKey: password
-
+ 
 frontend:
   replicas: 2
   image:
