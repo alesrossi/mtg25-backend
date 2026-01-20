@@ -218,6 +218,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Deploy to Hetzner Integration
     if: github.event_name == 'push' && github.ref == 'refs/heads/int'
+    timeout-minutes: 10
 
     steps:
       - name: Checkout code
@@ -260,9 +261,9 @@ jobs:
       - name: Wait for rollout
         run: |
           set -euo pipefail
-          kubectl -n integration rollout status deploy/api-int --timeout=5m
-          kubectl -n integration rollout status deploy/frontend-int --timeout=5m
-          kubectl -n integration rollout status deploy/kibana-int --timeout=5m
+          kubectl -n integration rollout status deploy/api-int --timeout=3m
+          kubectl -n integration rollout status deploy/frontend-int --timeout=3m
+          kubectl -n integration rollout status deploy/kibana-int --timeout=3m
 
       - name: Health check
         run: |
