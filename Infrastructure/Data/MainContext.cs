@@ -14,6 +14,11 @@ public class MainContext : DbContext
     public DbSet<Collection> Collections { get; set; }
     public DbSet<Deck> Decks { get; set; }
     public DbSet<DeckCard> DeckCards { get; set; }
+    public DbSet<DeckCommit> DeckCommits { get; set; }
+    public DbSet<DeckCommitParent> DeckCommitParents { get; set; }
+    public DbSet<DeckTree> DeckTrees { get; set; }
+    public DbSet<DeckTreeEntry> DeckTreeEntries { get; set; }
+    public DbSet<DeckBranch> DeckBranches { get; set; }
     public DbSet<Wishlist> Wishlists { get; set; }
     public DbSet<WishlistCard> WishlistCards { get; set; }
     public DbSet<TradeBinder> TradeBinders { get; set; }
@@ -87,6 +92,98 @@ public class MainContext : DbContext
             entity.Property(dc => dc.Name).IsRequired();
             entity.Property(dc => dc.SetCode).IsRequired();
             entity.Property(dc => dc.TypeLine).IsRequired();
+        });
+
+        modelBuilder.Entity<DeckCommit>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.AuthorId).IsRequired();
+            entity.Property(e => e.Message).IsRequired();
+
+            entity.HasOne(e => e.Deck)
+                .WithMany(d => d.Commits)
+                .HasForeignKey(e => e.DeckId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Tree)
+                .WithMany()
+                .HasForeignKey(e => e.TreeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.DeckId);
+        });
+
+        modelBuilder.Entity<DeckCommitParent>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id)
+                .ValueGeneratedOnAdd();
+
+            entity.HasOne(e => e.Commit)
+                .WithMany(c => c.ParentLinks)
+                .HasForeignKey(e => e.CommitId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.ParentCommit)
+                .WithMany(c => c.ChildLinks)
+                .HasForeignKey(e => e.ParentCommitId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.CommitId, e.ParentCommitId })
+                .IsUnique();
+        });
+
+        modelBuilder.Entity<DeckTree>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id)
+                .ValueGeneratedOnAdd();
+        });
+
+        modelBuilder.Entity<DeckTreeEntry>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.ScryfallId).IsRequired();
+
+            entity.HasOne(e => e.Tree)
+                .WithMany(t => t.Entries)
+                .HasForeignKey(e => e.TreeId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => new { e.TreeId, e.ScryfallId })
+                .IsUnique();
+        });
+
+        modelBuilder.Entity<DeckBranch>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            entity.Property(e => e.CreatedByUserId).IsRequired();
+
+            entity.HasOne(e => e.Deck)
+                .WithMany(d => d.Branches)
+                .HasForeignKey(e => e.DeckId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.HeadCommit)
+                .WithMany()
+                .HasForeignKey(e => e.HeadCommitId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.DeckId, e.Name })
+                .IsUnique();
         });
 
         modelBuilder.Entity<TradeBinder>(entity =>

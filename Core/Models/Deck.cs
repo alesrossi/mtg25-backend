@@ -17,4 +17,7 @@ public class Deck : BaseModel
     
     // Navigation property to deck cards
     public ICollection<DeckCard> DeckCards { get; set; } = new List<DeckCard>();
+
+    public ICollection<DeckCommit> Commits { get; set; } = new List<DeckCommit>();
+    public ICollection<DeckBranch> Branches { get; set; } = new List<DeckBranch>();
 }
