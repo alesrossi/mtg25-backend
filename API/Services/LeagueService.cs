@@ -28,6 +28,7 @@ public interface ILeagueService
     Task<League> CreateLeagueAsync(string userId, NewLeagueDto leagueDto, CancellationToken cancellationToken = default);
     Task JoinAsPlayerAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
     Task PromoteLeagueAdminAsync(int leagueId, string userId, string targetUserId, CancellationToken cancellationToken = default);
+    Task TerminateLeagueAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
 }
 
 public sealed class LeagueService : ILeagueService
@@ -387,11 +388,25 @@ public sealed class LeagueService : ILeagueService
             round.Description = updateRound.Description;
         }
 
+        var hasResultData = false;
         if (updateRound.Players != null)
         {
-            var distinctPlayerIds = updateRound.Players
+            var requestedPlayers = updateRound.Players;
+            var requestedUserIds = requestedPlayers
+                .Select(player => player.UserId)
+                .ToList();
+            if (requestedUserIds.Any(string.IsNullOrWhiteSpace))
+            {
+                throw LeagueServiceException.BadRequest("Errors.Leagues.ValidationFailed");
+            }
+
+            var distinctPlayerIds = requestedUserIds
                 .Distinct()
                 .ToList();
+            if (distinctPlayerIds.Count != requestedUserIds.Count)
+            {
+                throw LeagueServiceException.BadRequest("Errors.Leagues.ValidationFailed");
+            }
 
             var eligiblePlayerIds = await _dbContext.UserLeagues
                 .Where(ul => ul.LeagueId == leagueId && ul.IsPlaying)
@@ -417,21 +432,116 @@ public sealed class LeagueService : ILeagueService
                 var users = await _dbContext.Users
                     .Where(u => distinctPlayerIds.Contains(u.Id))
                     .ToListAsync(cancellationToken);
+                var userLookup = users.ToDictionary(user2 => user2.Id);
+                hasResultData = requestedPlayers.Any(player =>
+                    player.Position.HasValue ||
+                    player.Wins.HasValue ||
+                    player.Draws.HasValue ||
+                    player.Losses.HasValue ||
+                    player.Omw.HasValue ||
+                    player.Gw.HasValue ||
+                    player.Ogw.HasValue);
 
-                var userRounds = users
-                    .Select(user2 => new AppUserRound
+                if (!hasResultData)
+                {
+                    var userRounds = users
+                        .Select(user2 => new AppUserRound
+                        {
+                            UserId = user2.Id,
+                            User = user2,
+                            RoundId = round.Id,
+                            Round = round,
+                            Position = 0,
+                            Score = 0
+                        })
+                        .ToList();
+
+                    await _dbContext.UserRounds.AddRangeAsync(userRounds, cancellationToken);
+                    round.Players = userRounds;
+                }
+                else
+                {
+                    var entries = requestedPlayers
+                        .Select((player, index) => new RoundResultEntry
+                        {
+                            Player = player,
+                            Index = index,
+                            Score = league.ScoringSystem == ScoringSystem.Victories
+                                ? (player.Wins ?? 0) * (league.PointsPerWin ?? 0)
+                                  + (player.Draws ?? 0) * (league.PointsPerDraw ?? 0)
+                                  + (player.Losses ?? 0) * (league.PointsPerLoss ?? 0)
+                                : 0
+                        })
+                        .ToList();
+
+                    var useProvidedPositions = false;
+                    if (league.ScoringSystem == ScoringSystem.Victories)
                     {
-                        UserId = user2.Id,
-                        User = user2,
-                        RoundId = round.Id,
-                        Round = round,
-                        Position = 0,
-                        Score = 0
-                    })
-                    .ToList();
+                        entries = entries
+                            .OrderByDescending(entry => entry.Score)
+                            .ThenByDescending(entry => entry.Player.Omw ?? 0)
+                            .ThenByDescending(entry => entry.Player.Gw ?? 0)
+                            .ThenByDescending(entry => entry.Player.Ogw ?? 0)
+                            .ThenBy(entry => entry.Index)
+                            .ToList();
+                    }
+                    else
+                    {
+                        var positionsProvided = requestedPlayers.All(player =>
+                            player.Position.HasValue && player.Position.Value > 0);
+                        var positionsUnique = positionsProvided
+                            && requestedPlayers.Select(player => player.Position!.Value).Distinct().Count() == requestedPlayers.Count;
+                        useProvidedPositions = positionsProvided && positionsUnique;
+                        if (useProvidedPositions)
+                        {
+                            entries = entries
+                                .OrderBy(entry => entry.Player.Position!.Value)
+                                .ThenBy(entry => entry.Index)
+                                .ToList();
+                        }
+                    }
 
-                await _dbContext.UserRounds.AddRangeAsync(userRounds, cancellationToken);
-                round.Players = userRounds;
+                    var userRounds = new List<AppUserRound>();
+                    for (var index = 0; index < entries.Count; index++)
+                    {
+                        var entry = entries[index];
+                        if (!userLookup.TryGetValue(entry.Player.UserId, out var user2))
+                        {
+                            throw LeagueServiceException.NotFound("Errors.Leagues.UserNotFound");
+                        }
+
+                        var position = league.ScoringSystem == ScoringSystem.Positional && useProvidedPositions
+                            ? entry.Player.Position!.Value
+                            : index + 1;
+                        var roundScore = league.ScoringSystem == ScoringSystem.Positional
+                            ? league.PointsToGive != null && league.PointsToGive.Count >= position
+                                ? league.PointsToGive[position - 1]
+                                : 0
+                            : entry.Score;
+
+                        userRounds.Add(new AppUserRound
+                        {
+                            UserId = user2.Id,
+                            User = user2,
+                            RoundId = round.Id,
+                            Round = round,
+                            Position = position,
+                            Score = roundScore,
+                            Wins = entry.Player.Wins ?? 0,
+                            Draws = entry.Player.Draws ?? 0,
+                            Losses = entry.Player.Losses ?? 0,
+                            Omw = entry.Player.Omw ?? 0,
+                            Gw = entry.Player.Gw ?? 0,
+                            Ogw = entry.Player.Ogw ?? 0
+                        });
+                    }
+
+                    round.Players = userRounds;
+                    round.Status = Status.Played;
+
+                    await _dbContext.UserRounds.AddRangeAsync(userRounds, cancellationToken);
+                    _dbContext.Update(league);
+                }
             }
             else
             {
@@ -442,7 +552,67 @@ public sealed class LeagueService : ILeagueService
         _dbContext.Update(round);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
+        if (hasResultData)
+        {
+            await RecalculateLeagueStandingsAsync(league, cancellationToken);
+        }
+
         return round;
+    }
+
+    private async Task RecalculateLeagueStandingsAsync(League league, CancellationToken cancellationToken)
+    {
+        var userLeagues = await _dbContext.UserLeagues
+            .Where(ul => ul.LeagueId == league.Id && ul.IsPlaying)
+            .ToListAsync(cancellationToken);
+
+        foreach (var userLeague in userLeagues)
+        {
+            userLeague.Score = 0;
+            userLeague.RoundsPlayed = 0;
+            userLeague.BestRound = 0;
+            userLeague.AvgPosition = 0;
+            userLeague.Rounds = [];
+        }
+
+        league.TotalPrize = 0;
+
+        var playedUserRounds = await _dbContext.UserRounds
+            .AsNoTracking()
+            .Include(userRound => userRound.Round)
+            .Where(userRound => userRound.Round.LeagueId == league.Id && userRound.Round.Status == Status.Played)
+            .ToListAsync(cancellationToken);
+
+        foreach (var userRound in playedUserRounds)
+        {
+            var userLeague = userLeagues.FirstOrDefault(ul => ul.UserId == userRound.UserId);
+            if (userLeague is null)
+            {
+                continue;
+            }
+
+            userLeague.Score += (int)Math.Round(userRound.Score);
+            userLeague.RoundsPlayed += 1;
+            userLeague.Rounds.Add(userRound.Position);
+            userLeague.BestRound = userLeague.BestRound == 0 || userRound.Position < userLeague.BestRound
+                ? userRound.Position
+                : userLeague.BestRound;
+            userLeague.AvgPosition = userLeague.Rounds.Count > 0
+                ? userLeague.Rounds.Average()
+                : 0;
+            league.TotalPrize += league.PrizePerPerson;
+        }
+
+        _dbContext.Update(league);
+        _dbContext.UpdateRange(userLeagues);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private sealed class RoundResultEntry
+    {
+        public required UpdateRoundPlayerDto Player { get; init; }
+        public int Index { get; init; }
+        public int Score { get; init; }
     }
 
     public async Task UpdateLeagueResultsAsync(int leagueId, string userId, List<UserWithScore> userList, CancellationToken cancellationToken = default)
@@ -950,6 +1120,29 @@ public sealed class LeagueService : ILeagueService
         }
 
         await AssignLeagueRoleAsync(targetUser.Id, league.Id, LeagueRole.Admin, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+    
+    public async Task TerminateLeagueAsync(int leagueId, string userId, CancellationToken cancellationToken = default)
+    {
+        var caller = await EnsureUserAsync(userId);
+
+        var league = await _dbContext.Leagues
+            .AsTracking()
+            .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
+        if (league is null)
+        {
+            throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
+        }
+
+        if (league.OwnerId != caller.Id)
+        {
+            throw LeagueServiceException.Unauthorized("Errors.Leagues.CallerNotOwner");
+        }
+
+        league.IsActive = false;
+
+        _dbContext.Update(league);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 

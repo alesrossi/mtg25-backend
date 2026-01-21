@@ -323,4 +323,32 @@ public static partial class LeaguesEndpoint
             return await MapLeagueServiceException(ex, context, messageLocalizer, userId);
         }
     }
+    private static async Task<IResult> TerminateLeagueAsync(
+        int leagueId,
+        HttpContext context,
+        [FromServices] ILeagueService leagueService,
+        [FromServices] ILogger<LeaguesEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
+        CancellationToken cancellationToken)
+    {
+        const string operation = "Leagues.Terminate";
+        var callerId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (callerId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing caller id", new { leagueId, targetUser = callerId });
+            return Results.Unauthorized();
+        }
+
+        try
+        {
+            await leagueService.TerminateLeagueAsync(leagueId, callerId, cancellationToken);
+            logger.LogOperationSuccess(operation, new { leagueId, targetUser = callerId });
+            return Results.Ok();
+        }
+        catch (LeagueServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { leagueId, callerId, targetUser = callerId });
+            return await MapLeagueServiceException(ex, context, messageLocalizer, callerId);
+        }
+    }
 }

@@ -564,7 +564,11 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         {
             StartDate = DateTime.UtcNow,
             Description = "Round 1 kickoff",
-            Players = new List<string> { owner.Id, player.Id }
+            Players = new List<UpdateRoundPlayerDto>
+            {
+                new() { UserId = owner.Id },
+                new() { UserId = player.Id }
+            }
         };
 
         var response = await client.PutAsync(
@@ -613,7 +617,10 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
         var updateRequest = new UpdateRoundDto
         {
-            Players = new List<string> { outsider.Id }
+            Players = new List<UpdateRoundPlayerDto>
+            {
+                new() { UserId = outsider.Id }
+            }
         };
 
         var response = await client.PutAsync(
@@ -1101,6 +1108,51 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             new StringContent(string.Empty, Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task TerminateLeague_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("terminate-noauth-owner@example.com", "terminate_noauth_owner");
+        var league = await CreateTestLeagueAsync("Terminate NoAuth League", owner.Id);
+        using var client = _factory.CreateClient();
+
+        var response = await client.PatchAsync($"/api/leagues/{league.Id}/terminate",
+            new StringContent(string.Empty, Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task TerminateLeague_WithUnknownLeague_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("terminate-missing-owner@example.com", "terminate_missing_owner");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var response = await client.PatchAsync($"/api/leagues/{int.MaxValue}/terminate",
+            new StringContent(string.Empty, Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task TerminateLeague_WithOwner_SetsLeagueInactive()
+    {
+        var owner = await CreateTestUserAsync("terminate-owner@example.com", "terminate_owner");
+        var league = await CreateTestLeagueAsync("Terminate League", owner.Id, isActive: true);
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var response = await client.PatchAsync($"/api/leagues/{league.Id}/terminate",
+            new StringContent(string.Empty, Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var updatedLeague = await dbContext.Leagues
+            .AsNoTracking()
+            .FirstAsync(l => l.Id == league.Id);
+        updatedLeague.IsActive.Should().BeFalse();
     }
 
     #region Helper Methods
