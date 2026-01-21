@@ -16,5 +16,21 @@ spec:
         - name: frontend-int
           image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
           imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+          env:
+            - name: EXPO_PUBLIC_ENV
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-int-secrets
+                  key: expoPublicEnv
+            - name: EXPO_PUBLIC_APP_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-int-secrets
+                  key: expoPublicAppName
+            - name: EXPO_PUBLIC_API_URL
+              valueFrom:
+                secretKeyRef:
+                  name: frontend-int-secrets
+                  key: expoPublicApiUrl
           ports:
             - containerPort: {{ .Values.frontend.service.port }}

@@ -45,9 +45,12 @@ spec:
               image: "{{ .Values.maintenance.restartCron.image }}"
               imagePullPolicy: IfNotPresent
               command:
-                - /bin/sh
-                - -c
-                - |
-                  set -e
-                  kubectl -n {{ .Release.Namespace }} rollout restart deployment --all
+                - kubectl
+                - -n
+                - {{ .Release.Namespace }}
+                - rollout
+                - restart
+                - deployment
+                - -l
+                - app
 {{- end }}
