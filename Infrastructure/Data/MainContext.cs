@@ -130,7 +130,7 @@ public class MainContext : DbContext
             entity.HasOne(e => e.ParentCommit)
                 .WithMany(c => c.ChildLinks)
                 .HasForeignKey(e => e.ParentCommitId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasIndex(e => new { e.CommitId, e.ParentCommitId })
                 .IsUnique();
@@ -180,7 +180,7 @@ public class MainContext : DbContext
             entity.HasOne(e => e.HeadCommit)
                 .WithMany()
                 .HasForeignKey(e => e.HeadCommitId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.SetNull);
 
             entity.HasIndex(e => new { e.DeckId, e.Name })
                 .IsUnique();

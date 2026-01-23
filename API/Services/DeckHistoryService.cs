@@ -104,9 +104,11 @@ public sealed class DeckHistoryService : IDeckHistoryService
             _unitOfWork.Repository<DeckCommitParent>().Add(parentLink);
         }
 
-        branch.HeadCommit = commit;
-        _unitOfWork.Repository<DeckBranch>().Update(branch);
+        await _unitOfWork.Complete();
 
+        branch.HeadCommit = commit;
+        branch.HeadCommitId = commit.Id;
+        _unitOfWork.Repository<DeckBranch>().Update(branch);
         await _unitOfWork.Complete();
 
         return commit;
