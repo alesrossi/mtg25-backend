@@ -12,7 +12,9 @@ public interface IDeckHistoryService
     Task<DeckCommit> CommitAsync(int deckId, string userId, string branchName, string message, CancellationToken cancellationToken = default);
     Task<DeckBranch> CreateBranchAsync(int deckId, string userId, string branchName, int fromCommitId, CancellationToken cancellationToken = default);
     Task CheckoutAsync(int deckId, string userId, int commitId, CancellationToken cancellationToken = default);
-    Task<DeckDiffResult> DiffAsync(int fromCommitId, int toCommitId, CancellationToken cancellationToken = default);
+    Task<DeckDiffResult> DiffAsync(int deckId, string userId, int fromCommitId, int toCommitId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<DeckBranch>> GetBranchesAsync(int deckId, string userId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<DeckCommit>> GetCommitsAsync(int deckId, string userId, CancellationToken cancellationToken = default);
 }
 
 public sealed class DeckHistoryService : IDeckHistoryService
@@ -64,6 +66,11 @@ public sealed class DeckHistoryService : IDeckHistoryService
         _unitOfWork.Repository<DeckBranch>().Add(branch);
         await _unitOfWork.Complete();
 
+        deck.CurrentBranchId = branch.Id;
+        deck.CurrentCommitId = commit.Id;
+        _unitOfWork.Repository<Deck>().Update(deck);
+        await _unitOfWork.Complete();
+
         return commit;
     }
 
@@ -109,6 +116,11 @@ public sealed class DeckHistoryService : IDeckHistoryService
         branch.HeadCommit = commit;
         branch.HeadCommitId = commit.Id;
         _unitOfWork.Repository<DeckBranch>().Update(branch);
+        await _unitOfWork.Complete();
+
+        deck.CurrentBranchId = branch.Id;
+        deck.CurrentCommitId = commit.Id;
+        _unitOfWork.Repository<Deck>().Update(deck);
         await _unitOfWork.Complete();
 
         return commit;
@@ -200,13 +212,20 @@ public sealed class DeckHistoryService : IDeckHistoryService
         }
 
         UpdateDeckAggregates(deck, entryLookup.Values);
+        var branches = await _unitOfWork.Repository<DeckBranch>()
+            .ListAsync(new DeckBranchesByDeckIdSpecification(deck.Id), tracking: false);
+        var matchingBranch = branches?.FirstOrDefault(branch => branch.HeadCommitId == commitId);
+        deck.CurrentBranchId = matchingBranch?.Id;
+        deck.CurrentCommitId = commitId;
         _unitOfWork.Repository<Deck>().Update(deck);
 
         await _unitOfWork.Complete();
     }
 
-    public async Task<DeckDiffResult> DiffAsync(int fromCommitId, int toCommitId, CancellationToken cancellationToken = default)
+    public async Task<DeckDiffResult> DiffAsync(int deckId, string userId, int fromCommitId, int toCommitId, CancellationToken cancellationToken = default)
     {
+        var deck = await RequireDeckAsync(deckId, userId);
+
         var fromCommit = await _unitOfWork.Repository<DeckCommit>().GetByIdAsync(fromCommitId, tracking: false);
         var toCommit = await _unitOfWork.Repository<DeckCommit>().GetByIdAsync(toCommitId, tracking: false);
 
@@ -214,6 +233,14 @@ public sealed class DeckHistoryService : IDeckHistoryService
         {
             throw DeckHistoryServiceException.NotFound("Errors.Decks.CommitNotFound");
         }
+
+        if (fromCommit.DeckId != deck.Id && toCommit.DeckId != deck.Id)
+        {
+            throw DeckHistoryServiceException.NotFound("Errors.Decks.CommitNotFound");
+        }
+
+        await EnsureDeckOwnershipAsync(fromCommit.DeckId, userId);
+        await EnsureDeckOwnershipAsync(toCommit.DeckId, userId);
 
         var fromEntries = await _unitOfWork.Repository<DeckTreeEntry>()
             .ListAsync(new DeckTreeEntriesByTreeIdSpecification(fromCommit.TreeId), tracking: false);
@@ -263,6 +290,22 @@ public sealed class DeckHistoryService : IDeckHistoryService
         return new DeckDiffResult(added, removed, modified);
     }
 
+    public async Task<IReadOnlyList<DeckBranch>> GetBranchesAsync(int deckId, string userId, CancellationToken cancellationToken = default)
+    {
+        await RequireDeckAsync(deckId, userId);
+        var branches = await _unitOfWork.Repository<DeckBranch>()
+            .ListAsync(new DeckBranchesByDeckIdSpecification(deckId), tracking: false);
+        return branches ?? [];
+    }
+
+    public async Task<IReadOnlyList<DeckCommit>> GetCommitsAsync(int deckId, string userId, CancellationToken cancellationToken = default)
+    {
+        await RequireDeckAsync(deckId, userId);
+        var commits = await _unitOfWork.Repository<DeckCommit>()
+            .ListAsync(new DeckCommitsByDeckIdSpecification(deckId), tracking: false);
+        return commits ?? [];
+    }
+
     private async Task<Deck> RequireDeckAsync(int deckId, string userId)
     {
         if (string.IsNullOrWhiteSpace(userId))
@@ -277,6 +320,15 @@ public sealed class DeckHistoryService : IDeckHistoryService
         }
 
         return deck;
+    }
+
+    private async Task EnsureDeckOwnershipAsync(int deckId, string userId)
+    {
+        var deck = await _unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
+        if (deck == null || deck.OwnerId != userId)
+        {
+            throw DeckHistoryServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
+        }
     }
 
     private static DeckTree BuildTreeFromDeckCards(IEnumerable<DeckCard> deckCards)

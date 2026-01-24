@@ -36,6 +36,7 @@ public sealed class DeckService : IDeckService
     private readonly IDecklistParserService _decklistParserService;
     private readonly CardDataService _cardDataService;
     private readonly IUserSettingsService _userSettingsService;
+    private readonly IDeckHistoryService _deckHistoryService;
 
     public DeckService(
         IUnitOfWork unitOfWork,
@@ -44,7 +45,8 @@ public sealed class DeckService : IDeckService
         IValidationService validationService,
         IDecklistParserService decklistParserService,
         CardDataService cardDataService,
-        IUserSettingsService userSettingsService)
+        IUserSettingsService userSettingsService,
+        IDeckHistoryService deckHistoryService)
     {
         _unitOfWork = unitOfWork;
         _userManager = userManager;
@@ -53,6 +55,7 @@ public sealed class DeckService : IDeckService
         _decklistParserService = decklistParserService;
         _cardDataService = cardDataService;
         _userSettingsService = userSettingsService;
+        _deckHistoryService = deckHistoryService;
     }
 
     public async Task<IReadOnlyList<DeckDto>> GetDecksForUserAsync(string userId, CancellationToken cancellationToken = default)
@@ -220,6 +223,7 @@ public sealed class DeckService : IDeckService
         _unitOfWork.Repository<Deck>().Add(deck);
         await _unitOfWork.Complete();
 
+        await _deckHistoryService.InitializeDeckHistoryAsync(deck.Id, userId, cancellationToken: cancellationToken);
         return MapToDto(deck);
     }
 
@@ -481,6 +485,7 @@ public sealed class DeckService : IDeckService
         _unitOfWork.Repository<Deck>().Update(deck);
         await _unitOfWork.Complete();
 
+        await _deckHistoryService.InitializeDeckHistoryAsync(deck.Id, userId, cancellationToken: cancellationToken);
         return new ImportDeckDto(MapToDto(deck), createdCards, parseResult.Errors, skippedLines);
     }
 

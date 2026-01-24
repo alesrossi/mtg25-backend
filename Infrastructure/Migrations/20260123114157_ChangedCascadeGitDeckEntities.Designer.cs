@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(MainContext))]
-    partial class MainContextModelSnapshot : ModelSnapshot
+    [Migration("20260123114157_ChangedCascadeGitDeckEntities")]
+    partial class ChangedCascadeGitDeckEntities
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -185,12 +188,6 @@ namespace Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text[]");
 
-                    b.Property<int?>("CurrentBranchId")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("CurrentCommitId")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Format")
                         .IsRequired()
                         .HasColumnType("text");
@@ -222,10 +219,6 @@ namespace Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("CurrentBranchId");
-
-                    b.HasIndex("CurrentCommitId");
 
                     b.ToTable("Decks");
                 });
@@ -592,23 +585,6 @@ namespace Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Collection");
-                });
-
-            modelBuilder.Entity("Core.Models.Deck", b =>
-                {
-                    b.HasOne("Core.Models.DeckBranch", "CurrentBranch")
-                        .WithMany()
-                        .HasForeignKey("CurrentBranchId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Core.Models.DeckCommit", "CurrentCommit")
-                        .WithMany()
-                        .HasForeignKey("CurrentCommitId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("CurrentBranch");
-
-                    b.Navigation("CurrentCommit");
                 });
 
             modelBuilder.Entity("Core.Models.DeckBranch", b =>

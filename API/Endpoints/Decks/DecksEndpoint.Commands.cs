@@ -280,4 +280,110 @@ public static partial class DecksEndpoint
             return await MapDeckServiceException(ex, context, messageLocalizer, userId);
         }
     }
+
+    private static async Task<IResult> CreateDeckCommitAsync(
+        int deckId,
+        [FromQuery] string branchName,
+        CreateDeckCommitDto createDto,
+        HttpContext context,
+        [FromServices] IDeckHistoryService deckHistoryService,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
+        CancellationToken cancellationToken)
+    {
+        const string operation = "Decks.Commit";
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null)
+        {
+            logger.LogOperationWarning(operation, "Missing user identifier", new { deckId });
+            return Results.Unauthorized();
+        }
+
+        if (string.IsNullOrWhiteSpace(branchName))
+        {
+            branchName = "main";
+        }
+
+        using var scope = logger.BeginOperationScope(operation, deckId);
+        logger.LogOperationStart(operation, new { deckId, branchName });
+
+        try
+        {
+            var commit = await deckHistoryService.CommitAsync(deckId, userId, branchName, createDto.Message, cancellationToken);
+            logger.LogOperationSuccess(operation, new { deckId, commit.Id });
+            return Results.Ok(MapCommitDto(commit));
+        }
+        catch (DeckHistoryServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { deckId, userId });
+            return await MapDeckHistoryServiceException(ex, context, messageLocalizer, userId);
+        }
+    }
+
+    private static async Task<IResult> CreateDeckBranchAsync(
+        int deckId,
+        [FromQuery] string name,
+        [FromQuery] int fromCommitId,
+        HttpContext context,
+        [FromServices] IDeckHistoryService deckHistoryService,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
+        CancellationToken cancellationToken)
+    {
+        const string operation = "Decks.BranchCreate";
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null)
+        {
+            logger.LogOperationWarning(operation, "Missing user identifier", new { deckId });
+            return Results.Unauthorized();
+        }
+
+        using var scope = logger.BeginOperationScope(operation, deckId);
+        logger.LogOperationStart(operation, new { deckId, name, fromCommitId });
+
+        try
+        {
+            var branch = await deckHistoryService.CreateBranchAsync(deckId, userId, name, fromCommitId, cancellationToken);
+            logger.LogOperationSuccess(operation, new { deckId, branch.Id });
+            return Results.Ok(MapBranchDto(branch));
+        }
+        catch (DeckHistoryServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { deckId, userId });
+            return await MapDeckHistoryServiceException(ex, context, messageLocalizer, userId);
+        }
+    }
+
+    private static async Task<IResult> CheckoutDeckAsync(
+        int deckId,
+        [FromQuery] int commitId,
+        HttpContext context,
+        [FromServices] IDeckHistoryService deckHistoryService,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
+        CancellationToken cancellationToken)
+    {
+        const string operation = "Decks.Checkout";
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null)
+        {
+            logger.LogOperationWarning(operation, "Missing user identifier", new { deckId });
+            return Results.Unauthorized();
+        }
+
+        using var scope = logger.BeginOperationScope(operation, deckId);
+        logger.LogOperationStart(operation, new { deckId, commitId });
+
+        try
+        {
+            await deckHistoryService.CheckoutAsync(deckId, userId, commitId, cancellationToken);
+            logger.LogOperationSuccess(operation, new { deckId, commitId });
+            return Results.NoContent();
+        }
+        catch (DeckHistoryServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { deckId, userId });
+            return await MapDeckHistoryServiceException(ex, context, messageLocalizer, userId);
+        }
+    }
 }

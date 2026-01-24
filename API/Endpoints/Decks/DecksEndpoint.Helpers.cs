@@ -54,4 +54,24 @@ public static partial class DecksEndpoint
 
         return body;
     }
+
+    private static async Task<IResult> MapDeckHistoryServiceException(
+        DeckHistoryServiceException exception,
+        HttpContext context,
+        IMessageLocalizer messageLocalizer,
+        string? userId)
+    {
+        return exception.StatusCode switch
+        {
+            StatusCodes.Status400BadRequest => exception.IncludeBody
+                ? Results.BadRequest(await LocalizeBodyAsync(context, messageLocalizer, userId, exception.Body))
+                : Results.BadRequest(),
+            StatusCodes.Status401Unauthorized => Results.Unauthorized(),
+            StatusCodes.Status404NotFound => exception.IncludeBody
+                ? Results.NotFound(await LocalizeBodyAsync(context, messageLocalizer, userId, exception.Body))
+                : Results.NotFound(),
+            StatusCodes.Status409Conflict => Results.Conflict(),
+            _ => Results.StatusCode(exception.StatusCode)
+        };
+    }
 }

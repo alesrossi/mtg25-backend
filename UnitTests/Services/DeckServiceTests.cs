@@ -151,6 +151,16 @@ public class DeckServiceTests
             cardDataService,
             settingsServiceMock.Object);
 
+        var historyServiceMock = new Mock<IDeckHistoryService>();
+        historyServiceMock.Setup(h => h.InitializeDeckHistoryAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DeckCommit
+            {
+                DeckId = 0,
+                TreeId = 0,
+                AuthorId = "user",
+                Message = "Initial commit"
+            });
+
         return new DeckService(
             unitOfWork,
             userManager,
@@ -158,7 +168,8 @@ public class DeckServiceTests
             new ValidationService(),
             parserService ?? new Mock<IDecklistParserService>().Object,
             cardDataService,
-            settingsServiceMock.Object);
+            settingsServiceMock.Object,
+            historyServiceMock.Object);
     }
 
     private static MainContext CreateContext()

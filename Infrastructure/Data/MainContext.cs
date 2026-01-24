@@ -27,6 +27,19 @@ public class MainContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.Entity<Deck>(entity =>
+        {
+            entity.HasOne(d => d.CurrentBranch)
+                .WithMany()
+                .HasForeignKey(d => d.CurrentBranchId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(d => d.CurrentCommit)
+                .WithMany()
+                .HasForeignKey(d => d.CurrentCommitId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
         modelBuilder.Entity<Collection>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -111,7 +124,7 @@ public class MainContext : DbContext
             entity.HasOne(e => e.Tree)
                 .WithMany()
                 .HasForeignKey(e => e.TreeId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasIndex(e => e.DeckId);
         });

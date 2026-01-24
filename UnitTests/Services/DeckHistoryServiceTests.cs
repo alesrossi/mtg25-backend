@@ -196,7 +196,7 @@ public class DeckHistoryServiceTests
         context.DeckCommits.AddRange(commitA, commitB);
         await context.SaveChangesAsync();
 
-        var diff = await service.DiffAsync(commitA.Id, commitB.Id);
+        var diff = await service.DiffAsync(deck.Id, deck.OwnerId, commitA.Id, commitB.Id);
 
         diff.Added.Should().ContainSingle(change => change.ScryfallId == "s3");
         diff.Removed.Should().ContainSingle(change => change.ScryfallId == "s1");
@@ -207,9 +207,10 @@ public class DeckHistoryServiceTests
     public async Task DiffAsync_WhenCommitMissing_ThrowsNotFound()
     {
         await using var context = InMemoryDbContextFactory.CreateMain();
+        var deck = SeedDeck(context, ownerId: "user-1");
         var service = CreateServiceWithCardData(context);
 
-        Func<Task> act = () => service.DiffAsync(100, 200);
+        Func<Task> act = () => service.DiffAsync(deck.Id, deck.OwnerId, 100, 200);
 
         var exception = await act.Should().ThrowAsync<DeckHistoryServiceException>();
         exception.Which.StatusCode.Should().Be(StatusCodes.Status404NotFound);

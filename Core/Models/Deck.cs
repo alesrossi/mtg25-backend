@@ -14,6 +14,11 @@ public class Deck : BaseModel
     public required string OwnerId { get; set; }
     public string? Image { get; set; }
     public List<string> ColorIdentity { get; set; } = [];
+
+    public int? CurrentBranchId { get; set; }
+    public DeckBranch? CurrentBranch { get; set; }
+    public int? CurrentCommitId { get; set; }
+    public DeckCommit? CurrentCommit { get; set; }
     
     // Navigation property to deck cards
     public ICollection<DeckCard> DeckCards { get; set; } = new List<DeckCard>();
