@@ -115,7 +115,7 @@ public static partial class DecksEndpoint
             .RequireAuthorization()
             .WithSummary("Update deck")
             .WithDescription("Updates deck metadata (name, format)")
-            .Produces<DeckDto>()
+            .Produces<UpdateDeckResultDto>()
             .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")

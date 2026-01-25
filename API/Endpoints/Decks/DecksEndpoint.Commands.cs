@@ -62,9 +62,9 @@ public static partial class DecksEndpoint
 
         try
         {
-            var deck = await deckService.UpdateDeckAsync(id, updateDto, userId, cancellationToken);
-            logger.LogOperationSuccess(operation, new { id });
-            return Results.Ok(deck);
+            var result = await deckService.UpdateDeckAsync(id, updateDto, userId, cancellationToken);
+            logger.LogOperationSuccess(operation, new { id, skippedLines = result.SkippedLines });
+            return Results.Ok(result);
         }
         catch (DeckServiceException ex)
         {

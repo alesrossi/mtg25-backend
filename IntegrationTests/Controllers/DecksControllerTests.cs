@@ -297,14 +297,14 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var responseContent = await response.Content.ReadAsStringAsync();
-        var updatedDeck = JsonSerializer.Deserialize<DeckDto>(
+        var updatedDeckResult = JsonSerializer.Deserialize<UpdateDeckResultDto>(
             responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-        updatedDeck.Should().NotBeNull();
-        updatedDeck!.Id.Should().Be(deck.Id);
-        updatedDeck.Name.Should().Be(updateRequest.Name);
-        updatedDeck.Format.Should().Be(updateRequest.Format);
-        updatedDeck.OwnerId.Should().Be(user.Id);
+        updatedDeckResult.Should().NotBeNull();
+        updatedDeckResult!.Deck.Id.Should().Be(deck.Id);
+        updatedDeckResult.Deck.Name.Should().Be(updateRequest.Name);
+        updatedDeckResult.Deck.Format.Should().Be(updateRequest.Format);
+        updatedDeckResult.Deck.OwnerId.Should().Be(user.Id);
     }
 
     [Fact]
