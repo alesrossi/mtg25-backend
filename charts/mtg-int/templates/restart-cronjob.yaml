@@ -51,6 +51,14 @@ spec:
                 - rollout
                 - restart
                 - deployment
+{{- if .Values.maintenance.restartCron.deployments }}
+              args:
+{{- range .Values.maintenance.restartCron.deployments }}
+                - {{ . }}
+{{- end }}
+{{- else }}
+              args:
                 - -l
                 - app
+{{- end }}
 {{- end }}

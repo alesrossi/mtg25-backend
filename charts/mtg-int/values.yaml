@@ -138,10 +138,6 @@ frontend:
     pullPolicy: Always
   service:
     port: 80
-  env:
-    EXPO_PUBLIC_ENV: ""
-    EXPO_PUBLIC_APP_NAME: ""
-    EXPO_PUBLIC_API_URL: ""
 
 adminer:
   image:
@@ -187,6 +183,11 @@ maintenance:
     schedule: "0 3 * * *"
     timeZone: "UTC"
     image: "registry.k8s.io/kubectl:v1.30.3"
+    deployments:
+      - api-int
+      - frontend-int
+      - nginx-int
+      - adminer-int
 
 loggingRetention:
   enabled: false
