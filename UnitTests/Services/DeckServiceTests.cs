@@ -50,7 +50,8 @@ public class DeckServiceTests
             Format = "Modern",
             OwnerId = user.Id,
             NumberOfCards = 0,
-            TotalPrice = 0
+            TotalPrice = 0,
+            DeckList = string.Empty
         };
         context.Decks.Add(deck);
         await context.SaveChangesAsync();
@@ -75,7 +76,8 @@ public class DeckServiceTests
             Format = "Modern",
             OwnerId = user.Id,
             NumberOfCards = 0,
-            TotalPrice = 0
+            TotalPrice = 0,
+            DeckList = string.Empty
         };
         context.Decks.Add(deck);
         await context.SaveChangesAsync();

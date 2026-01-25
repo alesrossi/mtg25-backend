@@ -14,6 +14,7 @@ public class Deck : BaseModel
     public required string OwnerId { get; set; }
     public string? Image { get; set; }
     public List<string> ColorIdentity { get; set; } = [];
+    public required string DeckList { get; set; } = string.Empty;
 
     public int? CurrentBranchId { get; set; }
     public DeckBranch? CurrentBranch { get; set; }

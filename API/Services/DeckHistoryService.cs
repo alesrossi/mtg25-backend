@@ -212,6 +212,7 @@ public sealed class DeckHistoryService : IDeckHistoryService
         }
 
         UpdateDeckAggregates(deck, entryLookup.Values);
+        deck.DeckList = BuildDeckListFromEntries(entryLookup.Values);
         var branches = await _unitOfWork.Repository<DeckBranch>()
             .ListAsync(new DeckBranchesByDeckIdSpecification(deck.Id), tracking: false);
         var matchingBranch = branches?.FirstOrDefault(branch => branch.HeadCommitId == commitId);
@@ -397,6 +398,57 @@ public sealed class DeckHistoryService : IDeckHistoryService
         deck.NumberOfMainBoardCards = main;
         deck.NumberOfSideBoardCards = side;
         deck.NumberOfCards = main + side;
+    }
+
+    private string BuildDeckListFromEntries(IEnumerable<DeckTreeEntry> entries)
+    {
+        var resolved = entries
+            .Where(entry => entry.TotalQuantity > 0)
+            .Select(entry =>
+            {
+                if (!_cardDataService.CardDataById.TryGetValue(entry.ScryfallId, out var cardData))
+                {
+                    throw DeckHistoryServiceException.BadRequest("Errors.Decks.CardDataMissing", entry.ScryfallId);
+                }
+
+                return new
+                {
+                    entry.MaindeckQuantity,
+                    entry.SideboardQuantity,
+                    Name = cardData.Name
+                };
+            })
+            .ToList();
+
+        var maindeckLines = resolved
+            .Where(card => card.MaindeckQuantity > 0)
+            .OrderBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(card => $"{card.MaindeckQuantity} {card.Name}")
+            .ToList();
+
+        var sideboardLines = resolved
+            .Where(card => card.SideboardQuantity > 0)
+            .OrderBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(card => $"{card.SideboardQuantity} {card.Name}")
+            .ToList();
+
+        if (maindeckLines.Count == 0 && sideboardLines.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var lines = new List<string>(maindeckLines);
+        if (sideboardLines.Count > 0)
+        {
+            if (lines.Count > 0)
+            {
+                lines.Add(string.Empty);
+            }
+
+            lines.AddRange(sideboardLines);
+        }
+
+        return string.Join('\n', lines);
     }
 }
 

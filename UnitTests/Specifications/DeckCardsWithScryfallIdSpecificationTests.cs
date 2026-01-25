@@ -124,7 +124,13 @@ public class DeckCardsWithScryfallIdSpecificationTests
             TypeLine = "Instant",
             MaindeckQuantity = 4,
             SideboardQuantity = 0,
-            Deck = new Deck { OwnerId = userId, Name = "User Deck", Format = "Standard" }
+            Deck = new Deck
+            {
+                OwnerId = userId,
+                Name = "User Deck",
+                Format = "Standard",
+                DeckList = string.Empty
+            }
         };
 
         var otherUserDeckCard = new DeckCard
@@ -136,7 +142,13 @@ public class DeckCardsWithScryfallIdSpecificationTests
             TypeLine = "Instant",
             MaindeckQuantity = 3,
             SideboardQuantity = 0,
-            Deck = new Deck { OwnerId = "other-user", Name = "Other Deck", Format = "Modern" }
+            Deck = new Deck
+            {
+                OwnerId = "other-user",
+                Name = "Other Deck",
+                Format = "Modern",
+                DeckList = string.Empty
+            }
         };
 
         var deckCards = new List<DeckCard> { userDeckCard, otherUserDeckCard };

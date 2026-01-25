@@ -217,7 +217,8 @@ public sealed class DeckService : IDeckService
             Format = createDto.Format,
             OwnerId = userId,
             NumberOfCards = 0,
-            TotalPrice = 0.0
+            TotalPrice = 0.0,
+            DeckList = string.Empty
         };
 
         _unitOfWork.Repository<Deck>().Add(deck);
@@ -456,7 +457,8 @@ public sealed class DeckService : IDeckService
             OwnerId = userId,
             NumberOfCards = 0,
             TotalPrice = 0,
-            TotalPriceCurrency = null
+            TotalPriceCurrency = null,
+            DeckList = string.Empty
         };
 
         _unitOfWork.Repository<Deck>().Add(deck);
@@ -482,11 +484,45 @@ public sealed class DeckService : IDeckService
         deck.NumberOfMainBoardCards = createdCards.Sum(dc => dc.MaindeckQuantity);
         deck.NumberOfSideBoardCards = createdCards.Sum(dc => dc.SideboardQuantity);
         deck.TotalPrice = Math.Round(totalPrice, 2, MidpointRounding.AwayFromZero);
+        deck.DeckList = BuildDeckList(createdCards);
         _unitOfWork.Repository<Deck>().Update(deck);
         await _unitOfWork.Complete();
 
         await _deckHistoryService.InitializeDeckHistoryAsync(deck.Id, userId, cancellationToken: cancellationToken);
         return new ImportDeckDto(MapToDto(deck), createdCards, parseResult.Errors, skippedLines);
+    }
+
+    private static string BuildDeckList(IEnumerable<DeckCardDto> deckCards)
+    {
+        var maindeckLines = deckCards
+            .Where(card => card.MaindeckQuantity > 0)
+            .OrderBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(card => $"{card.MaindeckQuantity} {card.Name}")
+            .ToList();
+
+        var sideboardLines = deckCards
+            .Where(card => card.SideboardQuantity > 0)
+            .OrderBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(card => $"{card.SideboardQuantity} {card.Name}")
+            .ToList();
+
+        if (maindeckLines.Count == 0 && sideboardLines.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var lines = new List<string>(maindeckLines);
+        if (sideboardLines.Count > 0)
+        {
+            if (lines.Count > 0)
+            {
+                lines.Add(string.Empty);
+            }
+
+            lines.AddRange(sideboardLines);
+        }
+
+        return string.Join('\n', lines);
     }
 
     private static DeckDto MapToDto(Deck deck)

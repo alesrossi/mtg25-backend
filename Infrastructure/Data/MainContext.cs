@@ -38,6 +38,9 @@ public class MainContext : DbContext
                 .WithMany()
                 .HasForeignKey(d => d.CurrentCommitId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            entity.Property(d => d.DeckList)
+                .HasDefaultValue(string.Empty);
         });
 
         modelBuilder.Entity<Collection>(entity =>
