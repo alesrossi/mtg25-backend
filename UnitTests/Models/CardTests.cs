@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Core.Enums;
 using Core.Models;
 using TestUtilities.Builders;
 
@@ -29,7 +30,7 @@ public class CardTests
         card.Name.Should().NotBeNullOrEmpty("because card name is required");
         card.ScryfallId.Should().NotBeNullOrEmpty("because oracle ID is required for card identification");
         card.Quantity.Should().BeGreaterThan(0, "because quantity must be positive");
-        card.Language.Should().NotBeNullOrEmpty("because language is required");
+        card.Language.Should().Be(Language.En, "because language is required");
         card.PurchasePriceCurrency.Should().NotBeNullOrEmpty("because currency is required");
         card.ImageUrl.Should().NotBeNullOrEmpty("because image URL is required");
         card.SetCode.Should().NotBeNullOrEmpty("because set code is required");

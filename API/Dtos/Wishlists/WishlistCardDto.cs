@@ -1,5 +1,7 @@
 using Core.Models;
 
+using Core.Enums;
+
 namespace API.Dtos.Wishlists;
 
 public class WishlistCardDto
@@ -14,7 +16,7 @@ public class WishlistCardDto
     public string? ArtCrop { get; set; }
     public int DesiredQuantity { get; set; }
     public bool? IsFoil { get; set; }
-    public string? Language { get; set; }
+    public Language? Language { get; set; }
     public Condition? MinimumCondition { get; set; }
     public bool IsAny { get; set; }
     public string? Notes { get; set; }

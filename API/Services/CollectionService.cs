@@ -1,5 +1,6 @@
 using System.Globalization;
 using API.Dtos.Cards;
+using Core.Enums;
 using API.Dtos.Collections;
 using API.Endpoints.Collections;
 using API.Helpers;
@@ -400,7 +401,7 @@ public sealed class CollectionService : ICollectionService
                 Count = g.Count(),
                 Cards = g.ToList()
             }).ToList(),
-            "language" => allCards.GroupBy(c => c.Language).Select(g => new GroupedCardsDto
+            "language" => allCards.GroupBy(c => c.Language.ToCode()).Select(g => new GroupedCardsDto
             {
                 GroupKey = g.Key,
                 Count = g.Count(),

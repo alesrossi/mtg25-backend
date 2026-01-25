@@ -45,11 +45,17 @@ namespace Infrastructure.Identity
 
             builder.Entity<Settings>()
                 .Property(s => s.LanguageUi)
-                .HasDefaultValue("It");
+                .HasConversion(
+                    v => v.ToCode(),
+                    v => LanguageExtensions.ParseOrDefault(v, Language.It))
+                .HasDefaultValue(Language.It);
 
             builder.Entity<Settings>()
                 .Property(s => s.LanguageCards)
-                .HasDefaultValue("En");
+                .HasConversion(
+                    v => v.ToCode(),
+                    v => LanguageExtensions.ParseOrDefault(v, Language.En))
+                .HasDefaultValue(Language.En);
 
             builder.Entity<Settings>()
                 .Property(s => s.EnabledLocation)

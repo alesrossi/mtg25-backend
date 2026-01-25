@@ -15,6 +15,7 @@ using Microsoft.EntityFrameworkCore;
 using TestUtilities.Authentication;
 using TestUtilities.Builders;
 using TestUtilities.Scryfall;
+using TestUtilities.Serialization;
 
 namespace IntegrationTests.Controllers;
 
@@ -54,7 +55,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         {
             var responseContent = await response.Content.ReadAsStringAsync();
             var returnedDecks = JsonSerializer.Deserialize<IReadOnlyList<DeckDto>>(
-                responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                responseContent, JsonContentHelper.DefaultOptions);
 
             returnedDecks.Should().NotBeNull();
             // Current implementation returns ALL decks - this test will help identify this issue
@@ -110,7 +111,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
             responseContent.Should().NotBeNullOrEmpty();
 
             var returnedDecks = JsonSerializer.Deserialize<IReadOnlyList<DeckDto>>(
-                responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                responseContent, JsonContentHelper.DefaultOptions);
 
             returnedDecks.Should().NotBeNull();
             
@@ -146,7 +147,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         {
             var responseContent = await response.Content.ReadAsStringAsync();
             var returnedDecks = JsonSerializer.Deserialize<IReadOnlyList<DeckDto>>(
-                responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                responseContent, JsonContentHelper.DefaultOptions);
 
             returnedDecks.Should().NotBeNull();
             returnedDecks.Count.Should().Be(1, "because only decks owned by user 1 should be returned");
@@ -166,7 +167,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
             Format = "Standard"
         };
 
-        var json = JsonSerializer.Serialize(createRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        var json = JsonSerializer.Serialize(createRequest, JsonContentHelper.DefaultOptions);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         // Act
@@ -178,7 +179,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var responseContent = await response.Content.ReadAsStringAsync();
         var createdDeck = JsonSerializer.Deserialize<DeckDto>(
-            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            responseContent, JsonContentHelper.DefaultOptions);
 
         createdDeck.Should().NotBeNull();
         createdDeck!.Name.Should().Be(createRequest.Name);
@@ -202,7 +203,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         var response = await client.PostAsync("/api/decks",
-            new StringContent(JsonSerializer.Serialize(createRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }),
+            new StringContent(JsonSerializer.Serialize(createRequest, JsonContentHelper.DefaultOptions),
                 Encoding.UTF8,
                 "application/json"));
 
@@ -225,7 +226,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var responseContent = await response.Content.ReadAsStringAsync();
         var returnedDeck = JsonSerializer.Deserialize<DeckDto>(
-            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            responseContent, JsonContentHelper.DefaultOptions);
 
         returnedDeck.Should().NotBeNull();
         returnedDeck!.Id.Should().Be(deck.Id);
@@ -287,7 +288,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
             Format = "Modern"
         };
 
-        var json = JsonSerializer.Serialize(updateRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        var json = JsonSerializer.Serialize(updateRequest, JsonContentHelper.DefaultOptions);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         // Act
@@ -298,7 +299,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var responseContent = await response.Content.ReadAsStringAsync();
         var updatedDeck = JsonSerializer.Deserialize<DeckDto>(
-            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            responseContent, JsonContentHelper.DefaultOptions);
 
         updatedDeck.Should().NotBeNull();
         updatedDeck!.Id.Should().Be(deck.Id);
@@ -322,7 +323,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
             Format = "Modern"
         };
 
-        var json = JsonSerializer.Serialize(updateRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        var json = JsonSerializer.Serialize(updateRequest, JsonContentHelper.DefaultOptions);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         // Act
@@ -345,7 +346,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         var response = await client.PutAsync($"/api/decks/{int.MaxValue}",
-            new StringContent(JsonSerializer.Serialize(updateRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }),
+            new StringContent(JsonSerializer.Serialize(updateRequest, JsonContentHelper.DefaultOptions),
                 Encoding.UTF8,
                 "application/json"));
 
@@ -366,7 +367,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         var response = await client.PutAsync($"/api/decks/{deck.Id}",
-            new StringContent(JsonSerializer.Serialize(updateRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }),
+            new StringContent(JsonSerializer.Serialize(updateRequest, JsonContentHelper.DefaultOptions),
                 Encoding.UTF8,
                 "application/json"));
 
@@ -456,7 +457,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
             Decklist = "4x Lightning Bolt\n2 Opt (INV)\n\n3 Negate (M10)"
         };
 
-        var json = JsonSerializer.Serialize(importRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        var json = JsonSerializer.Serialize(importRequest, JsonContentHelper.DefaultOptions);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         var response = await client.PostAsync("/api/decks/import", content);
@@ -513,7 +514,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
             Decklist = "2 Island\n1 Mountain\n4 Lightning Bolt"
         };
 
-        var json = JsonSerializer.Serialize(importRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        var json = JsonSerializer.Serialize(importRequest, JsonContentHelper.DefaultOptions);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         var response = await client.PostAsync("/api/decks/import", content);
@@ -559,7 +560,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
             Decklist = "4 Lightning Bolt\n2 Imaginary Card"
         };
 
-        var json = JsonSerializer.Serialize(importRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        var json = JsonSerializer.Serialize(importRequest, JsonContentHelper.DefaultOptions);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         var response = await client.PostAsync("/api/decks/import", content);
@@ -618,7 +619,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
             Decklist = "2 Imaginary Card\n3 Another Unknown"
         };
 
-        var json = JsonSerializer.Serialize(importRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        var json = JsonSerializer.Serialize(importRequest, JsonContentHelper.DefaultOptions);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         var response = await client.PostAsync("/api/decks/import", content);
@@ -662,7 +663,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
             Decklist = "Maindeck\n4 Lightning Bolt\nCreatures\n2 Goblin Guide\n\nSideboard\nNotes\n1 Negate\n\nExtras"
         };
 
-        var json = JsonSerializer.Serialize(importRequest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        var json = JsonSerializer.Serialize(importRequest, JsonContentHelper.DefaultOptions);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         var response = await client.PostAsync("/api/decks/import", content);
@@ -716,7 +717,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         var response = await client.PostAsync("/api/decks/import",
-            new StringContent(JsonSerializer.Serialize(request, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }),
+            new StringContent(JsonSerializer.Serialize(request, JsonContentHelper.DefaultOptions),
                 Encoding.UTF8,
                 "application/json"));
 
@@ -743,7 +744,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var exportedLines = JsonSerializer.Deserialize<List<string>>(
             responseContent,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            JsonContentHelper.DefaultOptions);
 
         exportedLines.Should().NotBeNull();
         exportedLines!.Should().Equal("3 Arc Lightning", "4 Lightning Bolt", string.Empty, "2 Negate");

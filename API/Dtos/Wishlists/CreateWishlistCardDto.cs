@@ -1,6 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using Core.Models;
 
+using Core.Enums;
+
 namespace API.Dtos.Wishlists;
 
 public class CreateWishlistCardDto
@@ -11,8 +13,7 @@ public class CreateWishlistCardDto
     public int DesiredQuantity { get; set; } = 1;
     public bool ExactVersion { get; set; }
     public bool? IsFoil { get; set; }
-    [StringLength(50)]
-    public string? Language { get; set; }
+    public Language? Language { get; set; }
     public Condition? MinimumCondition { get; set; }
     [StringLength(500)]
     public string? Notes { get; set; }

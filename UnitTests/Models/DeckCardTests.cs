@@ -1,5 +1,6 @@
 using Core.Models;
 using FluentAssertions;
+using Core.Enums;
 
 namespace UnitTests.Models;
 
@@ -115,7 +116,7 @@ public class DeckCardTests
             TypeLine = "Instant",
             Quantity = 1,
             PurchasePrice = 2.50,
-            Language = "English",
+            Language = Language.En,
             Condition = Condition.NearMint,
             IsFoil = false,
             PurchasePriceCurrency = "USD",

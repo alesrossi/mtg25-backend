@@ -1034,21 +1034,12 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
 
     private static List<DeckCardDto> DeserializeDeckCardList(string json)
     {
-        return JsonSerializer.Deserialize<List<DeckCardDto>>(json, new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            PropertyNameCaseInsensitive = true,
-            ReferenceHandler = ReferenceHandler.IgnoreCycles
-        })!;
+        return JsonSerializer.Deserialize<List<DeckCardDto>>(json, JsonContentHelper.DefaultOptions)!;
     }
 
     private static DeckCardDto DeserializeDeckCard(string json)
     {
-        return JsonSerializer.Deserialize<DeckCardDto>(json, new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            PropertyNameCaseInsensitive = true
-        })!;
+        return JsonSerializer.Deserialize<DeckCardDto>(json, JsonContentHelper.DefaultOptions)!;
     }
 
     private Task SeedCardDataAsync(IEnumerable<ScryfallCardDto> cards)

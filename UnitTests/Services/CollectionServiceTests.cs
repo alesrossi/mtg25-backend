@@ -6,6 +6,7 @@ using Core.Models;
 using Core.Models.Identity;
 using Core.Specifications;
 using FluentAssertions;
+using Core.Enums;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -185,7 +186,7 @@ public class CollectionServiceTests
             ScryfallId = scryfallId ?? Guid.NewGuid().ToString(),
             CollectionId = collectionId,
             Quantity = quantity,
-            Language = "English",
+            Language = Language.En,
             Condition = Condition.NearMint,
             IsFoil = false,
             PurchasePrice = purchasePrice,

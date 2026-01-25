@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Resources;
+using Core.Enums;
 using Microsoft.Extensions.Logging;
 
 namespace API.Services;
@@ -7,7 +8,7 @@ namespace API.Services;
 public interface IMessageLocalizer
 {
     Task<string> GetMessageAsync(string userId, string key, CancellationToken cancellationToken = default, params object[] args);
-    string GetMessageForLanguage(string? language, string key, params object[] args);
+    string GetMessageForLanguage(Language? language, string key, params object[] args);
 }
 
 public sealed class MessageLocalizationService : IMessageLocalizer
@@ -41,7 +42,7 @@ public sealed class MessageLocalizationService : IMessageLocalizer
         return GetMessageForLanguage(settings?.LanguageUi, key, args);
     }
 
-    public string GetMessageForLanguage(string? language, string key, params object[] args)
+    public string GetMessageForLanguage(Language? language, string key, params object[] args)
     {
         var culture = ResolveCulture(language);
         var localized = GetLocalizedString(culture, key, args);
@@ -61,14 +62,14 @@ public sealed class MessageLocalizationService : IMessageLocalizer
         return localized;
     }
 
-    private static CultureInfo ResolveCulture(string? language)
+    private static CultureInfo ResolveCulture(Language? language)
     {
-        if (string.IsNullOrWhiteSpace(language))
+        if (!language.HasValue)
         {
             return DefaultCulture;
         }
 
-        var normalized = language.Trim().ToLowerInvariant();
+        var normalized = language.Value.ToCode();
 
         try
         {

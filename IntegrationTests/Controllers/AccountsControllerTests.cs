@@ -9,6 +9,7 @@ using Core.Models.Identity;
 using Microsoft.AspNetCore.Identity;
 using TestUtilities.Authentication;
 using TestUtilities.Builders;
+using TestUtilities.Serialization;
 
 namespace IntegrationTests.Controllers;
 
@@ -112,7 +113,7 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
 
         var responseContent = await response.Content.ReadAsStringAsync();
         var userDto = JsonSerializer.Deserialize<UserDto>(
-            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            responseContent, JsonContentHelper.DefaultOptions);
 
         userDto.Should().NotBeNull();
         userDto!.Email.Should().Be(registerRequest.Email);
@@ -212,7 +213,7 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
 
         var responseContent = await response.Content.ReadAsStringAsync();
         var authDto = JsonSerializer.Deserialize<AuthDto>(
-            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            responseContent, JsonContentHelper.DefaultOptions);
 
         authDto.Should().NotBeNull();
         authDto!.UserId.Should().NotBeNullOrEmpty();
@@ -243,7 +244,7 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
 
         var loginResponseContent = await loginResponse.Content.ReadAsStringAsync();
         var authDto = JsonSerializer.Deserialize<AuthDto>(
-            loginResponseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            loginResponseContent, JsonContentHelper.DefaultOptions);
 
         authDto.Should().NotBeNull();
         authDto!.Token.Should().NotBeNull();

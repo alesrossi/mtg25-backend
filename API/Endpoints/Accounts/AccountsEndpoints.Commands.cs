@@ -217,14 +217,14 @@ public static partial class AccountsEndpoints
             settings.Currency = updateDto.Currency.Value;
         }
 
-        if (!string.IsNullOrWhiteSpace(updateDto.LanguageUi))
+        if (updateDto.LanguageUi.HasValue)
         {
-            settings.LanguageUi = updateDto.LanguageUi;
+            settings.LanguageUi = updateDto.LanguageUi.Value;
         }
 
-        if (!string.IsNullOrWhiteSpace(updateDto.LanguageCards))
+        if (updateDto.LanguageCards.HasValue)
         {
-            settings.LanguageCards = updateDto.LanguageCards;
+            settings.LanguageCards = updateDto.LanguageCards.Value;
         }
 
         if (updateDto.EnabledLocation.HasValue)

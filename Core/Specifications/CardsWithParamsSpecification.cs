@@ -99,7 +99,7 @@ public class CardsWithParamsSpecification : BaseSpecification<Card>
             (entityParams.IsFoil == null || x.IsFoil == entityParams.IsFoil) &&
             (entityParams.IsMisprint == null || x.IsMisprint == entityParams.IsMisprint) &&
             (entityParams.IsAltered == null || x.IsAltered == entityParams.IsAltered) &&
-            (string.IsNullOrEmpty(entityParams.Language) || x.Language == entityParams.Language) &&
+            (entityParams.Language == null || x.Language == entityParams.Language) &&
             (string.IsNullOrEmpty(typeLineTerm) || x.TypeLine.ToLower().Contains(typeLineTerm)) &&
             (entityParams.MinPrice == null || x.PurchasePrice >= entityParams.MinPrice) &&
             (entityParams.MaxPrice == null || x.PurchasePrice <= entityParams.MaxPrice) &&

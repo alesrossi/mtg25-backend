@@ -1,4 +1,5 @@
 using System.Reflection;
+using Core.Enums;
 using Core.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -62,6 +63,19 @@ public class MainContext : DbContext
 
             entity.Property(e => e.DesiredQuantity)
                 .HasDefaultValue(1);
+
+            entity.Property(e => e.Language)
+                .HasConversion(
+                    v => v.HasValue ? v.Value.ToCode() : null,
+                    v => LanguageExtensions.ParseNullable(v));
+        });
+
+        modelBuilder.Entity<Card>(entity =>
+        {
+            entity.Property(e => e.Language)
+                .HasConversion(
+                    v => v.ToCode(),
+                    v => LanguageExtensions.ParseOrDefault(v, Language.En));
         });
 
         modelBuilder.Entity<DeckCard>(entity =>

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Core.Enums;
 using Core.Models;
 
 namespace Core.Specifications;
@@ -24,7 +25,7 @@ public class EntitySpecParams
     public bool? IsFoil { get; set; }
     public bool? IsMisprint { get; set; }
     public bool? IsAltered { get; set; }
-    public string? Language { get; set; }
+    public Language? Language { get; set; }
     public double? MinPrice { get; set; }
     public double? MaxPrice { get; set; }
     public string? GroupBy { get; set; }

@@ -7,6 +7,7 @@ using API.Dtos.Notifications;
 using API.Services;
 using Core.Models.Identity;
 using FluentAssertions;
+using Core.Enums;
 using Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -245,11 +246,11 @@ public class NotificationServiceTests
             {
                 AppUserId = userId,
                 AppUser = null!,
-                LanguageUi = "it"
+                LanguageUi = Language.It
             });
 
         var localizer = new Mock<IMessageLocalizer>();
-        localizer.Setup(l => l.GetMessageForLanguage(It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<object[]>()))
+        localizer.Setup(l => l.GetMessageForLanguage(It.IsAny<Language?>(), It.IsAny<string>(), It.IsAny<object[]>()))
             .Returns("localized");
 
         return new NotificationService(context, NullLogger<NotificationService>.Instance, settingsService.Object, localizer.Object);

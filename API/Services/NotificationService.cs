@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Threading;
 using API.Dtos.Notifications;
 using API.Logging;
+using Core.Enums;
 using Core.Models.Identity;
 using Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -262,13 +263,13 @@ public class NotificationService
         return JsonSerializer.Deserialize<string[]>(argsJson) ?? Array.Empty<string>();
     }
 
-    private async Task<string?> ResolveUserLanguageAsync(string userId)
+    private async Task<Language?> ResolveUserLanguageAsync(string userId)
     {
         var settings = await _userSettingsService.GetSettingsAsync(userId);
         return settings?.LanguageUi;
     }
 
-    private string ResolveMessage(Notification notification, string? language)
+    private string ResolveMessage(Notification notification, Language? language)
     {
         if (!string.IsNullOrWhiteSpace(notification.MessageKey))
         {

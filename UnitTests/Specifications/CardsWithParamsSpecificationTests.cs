@@ -2,6 +2,7 @@ using System;
 using Core.Models;
 using Core.Specifications;
 using FluentAssertions;
+using Core.Enums;
 
 namespace UnitTests.Specifications;
 
@@ -60,7 +61,7 @@ public class CardsWithParamsSpecificationTests
             Name = "Test Card",
             ScryfallId = Guid.NewGuid().ToString(),
             Quantity = 1,
-            Language = "English",
+            Language = Language.En,
             Condition = Condition.NearMint,
             IsFoil = false,
             PurchasePrice = 1,

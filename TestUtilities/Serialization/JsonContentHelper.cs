@@ -1,6 +1,7 @@
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using API.Json;
 
 namespace TestUtilities.Serialization;
 
@@ -9,7 +10,12 @@ public static class JsonContentHelper
     public static readonly JsonSerializerOptions DefaultOptions = new()
     {
         PropertyNameCaseInsensitive = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters =
+        {
+            new LanguageJsonConverter(),
+            new NullableLanguageJsonConverter()
+        }
     };
 
     public static StringContent CreateContent<T>(T value)

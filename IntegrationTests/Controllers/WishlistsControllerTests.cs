@@ -5,6 +5,7 @@ using System.Net;
 using System.Text.Json;
 using API.Dtos.Cards;
 using API.Dtos.Wishlists;
+using Core.Enums;
 using API.Services;
 using Core.Models;
 using Core.Models.Identity;
@@ -376,7 +377,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         {
             DesiredQuantity = 3,
             IsFoil = true,
-            Language = "es",
+            Language = Language.It,
             Notes = "Updated notes"
         };
 
@@ -448,7 +449,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
             ScryfallId = "89f612d6-7c59-4a7b-a87d-45f789e88ba5",
             DesiredQuantity = 2,
             IsFoil = false,
-            Language = "en",
+            Language = Language.En,
             Notes = ""
         };
         var list = new List<CreateWishlistCardDto> { createCardDto };

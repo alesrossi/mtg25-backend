@@ -19,6 +19,7 @@ using TestUtilities.Authentication;
 using TestUtilities.Builders;
 using System.Linq;
 using TestUtilities.Scryfall;
+using TestUtilities.Serialization;
 
 namespace IntegrationTests.Controllers;
 
@@ -140,7 +141,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
 
         var responseContent = await response.Content.ReadAsStringAsync();
         var returnedCollections = JsonSerializer.Deserialize<List<CollectionDto>>(
-            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            responseContent, JsonContentHelper.DefaultOptions);
 
         returnedCollections.Should().NotBeNull();
         returnedCollections!.Should().HaveCount(3, "because we created 3 collections for this user");
@@ -175,7 +176,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var responseContent = await response.Content.ReadAsStringAsync();
         var collections = JsonSerializer.Deserialize<List<Collection>>(
-            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            responseContent, JsonContentHelper.DefaultOptions);
 
         collections.Should().NotBeNull();
         collections!.Should().BeEmpty("because this user has no collections");
@@ -207,7 +208,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         // Verify response contains created collection
         var responseContent = await response.Content.ReadAsStringAsync();
         var createdCollection = JsonSerializer.Deserialize<Collection>(
-            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            responseContent, JsonContentHelper.DefaultOptions);
 
         createdCollection.Should().NotBeNull();
         createdCollection!.Name.Should().Be(createRequest.Name);
@@ -305,7 +306,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var payload = await response.Content.ReadAsStringAsync();
-        var updatedCollection = JsonSerializer.Deserialize<Collection>(payload, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var updatedCollection = JsonSerializer.Deserialize<Collection>(payload, JsonContentHelper.DefaultOptions);
 
         updatedCollection.Should().NotBeNull();
         updatedCollection!.Name.Should().Be(updateRequest.Name);
@@ -389,7 +390,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
 
         var responseContent = await response.Content.ReadAsStringAsync();
         var returnedCollection = JsonSerializer.Deserialize<Collection>(
-            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            responseContent, JsonContentHelper.DefaultOptions);
 
         returnedCollection.Should().NotBeNull();
         returnedCollection!.Id.Should().Be(collection.Id);
@@ -632,7 +633,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var responseContent = await response.Content.ReadAsStringAsync();
         var result = JsonSerializer.Deserialize<API.Helpers.Pagination<Card>>(
-            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            responseContent, JsonContentHelper.DefaultOptions);
 
         result.Should().NotBeNull();
         result!.Data.Should().HaveCount(5, "because we created 5 test cards");
@@ -691,7 +692,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var responseContent = await response.Content.ReadAsStringAsync();
         var result = JsonSerializer.Deserialize<API.Helpers.Pagination<Card>>(
-            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            responseContent, JsonContentHelper.DefaultOptions);
 
         result.Should().NotBeNull();
         result!.Data.Should().HaveCount(1);
@@ -714,7 +715,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var responseContent = await response.Content.ReadAsStringAsync();
         var result = JsonSerializer.Deserialize<API.Helpers.Pagination<Card>>(
-            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            responseContent, JsonContentHelper.DefaultOptions);
 
         result.Should().NotBeNull();
         result!.Data.Should().HaveCount(2, "because 2 cards have LEA set code");
@@ -734,7 +735,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var responseContent = await response.Content.ReadAsStringAsync();
         var result = JsonSerializer.Deserialize<API.Helpers.Pagination<Card>>(
-            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            responseContent, JsonContentHelper.DefaultOptions);
 
         result.Should().NotBeNull();
         result!.Data.Should().HaveCount(2);
@@ -757,7 +758,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var responseContent = await response.Content.ReadAsStringAsync();
         var result = JsonSerializer.Deserialize<API.Helpers.Pagination<Card>>(
-            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            responseContent, JsonContentHelper.DefaultOptions);
 
         result.Should().NotBeNull();
         result!.Data.Should().NotBeEmpty();
@@ -779,7 +780,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var responseContent = await response.Content.ReadAsStringAsync();
         var result = JsonSerializer.Deserialize<API.Helpers.Pagination<Card>>(
-            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            responseContent, JsonContentHelper.DefaultOptions);
 
         result.Should().NotBeNull();
         var typeLines = result!.Data!.Select(c => c.TypeLine).ToList();
@@ -817,7 +818,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         descResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var descContent = await descResponse.Content.ReadAsStringAsync();
         var descResult = JsonSerializer.Deserialize<API.Helpers.Pagination<ExtensiveCardDto>>(
-            descContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            descContent, JsonContentHelper.DefaultOptions);
 
         descResult.Should().NotBeNull();
         descResult!.Data.Should().NotBeNull();
@@ -833,7 +834,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         ascResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var ascContent = await ascResponse.Content.ReadAsStringAsync();
         var ascResult = JsonSerializer.Deserialize<API.Helpers.Pagination<ExtensiveCardDto>>(
-            ascContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            ascContent, JsonContentHelper.DefaultOptions);
 
         ascResult.Should().NotBeNull();
         ascResult!.Data.Should().NotBeNull();
@@ -862,7 +863,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var responseContent = await response.Content.ReadAsStringAsync();
         var result = JsonSerializer.Deserialize<GroupedCardsPaginationDto>(
-            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            responseContent, JsonContentHelper.DefaultOptions);
 
         result.Should().NotBeNull();
         result!.Groups.Should().HaveCount(2, "because there are 2 different sets (Alpha/Beta)");

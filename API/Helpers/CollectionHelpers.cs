@@ -4,6 +4,7 @@ using System.Linq;
 using API.Dtos.Cards;
 using API.Dtos.Collections;
 using API.Services;
+using Core.Enums;
 using Core.Models;
 using Core.Models.Identity;
 using CsvHelper;
@@ -95,7 +96,7 @@ public static class CollectionHelpers
                 Name = cardName,
                 ScryfallId = ocd.Id,
                 Quantity = record.Quantity,
-                Language = record.Language,
+                Language = LanguageExtensions.ParseOrDefault(record.Language, Language.En),
                 IsFoil = record.IsFoil,
                 PurchasePrice = purchasePrice,
                 PurchasePriceCurrency = purchaseCurrency,
@@ -192,7 +193,7 @@ public static class CollectionHelpers
                 userCurrency);
 
             var backImageUrl = cds.ResolveBackImageUrl(ocd);
-            const string language = "en";
+            const Language language = Language.En;
             const Condition defaultCondition = Condition.NearMint;
 
             importedCards.Add(new Card
@@ -313,7 +314,7 @@ public static class CollectionHelpers
                 userCurrency);
 
             var backImageUrl = cds.ResolveBackImageUrl(ocd);
-            const string language = "en";
+            const Language language = Language.En;
 
             importedCards.Add(new Card
             {
@@ -437,7 +438,7 @@ public static class CollectionHelpers
                 userCurrency);
 
             var backImageUrl = cds.ResolveBackImageUrl(ocd);
-            var language = string.IsNullOrWhiteSpace(record.Language) ? "en" : record.Language.Trim();
+            var language = LanguageExtensions.ParseOrDefault(record.Language, Language.En);
 
             importedCards.Add(new Card
             {
@@ -544,7 +545,7 @@ public static class CollectionHelpers
                 userCurrency);
 
             var backImageUrl = cds.ResolveBackImageUrl(ocd);
-            var language = string.IsNullOrWhiteSpace(record.Language) ? "en" : record.Language.Trim();
+            var language = LanguageExtensions.ParseOrDefault(record.Language, Language.En);
 
             importedCards.Add(new Card
             {
@@ -641,7 +642,7 @@ public static class CollectionHelpers
                 userCurrency);
 
             var backImageUrl = cds.ResolveBackImageUrl(ocd);
-            var language = string.IsNullOrWhiteSpace(record.Language) ? "en" : record.Language.Trim();
+            var language = LanguageExtensions.ParseOrDefault(record.Language, Language.En);
             var cardCondition = ConvertCondition(record.Condition);
 
             importedCards.Add(new Card

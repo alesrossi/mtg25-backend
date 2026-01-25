@@ -6,6 +6,7 @@ using Core.Interfaces;
 using Core.Models;
 using Core.Models.Identity;
 using FluentAssertions;
+using Core.Enums;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -37,7 +38,7 @@ public class CardsServiceTests
         {
             CollectionId = collection.Id,
             Quantity = 3,
-            Language = "English",
+            Language = Language.En,
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = 2.00,
@@ -85,7 +86,7 @@ public class CardsServiceTests
         {
             CollectionId = collection.Id,
             Quantity = 2,
-            Language = "English",
+            Language = Language.En,
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = 2.00,
@@ -137,7 +138,7 @@ public class CardsServiceTests
             ScryfallId = "sf-1",
             CollectionId = collection.Id,
             Quantity = 2,
-            Language = "English",
+            Language = Language.En,
             Condition = "NearMint",
             IsFoil = true,
             PurchasePrice = null,
@@ -242,7 +243,7 @@ public class CardsServiceTests
             ScryfallId = scryfallId,
             CollectionId = collectionId,
             Quantity = quantity,
-            Language = "English",
+            Language = Language.En,
             Condition = Condition.NearMint,
             IsFoil = isFoil,
             PurchasePrice = purchasePrice,

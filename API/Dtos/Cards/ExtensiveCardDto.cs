@@ -1,6 +1,8 @@
 using Core.Models.Identity;
 using Condition = Core.Models.Condition;
 
+using Core.Enums;
+
 namespace API.Dtos.Cards;
 
 public class ExtensiveCardDto
@@ -10,7 +12,7 @@ public class ExtensiveCardDto
     public required string ScryfallId { get; set; }
     public int CollectionId { get; set; }
     public required int Quantity { get; set; }
-    public required string Language { get; set; }
+    public required Language Language { get; set; }
     public required Condition Condition  { get; set; }
     public required bool IsFoil { get; set; }
     public required double PurchasePrice { get; set; }

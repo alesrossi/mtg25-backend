@@ -1,3 +1,5 @@
+using Core.Enums;
+
 namespace Core.Models;
 
 public class WishlistCard : BaseModel
@@ -13,7 +15,7 @@ public class WishlistCard : BaseModel
     public string? BackImageUrl { get; set; }
     public string? ArtCrop { get; set; }
     public bool? IsFoil { get; set; }
-    public string? Language { get; set; }
+    public Language? Language { get; set; }
     public Condition? MinimumCondition { get; set; }
     public int? OriginalDeckId { get; set; }
 }

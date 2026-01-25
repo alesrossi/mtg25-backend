@@ -229,7 +229,7 @@ public class TestDataBuilder
             .With(c => c.PurchasePrice, price ?? _fixture.Create<double>() % 1000)
             .With(c => c.ScryfallId, _fixture.Create<Guid>().ToString())
             .With(c => c.Quantity, _random.Next(1, 10))
-            .With(c => c.Language, "English")
+            .With(c => c.Language, Language.En)
             .With(c => c.Condition, Condition.NearMint)
             .With(c => c.IsFoil, _random.Next(10) == 0) // 10% chance of foil
             .With(c => c.PurchasePriceCurrency, "USD")
@@ -337,8 +337,8 @@ public class TestDataBuilder
             MarketProvider = MarketProvider.Mkm,
             ReferencePrice = ReferencePrice.Avg,
             Currency = Currency.Eur,
-            LanguageUi = "It",
-            LanguageCards = "En",
+            LanguageUi = Language.It,
+            LanguageCards = Language.En,
             EnabledLocation = false,
             AppUser = user,
             AppUserId = user.Id

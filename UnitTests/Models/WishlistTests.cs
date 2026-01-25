@@ -1,5 +1,6 @@
 using System;
 using FluentAssertions;
+using Core.Enums;
 using Core.Models;
 using TestUtilities.Builders;
 
@@ -75,7 +76,7 @@ public class WishlistCardTests
             Name = "Sol Ring",
             DesiredQuantity = 1,
             IsFoil = true,
-            Language = "English",
+            Language = Language.En,
             Notes = "Prefer etched foil"
         };
         

@@ -5,6 +5,7 @@ using API.Configuration;
 using API.Extensions;
 using API.Filters;
 using API.Helpers;
+using API.Json;
 using API.Services;
 using Core.Interfaces;
 using Core.Models.Identity;
@@ -78,6 +79,8 @@ public class Program
                     options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
                     options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
                     options.JsonSerializerOptions.WriteIndented = true;
+                    options.JsonSerializerOptions.Converters.Add(new LanguageJsonConverter());
+                    options.JsonSerializerOptions.Converters.Add(new NullableLanguageJsonConverter());
                 });
 
             // Configure JSON for Minimal APIs
@@ -85,6 +88,8 @@ public class Program
             {
                 options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
                 options.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+                options.SerializerOptions.Converters.Add(new LanguageJsonConverter());
+                options.SerializerOptions.Converters.Add(new NullableLanguageJsonConverter());
             });
             
             // Add services to the container.

@@ -12,6 +12,7 @@ using Core.Models;
 using Core.Models.Identity;
 using Core.Specifications;
 using FluentAssertions;
+using Core.Enums;
 using Infrastructure.Data;
 using Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
@@ -50,9 +51,9 @@ public class TradeConnectionServiceTests : IDisposable
             {
                 AppUserId = userId,
                 AppUser = null!,
-                LanguageUi = "it"
+                LanguageUi = Language.It
             });
-        _messageLocalizerMock.Setup(l => l.GetMessageForLanguage(It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<object[]>()))
+        _messageLocalizerMock.Setup(l => l.GetMessageForLanguage(It.IsAny<Language?>(), It.IsAny<string>(), It.IsAny<object[]>()))
             .Returns("localized");
 
         _notificationService = new NotificationService(

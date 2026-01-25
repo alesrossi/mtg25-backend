@@ -10,6 +10,7 @@ using TestUtilities.Authentication;
 using TestUtilities.Builders;
 using Core.Enums;
 using Microsoft.EntityFrameworkCore;
+using TestUtilities.Serialization;
 
 namespace IntegrationTests.Controllers;
 
@@ -180,10 +181,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var payload = await response.Content.ReadAsStringAsync();
-        var roundInfo = JsonSerializer.Deserialize<RoundInfoDto>(payload, new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        });
+        var roundInfo = JsonSerializer.Deserialize<RoundInfoDto>(payload, JsonContentHelper.DefaultOptions);
 
         roundInfo.Should().NotBeNull();
         roundInfo!.Id.Should().Be(roundId);
@@ -495,7 +493,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         {
             var responseContent = await response.Content.ReadAsStringAsync();
             var createdLeague = JsonSerializer.Deserialize<League>(
-                responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                responseContent, JsonContentHelper.DefaultOptions);
 
             createdLeague.Should().NotBeNull();
             createdLeague.Name.Should().Be(createRequest.Name);

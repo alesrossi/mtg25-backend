@@ -3,6 +3,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using API.Dtos.Cards;
+using Core.Enums;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Core.Models;
@@ -11,6 +12,7 @@ using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using TestUtilities.Authentication;
 using TestUtilities.Builders;
+using TestUtilities.Serialization;
 
 namespace IntegrationTests.Controllers;
 
@@ -49,7 +51,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var responseContent = await response.Content.ReadAsStringAsync();
         var returnedCard = JsonSerializer.Deserialize<Card>(
-            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            responseContent, JsonContentHelper.DefaultOptions);
 
         returnedCard.Should().NotBeNull();
         returnedCard!.Id.Should().Be(card.Id);
@@ -118,7 +120,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         {
             CollectionId = collection.Id,
             Quantity = card.Quantity + 2,
-            Language = "English",
+            Language = Language.En,
             Condition = "NearMint",
             IsFoil = card.IsFoil,
             PurchasePrice = card.PurchasePrice + 1,
@@ -127,12 +129,12 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             IsAltered = card.IsAltered
         };
 
-        var content = new StringContent(JsonSerializer.Serialize(updateDto), Encoding.UTF8, "application/json");
+        var content = JsonContentHelper.CreateContent(updateDto);
         var response = await client.PutAsync($"/api/cards/{card.Id}", content);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var payload = await response.Content.ReadAsStringAsync();
-        var updatedCard = JsonSerializer.Deserialize<Card>(payload, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var updatedCard = JsonSerializer.Deserialize<Card>(payload, JsonContentHelper.DefaultOptions);
 
         updatedCard.Should().NotBeNull();
         updatedCard!.Quantity.Should().Be(updateDto.Quantity);
@@ -151,7 +153,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         {
             CollectionId = collection.Id,
             Quantity = 0,
-            Language = "English",
+            Language = Language.En,
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = card.PurchasePrice,
@@ -160,7 +162,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             IsAltered = false
         };
 
-        var content = new StringContent(JsonSerializer.Serialize(updateDto), Encoding.UTF8, "application/json");
+        var content = JsonContentHelper.CreateContent(updateDto);
         var response = await client.PutAsync($"/api/cards/{card.Id}", content);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -178,7 +180,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         {
             CollectionId = collection.Id,
             Quantity = card.Quantity,
-            Language = "English",
+            Language = Language.En,
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = card.PurchasePrice,
@@ -187,7 +189,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             IsAltered = false
         };
 
-        var response = await client.PutAsync($"/api/cards/{card.Id}", new StringContent(JsonSerializer.Serialize(updateDto), Encoding.UTF8, "application/json"));
+        var response = await client.PutAsync($"/api/cards/{card.Id}", JsonContentHelper.CreateContent(updateDto));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -203,7 +205,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         {
             CollectionId = collection.Id,
             Quantity = 1,
-            Language = "English",
+            Language = Language.En,
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = 1,
@@ -212,7 +214,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             IsAltered = false
         };
 
-        var response = await client.PutAsync($"/api/cards/{int.MaxValue}", new StringContent(JsonSerializer.Serialize(updateDto), Encoding.UTF8, "application/json"));
+        var response = await client.PutAsync($"/api/cards/{int.MaxValue}", JsonContentHelper.CreateContent(updateDto));
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
@@ -230,7 +232,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         {
             CollectionId = collection.Id,
             Quantity = card.Quantity,
-            Language = "English",
+            Language = Language.En,
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = card.PurchasePrice,
@@ -239,7 +241,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             IsAltered = false
         };
 
-        var response = await client.PutAsync($"/api/cards/{card.Id}", new StringContent(JsonSerializer.Serialize(updateDto), Encoding.UTF8, "application/json"));
+        var response = await client.PutAsync($"/api/cards/{card.Id}", JsonContentHelper.CreateContent(updateDto));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -258,7 +260,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         {
             CollectionId = collection.Id,
             Quantity = 1,
-            Language = "English",
+            Language = Language.En,
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = card.PurchasePrice,
@@ -268,12 +270,12 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             ScryfallId = "dd60b291-0a88-4e8e-bef8-76cdfd6c8183"
         };
 
-        var content = new StringContent(JsonSerializer.Serialize(updateDto), Encoding.UTF8, "application/json");
+        var content = JsonContentHelper.CreateContent(updateDto);
         var response = await client.PutAsync($"/api/cards/{card.Id}/versions", content);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var payload = await response.Content.ReadAsStringAsync();
-        var updatedCard = JsonSerializer.Deserialize<Card>(payload, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var updatedCard = JsonSerializer.Deserialize<Card>(payload, JsonContentHelper.DefaultOptions);
 
         updatedCard.Should().NotBeNull();
         updatedCard.ScryfallId.Should().Be(updateDto.ScryfallId);
@@ -297,7 +299,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         {
             CollectionId = collection.Id,
             Quantity = 1,
-            Language = "English",
+            Language = Language.En,
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = card.PurchasePrice,
@@ -307,7 +309,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             ScryfallId = "0a1b4e2e-5459-4fae-81d9-1e882647daac"
         };
 
-        var content = new StringContent(JsonSerializer.Serialize(updateDto), Encoding.UTF8, "application/json");
+        var content = JsonContentHelper.CreateContent(updateDto);
         var response = await client.PutAsync($"/api/cards/{card.Id}/versions", content);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -325,7 +327,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         {
             CollectionId = collection.Id,
             Quantity = 1,
-            Language = "English",
+            Language = Language.En,
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = card.PurchasePrice,
@@ -335,7 +337,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             ScryfallId = "TEST"
         };
 
-        var content = new StringContent(JsonSerializer.Serialize(updateDto), Encoding.UTF8, "application/json");
+        var content = JsonContentHelper.CreateContent(updateDto);
         var response = await client.PutAsync($"/api/cards/{card.Id}/versions", content);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -353,7 +355,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         {
             CollectionId = collection.Id,
             Quantity = card.Quantity,
-            Language = "English",
+            Language = Language.En,
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = card.PurchasePrice,
@@ -363,7 +365,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             ScryfallId = "TEST"
         };
 
-        var response = await client.PutAsync($"/api/cards/{card.Id}/versions", new StringContent(JsonSerializer.Serialize(updateDto), Encoding.UTF8, "application/json"));
+        var response = await client.PutAsync($"/api/cards/{card.Id}/versions", JsonContentHelper.CreateContent(updateDto));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -379,7 +381,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         {
             CollectionId = collection.Id,
             Quantity = 1,
-            Language = "English",
+            Language = Language.En,
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = 1,
@@ -389,7 +391,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             ScryfallId = "TEST"
         };
 
-        var response = await client.PutAsync($"/api/cards/{int.MaxValue}/versions", new StringContent(JsonSerializer.Serialize(updateDto), Encoding.UTF8, "application/json"));
+        var response = await client.PutAsync($"/api/cards/{int.MaxValue}/versions", JsonContentHelper.CreateContent(updateDto));
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
@@ -407,7 +409,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         {
             CollectionId = collection.Id,
             Quantity = card.Quantity,
-            Language = "English",
+            Language = Language.En,
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = card.PurchasePrice,
@@ -417,7 +419,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             ScryfallId =  "test"
         };
 
-        var response = await client.PutAsync($"/api/cards/{card.Id}/versions", new StringContent(JsonSerializer.Serialize(updateDto), Encoding.UTF8, "application/json"));
+        var response = await client.PutAsync($"/api/cards/{card.Id}/versions", JsonContentHelper.CreateContent(updateDto));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -520,7 +522,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var responseContent = await response.Content.ReadAsStringAsync();
         var cards = JsonSerializer.Deserialize<List<MinimalCardDto>>(
-            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            responseContent, JsonContentHelper.DefaultOptions);
 
         cards.Should().NotBeNull();
         cards.Should().HaveCountGreaterThan(0, "because there should be cards matching 'Lightning'");
@@ -560,7 +562,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             ScryfallId = "97398ad2-675b-4a34-aab7-935dd6714f1c",
             CollectionId = collection.Id,
             Quantity = 2,
-            Language = "en",
+            Language = Language.En,
             Version = "dmc",
             Condition = "NearMint",
             IsFoil = false,
@@ -570,7 +572,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             IsAltered = false
         };
 
-        var json = JsonSerializer.Serialize(cardRequest);
+        var json = JsonSerializer.Serialize(cardRequest, JsonContentHelper.DefaultOptions);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         // Act
@@ -600,14 +602,14 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             ScryfallId = "97398ad2-675b-4a34-aab7-935dd6714f1c",
             CollectionId = collection.Id,
             Quantity = 1,
-            Language = "en",
+            Language = Language.En,
             Condition = "NearMint",
             IsFoil = false,
             IsMisprint = false,
             IsAltered = false
         };
 
-        var json = JsonSerializer.Serialize(cardRequest);
+        var json = JsonSerializer.Serialize(cardRequest, JsonContentHelper.DefaultOptions);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         // Act
@@ -617,10 +619,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.OK, "because the API should fill missing prices with live data");
 
         var payload = await response.Content.ReadAsStringAsync();
-        var createdCard = JsonSerializer.Deserialize<Card>(payload, new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        });
+        var createdCard = JsonSerializer.Deserialize<Card>(payload, JsonContentHelper.DefaultOptions);
 
         createdCard.Should().NotBeNull();
         createdCard!.PurchasePrice.Should().BeGreaterThan(0, "because a live price should be applied when none is supplied");
@@ -639,7 +638,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             OracleId = "97398ad2-675b-4a34-aab7-935dd6714f1c",
             CollectionId = collection.Id,
             Quantity = 1,
-            Language = "en",
+            Language = Language.En,
             Condition = "InvalidCondition",
             IsFoil = false,
             PurchasePrice = 1.0,
@@ -648,7 +647,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             IsAltered = false
         };
 
-        var response = await client.PostAsync("/api/cards", new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json"));
+        var response = await client.PostAsync("/api/cards", JsonContentHelper.CreateContent(request));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -665,7 +664,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             ScryfallId = "97398ad2-675b-4a34-aab7-935dd6714f1c",
             CollectionId = collection.Id,
             Quantity = 1,
-            Language = "en",
+            Language = Language.En,
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = 1.0,
@@ -674,7 +673,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             IsAltered = false
         };
 
-        var response = await client.PostAsync("/api/cards", new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json"));
+        var response = await client.PostAsync("/api/cards", JsonContentHelper.CreateContent(request));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -690,7 +689,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             ScryfallId = "97398ad2-675b-4a34-aab7-935dd6714f1c",
             CollectionId = int.MaxValue,
             Quantity = 1,
-            Language = "en",
+            Language = Language.En,
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = 1.0,
@@ -699,7 +698,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             IsAltered = false
         };
 
-        var response = await client.PostAsync("/api/cards", new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json"));
+        var response = await client.PostAsync("/api/cards", JsonContentHelper.CreateContent(request));
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
@@ -715,11 +714,11 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             CardList = "Counterspell\nLightning Bolt"
         };
 
-        var response = await client.PostAsync("/api/cards/card-list", new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json"));
+        var response = await client.PostAsync("/api/cards/card-list", JsonContentHelper.CreateContent(request));
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var payload = await response.Content.ReadAsStringAsync();
-        var cards = JsonSerializer.Deserialize<List<ScryfallCardDto>>(payload, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var cards = JsonSerializer.Deserialize<List<ScryfallCardDto>>(payload, JsonContentHelper.DefaultOptions);
 
         cards.Should().NotBeNull();
         cards!.Should().HaveCount(2);
@@ -732,7 +731,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         using var client = _factory.CreateClient();
         var request = new CardListDto { CardList = "Counterspell" };
 
-        var response = await client.PostAsync("/api/cards/card-list", new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json"));
+        var response = await client.PostAsync("/api/cards/card-list", JsonContentHelper.CreateContent(request));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -753,7 +752,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         
         var responseContent = await response.Content.ReadAsStringAsync();
         var returnedCard = JsonSerializer.Deserialize<ScryfallCardDto>(
-            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            responseContent, JsonContentHelper.DefaultOptions);
 
         returnedCard.Should().NotBeNull();
         returnedCard.Name.Should().Be(cardName);
@@ -798,7 +797,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         
         var responseContent = await response.Content.ReadAsStringAsync();
         var returnedCard = JsonSerializer.Deserialize<ScryfallCardDto>(
-            responseContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            responseContent, JsonContentHelper.DefaultOptions);
 
         returnedCard.Should().NotBeNull();
         returnedCard.Id.Should().Be(oracleId);
@@ -901,7 +900,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             ScryfallId = Guid.NewGuid()
                 .ToString(),
             Quantity = quantity,
-            Language = "English",
+            Language = Language.En,
             Condition = Condition.NearMint,
             IsFoil = false,
             PurchasePrice = 1.0,
