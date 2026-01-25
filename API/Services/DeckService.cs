@@ -16,7 +16,7 @@ public interface IDeckService
     Task<IReadOnlyList<DeckCardDto>> GetDeckCardsAsync(int deckId, string userId, bool maindeckOnly, bool sideboardOnly, bool? ownedOnly, CancellationToken cancellationToken = default);
     Task<DeckCardDto> GetDeckCardByIdAsync(int deckId, int id, string userId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<DeckCardDto>> GetMissingDeckCardsAsync(int deckId, string userId, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<string>> ExportDeckAsync(int deckId, string userId, CancellationToken cancellationToken = default);
+    Task<string> ExportDeckAsync(int deckId, string userId, CancellationToken cancellationToken = default);
     Task<DeckDto> CreateDeckAsync(CreateDeckDto createDto, string userId, CancellationToken cancellationToken = default);
     Task<UpdateDeckResultDto> UpdateDeckAsync(int id, UpdateDeckDto updateDto, string userId, CancellationToken cancellationToken = default);
     Task DeleteDeckAsync(int id, string userId, CancellationToken cancellationToken = default);
@@ -157,7 +157,7 @@ public sealed class DeckService : IDeckService
         return (await _deckCardService.GetDeckCardsAsync(deckId, ownedOnly: false)).ToList();
     }
 
-    public async Task<IReadOnlyList<string>> ExportDeckAsync(int deckId, string userId, CancellationToken cancellationToken = default)
+    public async Task<string> ExportDeckAsync(int deckId, string userId, CancellationToken cancellationToken = default)
     {
         if (userId is null)
         {
@@ -170,38 +170,7 @@ public sealed class DeckService : IDeckService
             throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
         }
 
-        var deckCards = (await _deckCardService.GetDeckCardsAsync(deckId)).ToList();
-
-        if (deckCards.Count == 0)
-        {
-            return Array.Empty<string>();
-        }
-
-        var maindeckLines = deckCards
-            .Where(card => card.MaindeckQuantity > 0)
-            .OrderBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(card => $"{card.MaindeckQuantity} {card.Name}")
-            .ToList();
-
-        var sideboardLines = deckCards
-            .Where(card => card.SideboardQuantity > 0)
-            .OrderBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(card => $"{card.SideboardQuantity} {card.Name}")
-            .ToList();
-
-        var exportedLines = new List<string>(maindeckLines);
-
-        if (sideboardLines.Count > 0)
-        {
-            if (exportedLines.Count > 0)
-            {
-                exportedLines.Add(string.Empty);
-            }
-
-            exportedLines.AddRange(sideboardLines);
-        }
-
-        return exportedLines;
+        return deck.DeckList ?? string.Empty;
     }
 
     public async Task<DeckDto> CreateDeckAsync(CreateDeckDto createDto, string userId, CancellationToken cancellationToken = default)

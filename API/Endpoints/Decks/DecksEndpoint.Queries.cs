@@ -193,13 +193,16 @@ public static partial class DecksEndpoint
 
         try
         {
-            var exportedLines = await deckService.ExportDeckAsync(deckId, userId, cancellationToken);
-            if (exportedLines.Count == 0)
+            var deckList = await deckService.ExportDeckAsync(deckId, userId, cancellationToken);
+            if (string.IsNullOrWhiteSpace(deckList))
             {
                 logger.LogOperationWarning(operation, "Deck has no cards", new { deckId });
             }
-            logger.LogOperationSuccess(operation, new { deckId, Lines = exportedLines.Count });
-            return Results.Ok(exportedLines);
+            var lineCount = string.IsNullOrWhiteSpace(deckList)
+                ? 0
+                : deckList.Split('\n').Length;
+            logger.LogOperationSuccess(operation, new { deckId, Lines = lineCount });
+            return Results.Ok(deckList);
         }
         catch (DeckServiceException ex)
         {

@@ -741,12 +741,12 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var responseContent = await response.Content.ReadAsStringAsync();
 
-        var exportedLines = JsonSerializer.Deserialize<List<string>>(
+        var exportedDeckList = JsonSerializer.Deserialize<string>(
             responseContent,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-        exportedLines.Should().NotBeNull();
-        exportedLines!.Should().Equal("3 Arc Lightning", "4 Lightning Bolt", string.Empty, "2 Negate");
+        exportedDeckList.Should().NotBeNull();
+        exportedDeckList!.Should().Be("3 Arc Lightning\n4 Lightning Bolt\n\n2 Negate");
     }
 
     [Fact]
@@ -862,6 +862,47 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         }
 
         await dbContext.SaveChangesAsync();
+
+        var deck = await dbContext.Decks.FindAsync(deckId);
+        if (deck != null)
+        {
+            deck.DeckList = BuildDeckList(deckCards);
+            dbContext.Decks.Update(deck);
+            await dbContext.SaveChangesAsync();
+        }
+    }
+
+    private static string BuildDeckList(IEnumerable<DeckCardSeed> deckCards)
+    {
+        var maindeckLines = deckCards
+            .Where(card => card.MaindeckQuantity > 0)
+            .OrderBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(card => $"{card.MaindeckQuantity} {card.Name}")
+            .ToList();
+
+        var sideboardLines = deckCards
+            .Where(card => card.SideboardQuantity > 0)
+            .OrderBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(card => $"{card.SideboardQuantity} {card.Name}")
+            .ToList();
+
+        if (maindeckLines.Count == 0 && sideboardLines.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var lines = new List<string>(maindeckLines);
+        if (sideboardLines.Count > 0)
+        {
+            if (lines.Count > 0)
+            {
+                lines.Add(string.Empty);
+            }
+
+            lines.AddRange(sideboardLines);
+        }
+
+        return string.Join('\n', lines);
     }
 
     private sealed record DeckCardSeed(

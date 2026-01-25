@@ -58,7 +58,7 @@ public static partial class DecksEndpoint
             .RequireAuthorization()
             .WithSummary("Export deck")
             .WithDescription("Returns the decklist as a list of strings with maindeck and sideboard sections")
-            .Produces<IReadOnlyList<string>>()
+            .Produces<string>()
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
