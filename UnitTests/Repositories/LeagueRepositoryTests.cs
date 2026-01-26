@@ -39,7 +39,7 @@ public class LeagueRepositoryTests : IDisposable
         var league = _testDataBuilder.CreateLeague(owner.Id);
         league.Name = "Test Tournament";
         league.Code = "TEST2024";
-        league.Format = "Standard";
+        league.Format = DeckFormat.Standard;
         
         _identityContext.Leagues.Add(league);
         await _identityContext.SaveChangesAsync();
@@ -52,7 +52,7 @@ public class LeagueRepositoryTests : IDisposable
         result.Id.Should().Be(league.Id);
         result.Name.Should().Be("Test Tournament");
         result.Code.Should().Be("TEST2024");
-        result.Format.Should().Be("Standard");
+        result.Format.Should().Be(DeckFormat.Standard);
         result.OwnerId.Should().Be(owner.Id);
     }
 
@@ -82,15 +82,15 @@ public class LeagueRepositoryTests : IDisposable
         };
         owner1Leagues[0].Name = "Owner1 Standard League";
         owner1Leagues[0].Code = "O1STD";
-        owner1Leagues[0].Format = "Standard";
+        owner1Leagues[0].Format = DeckFormat.Standard;
         owner1Leagues[1].Name = "Owner1 Modern League";
         owner1Leagues[1].Code = "O1MOD";
-        owner1Leagues[1].Format = "Modern";
+        owner1Leagues[1].Format = DeckFormat.Modern;
 
         var owner2League = _testDataBuilder.CreateLeague(owner2.Id);
         owner2League.Name = "Owner2 Legacy League";
         owner2League.Code = "O2LEG";
-        owner2League.Format = "Legacy";
+        owner2League.Format = DeckFormat.Legacy;
 
         _identityContext.Leagues.AddRange(owner1Leagues);
         _identityContext.Leagues.Add(owner2League);
@@ -152,7 +152,7 @@ public class LeagueRepositoryTests : IDisposable
         var league = _testDataBuilder.CreateLeague(owner.Id);
         league.Name = "New Championship";
         league.Code = "CHAMP2024";
-        league.Format = "Modern";
+        league.Format = DeckFormat.Modern;
         league.TotalRounds = 5;
         league.RoundsToConsider = 4;
         league.MinimumRounds = 3;
@@ -169,7 +169,7 @@ public class LeagueRepositoryTests : IDisposable
         savedLeague.Should().NotBeNull("because the league should be saved to the database");
         savedLeague.Name.Should().Be("New Championship");
         savedLeague.Code.Should().Be("CHAMP2024");
-        savedLeague.Format.Should().Be("Modern");
+        savedLeague.Format.Should().Be(DeckFormat.Modern);
         savedLeague.TotalRounds.Should().Be(5);
         savedLeague.RoundsToConsider.Should().Be(4);
         savedLeague.MinimumRounds.Should().Be(3);
@@ -249,11 +249,11 @@ public class LeagueRepositoryTests : IDisposable
             _testDataBuilder.CreateLeague(owner.Id),
             _testDataBuilder.CreateLeague(owner.Id)
         };
-        leagues[0].Format = "Standard";
+        leagues[0].Format = DeckFormat.Standard;
         leagues[0].Code = "STD1";
-        leagues[1].Format = "Modern";
+        leagues[1].Format = DeckFormat.Modern;
         leagues[1].Code = "MOD1";
-        leagues[2].Format = "Legacy";
+        leagues[2].Format = DeckFormat.Legacy;
         leagues[2].Code = "LEG1";
 
         _identityContext.Leagues.AddRange(leagues);
@@ -264,7 +264,7 @@ public class LeagueRepositoryTests : IDisposable
 
         // Assert
         result.Should().HaveCount(3);
-        result.Select(l => l.Format).Should().Contain(["Standard", "Modern", "Legacy"]);
+        result.Select(l => l.Format).Should().Contain([DeckFormat.Standard, DeckFormat.Modern, DeckFormat.Legacy]);
         result.Select(l => l.Code).Should().Contain(["STD1", "MOD1", "LEG1"]);
     }
 

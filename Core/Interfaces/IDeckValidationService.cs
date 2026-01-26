@@ -1,3 +1,4 @@
+using Core.Enums;
 using Core.Models;
 
 namespace Core.Interfaces;
@@ -17,22 +18,22 @@ public interface IDeckValidationService
     /// <summary>
     /// Gets the minimum card count for a specific format
     /// </summary>
-    int GetMinimumCardCount(string format);
+    int GetMinimumCardCount(DeckFormat format);
     
     /// <summary>
     /// Gets the maximum card count for a specific format (if applicable)
     /// </summary>
-    int? GetMaximumCardCount(string format);
+    int? GetMaximumCardCount(DeckFormat format);
     
     /// <summary>
     /// Checks if a format allows sideboards
     /// </summary>
-    bool FormatAllowsSideboard(string format);
+    bool FormatAllowsSideboard(DeckFormat format);
     
     /// <summary>
     /// Gets the maximum sideboard size for a format
     /// </summary>
-    int GetMaximumSideboardSize(string format);
+    int GetMaximumSideboardSize(DeckFormat format);
 }
 
 public class DeckValidationResult

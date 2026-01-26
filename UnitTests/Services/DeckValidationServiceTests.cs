@@ -3,6 +3,7 @@ using Core.Interfaces;
 using Core.Models;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Core.Enums;
 
 namespace UnitTests.Services;
 
@@ -16,14 +17,14 @@ public class DeckValidationServiceTests
     }
 
     [Theory]
-    [InlineData("Standard", 60)]
-    [InlineData("Modern", 60)]
-    [InlineData("Legacy", 60)]
-    [InlineData("Pioneer", 60)]
-    [InlineData("Commander", 100)]
-    [InlineData("Draft", 40)]
-    [InlineData("Sealed", 40)]
-    public void GetMinimumCardCount_ReturnsCorrectMinimum(string format, int expectedMinimum)
+    [InlineData(DeckFormat.Standard, 60)]
+    [InlineData(DeckFormat.Modern, 60)]
+    [InlineData(DeckFormat.Legacy, 60)]
+    [InlineData(DeckFormat.Pioneer, 60)]
+    [InlineData(DeckFormat.Commander, 100)]
+    [InlineData(DeckFormat.Limited, 40)]
+    [InlineData(DeckFormat.Limited, 40)]
+    public void GetMinimumCardCount_ReturnsCorrectMinimum(DeckFormat format, int expectedMinimum)
     {
         // Act
         var result = _validationService.GetMinimumCardCount(format);
@@ -33,14 +34,14 @@ public class DeckValidationServiceTests
     }
 
     [Theory]
-    [InlineData("Standard", null)]
-    [InlineData("Modern", null)]
-    [InlineData("Legacy", null)]
-    [InlineData("Pioneer", null)]
-    [InlineData("Commander", 100)]
-    [InlineData("Draft", null)]
-    [InlineData("Sealed", null)]
-    public void GetMaximumCardCount_ReturnsCorrectMaximum(string format, int? expectedMaximum)
+    [InlineData(DeckFormat.Standard, null)]
+    [InlineData(DeckFormat.Modern, null)]
+    [InlineData(DeckFormat.Legacy, null)]
+    [InlineData(DeckFormat.Pioneer, null)]
+    [InlineData(DeckFormat.Commander, 100)]
+    [InlineData(DeckFormat.Limited, null)]
+    [InlineData(DeckFormat.Limited, null)]
+    public void GetMaximumCardCount_ReturnsCorrectMaximum(DeckFormat format, int? expectedMaximum)
     {
         // Act
         var result = _validationService.GetMaximumCardCount(format);
@@ -50,14 +51,14 @@ public class DeckValidationServiceTests
     }
 
     [Theory]
-    [InlineData("Standard", true)]
-    [InlineData("Modern", true)]
-    [InlineData("Legacy", true)]
-    [InlineData("Pioneer", true)]
-    [InlineData("Commander", false)]
-    [InlineData("Draft", true)]
-    [InlineData("Sealed", true)]
-    public void FormatAllowsSideboard_ReturnsCorrectValue(string format, bool allowsSideboard)
+    [InlineData(DeckFormat.Standard, true)]
+    [InlineData(DeckFormat.Modern, true)]
+    [InlineData(DeckFormat.Legacy, true)]
+    [InlineData(DeckFormat.Pioneer, true)]
+    [InlineData(DeckFormat.Commander, false)]
+    [InlineData(DeckFormat.Limited, true)]
+    [InlineData(DeckFormat.Limited, true)]
+    public void FormatAllowsSideboard_ReturnsCorrectValue(DeckFormat format, bool allowsSideboard)
     {
         // Act
         var result = _validationService.FormatAllowsSideboard(format);
@@ -67,14 +68,14 @@ public class DeckValidationServiceTests
     }
 
     [Theory]
-    [InlineData("Standard", 15)]
-    [InlineData("Modern", 15)]
-    [InlineData("Legacy", 15)]
-    [InlineData("Pioneer", 15)]
-    [InlineData("Commander", 0)]
-    [InlineData("Draft", 0)] // No limit, but returns 0
-    [InlineData("Sealed", 0)] // No limit, but returns 0
-    public void GetMaximumSideboardSize_ReturnsCorrectSize(string format, int expectedSize)
+    [InlineData(DeckFormat.Standard, 15)]
+    [InlineData(DeckFormat.Modern, 15)]
+    [InlineData(DeckFormat.Legacy, 15)]
+    [InlineData(DeckFormat.Pioneer, 15)]
+    [InlineData(DeckFormat.Commander, 0)]
+    [InlineData(DeckFormat.Limited, 0)] // No limit, but returns 0
+    [InlineData(DeckFormat.Limited, 0)] // No limit, but returns 0
+    public void GetMaximumSideboardSize_ReturnsCorrectSize(DeckFormat format, int expectedSize)
     {
         // Act
         var result = _validationService.GetMaximumSideboardSize(format);
@@ -90,7 +91,7 @@ public class DeckValidationServiceTests
         var deck = new Deck
         {
             Name = "Test Deck",
-            Format = "UnknownFormat",
+            Format = (DeckFormat)999,
             OwnerId = "user1",
             NumberOfCards = 60
         };
@@ -101,7 +102,7 @@ public class DeckValidationServiceTests
         // Assert
         result.IsValid.Should().BeFalse();
         result.Errors.Should().HaveCount(1);
-        result.Errors[0].Message.Should().Contain("Unknown format: UnknownFormat");
+        result.Errors[0].Message.Should().Contain("Unknown format: 999");
         result.Errors[0].Type.Should().Be(ValidationErrorType.Format);
     }
 
@@ -112,7 +113,7 @@ public class DeckValidationServiceTests
         var deck = new Deck
         {
             Name = "Test Deck",
-            Format = "Standard",
+            Format = DeckFormat.Standard,
             OwnerId = "user1",
             NumberOfCards = 45
         };
@@ -134,7 +135,7 @@ public class DeckValidationServiceTests
         var deck = new Deck
         {
             Name = "Test Deck",
-            Format = "Commander",
+            Format = DeckFormat.Commander,
             OwnerId = "user1",
             NumberOfCards = 105
         };
@@ -156,7 +157,7 @@ public class DeckValidationServiceTests
         var deck = new Deck
         {
             Name = "Test Deck",
-            Format = "Standard",
+            Format = DeckFormat.Standard,
             OwnerId = "user1",
             NumberOfCards = 60
         };
@@ -176,7 +177,7 @@ public class DeckValidationServiceTests
         var deck = new Deck
         {
             Name = "Test Deck",
-            Format = "Standard",
+            Format = DeckFormat.Standard,
             OwnerId = "user1",
             NumberOfCards = 0
         };
@@ -197,7 +198,7 @@ public class DeckValidationServiceTests
         var deck = new Deck
         {
             Name = "Test Deck",
-            Format = "Standard",
+            Format = DeckFormat.Standard,
             OwnerId = "user1",
             NumberOfCards = 65
         };
@@ -234,7 +235,7 @@ public class DeckValidationServiceTests
         var deck = new Deck
         {
             Name = "Commander Deck",
-            Format = "Commander",
+            Format = DeckFormat.Commander,
             OwnerId = "user1",
             NumberOfCards = 100
         };
@@ -272,7 +273,7 @@ public class DeckValidationServiceTests
         var deck = new Deck
         {
             Name = "Commander Deck",
-            Format = "Commander",
+            Format = DeckFormat.Commander,
             OwnerId = "user1",
             NumberOfCards = 100
         };
@@ -308,7 +309,7 @@ public class DeckValidationServiceTests
         var deck = new Deck
         {
             Name = "Standard Deck",
-            Format = "Standard",
+            Format = DeckFormat.Standard,
             OwnerId = "user1",
             NumberOfCards = 75
         };
@@ -344,7 +345,7 @@ public class DeckValidationServiceTests
         var deck = new Deck
         {
             Name = "Standard Deck",
-            Format = "Standard",
+            Format = DeckFormat.Standard,
             OwnerId = "user1",
             NumberOfCards = 62 // Total: 4 + 4 + 52 + 2 = 62 cards
         };
@@ -398,7 +399,7 @@ public class DeckValidationServiceTests
         var deck = new Deck
         {
             Name = "Draft Deck",
-            Format = "Draft",
+            Format = DeckFormat.Limited,
             OwnerId = "user1",
             NumberOfCards = 40
         };
@@ -427,8 +428,8 @@ public class DeckValidationServiceTests
 
 
     [Theory]
-    [InlineData("UnknownFormat", 60)]
-    public void GetMinimumCardCount_UnknownFormat_ReturnsDefault(string format, int expectedDefault)
+    [InlineData((DeckFormat)999, 60)]
+    public void GetMinimumCardCount_UnknownFormat_ReturnsDefault(DeckFormat format, int expectedDefault)
     {
         // Act
         var result = _validationService.GetMinimumCardCount(format);
@@ -444,7 +445,7 @@ public class DeckValidationServiceTests
         var deck = new Deck
         {
             Name = "Standard Deck",
-            Format = "Standard",
+            Format = DeckFormat.Standard,
             OwnerId = "user1",
             NumberOfCards = 60
         };

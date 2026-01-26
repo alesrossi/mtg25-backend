@@ -98,9 +98,23 @@ public class TestDataBuilder
     /// Creates a deck with realistic MTG formats and data.
     /// Shows how to create domain-specific test data.
     /// </summary>
-    public Deck CreateDeck(string userId, string? format = null)
+    public Deck CreateDeck(string userId, DeckFormat? format = null)
     {
-        var validFormats = new[] { "Standard", "Modern", "Legacy", "Commander", "Pioneer" };
+        var validFormats = new[]
+        {
+            DeckFormat.Standard,
+            DeckFormat.Pioneer,
+            DeckFormat.Modern,
+            DeckFormat.Legacy,
+            DeckFormat.Vintage,
+            DeckFormat.Pauper,
+            DeckFormat.Commander,
+            DeckFormat.Penny,
+            DeckFormat.Premodern,
+            DeckFormat.Oathbreaker,
+            DeckFormat.Limited,
+            DeckFormat.Canadian
+        };
         
         return _fixture.Build<Deck>()
             .With(d => d.OwnerId, userId)
@@ -348,9 +362,23 @@ public class TestDataBuilder
     /// <summary>
     /// Creates a league with realistic tournament properties.
     /// </summary>
-    public League CreateLeague(string ownerId, string? format = null)
+    public League CreateLeague(string ownerId, DeckFormat? format = null)
     {
-        var validFormats = new[] { "Standard", "Modern", "Legacy", "Commander", "Pioneer", "Draft", "Sealed" };
+        var validFormats = new[]
+        {
+            DeckFormat.Standard,
+            DeckFormat.Pioneer,
+            DeckFormat.Modern,
+            DeckFormat.Legacy,
+            DeckFormat.Vintage,
+            DeckFormat.Pauper,
+            DeckFormat.Commander,
+            DeckFormat.Penny,
+            DeckFormat.Premodern,
+            DeckFormat.Oathbreaker,
+            DeckFormat.Limited,
+            DeckFormat.Canadian
+        };
         var leagueCode = GenerateLeagueCode();
         
         return _fixture.Build<League>()

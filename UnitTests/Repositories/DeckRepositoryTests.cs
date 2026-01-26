@@ -5,6 +5,7 @@ using Infrastructure.Identity;
 using Microsoft.Extensions.Logging.Abstractions;
 using TestUtilities.Builders;
 using TestUtilities.Database;
+using Core.Enums;
 
 namespace UnitTests.Repositories;
 
@@ -37,7 +38,7 @@ public class DeckRepositoryTests : IDisposable
 
         var deck = _testDataBuilder.CreateDeck(user.Id);
         deck.Name = "Test Deck";
-        deck.Format = "Standard";
+        deck.Format = DeckFormat.Standard;
         _context.Decks.Add(deck);
         await _context.SaveChangesAsync();
 
@@ -48,7 +49,7 @@ public class DeckRepositoryTests : IDisposable
         result.Should().NotBeNull("because a deck with this ID exists");
         result.Id.Should().Be(deck.Id);
         result.Name.Should().Be("Test Deck");
-        result.Format.Should().Be("Standard");
+        result.Format.Should().Be(DeckFormat.Standard);
         result.OwnerId.Should().Be(user.Id);
     }
 
@@ -90,13 +91,13 @@ public class DeckRepositoryTests : IDisposable
             _testDataBuilder.CreateDeck(user1.Id)
         };
         user1Decks[0].Name = "User1 Standard Deck";
-        user1Decks[0].Format = "Standard";
+        user1Decks[0].Format = DeckFormat.Standard;
         user1Decks[1].Name = "User1 Modern Deck";
-        user1Decks[1].Format = "Modern";
+        user1Decks[1].Format = DeckFormat.Modern;
 
         var user2Deck = _testDataBuilder.CreateDeck(user2.Id);
         user2Deck.Name = "User2 Legacy Deck";
-        user2Deck.Format = "Legacy";
+        user2Deck.Format = DeckFormat.Legacy;
 
         _context.Decks.AddRange(user1Decks);
         _context.Decks.Add(user2Deck);
@@ -154,7 +155,7 @@ public class DeckRepositoryTests : IDisposable
 
         var deck = _testDataBuilder.CreateDeck(user.Id);
         deck.Name = "New Combo Deck";
-        deck.Format = "Modern";
+        deck.Format = DeckFormat.Modern;
         deck.NumberOfCards = 60;
         deck.TotalPrice = 299.99;
 
@@ -166,7 +167,7 @@ public class DeckRepositoryTests : IDisposable
         var savedDeck = await _context.Decks.FindAsync(deck.Id);
         savedDeck.Should().NotBeNull("because the deck should be saved to the database");
         savedDeck.Name.Should().Be("New Combo Deck");
-        savedDeck.Format.Should().Be("Modern");
+        savedDeck.Format.Should().Be(DeckFormat.Modern);
         savedDeck.NumberOfCards.Should().Be(60);
         savedDeck.TotalPrice.Should().Be(299.99);
         savedDeck.OwnerId.Should().Be(user.Id);
@@ -182,7 +183,7 @@ public class DeckRepositoryTests : IDisposable
 
         var deck = _testDataBuilder.CreateDeck(user.Id);
         deck.Name = "Original Name";
-        deck.Format = "Standard";
+        deck.Format = DeckFormat.Standard;
         deck.NumberOfCards = 60;
         deck.TotalPrice = 100.00;
         _context.Decks.Add(deck);
@@ -190,7 +191,7 @@ public class DeckRepositoryTests : IDisposable
 
         // Act
         deck.Name = "Updated Name";
-        deck.Format = "Modern";
+        deck.Format = DeckFormat.Modern;
         deck.NumberOfCards = 75;
         deck.TotalPrice = 250.00;
         _repository.Update(deck);
@@ -200,7 +201,7 @@ public class DeckRepositoryTests : IDisposable
         var updatedDeck = await _repository.GetByIdAsync(deck.Id);
         updatedDeck.Should().NotBeNull();
         updatedDeck.Name.Should().Be("Updated Name");
-        updatedDeck.Format.Should().Be("Modern");
+        updatedDeck.Format.Should().Be(DeckFormat.Modern);
         updatedDeck.NumberOfCards.Should().Be(75);
         updatedDeck.TotalPrice.Should().Be(250.00);
     }
@@ -243,9 +244,9 @@ public class DeckRepositoryTests : IDisposable
             _testDataBuilder.CreateDeck(user.Id),
             _testDataBuilder.CreateDeck(user.Id)
         };
-        decks[0].Format = "Standard";
-        decks[1].Format = "Modern";
-        decks[2].Format = "Legacy";
+        decks[0].Format = DeckFormat.Standard;
+        decks[1].Format = DeckFormat.Modern;
+        decks[2].Format = DeckFormat.Legacy;
 
         _context.Decks.AddRange(decks);
         await _context.SaveChangesAsync();
@@ -255,7 +256,7 @@ public class DeckRepositoryTests : IDisposable
 
         // Assert
         result.Should().HaveCount(3);
-        result.Select(d => d.Format).Should().Contain(["Standard", "Modern", "Legacy"]);
+        result.Select(d => d.Format).Should().Contain([DeckFormat.Standard, DeckFormat.Modern, DeckFormat.Legacy]);
     }
 
     [Fact]
@@ -270,7 +271,7 @@ public class DeckRepositoryTests : IDisposable
             .Select(i => {
                 var deck = _testDataBuilder.CreateDeck(user.Id);
                 deck.Name = $"Deck {i}";
-                deck.Format = i % 2 == 0 ? "Standard" : "Modern";
+                deck.Format = i % 2 == 0 ? DeckFormat.Standard : DeckFormat.Modern;
                 return deck;
             })
             .ToList();

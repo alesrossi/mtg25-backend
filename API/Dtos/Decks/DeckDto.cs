@@ -1,12 +1,14 @@
 using Core.Models.Identity;
 
+using Core.Enums;
+
 namespace API.Dtos.Decks;
 
 public class DeckDto
 {
     public int Id { get; set; }
     public required string Name { get; set; }
-    public required string Format { get; set; }
+    public required DeckFormat Format { get; set; }
     public int NumberOfCards { get; set; }
     public int NumberOfMainBoardCards { get; set; }
     public int NumberOfSideBoardCards { get; set; }

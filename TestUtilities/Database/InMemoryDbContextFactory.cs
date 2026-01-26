@@ -1,4 +1,5 @@
 
+using Core.Enums;
 using Infrastructure.Data;
 using Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -77,10 +78,10 @@ public class InMemoryDbContextFactory
         context.Collections.AddRange(collection1, collection2);
 
         // Create decks for each user
-        var deck1 = builder.CreateDeck(user1.Id, "Vintage");
+        var deck1 = builder.CreateDeck(user1.Id, DeckFormat.Vintage);
         deck1.Name = "Power Nine Control";
         
-        var deck2 = builder.CreateDeck(user2.Id, "Modern");
+        var deck2 = builder.CreateDeck(user2.Id, DeckFormat.Modern);
         deck2.Name = "Burn";
         
         context.Decks.AddRange(deck1, deck2);

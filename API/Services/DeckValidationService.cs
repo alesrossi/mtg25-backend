@@ -1,4 +1,5 @@
 using API.Logging;
+using Core.Enums;
 using Core.Interfaces;
 using Core.Models;
 using Microsoft.Extensions.Logging;
@@ -16,71 +17,50 @@ public class DeckValidationService : IDeckValidationService
         this.logger = logger;
     }
 
-    private static readonly Dictionary<string, FormatRules> FormatRulesMap = new()
+    private static readonly FormatRules StandardRules = new()
     {
-        ["Standard"] = new FormatRules
-        {
-            MinimumCards = 60,
-            MaximumCards = null,
-            AllowsSideboard = true,
-            MaximumSideboardSize = 15,
-            MaximumCopiesPerCard = 4,
-            IsSingleton = false
-        },
-        ["Modern"] = new FormatRules
-        {
-            MinimumCards = 60,
-            MaximumCards = null,
-            AllowsSideboard = true,
-            MaximumSideboardSize = 15,
-            MaximumCopiesPerCard = 4,
-            IsSingleton = false
-        },
-        ["Legacy"] = new FormatRules
-        {
-            MinimumCards = 60,
-            MaximumCards = null,
-            AllowsSideboard = true,
-            MaximumSideboardSize = 15,
-            MaximumCopiesPerCard = 4,
-            IsSingleton = false
-        },
-        ["Pioneer"] = new FormatRules
-        {
-            MinimumCards = 60,
-            MaximumCards = null,
-            AllowsSideboard = true,
-            MaximumSideboardSize = 15,
-            MaximumCopiesPerCard = 4,
-            IsSingleton = false
-        },
-        ["Commander"] = new FormatRules
-        {
-            MinimumCards = 100,
-            MaximumCards = 100,
-            AllowsSideboard = false,
-            MaximumSideboardSize = 0,
-            MaximumCopiesPerCard = 1,
-            IsSingleton = true
-        },
-        ["Draft"] = new FormatRules
-        {
-            MinimumCards = 40,
-            MaximumCards = null,
-            AllowsSideboard = true,
-            MaximumSideboardSize = null, // No limit for draft sideboard
-            MaximumCopiesPerCard = null, // No limit in draft
-            IsSingleton = false
-        },
-        ["Sealed"] = new FormatRules
-        {
-            MinimumCards = 40,
-            MaximumCards = null,
-            AllowsSideboard = true,
-            MaximumSideboardSize = null, // No limit for sealed sideboard
-            MaximumCopiesPerCard = null, // No limit in sealed
-            IsSingleton = false
-        }
+        MinimumCards = 60,
+        MaximumCards = null,
+        AllowsSideboard = true,
+        MaximumSideboardSize = 15,
+        MaximumCopiesPerCard = 4,
+        IsSingleton = false
+    };
+
+    private static readonly FormatRules CommanderRules = new()
+    {
+        MinimumCards = 100,
+        MaximumCards = 100,
+        AllowsSideboard = false,
+        MaximumSideboardSize = 0,
+        MaximumCopiesPerCard = 1,
+        IsSingleton = true
+    };
+
+    private static readonly FormatRules LimitedRules = new()
+    {
+        MinimumCards = 40,
+        MaximumCards = null,
+        AllowsSideboard = true,
+        MaximumSideboardSize = null, // No limit for limited sideboard
+        MaximumCopiesPerCard = null, // No limit in limited
+        IsSingleton = false
+    };
+
+    private static readonly Dictionary<DeckFormat, FormatRules> FormatRulesMap = new()
+    {
+        [DeckFormat.Standard] = StandardRules,
+        [DeckFormat.Modern] = StandardRules,
+        [DeckFormat.Legacy] = StandardRules,
+        [DeckFormat.Pioneer] = StandardRules,
+        [DeckFormat.Vintage] = StandardRules,
+        [DeckFormat.Pauper] = StandardRules,
+        [DeckFormat.Penny] = StandardRules,
+        [DeckFormat.Premodern] = StandardRules,
+        [DeckFormat.Canadian] = StandardRules,
+        [DeckFormat.Oathbreaker] = StandardRules,
+        [DeckFormat.Commander] = CommanderRules,
+        [DeckFormat.Limited] = LimitedRules
     };
 
     public Task<DeckValidationResult> ValidateDeckAsync(Deck deck)
@@ -151,22 +131,22 @@ public class DeckValidationService : IDeckValidationService
         return Task.FromResult(result);
     }
 
-    public int GetMinimumCardCount(string format)
+    public int GetMinimumCardCount(DeckFormat format)
     {
         return FormatRulesMap.TryGetValue(format, out var rules) ? rules.MinimumCards : 60;
     }
 
-    public int? GetMaximumCardCount(string format)
+    public int? GetMaximumCardCount(DeckFormat format)
     {
         return FormatRulesMap.TryGetValue(format, out var rules) ? rules.MaximumCards : null;
     }
 
-    public bool FormatAllowsSideboard(string format)
+    public bool FormatAllowsSideboard(DeckFormat format)
     {
         return FormatRulesMap.TryGetValue(format, out var rules) && rules.AllowsSideboard;
     }
 
-    public int GetMaximumSideboardSize(string format)
+    public int GetMaximumSideboardSize(DeckFormat format)
     {
         return FormatRulesMap.TryGetValue(format, out var rules) ? rules.MaximumSideboardSize ?? 0 : 0;
     }

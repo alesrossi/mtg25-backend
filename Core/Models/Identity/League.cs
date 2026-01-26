@@ -1,3 +1,5 @@
+using Core.Enums;
+
 namespace Core.Models.Identity;
 
 public class League : BaseModel
@@ -5,7 +7,7 @@ public class League : BaseModel
     public required string Name { get; set; }
     public required string OwnerId { get; set; }
     public required string Code { get; set; }
-    public required string Format { get; set; }
+    public required DeckFormat Format { get; set; }
     public int TotalRounds { get; set; }
     public int CurrentRound { get; set; } = 0;
     public int RoundsToConsider { get; set; }

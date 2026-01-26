@@ -81,6 +81,8 @@ public class Program
                     options.JsonSerializerOptions.WriteIndented = true;
                     options.JsonSerializerOptions.Converters.Add(new LanguageJsonConverter());
                     options.JsonSerializerOptions.Converters.Add(new NullableLanguageJsonConverter());
+                    options.JsonSerializerOptions.Converters.Add(new DeckFormatJsonConverter());
+                    options.JsonSerializerOptions.Converters.Add(new NullableDeckFormatJsonConverter());
                 });
 
             // Configure JSON for Minimal APIs
@@ -90,6 +92,8 @@ public class Program
                 options.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
                 options.SerializerOptions.Converters.Add(new LanguageJsonConverter());
                 options.SerializerOptions.Converters.Add(new NullableLanguageJsonConverter());
+                options.SerializerOptions.Converters.Add(new DeckFormatJsonConverter());
+                options.SerializerOptions.Converters.Add(new NullableDeckFormatJsonConverter());
             });
             
             // Add services to the container.

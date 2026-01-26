@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -234,7 +235,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             MinimumRounds = 2
         };
 
-        var json = JsonSerializer.Serialize(updateRequest);
+        var json = JsonSerializer.Serialize(updateRequest, JsonContentHelper.DefaultOptions);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         // Act
@@ -264,7 +265,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             Name = "Non-existent League"
         };
 
-        var json = JsonSerializer.Serialize(updateRequest);
+        var json = JsonSerializer.Serialize(updateRequest, JsonContentHelper.DefaultOptions);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         // Act
@@ -286,7 +287,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var updateRequest = new UpdateLeagueDto { Name = "Hijacked League" };
         var response = await client.PutAsync($"/api/leagues/{league.Id}",
-            new StringContent(JsonSerializer.Serialize(updateRequest), Encoding.UTF8, "application/json"));
+            new StringContent(JsonSerializer.Serialize(updateRequest, JsonContentHelper.DefaultOptions), Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -302,7 +303,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var updateRequest = new UpdateLeagueDto { Name = "Delegated Update", CurrentRound = league.CurrentRound };
         var response = await client.PutAsync($"/api/leagues/{league.Id}",
-            new StringContent(JsonSerializer.Serialize(updateRequest), Encoding.UTF8, "application/json"));
+            new StringContent(JsonSerializer.Serialize(updateRequest, JsonContentHelper.DefaultOptions), Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         if (response.StatusCode == HttpStatusCode.OK)
@@ -329,7 +330,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         var response = await client.PutAsync($"/api/leagues/{league.Id}",
-            new StringContent(JsonSerializer.Serialize(invalidRequest), Encoding.UTF8, "application/json"));
+            new StringContent(JsonSerializer.Serialize(invalidRequest, JsonContentHelper.DefaultOptions), Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -352,7 +353,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         var response = await client.PutAsync($"/api/leagues/{league.Id}",
-            new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json"));
+            new StringContent(JsonSerializer.Serialize(request, JsonContentHelper.DefaultOptions), Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -386,7 +387,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         var response = await client.PatchAsync($"/api/leagues/{league.Id}/results",
-            new StringContent(JsonSerializer.Serialize(resultPayload), Encoding.UTF8, "application/json"));
+            new StringContent(JsonSerializer.Serialize(resultPayload, JsonContentHelper.DefaultOptions), Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -426,7 +427,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         using var client = _factory.CreateClientWithUser(outsider.Id, outsider.UserName!, outsider.Email!);
 
         var response = await client.PatchAsync($"/api/leagues/{league.Id}/results",
-            new StringContent(JsonSerializer.Serialize(new List<UserWithScore>()), Encoding.UTF8, "application/json"));
+            new StringContent(JsonSerializer.Serialize(new List<UserWithScore>(), JsonContentHelper.DefaultOptions), Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -439,7 +440,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         using var client = _factory.CreateClient();
 
         var response = await client.PatchAsync($"/api/leagues/{league.Id}/results",
-            new StringContent(JsonSerializer.Serialize(new List<UserWithScore>()), Encoding.UTF8, "application/json"));
+            new StringContent(JsonSerializer.Serialize(new List<UserWithScore>(), JsonContentHelper.DefaultOptions), Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -451,7 +452,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
 
         var response = await client.PatchAsync($"/api/leagues/{int.MaxValue}/results",
-            new StringContent(JsonSerializer.Serialize(new List<UserWithScore>()), Encoding.UTF8, "application/json"));
+            new StringContent(JsonSerializer.Serialize(new List<UserWithScore>(), JsonContentHelper.DefaultOptions), Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
@@ -466,7 +467,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var createRequest = new NewLeagueDto
         {
             Name = "New Test League",
-            Format = "Standard",
+            Format = DeckFormat.Standard,
             TotalRounds = 10,
             RoundsToConsider = 8,
             MinimumRounds = 1,
@@ -479,7 +480,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             ScoringSystem = ScoringSystem.Positional
         };
 
-        var json = JsonSerializer.Serialize(createRequest);
+        var json = JsonSerializer.Serialize(createRequest, JsonContentHelper.DefaultOptions);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         // Act
@@ -516,19 +517,19 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var user = await CreateTestUserAsync("league-invalid-create@example.com", "league_invalid_create");
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
-        var invalidRequest = new NewLeagueDto
+        var invalidRequest = new Dictionary<string, object?>
         {
-            Name = string.Empty,
-            Format = "",
-            TotalRounds = 0,
-            RoundsToConsider = 0,
-            MinimumRounds = -1,
-            PointsToGive = new List<int>(),
-            ScoringSystem = ScoringSystem.Positional
+            ["name"] = string.Empty,
+            ["format"] = "",
+            ["totalRounds"] = 0,
+            ["roundsToConsider"] = 0,
+            ["minimumRounds"] = -1,
+            ["pointsToGive"] = new List<int>(),
+            ["scoringSystem"] = ScoringSystem.Positional.ToString()
         };
 
         var response = await client.PostAsync("/api/leagues",
-            new StringContent(JsonSerializer.Serialize(invalidRequest), Encoding.UTF8, "application/json"));
+            new StringContent(JsonSerializer.Serialize(invalidRequest, JsonContentHelper.DefaultOptions), Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -571,7 +572,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var response = await client.PutAsync(
             $"/api/leagues/{league.Id}/rounds/{roundId}",
-            new StringContent(JsonSerializer.Serialize(updateRequest), Encoding.UTF8, "application/json"));
+            new StringContent(JsonSerializer.Serialize(updateRequest, JsonContentHelper.DefaultOptions), Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -623,7 +624,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var response = await client.PutAsync(
             $"/api/leagues/{league.Id}/rounds/{roundId}",
-            new StringContent(JsonSerializer.Serialize(updateRequest), Encoding.UTF8, "application/json"));
+            new StringContent(JsonSerializer.Serialize(updateRequest, JsonContentHelper.DefaultOptions), Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -636,7 +637,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var createRequest = new NewLeagueDto
         {
             Name = "Unauthorized League",
-            Format = "Modern",
+            Format = DeckFormat.Modern,
             TotalRounds = 5,
             RoundsToConsider = 4,
             MinimumRounds = 2,
@@ -645,7 +646,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         };
 
         var response = await client.PostAsync("/api/leagues",
-            new StringContent(JsonSerializer.Serialize(createRequest), Encoding.UTF8, "application/json"));
+            new StringContent(JsonSerializer.Serialize(createRequest, JsonContentHelper.DefaultOptions), Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -1169,7 +1170,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             Name = name,
             OwnerId = ownerId,
             Code = $"TL{uniqueId}"[..8], // Ensure unique code
-            Format = "Standard",
+            Format = DeckFormat.Standard,
             TotalRounds = 5,
             RoundsToConsider = 4,
             MinimumRounds = 2,

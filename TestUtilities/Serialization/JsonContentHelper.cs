@@ -14,7 +14,9 @@ public static class JsonContentHelper
         Converters =
         {
             new LanguageJsonConverter(),
-            new NullableLanguageJsonConverter()
+            new NullableLanguageJsonConverter(),
+            new DeckFormatJsonConverter(),
+            new NullableDeckFormatJsonConverter()
         }
     };
 

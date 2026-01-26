@@ -1,6 +1,8 @@
+using System;
 using FluentAssertions;
 using Core.Models;
 using TestUtilities.Builders;
+using Core.Enums;
 
 namespace UnitTests.Models;
 
@@ -28,7 +30,7 @@ public class DeckTests
         deck.Id.Should().Be(0, "because new deck entities are not persisted yet");
         deck.OwnerId.Should().Be(ownerId, "because deck should belong to the specified user");
         deck.Name.Should().NotBeNullOrEmpty("because deck name is required");
-        deck.Format.Should().NotBeNullOrEmpty("because format is required");
+        Enum.IsDefined(typeof(DeckFormat), deck.Format).Should().BeTrue("because format is required");
         deck.NumberOfCards.Should().BeGreaterThanOrEqualTo(0, "because number of cards cannot be negative");
         deck.TotalPrice.Should().BeGreaterThanOrEqualTo(0, "because total price cannot be negative");
     }

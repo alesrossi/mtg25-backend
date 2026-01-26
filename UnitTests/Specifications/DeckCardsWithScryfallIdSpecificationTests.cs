@@ -2,6 +2,7 @@ using FluentAssertions;
 using Core.Models;
 using Core.Specifications;
 using TestUtilities.Builders;
+using Core.Enums;
 
 namespace UnitTests.Specifications;
 
@@ -124,7 +125,7 @@ public class DeckCardsWithScryfallIdSpecificationTests
             TypeLine = "Instant",
             MaindeckQuantity = 4,
             SideboardQuantity = 0,
-            Deck = new Deck { OwnerId = userId, Name = "User Deck", Format = "Standard" }
+            Deck = new Deck { OwnerId = userId, Name = "User Deck", Format = DeckFormat.Standard }
         };
 
         var otherUserDeckCard = new DeckCard
@@ -136,7 +137,7 @@ public class DeckCardsWithScryfallIdSpecificationTests
             TypeLine = "Instant",
             MaindeckQuantity = 3,
             SideboardQuantity = 0,
-            Deck = new Deck { OwnerId = "other-user", Name = "Other Deck", Format = "Modern" }
+            Deck = new Deck { OwnerId = "other-user", Name = "Other Deck", Format = DeckFormat.Modern }
         };
 
         var deckCards = new List<DeckCard> { userDeckCard, otherUserDeckCard };

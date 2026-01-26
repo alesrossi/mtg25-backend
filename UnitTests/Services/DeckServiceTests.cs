@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using API.Dtos.Cards;
 using API.Dtos.Decks;
 using API.Services;
+using Core.Enums;
 using Core.Interfaces;
 using Core.Models;
 using Core.Models.Identity;
@@ -16,6 +17,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using TestUtilities.Scryfall;
 using Xunit;
+using Core.Enums;
 
 namespace UnitTests.Services;
 
@@ -47,7 +49,7 @@ public class DeckServiceTests
         var deck = new Deck
         {
             Name = "Empty Deck",
-            Format = "Modern",
+            Format = DeckFormat.Modern,
             OwnerId = user.Id,
             NumberOfCards = 0,
             TotalPrice = 0
@@ -72,7 +74,7 @@ public class DeckServiceTests
         var deck = new Deck
         {
             Name = "Deck",
-            Format = "Modern",
+            Format = DeckFormat.Modern,
             OwnerId = user.Id,
             NumberOfCards = 0,
             TotalPrice = 0
@@ -125,7 +127,7 @@ public class DeckServiceTests
             new DeckImportRequestDto
             {
                 Name = "Imported",
-                Format = "Legacy",
+                Format = DeckFormat.Legacy,
                 Decklist = "invalid"
             },
             user.Id);

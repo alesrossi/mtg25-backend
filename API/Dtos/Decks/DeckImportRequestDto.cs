@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 
+using Core.Enums;
+
 namespace API.Dtos.Decks;
 
 public class DeckImportRequestDto
@@ -9,8 +11,7 @@ public class DeckImportRequestDto
     public required string Name { get; set; }
 
     [Required(ErrorMessage = "Deck format is required.")]
-    [StringLength(50, MinimumLength = 2, ErrorMessage = "Deck format must be between 2 and 50 characters.")]
-    public required string Format { get; set; }
+    public required DeckFormat Format { get; set; }
 
     [Required(ErrorMessage = "Decklist text is required.")]
     [MinLength(1, ErrorMessage = "Decklist text must not be empty.")]

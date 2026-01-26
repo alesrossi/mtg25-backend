@@ -103,6 +103,14 @@ public class MainContext : DbContext
             entity.Property(dc => dc.TypeLine).IsRequired();
         });
 
+        modelBuilder.Entity<Deck>(entity =>
+        {
+            entity.Property(e => e.Format)
+                .HasConversion(
+                    v => v.ToCode(),
+                    v => DeckFormatExtensions.ParseOrDefault(v, DeckFormat.Standard));
+        });
+
         modelBuilder.Entity<TradeBinder>(entity =>
         {
             entity.HasKey(e => e.Id);

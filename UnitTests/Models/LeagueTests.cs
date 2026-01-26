@@ -1,7 +1,9 @@
+using System;
 using FluentAssertions;
 using Core.Models;
 using Core.Models.Identity;
 using TestUtilities.Builders;
+using Core.Enums;
 
 namespace UnitTests.Models;
 
@@ -30,7 +32,7 @@ public class LeagueTests
         league.OwnerId.Should().Be(ownerId, "because league should belong to the specified owner");
         league.Name.Should().NotBeNullOrEmpty("because league name is required");
         league.Code.Should().NotBeNullOrEmpty("because league code is required");
-        league.Format.Should().NotBeNullOrEmpty("because format is required");
+        Enum.IsDefined(typeof(DeckFormat), league.Format).Should().BeTrue("because format is required");
         league.TotalRounds.Should().BeGreaterThanOrEqualTo(0, "because total rounds cannot be negative");
         league.RoundsToConsider.Should().BeGreaterThanOrEqualTo(0, "because rounds to consider cannot be negative");
         league.MinimumRounds.Should().BeGreaterThanOrEqualTo(0, "because minimum rounds cannot be negative");
@@ -41,15 +43,19 @@ public class LeagueTests
     }
 
     [Theory]
-    [InlineData("Standard")]
-    [InlineData("Modern")]
-    [InlineData("Legacy")]
-    [InlineData("Vintage")]
-    [InlineData("Pioneer")]
-    [InlineData("Commander")]
-    [InlineData("Draft")]
-    [InlineData("Sealed")]
-    public void League_WithDifferentFormats_AcceptsAllValidFormats(string format)
+    [InlineData(DeckFormat.Standard)]
+    [InlineData(DeckFormat.Pioneer)]
+    [InlineData(DeckFormat.Modern)]
+    [InlineData(DeckFormat.Legacy)]
+    [InlineData(DeckFormat.Vintage)]
+    [InlineData(DeckFormat.Pauper)]
+    [InlineData(DeckFormat.Commander)]
+    [InlineData(DeckFormat.Penny)]
+    [InlineData(DeckFormat.Premodern)]
+    [InlineData(DeckFormat.Oathbreaker)]
+    [InlineData(DeckFormat.Limited)]
+    [InlineData(DeckFormat.Canadian)]
+    public void League_WithDifferentFormats_AcceptsAllValidFormats(DeckFormat format)
     {
         // Arrange & Act
         var league = _testDataBuilder.CreateLeague("owner-id");

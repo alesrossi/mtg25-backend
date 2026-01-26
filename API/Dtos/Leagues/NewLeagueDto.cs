@@ -1,6 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using Core.Models.Identity;
 
+using Core.Enums;
+
 namespace API.Dtos.Leagues;
 
 public class NewLeagueDto
@@ -9,7 +11,7 @@ public class NewLeagueDto
     [StringLength(32, MinimumLength = 1, ErrorMessage = "Name must be between 1 and 32 characters")]
     public required string Name { get; set; }
     [Required(ErrorMessage = "Format is required")]
-    public required string Format { get; set; }
+    public required DeckFormat Format { get; set; }
     [Required(ErrorMessage = "TotalRounds is required")]
     [Range(1, int.MaxValue, ErrorMessage = "Only positive numbers are allowed")]
     public int TotalRounds { get; set; }

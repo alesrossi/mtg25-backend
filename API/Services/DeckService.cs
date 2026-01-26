@@ -237,7 +237,7 @@ public sealed class DeckService : IDeckService
         }
 
         if (updateDto.Name != null) deck.Name = updateDto.Name;
-        if (updateDto.Format != null) deck.Format = updateDto.Format;
+        if (updateDto.Format.HasValue) deck.Format = updateDto.Format.Value;
         deck.Image = updateDto.Image;
 
         _unitOfWork.Repository<Deck>().Update(deck);
@@ -448,7 +448,7 @@ public sealed class DeckService : IDeckService
         var deck = new Deck
         {
             Name = importDto.Name.Trim(),
-            Format = importDto.Format.Trim(),
+            Format = importDto.Format,
             OwnerId = userId,
             NumberOfCards = 0,
             TotalPrice = 0,

@@ -1,3 +1,4 @@
+using System;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -16,6 +17,7 @@ using TestUtilities.Authentication;
 using TestUtilities.Builders;
 using TestUtilities.Scryfall;
 using TestUtilities.Serialization;
+using Core.Enums;
 
 namespace IntegrationTests.Controllers;
 
@@ -98,7 +100,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Arrange
         var user = await CreateTestUserAsync("structuretest@example.com", "structuretest");
-        var deck = await CreateTestDeckAsync(user.Id, "Structure Test Deck", "Standard");
+        var deck = await CreateTestDeckAsync(user.Id, "Structure Test Deck", DeckFormat.Standard);
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
         // Act
@@ -120,7 +122,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
                 var firstDeck = returnedDecks.First();
                 firstDeck.Id.Should().BeGreaterThan(0, "because deck should have valid ID");
                 firstDeck.Name.Should().NotBeNullOrEmpty("because deck should have name");
-                firstDeck.Format.Should().NotBeNullOrEmpty("because deck should have format");
+                Enum.IsDefined(typeof(DeckFormat), firstDeck.Format).Should().BeTrue("because deck should have format");
                 firstDeck.OwnerId.Should().NotBeNullOrEmpty("because deck should have owner");
             }
         }
@@ -133,8 +135,8 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         var user1 = await CreateTestUserAsync("user1@example.com", "user1");
         var user2 = await CreateTestUserAsync("user2@example.com", "user2");
         
-        var user1Deck = await CreateTestDeckAsync(user1.Id, "User1's Deck", "Standard");
-        var user2Deck = await CreateTestDeckAsync(user2.Id, "User2's Deck", "Modern");
+        var user1Deck = await CreateTestDeckAsync(user1.Id, "User1's Deck", DeckFormat.Standard);
+        var user2Deck = await CreateTestDeckAsync(user2.Id, "User2's Deck", DeckFormat.Modern);
         
         // Test as user1
         using var client = _factory.CreateClientWithUser(user1.Id, user1.UserName!, user1.Email!);
@@ -164,7 +166,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         var createRequest = new CreateDeckDto
         {
             Name = "New Test Deck",
-            Format = "Standard"
+            Format = DeckFormat.Standard
         };
 
         var json = JsonSerializer.Serialize(createRequest, JsonContentHelper.DefaultOptions);
@@ -199,7 +201,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         var createRequest = new CreateDeckDto
         {
             Name = "Unauthorized Deck",
-            Format = "Modern"
+            Format = DeckFormat.Modern
         };
 
         var response = await client.PostAsync("/api/decks",
@@ -215,7 +217,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Arrange
         var user = await CreateTestUserAsync("getbyid@example.com", "getbyid");
-        var deck = await CreateTestDeckAsync(user.Id, "Get By ID Test Deck", "Modern");
+        var deck = await CreateTestDeckAsync(user.Id, "Get By ID Test Deck", DeckFormat.Modern);
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
         // Act
@@ -241,7 +243,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         // Arrange
         var owner = await CreateTestUserAsync("owner@example.com", "owner");
         var otherUser = await CreateTestUserAsync("other@example.com", "other");
-        var deck = await CreateTestDeckAsync(owner.Id, "Owner's Deck", "Standard");
+        var deck = await CreateTestDeckAsync(owner.Id, "Owner's Deck", DeckFormat.Standard);
         using var client = _factory.CreateClientWithUser(otherUser.Id, otherUser.UserName!, otherUser.Email!);
 
         // Act
@@ -266,7 +268,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task GetDeckById_WithoutAuthentication_ReturnsUnauthorized()
     {
         var owner = await CreateTestUserAsync("deckid-owner@example.com", "deckid_owner");
-        var deck = await CreateTestDeckAsync(owner.Id, "Unauthorized Deck", "Standard");
+        var deck = await CreateTestDeckAsync(owner.Id, "Unauthorized Deck", DeckFormat.Standard);
         using var client = _factory.CreateClient();
 
         var response = await client.GetAsync($"/api/decks/{deck.Id}");
@@ -279,13 +281,13 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Arrange
         var user = await CreateTestUserAsync("updater@example.com", "updater");
-        var deck = await CreateTestDeckAsync(user.Id, "Original Name", "Standard");
+        var deck = await CreateTestDeckAsync(user.Id, "Original Name", DeckFormat.Standard);
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
         var updateRequest = new UpdateDeckDto
         {
             Name = "Updated Deck Name",
-            Format = "Modern"
+            Format = DeckFormat.Modern
         };
 
         var json = JsonSerializer.Serialize(updateRequest, JsonContentHelper.DefaultOptions);
@@ -314,13 +316,13 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         // Arrange
         var owner = await CreateTestUserAsync("owner2@example.com", "owner2");
         var otherUser = await CreateTestUserAsync("other2@example.com", "other2");
-        var deck = await CreateTestDeckAsync(owner.Id, "Owner's Deck", "Standard");
+        var deck = await CreateTestDeckAsync(owner.Id, "Owner's Deck", DeckFormat.Standard);
         using var client = _factory.CreateClientWithUser(otherUser.Id, otherUser.UserName!, otherUser.Email!);
 
         var updateRequest = new UpdateDeckDto
         {
             Name = "Hacked Name",
-            Format = "Modern"
+            Format = DeckFormat.Modern
         };
 
         var json = JsonSerializer.Serialize(updateRequest, JsonContentHelper.DefaultOptions);
@@ -342,7 +344,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         var updateRequest = new UpdateDeckDto
         {
             Name = "Missing Deck",
-            Format = "Modern"
+            Format = DeckFormat.Modern
         };
 
         var response = await client.PutAsync($"/api/decks/{int.MaxValue}",
@@ -357,13 +359,13 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task UpdateDeck_WithoutAuthentication_ReturnsUnauthorized()
     {
         var owner = await CreateTestUserAsync("deckupdate-noauth@example.com", "deckupdate_noauth");
-        var deck = await CreateTestDeckAsync(owner.Id, "NoAuth Deck", "Standard");
+        var deck = await CreateTestDeckAsync(owner.Id, "NoAuth Deck", DeckFormat.Standard);
         using var client = _factory.CreateClient();
 
         var updateRequest = new UpdateDeckDto
         {
             Name = "Unauthorized Update",
-            Format = "Modern"
+            Format = DeckFormat.Modern
         };
 
         var response = await client.PutAsync($"/api/decks/{deck.Id}",
@@ -379,7 +381,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Arrange
         var user = await CreateTestUserAsync("deleter@example.com", "deleter");
-        var deck = await CreateTestDeckAsync(user.Id, "To Be Deleted", "Standard");
+        var deck = await CreateTestDeckAsync(user.Id, "To Be Deleted", DeckFormat.Standard);
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
         // Act
@@ -399,7 +401,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         // Arrange
         var owner = await CreateTestUserAsync("owner3@example.com", "owner3");
         var otherUser = await CreateTestUserAsync("other3@example.com", "other3");
-        var deck = await CreateTestDeckAsync(owner.Id, "Protected Deck", "Standard");
+        var deck = await CreateTestDeckAsync(owner.Id, "Protected Deck", DeckFormat.Standard);
         using var client = _factory.CreateClientWithUser(otherUser.Id, otherUser.UserName!, otherUser.Email!);
 
         // Act
@@ -429,7 +431,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task DeleteDeck_WithoutAuthentication_ReturnsUnauthorized()
     {
         var owner = await CreateTestUserAsync("deckdelete-noauth@example.com", "deckdelete_noauth");
-        var deck = await CreateTestDeckAsync(owner.Id, "NoAuth Delete", "Modern");
+        var deck = await CreateTestDeckAsync(owner.Id, "NoAuth Delete", DeckFormat.Modern);
         using var client = _factory.CreateClient();
 
         var response = await client.DeleteAsync($"/api/decks/{deck.Id}");
@@ -453,7 +455,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         var importRequest = new DeckImportRequestDto
         {
             Name = "Imported Deck",
-            Format = "Modern",
+            Format = DeckFormat.Modern,
             Decklist = "4x Lightning Bolt\n2 Opt (INV)\n\n3 Negate (M10)"
         };
 
@@ -469,7 +471,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         var deckElement = document.RootElement.GetProperty("deck");
         var deckId = deckElement.GetProperty("id").GetInt32();
         deckElement.GetProperty("name").GetString().Should().Be("Imported Deck");
-        deckElement.GetProperty("format").GetString().Should().Be("Modern");
+        deckElement.GetProperty("format").GetString().Should().Be(DeckFormat.Modern.ToString());
 
         var deckCards = document.RootElement.GetProperty("deckCards");
         deckCards.GetArrayLength().Should().Be(3);
@@ -510,7 +512,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         var importRequest = new DeckImportRequestDto
         {
             Name = "Basics Test",
-            Format = "Modern",
+            Format = DeckFormat.Modern,
             Decklist = "2 Island\n1 Mountain\n4 Lightning Bolt"
         };
 
@@ -556,7 +558,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         var importRequest = new DeckImportRequestDto
         {
             Name = "Invalid Deck",
-            Format = "Standard",
+            Format = DeckFormat.Standard,
             Decklist = "4 Lightning Bolt\n2 Imaginary Card"
         };
 
@@ -615,7 +617,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         var importRequest = new DeckImportRequestDto
         {
             Name = "Fully Invalid Deck",
-            Format = "Modern",
+            Format = DeckFormat.Modern,
             Decklist = "2 Imaginary Card\n3 Another Unknown"
         };
 
@@ -659,7 +661,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         var importRequest = new DeckImportRequestDto
         {
             Name = "Filtered Deck",
-            Format = "Modern",
+            Format = DeckFormat.Modern,
             Decklist = "Maindeck\n4 Lightning Bolt\nCreatures\n2 Goblin Guide\n\nSideboard\nNotes\n1 Negate\n\nExtras"
         };
 
@@ -712,7 +714,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         var request = new DeckImportRequestDto
         {
             Name = "Unauthorized Import",
-            Format = "Modern",
+            Format = DeckFormat.Modern,
             Decklist = "4 Lightning Bolt"
         };
 
@@ -728,7 +730,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task ExportDeck_ReturnsDecklistWithSeparatedSideboard()
     {
         var user = await CreateTestUserAsync("exporter@example.com", "exporter");
-        var deck = await CreateTestDeckAsync(user.Id, "Export Test Deck", "Modern");
+        var deck = await CreateTestDeckAsync(user.Id, "Export Test Deck", DeckFormat.Modern);
 
         await SeedDeckCardsAsync(deck.Id,
             new DeckCardSeed("oracle-1", "Lightning Bolt", "LEA", 4, 0),
@@ -755,7 +757,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         var owner = await CreateTestUserAsync("export-owner@example.com", "export_owner");
         var otherUser = await CreateTestUserAsync("export-nonowner@example.com", "export_nonowner");
-        var deck = await CreateTestDeckAsync(owner.Id, "Owner Export Deck", "Pioneer");
+        var deck = await CreateTestDeckAsync(owner.Id, "Owner Export Deck", DeckFormat.Pioneer);
 
         await SeedDeckCardsAsync(deck.Id,
             new DeckCardSeed("oracle-10", "Lightning Strike", "THS", 4, 0));
@@ -771,7 +773,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task ExportDeck_WithoutAuthentication_ReturnsUnauthorized()
     {
         var owner = await CreateTestUserAsync("export-noauth@example.com", "export_noauth");
-        var deck = await CreateTestDeckAsync(owner.Id, "NoAuth Export", "Standard");
+        var deck = await CreateTestDeckAsync(owner.Id, "NoAuth Export", DeckFormat.Standard);
         await SeedDeckCardsAsync(deck.Id, new DeckCardSeed("oracle-20", "Shock", "M10", 4, 0));
 
         using var client = _factory.CreateClient();
@@ -793,7 +795,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         var decks = Enumerable.Range(1, count)
             .Select(i =>
             {
-                var deck = _testDataBuilder.CreateDeck(userId, i % 2 == 0 ? "Standard" : "Modern");
+                var deck = _testDataBuilder.CreateDeck(userId, i % 2 == 0 ? DeckFormat.Standard : DeckFormat.Modern);
                 deck.Name = $"Test Deck {i}";
                 deck.NumberOfCards = 60;
                 deck.TotalPrice = 50.0 * i;
@@ -807,7 +809,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         return decks;
     }
 
-    private async Task<Deck> CreateTestDeckAsync(string userId, string name, string format)
+    private async Task<Deck> CreateTestDeckAsync(string userId, string name, DeckFormat format)
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();

@@ -1,5 +1,7 @@
 using Core.Models.Identity;
 
+using Core.Enums;
+
 namespace API.Dtos.Leagues;
 
 public class LeagueDto
@@ -7,7 +9,7 @@ public class LeagueDto
     public int Id { get; set; }
     public required string Name { get; set; }
     public required string Code { get; set; }
-    public required string Format { get; set; }
+    public required DeckFormat Format { get; set; }
     public int TotalRounds { get; set; }
     public int CurrentRound { get; set; }
     public int RoundsToConsider { get; set; }

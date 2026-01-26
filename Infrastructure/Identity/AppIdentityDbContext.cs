@@ -61,6 +61,12 @@ namespace Infrastructure.Identity
                 .Property(s => s.EnabledLocation)
                 .HasDefaultValue(false);
 
+            builder.Entity<League>()
+                .Property(l => l.Format)
+                .HasConversion(
+                    v => v.ToCode(),
+                    v => DeckFormatExtensions.ParseOrDefault(v, DeckFormat.Standard));
+
             builder.Entity<Notification>()
                 .HasOne(ul => ul.AppUser)
                 .WithMany(u => u.Notifications)
