@@ -38,6 +38,7 @@ using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.Elasticsearch;
 using Serilog.Debugging;
+using Core.Enums;
 
 namespace API;
 
@@ -83,6 +84,8 @@ public class Program
                     options.JsonSerializerOptions.Converters.Add(new NullableLanguageJsonConverter());
                     options.JsonSerializerOptions.Converters.Add(new DeckFormatJsonConverter());
                     options.JsonSerializerOptions.Converters.Add(new NullableDeckFormatJsonConverter());
+                    options.JsonSerializerOptions.Converters.Add(new CurrencyJsonConverter());
+                    options.JsonSerializerOptions.Converters.Add(new NullableCurrencyJsonConverter());
                 });
 
             // Configure JSON for Minimal APIs
@@ -94,6 +97,8 @@ public class Program
                 options.SerializerOptions.Converters.Add(new NullableLanguageJsonConverter());
                 options.SerializerOptions.Converters.Add(new DeckFormatJsonConverter());
                 options.SerializerOptions.Converters.Add(new NullableDeckFormatJsonConverter());
+                options.SerializerOptions.Converters.Add(new CurrencyJsonConverter());
+                options.SerializerOptions.Converters.Add(new NullableCurrencyJsonConverter());
             });
             
             // Add services to the container.

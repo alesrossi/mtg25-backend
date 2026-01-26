@@ -13,6 +13,7 @@ using Core.Specifications;
 using Microsoft.AspNetCore.Identity;
 using API.Constants;
 using static API.Helpers.CollectionValueCalculator;
+using Core.Enums;
 
 namespace API.Services;
 
@@ -763,21 +764,14 @@ public sealed class TradeConnectionService : ITradeConnectionService
         return Task.CompletedTask;
     }
 
-    private static string ResolvePurchaseCurrency(Currency? currency, string fallbackCurrency)
+    private static Currency ResolvePurchaseCurrency(Currency? currency, Currency fallbackCurrency)
     {
         if (currency.HasValue)
         {
-            return ConvertCurrencyToCode(currency.Value);
+            return currency.Value;
         }
 
-        return string.IsNullOrWhiteSpace(fallbackCurrency)
-            ? "USD"
-            : fallbackCurrency;
-    }
-
-    private static string ConvertCurrencyToCode(Currency currency)
-    {
-        return currency.ToString().ToUpperInvariant();
+        return fallbackCurrency;
     }
 
     private async Task<IReadOnlyList<Wishlist>> GetWishlistsForUserAsync(

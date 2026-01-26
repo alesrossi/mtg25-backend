@@ -18,6 +18,7 @@ using TestUtilities.Authentication;
 using TestUtilities.Builders;
 using TestUtilities.Serialization;
 using TestUtilities.Scryfall;
+using Core.Enums;
 
 namespace IntegrationTests.Controllers;
 

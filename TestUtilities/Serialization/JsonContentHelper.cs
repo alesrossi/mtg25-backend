@@ -2,6 +2,7 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using API.Json;
+using Core.Enums;
 
 namespace TestUtilities.Serialization;
 
@@ -16,7 +17,9 @@ public static class JsonContentHelper
             new LanguageJsonConverter(),
             new NullableLanguageJsonConverter(),
             new DeckFormatJsonConverter(),
-            new NullableDeckFormatJsonConverter()
+            new NullableDeckFormatJsonConverter(),
+            new CurrencyJsonConverter(),
+            new NullableCurrencyJsonConverter()
         }
     };
 

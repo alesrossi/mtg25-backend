@@ -2,6 +2,7 @@ using API.Dtos.Wishlists;
 using Core.Interfaces;
 using Core.Models;
 using Core.Specifications;
+using Core.Enums;
 
 namespace API.Services;
 

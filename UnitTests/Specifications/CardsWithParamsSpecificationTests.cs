@@ -65,7 +65,7 @@ public class CardsWithParamsSpecificationTests
             Condition = Condition.NearMint,
             IsFoil = false,
             PurchasePrice = 1,
-            PurchasePriceCurrency = "USD",
+            PurchasePriceCurrency = Currency.Usd,
             ImageUrl = "https://example.com/image.png",
             BackImageUrl = null,
             ArtCrop = "https://example.com/art.png",

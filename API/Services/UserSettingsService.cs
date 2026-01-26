@@ -1,6 +1,7 @@
 using Core.Models.Identity;
 using Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
+using Core.Enums;
 
 namespace API.Services;
 

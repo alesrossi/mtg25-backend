@@ -119,7 +119,7 @@ public class DeckCardTests
             Language = Language.En,
             Condition = Condition.NearMint,
             IsFoil = false,
-            PurchasePriceCurrency = "USD",
+            PurchasePriceCurrency = Currency.Usd,
             ImageUrl = "https://example.com/card.jpg",
             BackImageUrl = null,
             SetName = "Alpha",

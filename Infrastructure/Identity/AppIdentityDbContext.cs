@@ -40,19 +40,21 @@ namespace Infrastructure.Identity
 
             builder.Entity<Settings>()
                 .Property(s => s.Currency)
-                .HasConversion<string>()
+                .HasConversion<string?>(
+                    v => v.HasValue ? v.Value.ToCode() : null,
+                    v => string.IsNullOrWhiteSpace(v) ? (Currency?)null : CurrencyExtensions.ParseOrDefault(v, Currency.Eur))
                 .HasDefaultValue(Currency.Eur);
 
             builder.Entity<Settings>()
                 .Property(s => s.LanguageUi)
-                .HasConversion(
+                .HasConversion<string>(
                     v => v.ToCode(),
                     v => LanguageExtensions.ParseOrDefault(v, Language.It))
                 .HasDefaultValue(Language.It);
 
             builder.Entity<Settings>()
                 .Property(s => s.LanguageCards)
-                .HasConversion(
+                .HasConversion<string>(
                     v => v.ToCode(),
                     v => LanguageExtensions.ParseOrDefault(v, Language.En))
                 .HasDefaultValue(Language.En);
@@ -63,7 +65,7 @@ namespace Infrastructure.Identity
 
             builder.Entity<League>()
                 .Property(l => l.Format)
-                .HasConversion(
+                .HasConversion<string>(
                     v => v.ToCode(),
                     v => DeckFormatExtensions.ParseOrDefault(v, DeckFormat.Standard));
 

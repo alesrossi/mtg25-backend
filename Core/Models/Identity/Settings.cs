@@ -27,9 +27,3 @@ public enum MarketProvider
     Tcg
 }
 
-public enum Currency
-{
-    Eur,
-    Usd,
-    Jyn
-}

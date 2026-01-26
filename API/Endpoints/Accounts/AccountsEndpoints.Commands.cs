@@ -8,6 +8,7 @@ using Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Core.Enums;
 
 namespace API.Endpoints.Accounts;
 

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using API.Dtos.Binders;
 using Core.Models.Identity;
+using Core.Enums;
 
 namespace API.Dtos.Trades;
 

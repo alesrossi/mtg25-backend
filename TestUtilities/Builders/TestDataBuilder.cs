@@ -246,7 +246,7 @@ public class TestDataBuilder
             .With(c => c.Language, Language.En)
             .With(c => c.Condition, Condition.NearMint)
             .With(c => c.IsFoil, _random.Next(10) == 0) // 10% chance of foil
-            .With(c => c.PurchasePriceCurrency, "USD")
+            .With(c => c.PurchasePriceCurrency, Currency.Usd)
             .With(c => c.ImageUrl, $"https://cards.scryfall.io/normal/front/{_fixture.Create<Guid>()}.jpg")
             .With(c => c.BackImageUrl, _random.Next(2) == 0 ? null : $"https://cards.scryfall.io/normal/back/{_fixture.Create<Guid>()}.jpg")
             .With(c => c.SetCode, GetRandomSetCode())

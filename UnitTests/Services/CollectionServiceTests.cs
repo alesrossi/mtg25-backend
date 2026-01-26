@@ -190,7 +190,7 @@ public class CollectionServiceTests
             Condition = Condition.NearMint,
             IsFoil = false,
             PurchasePrice = purchasePrice,
-            PurchasePriceCurrency = "USD",
+            PurchasePriceCurrency = Currency.Usd,
             ImageUrl = "http://image",
             BackImageUrl = null,
             ArtCrop = "http://art",

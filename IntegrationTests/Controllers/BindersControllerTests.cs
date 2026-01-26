@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 using TestUtilities.Authentication;
 using TestUtilities.Builders;
 using TestUtilities.Serialization;
+using Core.Enums;
 
 namespace IntegrationTests.Controllers;
 

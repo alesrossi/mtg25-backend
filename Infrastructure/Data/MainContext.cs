@@ -76,6 +76,27 @@ public class MainContext : DbContext
                 .HasConversion(
                     v => v.ToCode(),
                     v => LanguageExtensions.ParseOrDefault(v, Language.En));
+
+            entity.Property(e => e.PurchasePriceCurrency)
+                .HasConversion(
+                    v => v.ToCode(),
+                    v => CurrencyExtensions.ParseOrDefault(v, Currency.Usd));
+        });
+
+        modelBuilder.Entity<Deck>(entity =>
+        {
+            entity.Property(e => e.TotalPriceCurrency)
+                .HasConversion(
+                    v => v.HasValue ? v.Value.ToCode() : null,
+                    v => CurrencyExtensions.ParseNullable(v));
+        });
+
+        modelBuilder.Entity<Wishlist>(entity =>
+        {
+            entity.Property(e => e.TotalPriceCurrency)
+                .HasConversion(
+                    v => v.HasValue ? v.Value.ToCode() : null,
+                    v => CurrencyExtensions.ParseNullable(v));
         });
 
         modelBuilder.Entity<DeckCard>(entity =>

@@ -13,7 +13,7 @@ public class Card : BaseModel
     public Condition Condition  { get; set; }
     public required bool IsFoil { get; set; }
     public required double PurchasePrice { get; set; }
-    public required string PurchasePriceCurrency { get; set; }
+    public required Currency PurchasePriceCurrency { get; set; }
     public required string ImageUrl { get; set; }
     public string? BackImageUrl { get; set; }
     public required string ArtCrop { get; set; }

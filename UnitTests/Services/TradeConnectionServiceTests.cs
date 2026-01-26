@@ -651,13 +651,13 @@ public class TradeConnectionServiceTests : IDisposable
         recipientCards.Should().ContainSingle(c => c.Quantity == 1);
         var partnerReceivedCard = recipientCards.Single();
         partnerReceivedCard.PurchasePrice.Should().Be(9.25);
-        partnerReceivedCard.PurchasePriceCurrency.Should().Be("EUR");
+        partnerReceivedCard.PurchasePriceCurrency.Should().Be(Currency.Eur);
 
         var initiatorReceivedCards = mainContext.Cards.Where(c => c.CollectionId == initiatorCollection.Id && c.Name == partnerCard.Name).ToList();
         initiatorReceivedCards.Should().ContainSingle(c => c.Quantity == 1);
         var initiatorReceivedCard = initiatorReceivedCards.Single();
         initiatorReceivedCard.PurchasePrice.Should().Be(7.75);
-        initiatorReceivedCard.PurchasePriceCurrency.Should().Be("USD");
+        initiatorReceivedCard.PurchasePriceCurrency.Should().Be(Currency.Usd);
 
         var partnerWishlistCards = mainContext.WishlistCards.Where(c => c.WishlistId == partnerWishlist.Id).ToList();
         partnerWishlistCards.Should().BeEmpty();

@@ -1,3 +1,4 @@
+using System;
 using FluentAssertions;
 using Core.Enums;
 using Core.Models;
@@ -31,7 +32,7 @@ public class CardTests
         card.ScryfallId.Should().NotBeNullOrEmpty("because oracle ID is required for card identification");
         card.Quantity.Should().BeGreaterThan(0, "because quantity must be positive");
         card.Language.Should().Be(Language.En, "because language is required");
-        card.PurchasePriceCurrency.Should().NotBeNullOrEmpty("because currency is required");
+        Enum.IsDefined(typeof(Currency), card.PurchasePriceCurrency).Should().BeTrue("because currency is required");
         card.ImageUrl.Should().NotBeNullOrEmpty("because image URL is required");
         card.SetCode.Should().NotBeNullOrEmpty("because set code is required");
         card.SetName.Should().NotBeNullOrEmpty("because set name is required");
@@ -76,11 +77,11 @@ public class CardTests
         // Arrange & Act
         var card = _testDataBuilder.CreateCard(1);
         card.PurchasePrice = 15.75;
-        card.PurchasePriceCurrency = "USD";
+        card.PurchasePriceCurrency = Currency.Usd;
 
         // Assert
         card.PurchasePrice.Should().Be(15.75, "because that's the purchase price we set");
-        card.PurchasePriceCurrency.Should().Be("USD", "because that's the currency we set");
+        card.PurchasePriceCurrency.Should().Be(Currency.Usd, "because that's the currency we set");
     }
 
     [Theory]

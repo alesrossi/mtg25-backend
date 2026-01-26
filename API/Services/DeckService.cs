@@ -6,6 +6,7 @@ using Core.Models.Identity;
 using Core.Specifications;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Core.Enums;
 
 namespace API.Services;
 

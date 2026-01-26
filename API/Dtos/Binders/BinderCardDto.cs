@@ -1,5 +1,6 @@
 using Core.Models;
 using Core.Models.Identity;
+using Core.Enums;
 
 namespace API.Dtos.Binders;
 

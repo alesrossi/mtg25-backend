@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Text;
@@ -124,7 +125,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             Condition = "NearMint",
             IsFoil = card.IsFoil,
             PurchasePrice = card.PurchasePrice + 1,
-            PurchasePriceCurrency = "USD",
+            PurchasePriceCurrency = Currency.Usd,
             IsMisprint = card.IsMisprint,
             IsAltered = card.IsAltered
         };
@@ -157,7 +158,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = card.PurchasePrice,
-            PurchasePriceCurrency = "USD",
+            PurchasePriceCurrency = Currency.Usd,
             IsMisprint = false,
             IsAltered = false
         };
@@ -184,7 +185,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = card.PurchasePrice,
-            PurchasePriceCurrency = "USD",
+            PurchasePriceCurrency = Currency.Usd,
             IsMisprint = false,
             IsAltered = false
         };
@@ -209,7 +210,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = 1,
-            PurchasePriceCurrency = "USD",
+            PurchasePriceCurrency = Currency.Usd,
             IsMisprint = false,
             IsAltered = false
         };
@@ -236,7 +237,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = card.PurchasePrice,
-            PurchasePriceCurrency = "USD",
+            PurchasePriceCurrency = Currency.Usd,
             IsMisprint = false,
             IsAltered = false
         };
@@ -264,7 +265,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = card.PurchasePrice,
-            PurchasePriceCurrency = "USD",
+            PurchasePriceCurrency = Currency.Usd,
             IsMisprint = false,
             IsAltered = false,
             ScryfallId = "dd60b291-0a88-4e8e-bef8-76cdfd6c8183"
@@ -303,7 +304,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = card.PurchasePrice,
-            PurchasePriceCurrency = "USD",
+            PurchasePriceCurrency = Currency.Usd,
             IsMisprint = false,
             IsAltered = false,
             ScryfallId = "0a1b4e2e-5459-4fae-81d9-1e882647daac"
@@ -331,7 +332,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = card.PurchasePrice,
-            PurchasePriceCurrency = "USD",
+            PurchasePriceCurrency = Currency.Usd,
             IsMisprint = false,
             IsAltered = false,
             ScryfallId = "TEST"
@@ -359,7 +360,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = card.PurchasePrice,
-            PurchasePriceCurrency = "USD",
+            PurchasePriceCurrency = Currency.Usd,
             IsMisprint = false,
             IsAltered = false,
             ScryfallId = "TEST"
@@ -385,7 +386,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = 1,
-            PurchasePriceCurrency = "USD",
+            PurchasePriceCurrency = Currency.Usd,
             IsMisprint = false,
             IsAltered = false,
             ScryfallId = "TEST"
@@ -413,7 +414,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = card.PurchasePrice,
-            PurchasePriceCurrency = "USD",
+            PurchasePriceCurrency = Currency.Usd,
             IsMisprint = false,
             IsAltered = false,
             ScryfallId =  "test"
@@ -567,7 +568,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = 1.50,
-            PurchasePriceCurrency = "USD",
+            PurchasePriceCurrency = Currency.Usd,
             IsMisprint = false,
             IsAltered = false
         };
@@ -623,7 +624,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         createdCard.Should().NotBeNull();
         createdCard!.PurchasePrice.Should().BeGreaterThan(0, "because a live price should be applied when none is supplied");
-        createdCard.PurchasePriceCurrency.Should().NotBeNullOrWhiteSpace();
+        Enum.IsDefined(typeof(Currency), createdCard.PurchasePriceCurrency).Should().BeTrue();
     }
     
     [Fact]
@@ -642,7 +643,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             Condition = "InvalidCondition",
             IsFoil = false,
             PurchasePrice = 1.0,
-            PurchasePriceCurrency = "USD",
+            PurchasePriceCurrency = Currency.Usd,
             IsMisprint = false,
             IsAltered = false
         };
@@ -668,7 +669,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = 1.0,
-            PurchasePriceCurrency = "USD",
+            PurchasePriceCurrency = Currency.Usd,
             IsMisprint = false,
             IsAltered = false
         };
@@ -693,7 +694,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = 1.0,
-            PurchasePriceCurrency = "USD",
+            PurchasePriceCurrency = Currency.Usd,
             IsMisprint = false,
             IsAltered = false
         };
@@ -904,7 +905,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             Condition = Condition.NearMint,
             IsFoil = false,
             PurchasePrice = 1.0,
-            PurchasePriceCurrency = "USD",
+            PurchasePriceCurrency = Currency.Usd,
             ImageUrl = "https://example.com/card.jpg",
             BackImageUrl = null,
             SetCode = "TST",

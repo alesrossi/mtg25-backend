@@ -4,6 +4,7 @@ using API.Helpers;
 using Core.Interfaces;
 using Core.Models;
 using Core.Models.Identity;
+using Core.Enums;
 
 namespace API.Services;
 
@@ -570,7 +571,7 @@ public sealed class CardsService : ICardsService
         };
     }
 
-    private static async Task<(double price, string currency)> ResolvePurchasePriceAsync(
+    private static async Task<(double price, Currency currency)> ResolvePurchasePriceAsync(
         InternalCardDto cardDto,
         ScryfallCardDto scryfallCard,
         string userId,
@@ -580,15 +581,15 @@ public sealed class CardsService : ICardsService
         var purchaseCurrency = cardDto.PurchasePriceCurrency;
 
         var requiresMarketPrice = !purchasePrice.HasValue || purchasePrice.Value <= 0;
-        var requiresCurrency = string.IsNullOrWhiteSpace(purchaseCurrency);
+        var requiresCurrency = !purchaseCurrency.HasValue;
 
         if (!requiresMarketPrice && !requiresCurrency)
         {
-            return (purchasePrice!.Value, purchaseCurrency!);
+            return (purchasePrice!.Value, purchaseCurrency!.Value);
         }
 
         var marketProvider = await userSettingsService.GetMarketProviderAsync(userId);
-        var currencyCode = ConvertCurrencyToCode(userSettingsService.ResolveCurrency(marketProvider));
+        var resolvedCurrency = userSettingsService.ResolveCurrency(marketProvider);
 
         if (requiresMarketPrice)
         {
@@ -596,13 +597,13 @@ public sealed class CardsService : ICardsService
             if (livePrice.HasValue)
             {
                 purchasePrice = livePrice.Value;
-                purchaseCurrency ??= currencyCode;
+                purchaseCurrency ??= resolvedCurrency;
             }
         }
 
-        purchaseCurrency ??= currencyCode;
+        purchaseCurrency ??= resolvedCurrency;
 
-        return (purchasePrice ?? 0, purchaseCurrency);
+        return (purchasePrice ?? 0, purchaseCurrency.Value);
     }
 
     private static double? ResolveMarketPrice(ScryfallCardDto scryfallCard, bool isFoil, MarketProvider marketProvider)
@@ -634,10 +635,6 @@ public sealed class CardsService : ICardsService
             : null;
     }
 
-    private static string ConvertCurrencyToCode(Currency currency)
-    {
-        return currency.ToString().ToUpperInvariant();
-    }
 }
 
 public sealed class CardsServiceException : Exception

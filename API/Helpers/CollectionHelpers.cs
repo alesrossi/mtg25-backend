@@ -85,7 +85,7 @@ public static class CollectionHelpers
 
             var (purchasePrice, purchaseCurrency) = ResolvePurchasePrice(
                 record.PurchasePrice,
-                record.PurchasePriceCurrency,
+                CurrencyExtensions.ParseNullable(record.PurchasePriceCurrency),
                 record.IsFoil,
                 ocd,
                 marketProvider,
@@ -186,7 +186,7 @@ public static class CollectionHelpers
 
             var (purchasePrice, purchaseCurrency) = ResolvePurchasePrice(
                 0,
-                string.Empty,
+                null,
                 record.IsFoil,
                 ocd,
                 marketProvider,
@@ -307,7 +307,7 @@ public static class CollectionHelpers
 
             var (purchasePrice, purchaseCurrency) = ResolvePurchasePrice(
                 0,
-                string.Empty,
+                null,
                 record.IsFoil,
                 ocd,
                 marketProvider,
@@ -426,8 +426,8 @@ public static class CollectionHelpers
 
             var purchasePriceInput = ParsePurchasePrice(record.PurchasePrice);
             var initialCurrency = purchasePriceInput > 0
-                ? ConvertCurrencyToCode(userCurrency)
-                : string.Empty;
+                ? userCurrency
+                : (Currency?)null;
 
             var (purchasePrice, purchaseCurrency) = ResolvePurchasePrice(
                 purchasePriceInput,
@@ -538,7 +538,7 @@ public static class CollectionHelpers
 
             var (purchasePrice, purchaseCurrency) = ResolvePurchasePrice(
                 purchasePriceInput,
-                string.Empty,
+                null,
                 record.IsFoil,
                 ocd,
                 marketProvider,
@@ -629,9 +629,7 @@ public static class CollectionHelpers
             }
 
             var purchasePriceInput = ParsePurchasePrice(record.Price);
-            var currencyInput = string.IsNullOrWhiteSpace(record.Currency)
-                ? string.Empty
-                : record.Currency.Trim();
+            var currencyInput = CurrencyExtensions.ParseNullable(record.Currency);
 
             var (purchasePrice, purchaseCurrency) = ResolvePurchasePrice(
                 purchasePriceInput,
@@ -703,9 +701,9 @@ public static class CollectionHelpers
         return true;
     }
 
-    private static (double price, string currency) ResolvePurchasePrice(
+    private static (double price, Currency currency) ResolvePurchasePrice(
         double purchasePrice,
-        string? purchaseCurrency,
+        Currency? purchaseCurrency,
         bool isFoil,
         ScryfallCardDto cardData,
         MarketProvider marketProvider,
@@ -720,16 +718,16 @@ public static class CollectionHelpers
             if (marketPrice.HasValue)
             {
                 price = marketPrice.Value;
-                currency = ConvertCurrencyToCode(userCurrency);
+                currency = userCurrency;
             }
         }
 
-        if (string.IsNullOrWhiteSpace(currency))
+        if (!currency.HasValue)
         {
-            currency = ConvertCurrencyToCode(userCurrency);
+            currency = userCurrency;
         }
 
-        return (price, currency);
+        return (price, currency ?? userCurrency);
     }
 
     private static double ParsePurchasePrice(string? priceText)
@@ -770,11 +768,6 @@ public static class CollectionHelpers
         return double.TryParse(priceText, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
             ? parsed
             : null;
-    }
-
-    private static string ConvertCurrencyToCode(Currency currency)
-    {
-        return currency.ToString().ToUpperInvariant();
     }
 
     private static Condition ConvertCondition(string? condition)

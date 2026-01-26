@@ -42,7 +42,7 @@ public class CardsServiceTests
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = 2.00,
-            PurchasePriceCurrency = "USD",
+            PurchasePriceCurrency = Currency.Usd,
             IsMisprint = false,
             IsAltered = false
         };
@@ -90,7 +90,7 @@ public class CardsServiceTests
             Condition = "NearMint",
             IsFoil = false,
             PurchasePrice = 2.00,
-            PurchasePriceCurrency = "USD",
+            PurchasePriceCurrency = Currency.Usd,
             IsMisprint = false,
             IsAltered = false,
             ScryfallId = "new-id"
@@ -150,7 +150,7 @@ public class CardsServiceTests
         var card = await service.AddNewCardAsync(cardDto, ownerId);
 
         card.PurchasePrice.Should().Be(1.50);
-        card.PurchasePriceCurrency.Should().Be("EUR");
+        card.PurchasePriceCurrency.Should().Be(Currency.Eur);
         var updatedCollection = await context.Collections.SingleAsync();
         updatedCollection.NumberOfCards.Should().Be(2);
         updatedCollection.TotalPrice.Should().Be(3.00);
@@ -247,7 +247,7 @@ public class CardsServiceTests
             Condition = Condition.NearMint,
             IsFoil = isFoil,
             PurchasePrice = purchasePrice,
-            PurchasePriceCurrency = "USD",
+            PurchasePriceCurrency = Currency.Usd,
             ImageUrl = "http://image",
             BackImageUrl = null,
             ArtCrop = "http://art",

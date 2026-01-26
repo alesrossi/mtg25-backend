@@ -16,6 +16,7 @@ using Moq;
 using TestUtilities.Builders;
 using TestUtilities.Scryfall;
 using Xunit;
+using Core.Enums;
 
 namespace UnitTests.Services;
 
