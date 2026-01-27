@@ -1,7 +1,4 @@
-using System.Collections.Generic;
 using API.Helpers;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Filters;
@@ -12,25 +9,21 @@ public class ProblemDetailsEndpointFilter : IEndpointFilter
     {
         var result = await next(context);
 
-        if (result is IResult httpResult)
+        if (result is not IResult httpResult || IsProblemResult(httpResult)) return result;
+
+        if (httpResult is IStatusCodeHttpResult statusResult &&
+            statusResult.StatusCode is { } statusCode and >= 400)
         {
-            if (IsProblemResult(httpResult)) return result;
+            var (detail, extensions) = ExtractDetailAndExtensions(httpResult);
+            var (title, errorCode) = ResolveDefaults(statusCode);
 
-            if (httpResult is IStatusCodeHttpResult statusResult &&
-                statusResult.StatusCode is int statusCode &&
-                statusCode >= 400)
-            {
-                var (detail, extensions) = ExtractDetailAndExtensions(httpResult);
-                var (title, errorCode) = ResolveDefaults(statusCode);
-
-                return ProblemResultFactory.Create(
-                    context.HttpContext,
-                    statusCode,
-                    title,
-                    detail,
-                    errorCode,
-                    extensions);
-            }
+            return ProblemResultFactory.Create(
+                context.HttpContext,
+                statusCode,
+                title,
+                detail,
+                errorCode,
+                extensions);
         }
 
         return result;
@@ -98,7 +91,7 @@ public class ProblemDetailsEndpointFilter : IEndpointFilter
         StatusCodes.Status409Conflict => ("Conflict", "conflict"),
         StatusCodes.Status422UnprocessableEntity => ("Unprocessable entity", "unprocessable-entity"),
         StatusCodes.Status500InternalServerError => ("Server error", "server-error"),
-        _ when statusCode >= 500 => ("Server error", "server-error"),
+        >= 500 => ("Server error", "server-error"),
         _ => ("Request failed", "request-failed")
     };
 }

@@ -1,6 +1,3 @@
-using System.Collections.Generic;
-using Microsoft.AspNetCore.Http;
-
 namespace API.Helpers;
 
 public static class ProblemResultFactory
@@ -10,8 +7,8 @@ public static class ProblemResultFactory
     public static IResult Create(HttpContext context, int statusCode, string title, string? detail = null, string? errorCode = null, IDictionary<string, object?>? extensions = null)
     {
         var extensionPayload = extensions is null
-            ? new Dictionary<string, object?>(System.StringComparer.OrdinalIgnoreCase)
-            : new Dictionary<string, object?>(extensions, System.StringComparer.OrdinalIgnoreCase);
+            ? new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, object?>(extensions, StringComparer.OrdinalIgnoreCase);
 
         extensionPayload["traceId"] = context.TraceIdentifier;
 

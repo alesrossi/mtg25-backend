@@ -103,5 +103,4 @@ public static partial class BindersEndpoint
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
     }
-    
 }

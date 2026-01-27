@@ -12,7 +12,7 @@ public class CardDataService
 {
     private readonly PathsConfig _pathsConfig;
     private readonly ScryfallConfig _scryfallConfig;
-    private readonly ILogger<CardDataService> logger;
+    private readonly ILogger<CardDataService> _logger;
 
     private const string LoadOperation = "CardData.Load";
 
@@ -23,7 +23,7 @@ public class CardDataService
     {
         _pathsConfig = pathsConfig.Value;
         _scryfallConfig = scryfallConfig.Value;
-        this.logger = logger;
+        _logger = logger;
     }
 
     public Dictionary<string, ScryfallCardDto> CardDataById { get; private set; } = new();
@@ -31,14 +31,13 @@ public class CardDataService
 
     public async Task LoadCardDataAsync(CancellationToken cancellationToken = default)
     {
-        using var scope = logger.BeginOperationScope(LoadOperation);
-        logger.LogOperationStart(LoadOperation, new { _pathsConfig.Bulk, _scryfallConfig.BasePath });
+        using var scope = _logger.BeginOperationScope(LoadOperation);
+        _logger.LogOperationStart(LoadOperation, new { _pathsConfig.Bulk, _scryfallConfig.BasePath });
 
         var stopwatch = Stopwatch.StartNew();
         var cardsById = new Dictionary<string, ScryfallCardDto>();
         var cardsByName = new Dictionary<string, ScryfallCardDto>(StringComparer.OrdinalIgnoreCase);
         var processed = 0;
-        var indexed = 0;
         var skipped = 0;
 
         try
@@ -67,7 +66,6 @@ public class CardDataService
                 if (splitNames.Length <= 1)
                 {
                     AddOrUpdateWithCheapest(splitNames.FirstOrDefault() ?? card.Name, card);
-                    indexed++;
                     continue;
                 }
 
@@ -79,7 +77,6 @@ public class CardDataService
                     }
 
                     AddOrUpdateWithCheapest(faceName, card with { Name = faceName });
-                    indexed++;
                 }
             }
 
@@ -87,7 +84,7 @@ public class CardDataService
             CardDataByName = cardsByName;
 
             stopwatch.Stop();
-            logger.LogOperationSuccess(LoadOperation, new
+            _logger.LogOperationSuccess(LoadOperation, new
             {
                 Processed = processed,
                 Skipped = skipped,
@@ -99,13 +96,13 @@ public class CardDataService
         catch (OperationCanceledException)
         {
             stopwatch.Stop();
-            logger.LogOperationWarning(LoadOperation, "Card data loading cancelled", new { Processed = processed });
+            _logger.LogOperationWarning(LoadOperation, "Card data loading cancelled", new { Processed = processed });
             throw;
         }
         catch (Exception ex)
         {
             stopwatch.Stop();
-            logger.LogOperationFailure(LoadOperation, ex, new { Processed = processed });
+            _logger.LogOperationFailure(LoadOperation, ex, new { Processed = processed });
             throw;
         }
 
@@ -179,7 +176,7 @@ public class CardDataService
         return matchingFace?.ImageUris!;
     }
 
-    public string? ResolveBackImageUrl(ScryfallCardDto card)
+    public static string? ResolveBackImageUrl(ScryfallCardDto card)
     {
         if (card.CardFaces is null || card.CardFaces.Count < 2)
         {

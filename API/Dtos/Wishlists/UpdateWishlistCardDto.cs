@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using Core.Models;
-
 using Core.Enums;
 
 namespace API.Dtos.Wishlists;

@@ -17,7 +17,7 @@ public class ValidationService : IValidationService
                 if (item is null)
                 {
                     isAggregateValid = false;
-                    aggregateErrors.Add($"[{index}]", new[] { "Item cannot be null." });
+                    aggregateErrors.Add($"[{index}]", ["Item cannot be null."]);
                     index++;
                     continue;
                 }

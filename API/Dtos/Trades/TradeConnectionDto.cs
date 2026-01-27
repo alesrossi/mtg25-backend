@@ -11,8 +11,8 @@ public sealed class TradeConnectionDto
     public string TradeId { get; init; } = string.Empty;
     public TradeParticipantDto Initiator { get; init; } = new();
     public TradeParticipantDto Partner { get; init; } = new();
-    public IReadOnlyList<TradeMatchDto> InitiatorMatches { get; init; } = Array.Empty<TradeMatchDto>();
-    public IReadOnlyList<TradeMatchDto> PartnerMatches { get; init; } = Array.Empty<TradeMatchDto>();
+    public IReadOnlyList<TradeMatchDto> InitiatorMatches { get; init; } = [];
+    public IReadOnlyList<TradeMatchDto> PartnerMatches { get; init; } = [];
     public MarketProvider PriceProvider { get; init; } = MarketProvider.Mkm;
     public Currency PriceCurrency { get; init; } = Currency.Eur;
     public double InitiatorTotalValue { get; set; }

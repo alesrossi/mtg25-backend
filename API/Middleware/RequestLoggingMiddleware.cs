@@ -1,10 +1,6 @@
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.IO.Compression;
 using System.Text;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
 using Serilog.Context;
@@ -14,9 +10,9 @@ namespace API.Middleware;
 
 public class RequestLoggingMiddleware
 {
-    private readonly RequestDelegate next;
-    private readonly ILogger<RequestLoggingMiddleware> logger;
-    private readonly RequestLoggingOptions options;
+    private readonly RequestDelegate _next;
+    private readonly ILogger<RequestLoggingMiddleware> _logger;
+    private readonly RequestLoggingOptions _options;
 
     private const string CorrelationIdItemKey = "CorrelationId";
 
@@ -25,22 +21,22 @@ public class RequestLoggingMiddleware
         ILogger<RequestLoggingMiddleware> logger,
         IOptions<RequestLoggingOptions> options)
     {
-        this.next = next;
-        this.logger = logger;
-        this.options = options.Value;
+        _next = next;
+        _logger = logger;
+        _options = options.Value;
     }
 
     public async Task InvokeAsync(HttpContext context)
     {
         if (context.Request.Path.Equals("/api/health", StringComparison.OrdinalIgnoreCase))
         {
-            await next(context);
+            await _next(context);
             return;
         }
 
-        var headerName = string.IsNullOrWhiteSpace(options.CorrelationHeaderName)
+        var headerName = string.IsNullOrWhiteSpace(_options.CorrelationHeaderName)
             ? RequestLoggingOptions.DefaultCorrelationHeaderName
-            : options.CorrelationHeaderName;
+            : _options.CorrelationHeaderName;
 
         var correlationId = ResolveCorrelationId(context, headerName);
 
@@ -48,7 +44,7 @@ public class RequestLoggingMiddleware
         context.Response.Headers[headerName] = correlationId;
 
         using (LogContext.PushProperty("CorrelationId", correlationId))
-        using (logger.BeginScope(new Dictionary<string, object>
+        using (_logger.BeginScope(new Dictionary<string, object>
         {
             [CorrelationIdItemKey] = correlationId
         }))
@@ -56,11 +52,11 @@ public class RequestLoggingMiddleware
             var stopwatch = Stopwatch.StartNew();
             var request = context.Request;
             var requestPath = request.Path + request.QueryString;
-            var captureRequestBody = options.IncludeRequestBody &&
+            var captureRequestBody = _options.IncludeRequestBody &&
                 (request.ContentLength ?? 0) > 0 &&
                 request.Body.CanRead &&
                 IsTextContentType(request.ContentType);
-            var captureResponseBody = options.IncludeResponseBody;
+            var captureResponseBody = _options.IncludeResponseBody;
             string? requestBody = null;
             string? responseBody = null;
             Stream? originalResponseBody = null;
@@ -78,7 +74,7 @@ public class RequestLoggingMiddleware
                 context.Response.Body = bufferedResponseBody;
             }
 
-            logger.LogInformation(
+            _logger.LogInformation(
                 "Handling HTTP {Method} {Path} from {RemoteIp}",
                 request.Method,
                 requestPath,
@@ -86,11 +82,11 @@ public class RequestLoggingMiddleware
 
             try
             {
-                await next(context);
+                await _next(context);
             }
             catch (Exception ex)
             {
-                logger.LogError(
+                _logger.LogError(
                     ex,
                     "Unhandled exception while processing HTTP {Method} {Path}",
                     request.Method,
@@ -118,7 +114,7 @@ public class RequestLoggingMiddleware
                 var elapsedMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
                 var statusCode = context.Response?.StatusCode ?? StatusCodes.Status200OK;
                 var level = MapToLogLevel(statusCode);
-                var slowThreshold = Math.Max(options.SlowRequestThresholdMs, 0);
+                var slowThreshold = Math.Max(_options.SlowRequestThresholdMs, 0);
                 var isSlow = slowThreshold > 0 && elapsedMilliseconds > slowThreshold;
 
                 if (isSlow && level < LogLevel.Warning)
@@ -130,8 +126,9 @@ public class RequestLoggingMiddleware
                     ? "HTTP {Method} {Path} responded {StatusCode} in {Elapsed:0.00} ms (slow)"
                     : "HTTP {Method} {Path} responded {StatusCode} in {Elapsed:0.00} ms";
 
-                logger.Log(
+                _logger.Log(
                     level,
+                    // ReSharper disable once TemplateIsNotCompileTimeConstantProblem
                     message,
                     request.Method,
                     requestPath,
@@ -140,7 +137,7 @@ public class RequestLoggingMiddleware
 
                 if (captureRequestBody && !string.IsNullOrWhiteSpace(requestBody))
                 {
-                    logger.LogInformation(
+                    _logger.LogInformation(
                         "HTTP {Method} {Path} request body: {RequestBody}",
                         request.Method,
                         requestPath,
@@ -149,7 +146,7 @@ public class RequestLoggingMiddleware
 
                 if (captureResponseBody && !string.IsNullOrWhiteSpace(responseBody))
                 {
-                    logger.LogInformation(
+                    _logger.LogInformation(
                         "HTTP {Method} {Path} response body: {ResponseBody}",
                         request.Method,
                         requestPath,
@@ -233,7 +230,7 @@ public class RequestLoggingMiddleware
             return body;
         }
 
-        var limit = Math.Max(options.BodySizeLimitKb, 1) * 1024;
+        var limit = Math.Max(_options.BodySizeLimitKb, 1) * 1024;
         if (body.Length <= limit)
         {
             return body;
@@ -278,7 +275,7 @@ public class RequestLoggingMiddleware
             return null;
         }
 
-        Stream current = source;
+        var current = source;
         var wrappers = new Stack<Stream>();
 
         try
@@ -321,7 +318,7 @@ public class RequestLoggingMiddleware
         {
             while (wrappers.Count > 0)
             {
-                wrappers.Pop().Dispose();
+                await wrappers.Pop().DisposeAsync();
             }
         }
     }

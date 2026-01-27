@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Linq;
 using API.Dtos.Binders;
 using API.Dtos.Cards;
 using API.Helpers;
@@ -58,7 +57,7 @@ public sealed class BindersService : IBindersService
         {
             var binderIds = binders.Select(b => b.Id).ToArray();
             var binderCards = await _unitOfWork.Repository<BinderCard>()
-                .ListAsync(new BinderCardsByBinderIdsSpecification(binderIds), tracking: false) ?? Array.Empty<BinderCard>();
+                .ListAsync(new BinderCardsByBinderIdsSpecification(binderIds), tracking: false) ?? [];
             var cardsGrouped = binderCards
                 .GroupBy(card => card.TradeBinderId)
                 .ToDictionary(group => group.Key, group => group.ToList());
@@ -95,9 +94,9 @@ public sealed class BindersService : IBindersService
             throw BindersServiceException.Unauthorized("Errors.Binders.Unauthorized");
         }
 
-        var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId);
+        var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId, cancellationToken);
         var cards = await _unitOfWork.Repository<BinderCard>()
-            .ListAsync(new BinderCardsWithBinderIdSpecification(binder.Id), tracking: false) ?? Array.Empty<BinderCard>();
+            .ListAsync(new BinderCardsWithBinderIdSpecification(binder.Id), tracking: false) ?? [];
         var pricedCards = MapBinderCardsWithMarketData(cards, marketProvider, _userSettingsService, _cardDataService);
 
         var dto = MapToDto(binder, cards);
@@ -125,9 +124,9 @@ public sealed class BindersService : IBindersService
             throw BindersServiceException.Unauthorized("Errors.Binders.Unauthorized");
         }
 
-        var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId);
+        var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId, cancellationToken);
         var cards = await _unitOfWork.Repository<BinderCard>()
-            .ListAsync(new BinderCardsWithBinderIdSpecification(binder.Id), tracking: false) ?? Array.Empty<BinderCard>();
+            .ListAsync(new BinderCardsWithBinderIdSpecification(binder.Id), tracking: false) ?? [];
 
         return MapBinderCardsWithMarketData(cards, marketProvider, _userSettingsService, _cardDataService);
     }
@@ -158,8 +157,8 @@ public sealed class BindersService : IBindersService
             throw BindersServiceException.NotFound("Errors.Binders.CardNotFound");
         }
 
-        var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId);
-        return MapBinderCardsWithMarketData(new[] { binderCard }, marketProvider, _userSettingsService, _cardDataService).First();
+        var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId, cancellationToken);
+        return MapBinderCardsWithMarketData([binderCard], marketProvider, _userSettingsService, _cardDataService).First();
     }
 
     public async Task<BinderDto> CreateBinderAsync(CreateBinderDto createDto, string userId, CancellationToken cancellationToken = default)
@@ -186,7 +185,7 @@ public sealed class BindersService : IBindersService
         _unitOfWork.Repository<TradeBinder>().Add(binder);
         await _unitOfWork.Complete();
 
-        return MapToDto(binder, Array.Empty<BinderCard>());
+        return MapToDto(binder, []);
     }
 
     public async Task<BinderDto> UpdateBinderAsync(int id, UpdateBinderDto updateDto, string userId, CancellationToken cancellationToken = default)
@@ -221,7 +220,7 @@ public sealed class BindersService : IBindersService
 
         var updated = await _unitOfWork.Repository<TradeBinder>().GetEntityWithSpec(new TradeBinderWithCardsSpecification(id)) ?? binder;
         var cards = await _unitOfWork.Repository<BinderCard>()
-            .ListAsync(new BinderCardsWithBinderIdSpecification(binder.Id)) ?? Array.Empty<BinderCard>();
+            .ListAsync(new BinderCardsWithBinderIdSpecification(binder.Id)) ?? [];
 
         return MapToDto(updated, cards);
     }
@@ -395,7 +394,7 @@ public sealed class BindersService : IBindersService
 
     private static BinderSummaryDto MapToSummaryDto(TradeBinder binder)
     {
-        var cards = binder.BinderCards?.ToList() ?? new List<BinderCard>();
+        var cards = binder.BinderCards?.ToList() ?? [];
 
         return new BinderSummaryDto
         {
@@ -410,7 +409,7 @@ public sealed class BindersService : IBindersService
 
     private static BinderDto MapToDto(TradeBinder binder, IEnumerable<BinderCard>? binderCards = null)
     {
-        var cards = binderCards?.ToList() ?? binder.BinderCards?.ToList() ?? new List<BinderCard>();
+        var cards = binderCards?.ToList() ?? binder.BinderCards?.ToList() ?? [];
         var cardDtos = cards.Select(card => MapBinderCardToDto(card)).ToList();
 
         return new BinderDto
@@ -457,13 +456,10 @@ public sealed class BindersService : IBindersService
 
     private static double CalculateBinderTotalPrice(IEnumerable<BinderCard> cards)
     {
-        var total = 0d;
-        foreach (var card in cards)
-        {
-            var purchasePrice = card.Card?.PurchasePrice ?? 0;
-            var quantity = Math.Max(0, card.QuantityToTrade);
-            total += CollectionValueCalculator.CalculateCardValue(purchasePrice, quantity);
-        }
+        var total = 
+            (from card in cards let purchasePrice = card.Card?.PurchasePrice 
+                                                    ?? 0 let quantity = Math.Max(0, card.QuantityToTrade) 
+            select CollectionValueCalculator.CalculateCardValue(purchasePrice, quantity)).Sum();
 
         return Math.Round(total, 2, MidpointRounding.AwayFromZero);
     }

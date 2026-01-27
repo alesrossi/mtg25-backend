@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-
 using Core.Enums;
 
 namespace API.Dtos.Decks;

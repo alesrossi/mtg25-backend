@@ -1,8 +1,6 @@
-namespace API.Dtos.Collections;
-
 using CsvHelper.Configuration.Attributes;
-using Core.Enums;
 
+namespace API.Dtos.Collections;
 public class DelverCsvRecordDto
 {
     [Name("Quantity")]

@@ -4,9 +4,7 @@ using Core.Interfaces;
 using Core.Models;
 using Core.Models.Identity;
 using Core.Specifications;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
-using Core.Enums;
 
 namespace API.Services;
 
@@ -189,15 +187,14 @@ public sealed class DeckService : IDeckService
 
         var exportedLines = new List<string>(maindeckLines);
 
-        if (sideboardLines.Count > 0)
+        if (sideboardLines.Count <= 0) return exportedLines;
+        
+        if (exportedLines.Count > 0)
         {
-            if (exportedLines.Count > 0)
-            {
-                exportedLines.Add(string.Empty);
-            }
-
-            exportedLines.AddRange(sideboardLines);
+            exportedLines.Add(string.Empty);
         }
+
+        exportedLines.AddRange(sideboardLines);
 
         return exportedLines;
     }
@@ -329,7 +326,7 @@ public sealed class DeckService : IDeckService
 
         try
         {
-            return await _deckCardService.UpdateDeckCardAsync(id, updateDto);
+            return (await _deckCardService.UpdateDeckCardAsync(id, updateDto))!;
         }
         catch (InvalidOperationException ex)
         {
@@ -436,7 +433,7 @@ public sealed class DeckService : IDeckService
         {
             var errors = parseResult.Errors.Any()
                 ? parseResult.Errors
-                : new[] { "Decklist did not contain any valid cards." };
+                : ["Decklist did not contain any valid cards."];
 
             throw DeckServiceException.BadRequest("Errors.Decks.NoCardsParsed", new
             {
@@ -460,7 +457,7 @@ public sealed class DeckService : IDeckService
         await _unitOfWork.Complete();
 
         var createdCards = new List<DeckCardDto>();
-        var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId);
+        var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId, cancellationToken);
         deck.TotalPriceCurrency = _userSettingsService.ResolveCurrency(marketProvider);
         var totalPrice = 0.0;
 

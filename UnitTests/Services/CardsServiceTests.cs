@@ -82,7 +82,7 @@ public class CardsServiceTests
         var cardDataService = CardDataServiceTestHelper.CreateWithCards(new[] { scryfallCard });
 
         var service = CreateService(unitOfWork, cardDataService);
-        var updateDto = new UpdateCollectionCardWithSFIdDto
+        var updateDto = new UpdateCollectionCardWithSfIdDto
         {
             CollectionId = collection.Id,
             Quantity = 2,

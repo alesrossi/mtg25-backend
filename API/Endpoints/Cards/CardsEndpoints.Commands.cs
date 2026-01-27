@@ -50,7 +50,7 @@ public static partial class CardsEndpoints
     private static async Task<IResult> UpdateCardVersionFromIdAsync(
         int id,
         HttpContext context,
-        [FromBody] UpdateCollectionCardWithSFIdDto updateDto,
+        [FromBody] UpdateCollectionCardWithSfIdDto updateDto,
         [FromServices] ICardsService cardsService,
         [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<CardsEndpointsLogCategory> logger)
@@ -168,7 +168,7 @@ public static partial class CardsEndpoints
         try
         {
             var scryfallCardList = await cardsService.AddCardListAsync(cardListDto, userId);
-            logger.LogOperationSuccess(operation, new { Count = scryfallCardList.Count });
+            logger.LogOperationSuccess(operation, new { scryfallCardList.Count });
             return Results.Ok(scryfallCardList);
         }
         catch (CardsServiceException ex)

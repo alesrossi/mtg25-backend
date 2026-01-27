@@ -1,7 +1,6 @@
 namespace API.Dtos.Collections;
 
 using CsvHelper.Configuration.Attributes;
-using Core.Enums;
 
 public class CsvRecordDto
 {

@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Resources;
 using Core.Enums;
-using Microsoft.Extensions.Logging;
 
 namespace API.Services;
 

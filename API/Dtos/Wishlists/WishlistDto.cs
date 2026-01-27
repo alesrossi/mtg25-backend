@@ -1,5 +1,3 @@
-using System;
-using Core.Models.Identity;
 using Core.Enums;
 
 namespace API.Dtos.Wishlists;
@@ -15,5 +13,5 @@ public class WishlistDto
     public Currency? TotalPriceCurrency { get; set; }
     public int CardsCount { get; set; }
     public int IndividualCardsCount { get; set; }
-    public IReadOnlyList<WishlistCardDto> Cards { get; set; } = Array.Empty<WishlistCardDto>();
+    public IReadOnlyList<WishlistCardDto> Cards { get; set; } = [];
 }

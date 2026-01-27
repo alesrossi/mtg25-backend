@@ -3,17 +3,15 @@ using Core.Interfaces;
 using Core.Models;
 using Core.Models.Identity;
 using Core.Specifications;
-using Microsoft.Extensions.Logging;
-using Core.Enums;
 
 namespace API.Services;
 
 public class WishlistPricingService
 {
-    private readonly IUnitOfWork unitOfWork;
-    private readonly CardDataService cardDataService;
-    private readonly IUserSettingsService userSettingsService;
-    private readonly ILogger<WishlistPricingService> logger;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly CardDataService _cardDataService;
+    private readonly IUserSettingsService _userSettingsService;
+    private readonly ILogger<WishlistPricingService> _logger;
 
     public WishlistPricingService(
         IUnitOfWork unitOfWork,
@@ -21,25 +19,25 @@ public class WishlistPricingService
         IUserSettingsService userSettingsService,
         ILogger<WishlistPricingService> logger)
     {
-        this.unitOfWork = unitOfWork;
-        this.cardDataService = cardDataService;
-        this.userSettingsService = userSettingsService;
-        this.logger = logger;
+        _unitOfWork = unitOfWork;
+        _cardDataService = cardDataService;
+        _userSettingsService = userSettingsService;
+        _logger = logger;
     }
 
     public async Task RecalculateTotalsAsync(int wishlistId)
     {
-        var wishlist = await unitOfWork.Repository<Wishlist>().GetByIdAsync(wishlistId);
+        var wishlist = await _unitOfWork.Repository<Wishlist>().GetByIdAsync(wishlistId);
         if (wishlist == null)
         {
-            logger.LogWarning("Wishlist {WishlistId} not found while recalculating totals", wishlistId);
+            _logger.LogWarning("Wishlist {WishlistId} not found while recalculating totals", wishlistId);
             return;
         }
 
         var cardsSpec = new WishlistCardsWithWishlistIdSpecification(wishlistId);
-        var cards = await unitOfWork.Repository<WishlistCard>().ListAsync(cardsSpec, tracking: false) ?? [];
+        var cards = await _unitOfWork.Repository<WishlistCard>().ListAsync(cardsSpec, tracking: false) ?? [];
 
-        var marketProvider = await userSettingsService.GetMarketProviderAsync(wishlist.OwnerId);
+        var marketProvider = await _userSettingsService.GetMarketProviderAsync(wishlist.OwnerId);
 
         double total = 0;
         foreach (var card in cards)
@@ -59,16 +57,16 @@ public class WishlistPricingService
             total += unitPrice.Value * quantity;
         }
 
-        wishlist.TotalPriceCurrency = total > 0 ? userSettingsService.ResolveCurrency(marketProvider) : null;
+        wishlist.TotalPriceCurrency = total > 0 ? _userSettingsService.ResolveCurrency(marketProvider) : null;
         wishlist.TotalPrice = Math.Round(total, 2, MidpointRounding.AwayFromZero);
 
-        unitOfWork.Repository<Wishlist>().Update(wishlist);
-        await unitOfWork.Complete();
+        _unitOfWork.Repository<Wishlist>().Update(wishlist);
+        await _unitOfWork.Complete();
     }
 
     private double? ResolveMarketPrice(string scryfallId, bool isFoil, MarketProvider marketProvider)
     {
-        if (!cardDataService.CardDataById.TryGetValue(scryfallId, out var marketData) || marketData?.Prices is null)
+        if (!_cardDataService.CardDataById.TryGetValue(scryfallId, out var marketData) || marketData?.Prices is null)
         {
             return null;
         }

@@ -1,5 +1,4 @@
 using API.Middleware;
-using Microsoft.AspNetCore.Builder;
 
 namespace API.Extensions;
 

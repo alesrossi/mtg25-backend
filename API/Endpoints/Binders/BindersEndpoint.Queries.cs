@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using API.Dtos.Binders;
 using API.Logging;
 using API.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -25,7 +24,7 @@ public static partial class BindersEndpoint
         try
         {
             var dto = await bindersService.GetBindersAsync(userId);
-            logger.LogOperationSuccess(operation, new { userId, Count = dto.Count });
+            logger.LogOperationSuccess(operation, new { userId, dto.Count });
             return Results.Ok(dto);
         }
         catch (BindersServiceException ex)
@@ -71,7 +70,7 @@ public static partial class BindersEndpoint
         try
         {
             var dto = await bindersService.GetBinderCardsAsync(binderId, userId ?? string.Empty);
-            logger.LogOperationSuccess(operation, new { binderId, Count = dto.Count });
+            logger.LogOperationSuccess(operation, new { binderId, dto.Count });
             return Results.Ok(dto);
         }
         catch (BindersServiceException ex)

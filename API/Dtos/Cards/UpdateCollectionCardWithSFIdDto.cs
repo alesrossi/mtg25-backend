@@ -2,7 +2,7 @@ using Core.Enums;
 
 namespace API.Dtos.Cards;
 
-public class UpdateCollectionCardWithSFIdDto
+public class UpdateCollectionCardWithSfIdDto
 {
     public int CollectionId { get; set; }
     public int Quantity { get; set; }

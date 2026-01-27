@@ -1,12 +1,10 @@
 using System.Security.Claims;
-using API.Dtos.Notifications;
 using API.Helpers;
 using API.Logging;
 using API.Services;
 using Core.Models.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 
 namespace API.Endpoints.Notifications;
 
@@ -60,7 +58,7 @@ public static partial class NotificationsEndpoints
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userId is null)
         {
-            logger.LogOperationWarning(operation, "Missing user id", null);
+            logger.LogOperationWarning(operation, "Missing user id");
             return Results.Unauthorized();
         }
 
@@ -72,7 +70,7 @@ public static partial class NotificationsEndpoints
         }
 
         var notifications = await notificationService.GetUserNotificationsAsync(userId);
-        logger.LogOperationSuccess(operation, new { userId, Count = notifications.Count });
+        logger.LogOperationSuccess(operation, new { userId, notifications.Count });
         return Results.Ok(notifications);
     }
 }

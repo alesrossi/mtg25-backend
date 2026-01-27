@@ -257,7 +257,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         card.ScryfallId = "026983a4-03ca-4812-b129-5ea523596942";
         
-        var updateDto = new UpdateCollectionCardWithSFIdDto
+        var updateDto = new UpdateCollectionCardWithSfIdDto
         {
             CollectionId = collection.Id,
             Quantity = 1,
@@ -296,7 +296,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         card.ScryfallId = "026983a4-03ca-4812-b129-5ea523596942";
         card.Name = "Force of Will";
         
-        var updateDto = new UpdateCollectionCardWithSFIdDto
+        var updateDto = new UpdateCollectionCardWithSfIdDto
         {
             CollectionId = collection.Id,
             Quantity = 1,
@@ -324,7 +324,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         var card = await CreateTestCardAsync(collection.Id, "Invalid Card");
         using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
 
-        var updateDto = new UpdateCollectionCardWithSFIdDto
+        var updateDto = new UpdateCollectionCardWithSfIdDto
         {
             CollectionId = collection.Id,
             Quantity = 1,
@@ -352,7 +352,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         var card = await CreateTestCardAsync(collection.Id, "No Auth Card");
         using var client = _factory.CreateClient();
 
-        var updateDto = new UpdateCollectionCardWithSFIdDto
+        var updateDto = new UpdateCollectionCardWithSfIdDto
         {
             CollectionId = collection.Id,
             Quantity = card.Quantity,
@@ -378,7 +378,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         var collection = await CreateTestCollectionAsync(owner.Id, "Missing Update Collection");
         using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
 
-        var updateDto = new UpdateCollectionCardWithSFIdDto
+        var updateDto = new UpdateCollectionCardWithSfIdDto
         {
             CollectionId = collection.Id,
             Quantity = 1,
@@ -406,7 +406,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         var card = await CreateTestCardAsync(collection.Id, "Owner Card");
 
         using var client = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
-        var updateDto = new UpdateCollectionCardWithSFIdDto
+        var updateDto = new UpdateCollectionCardWithSfIdDto
         {
             CollectionId = collection.Id,
             Quantity = card.Quantity,

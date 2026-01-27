@@ -1,7 +1,6 @@
 using API.Dtos.Accounts;
 using Core.Models.Identity;
 using Microsoft.AspNetCore.Identity;
-using Core.Enums;
 
 namespace API.Endpoints.Accounts;
 

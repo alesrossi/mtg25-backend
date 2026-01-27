@@ -25,7 +25,7 @@ public static partial class WishlistsEndpoint
         try
         {
             var dto = await wishlistService.GetWishlistsAsync(userId, cancellationToken);
-            logger.LogOperationSuccess(operation, new { userId, Count = dto.Count });
+            logger.LogOperationSuccess(operation, new { userId, dto.Count });
             return Results.Ok(dto);
         }
         catch (WishlistServiceException ex)
@@ -83,7 +83,7 @@ public static partial class WishlistsEndpoint
         try
         {
             var cards = await wishlistService.GetWishlistCardsAsync(wishlistId, userId, cancellationToken);
-            logger.LogOperationSuccess(operation, new { wishlistId, Count = cards.Count });
+            logger.LogOperationSuccess(operation, new { wishlistId, cards.Count });
             return Results.Ok(cards);
         }
         catch (WishlistServiceException ex)

@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace API.Dtos.Decks;
 
 public record DecklistParseResult(

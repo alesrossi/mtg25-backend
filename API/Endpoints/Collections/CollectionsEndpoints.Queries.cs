@@ -65,7 +65,8 @@ public static partial class CollectionsEndpoints
             }
             else if (result is Pagination<ExtensiveCardDto> pagination)
             {
-                logger.LogOperationSuccess(operation, new { id, entityParams.PageIndex, entityParams.PageSize, entityParams.Sort, Count = pagination.Data.Count });
+                logger.LogOperationSuccess(operation, new { id, entityParams.PageIndex, entityParams.PageSize, entityParams.Sort,
+                    pagination.Data!.Count });
             }
             else
             {
@@ -98,7 +99,7 @@ public static partial class CollectionsEndpoints
         try
         {
             var collections = await collectionService.GetCollectionsForUserAsync(userId, cancellationToken);
-            logger.LogOperationSuccess(operation, new { userId, Count = collections.Count });
+            logger.LogOperationSuccess(operation, new { userId, collections.Count });
             return Results.Ok(collections);
         }
         catch (CollectionServiceException ex)

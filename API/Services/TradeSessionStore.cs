@@ -1,7 +1,4 @@
-using System;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using API.Dtos.Trades;
 using Microsoft.Extensions.Caching.Distributed;
 
@@ -17,18 +14,18 @@ public interface ITradeSessionStore
 public sealed class TradeSessionStore : ITradeSessionStore
 {
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
-    private readonly IDistributedCache cache;
+    private readonly IDistributedCache _cache;
 
     public TradeSessionStore(IDistributedCache cache)
     {
-        this.cache = cache;
+        _cache = cache;
     }
 
     public async Task StoreAsync(TradeConnectionDto connection, TimeSpan? timeToLive = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(connection.TradeId))
         {
-            throw new ArgumentException("Trade identifier is required.", nameof(connection));
+            throw new ArgumentException(@"Trade identifier is required.", nameof(connection));
         }
 
         var payload = JsonSerializer.SerializeToUtf8Bytes(connection, SerializerOptions);
@@ -38,7 +35,7 @@ public sealed class TradeSessionStore : ITradeSessionStore
             AbsoluteExpirationRelativeToNow = expiration
         };
 
-        await cache.SetAsync(GetCacheKey(connection.TradeId), payload, options, cancellationToken);
+        await _cache.SetAsync(GetCacheKey(connection.TradeId), payload, options, cancellationToken);
     }
 
     public async Task<TradeConnectionDto?> GetAsync(string tradeId, CancellationToken cancellationToken = default)
@@ -48,7 +45,7 @@ public sealed class TradeSessionStore : ITradeSessionStore
             return null;
         }
 
-        var payload = await cache.GetAsync(GetCacheKey(tradeId), cancellationToken);
+        var payload = await _cache.GetAsync(GetCacheKey(tradeId), cancellationToken);
         if (payload is null || payload.Length == 0)
         {
             return null;
@@ -64,7 +61,7 @@ public sealed class TradeSessionStore : ITradeSessionStore
             return Task.CompletedTask;
         }
 
-        return cache.RemoveAsync(GetCacheKey(tradeId), cancellationToken);
+        return _cache.RemoveAsync(GetCacheKey(tradeId), cancellationToken);
     }
 
     private static string GetCacheKey(string tradeId) => $"trade-session:{tradeId}";

@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Text.Json.Serialization;
-
 namespace API.Dtos.Cards;
 
 using System.Collections.Generic;

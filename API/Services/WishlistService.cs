@@ -198,7 +198,7 @@ public sealed class WishlistService : IWishlistService
                 var imageUris = CardDataService.ResolveImageUris(card);
                 var imageUrl = imageUris?.Large ?? imageUris?.Normal ?? imageUris?.Png ?? imageUris?.Small;
                 var artCrop = imageUris!.ArtCrop;
-                var backImageUrl = _cardDataService.ResolveBackImageUrl(card);
+                var backImageUrl = CardDataService.ResolveBackImageUrl(card);
                 return new WishlistCard
                 {
                     WishlistId = wishlistId,
@@ -254,7 +254,7 @@ public sealed class WishlistService : IWishlistService
                 var imageUris = CardDataService.ResolveImageUris(card);
                 var imageUrl = imageUris.Large ?? imageUris?.Normal ?? imageUris?.Png ?? imageUris?.Small;
                 var artCrop = imageUris!.ArtCrop;
-                var backImageUrl = _cardDataService.ResolveBackImageUrl(card);
+                var backImageUrl = CardDataService.ResolveBackImageUrl(card);
 
                 wishlistCard.ScryfallId = updateDto.ScryfallId;
                 wishlistCard.ImageUrl = imageUrl;

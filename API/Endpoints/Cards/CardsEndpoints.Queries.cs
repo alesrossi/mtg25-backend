@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using API.Dtos.Cards;
 using API.Logging;
 using API.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -55,7 +54,7 @@ public static partial class CardsEndpoints
         try
         {
             var result = await cardsService.SearchCardsAsync(find, userId);
-            logger.LogOperationSuccess(operation, new { find, Count = result.Count });
+            logger.LogOperationSuccess(operation, new { find, result.Count });
             return Results.Ok(result);
         }
         catch (CardsServiceException ex)
@@ -83,7 +82,7 @@ public static partial class CardsEndpoints
         try
         {
             var versions = await cardsService.GetCardVersionsAsync(name, userId);
-            logger.LogOperationSuccess(operation, new { name, Count = versions.Count });
+            logger.LogOperationSuccess(operation, new { name, versions.Count });
             return Results.Ok(versions);
         }
         catch (CardsServiceException ex)

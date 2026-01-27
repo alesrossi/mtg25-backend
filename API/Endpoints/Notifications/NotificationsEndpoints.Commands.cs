@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using API.Dtos.Notifications;
 using API.Endpoints.Leagues;
 using API.Helpers;
 using API.Logging;
@@ -71,7 +70,7 @@ public static partial class NotificationsEndpoints
             return Results.Unauthorized();
         }
 
-        var successful = await notificationService.UpdateNotificationAsync(notificationIds, true, null);
+        await notificationService.UpdateNotificationAsync(notificationIds, true, null);
         
         return Results.Ok();
     }
@@ -98,9 +97,7 @@ public static partial class NotificationsEndpoints
             return Results.Unauthorized();
         }
 
-        var successful = await notificationService.UpdateNotificationAsync(notificationIds, null, true, userId);
-        
-        
+        await notificationService.UpdateNotificationAsync(notificationIds, null, true, userId);
         
         return Results.Ok();
     }

@@ -81,7 +81,7 @@ public static partial class WishlistsEndpoint
         group.MapPost("/{wishlistId:int}/cards", CreateWishlistCardAsync)
             .RequireAuthorization()
             .WithSummary("Add card list to wishlist")
-            .Produces<List<WishlistCard>>(StatusCodes.Status200OK)
+            .Produces<List<WishlistCard>>()
             .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")

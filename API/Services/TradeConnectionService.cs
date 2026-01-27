@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using API.Dtos.Binders;
 using API.Dtos.Notifications;
 using API.Dtos.Trades;
@@ -117,12 +114,12 @@ public sealed class TradeConnectionService : ITradeConnectionService
         cancellationToken.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(tradeId))
         {
-            throw new ArgumentException("Trade identifier is required.", nameof(tradeId));
+            throw new ArgumentException(@"Trade identifier is required.", nameof(tradeId));
         }
 
         if (string.IsNullOrWhiteSpace(requesterUserId))
         {
-            throw new ArgumentException("User identifier is required.", nameof(requesterUserId));
+            throw new ArgumentException(@"User identifier is required.", nameof(requesterUserId));
         }
 
         var connection = await _sessionStore.GetAsync(tradeId, cancellationToken);
@@ -345,7 +342,7 @@ public sealed class TradeConnectionService : ITradeConnectionService
         {
             if (desiredLookup.TryGetValue(binderCard.Name, out var wishlistCards))
             {
-                foreach (var wishlistCard in wishlistCards)
+                foreach (var unused in wishlistCards)
                 {
                     matches.Add(new TradeMatchDto
                     {
@@ -462,7 +459,7 @@ public sealed class TradeConnectionService : ITradeConnectionService
         {
             if (string.IsNullOrWhiteSpace(update.MatchId))
             {
-                throw new ArgumentException("Match identifier is required.", nameof(updates));
+                throw new ArgumentException(@"Match identifier is required.", nameof(updates));
             }
 
             if (!matchLookup.TryGetValue(update.MatchId, out var match))
@@ -475,7 +472,7 @@ public sealed class TradeConnectionService : ITradeConnectionService
                 var quantity = update.QuantityToTrade.Value;
                 if (quantity < 0)
                 {
-                    throw new ArgumentOutOfRangeException(nameof(update.QuantityToTrade), "Quantity cannot be negative.");
+                    throw new ArgumentOutOfRangeException(nameof(update.QuantityToTrade), @"Quantity cannot be negative.");
                 }
 
                 var maxQuantity = Math.Max(0, match.OfferingCard.MaxQuantityToTrade);
@@ -512,7 +509,7 @@ public sealed class TradeConnectionService : ITradeConnectionService
         cancellationToken.ThrowIfCancellationRequested();
         if (requestedCollectionId <= 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(requestedCollectionId), "Collection identifier must be positive.");
+            throw new ArgumentOutOfRangeException(nameof(requestedCollectionId), @"Collection identifier must be positive.");
         }
 
         var repository = _unitOfWork.Repository<Collection>();
@@ -531,6 +528,7 @@ public sealed class TradeConnectionService : ITradeConnectionService
         return true;
     }
 
+    // ReSharper disable once UnusedMember.Local
     private async Task NotifyParticipantsAsync(TradeConnectionDto connection, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -540,7 +538,7 @@ public sealed class TradeConnectionService : ITradeConnectionService
             Name = "trade_session",
             Message = "Notifications.TradeSession",
             MessageKey = "Notifications.TradeSession",
-            MessageArgs = new[] { connection.Initiator.DisplayName },
+            MessageArgs = [connection.Initiator.DisplayName],
             Origin = $"{connection.TradeId}.{connection.Initiator.UserId}",
             ObjectId = connection.TradeId,
             AppUserId = connection.Partner.UserId
@@ -670,8 +668,7 @@ public sealed class TradeConnectionService : ITradeConnectionService
         var recipientCollection = await ResolveRecipientCollectionAsync(
             transfer.ToUserId,
             recipientCollectionId,
-            collectionCache,
-            cancellationToken);
+            collectionCache);
         await AddCardToCollectionAsync(
             recipientCollection,
             card,
@@ -691,8 +688,7 @@ public sealed class TradeConnectionService : ITradeConnectionService
     private async Task<Collection> ResolveRecipientCollectionAsync(
         string userId,
         int? requestedCollectionId,
-        IDictionary<string, Collection> cache,
-        CancellationToken cancellationToken)
+        IDictionary<string, Collection> cache)
     {
         if (cache.TryGetValue(userId, out var cached)
             && (!requestedCollectionId.HasValue || cached.Id == requestedCollectionId.Value))
@@ -776,8 +772,7 @@ public sealed class TradeConnectionService : ITradeConnectionService
 
     private async Task<IReadOnlyList<Wishlist>> GetWishlistsForUserAsync(
         string ownerId,
-        IDictionary<string, IReadOnlyList<Wishlist>> cache,
-        CancellationToken cancellationToken)
+        IDictionary<string, IReadOnlyList<Wishlist>> cache)
     {
         if (cache.TryGetValue(ownerId, out var cached))
         {
@@ -803,7 +798,7 @@ public sealed class TradeConnectionService : ITradeConnectionService
             return;
         }
 
-        var wishlists = await GetWishlistsForUserAsync(ownerId, wishlistCache, cancellationToken);
+        var wishlists = await GetWishlistsForUserAsync(ownerId, wishlistCache);
         var remaining = quantity;
 
         foreach (var wishlist in wishlists)
@@ -938,6 +933,7 @@ public sealed class TradeConnectionService : ITradeConnectionService
     private sealed record TradeTransfer(
         int BinderCardId,
         int CardId,
+        // ReSharper disable once NotAccessedPositionalProperty.Local
         int TradeBinderId,
         string CardName,
         int Quantity,

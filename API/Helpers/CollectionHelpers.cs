@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using System.Linq;
 using API.Dtos.Cards;
 using API.Dtos.Collections;
 using API.Services;
@@ -61,7 +60,7 @@ public static class CollectionHelpers
 
             var imageUrl = imageUris.Large ?? imageUris.Normal ?? imageUris.Png;
             var artCrop = imageUris.ArtCrop;
-            var backImageUrl = cds.ResolveBackImageUrl(ocd);
+            var backImageUrl = CardDataService.ResolveBackImageUrl(ocd);
             var cardName = ocd.Name;
             var setCode = ocd.Set;
             var setName = ocd.SetName;
@@ -96,7 +95,7 @@ public static class CollectionHelpers
                 Name = cardName,
                 ScryfallId = ocd.Id,
                 Quantity = record.Quantity,
-                Language = LanguageExtensions.ParseOrDefault(record.Language, Language.En),
+                Language = LanguageExtensions.ParseOrDefault(record.Language),
                 IsFoil = record.IsFoil,
                 PurchasePrice = purchasePrice,
                 PurchasePriceCurrency = purchaseCurrency,
@@ -192,7 +191,7 @@ public static class CollectionHelpers
                 marketProvider,
                 userCurrency);
 
-            var backImageUrl = cds.ResolveBackImageUrl(ocd);
+            var backImageUrl = CardDataService.ResolveBackImageUrl(ocd);
             const Language language = Language.En;
             const Condition defaultCondition = Condition.NearMint;
 
@@ -238,7 +237,7 @@ public static class CollectionHelpers
         var errors = new List<string>();
         var skippedLines = 0;
 
-        while (csv.Read())
+        while (await csv.ReadAsync())
         {
             GoldfishCsvRecordDto record;
             try
@@ -313,7 +312,7 @@ public static class CollectionHelpers
                 marketProvider,
                 userCurrency);
 
-            var backImageUrl = cds.ResolveBackImageUrl(ocd);
+            var backImageUrl = CardDataService.ResolveBackImageUrl(ocd);
             const Language language = Language.En;
 
             importedCards.Add(new Card
@@ -357,7 +356,7 @@ public static class CollectionHelpers
         var errors = new List<string>();
         var skippedLines = 0;
 
-        while (csv.Read())
+        while (await csv.ReadAsync())
         {
             ArchidektCsvRecordDto record;
             try
@@ -437,8 +436,8 @@ public static class CollectionHelpers
                 marketProvider,
                 userCurrency);
 
-            var backImageUrl = cds.ResolveBackImageUrl(ocd);
-            var language = LanguageExtensions.ParseOrDefault(record.Language, Language.En);
+            var backImageUrl = CardDataService.ResolveBackImageUrl(ocd);
+            var language = LanguageExtensions.ParseOrDefault(record.Language);
 
             importedCards.Add(new Card
             {
@@ -482,7 +481,7 @@ public static class CollectionHelpers
         var errors = new List<string>();
         var skippedLines = 0;
 
-        while (csv.Read())
+        while (await csv.ReadAsync())
         {
             DragonshieldCsvRecordDto record;
             try
@@ -544,8 +543,8 @@ public static class CollectionHelpers
                 marketProvider,
                 userCurrency);
 
-            var backImageUrl = cds.ResolveBackImageUrl(ocd);
-            var language = LanguageExtensions.ParseOrDefault(record.Language, Language.En);
+            var backImageUrl = CardDataService.ResolveBackImageUrl(ocd);
+            var language = LanguageExtensions.ParseOrDefault(record.Language);
 
             importedCards.Add(new Card
             {
@@ -589,7 +588,7 @@ public static class CollectionHelpers
         var errors = new List<string>();
         var skippedLines = 0;
 
-        while (csv.Read())
+        while (await csv.ReadAsync())
         {
             DelverCsvRecordDto record;
             try
@@ -639,8 +638,8 @@ public static class CollectionHelpers
                 marketProvider,
                 userCurrency);
 
-            var backImageUrl = cds.ResolveBackImageUrl(ocd);
-            var language = LanguageExtensions.ParseOrDefault(record.Language, Language.En);
+            var backImageUrl = CardDataService.ResolveBackImageUrl(ocd);
+            var language = LanguageExtensions.ParseOrDefault(record.Language);
             var cardCondition = ConvertCondition(record.Condition);
 
             importedCards.Add(new Card
@@ -727,7 +726,7 @@ public static class CollectionHelpers
             currency = userCurrency;
         }
 
-        return (price, currency ?? userCurrency);
+        return (price, (Currency)currency);
     }
 
     private static double ParsePurchasePrice(string? priceText)

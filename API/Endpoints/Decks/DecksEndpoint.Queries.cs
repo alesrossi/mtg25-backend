@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using API.Dtos.Decks;
 using API.Logging;
 using API.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -29,7 +28,7 @@ public static partial class DecksEndpoint
         try
         {
             var deckDtos = await deckService.GetDecksForUserAsync(userId, cancellationToken);
-            logger.LogOperationSuccess(operation, new { Count = deckDtos.Count });
+            logger.LogOperationSuccess(operation, new { deckDtos.Count });
             return Results.Ok(deckDtos);
         }
         catch (DeckServiceException ex)
@@ -96,7 +95,7 @@ public static partial class DecksEndpoint
         try
         {
             var deckCards = await deckService.GetDeckCardsAsync(deckId, userId, maindeckOnly, sideboardOnly, ownedOnly, cancellationToken);
-            logger.LogOperationSuccess(operation, new { deckId, Count = deckCards.Count });
+            logger.LogOperationSuccess(operation, new { deckId, deckCards.Count });
             return Results.Ok(deckCards);
         }
         catch (DeckServiceException ex)

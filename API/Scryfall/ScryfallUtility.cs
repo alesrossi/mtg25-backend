@@ -1,9 +1,7 @@
 using System.Globalization;
-using System.Linq;
 using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
-using System.Threading;
 using API.Dtos.Cards;
 using API.Dtos.Collections;
 
@@ -53,7 +51,7 @@ public static class ScryfallUtility
             var asyncEnumerable = JsonSerializer.DeserializeAsyncEnumerable<ScryfallCardDto>(stream, options, cancellationToken);
             await using var enumerator = asyncEnumerable.GetAsyncEnumerator(cancellationToken);
 
-            var restartWithFallback = false;
+            bool restartWithFallback;
 
             while (true)
             {
@@ -66,14 +64,14 @@ public static class ScryfallUtility
                 {
                     if (!attemptedFallback && fallbackPath is not null)
                     {
-                        Console.WriteLine($"Failed to parse Scryfall data file '{currentPath}' ({jsonException.Message}).");
+                        Console.WriteLine($@"Failed to parse Scryfall data file '{currentPath}' ({jsonException.Message}).");
 
                         if (string.Equals(currentPath, primaryPath, StringComparison.OrdinalIgnoreCase))
                         {
                             TryDeleteCorruptedFile(currentPath);
                         }
 
-                        Console.WriteLine($"Attempting to load fallback Scryfall data file '{fallbackPath}'.");
+                        Console.WriteLine($@"Attempting to load fallback Scryfall data file '{fallbackPath}'.");
                         currentPath = fallbackPath;
                         attemptedFallback = true;
                         restartWithFallback = true;
@@ -97,7 +95,6 @@ public static class ScryfallUtility
 
             if (restartWithFallback)
             {
-                continue;
             }
         }
     }
@@ -174,24 +171,24 @@ public static class ScryfallUtility
         try
         {
             var sfClient = GetClient(endpoint);
-            var response = await sfClient.GetAsync("bulk-data/default_cards");
+            var response = await sfClient.GetAsync("bulk-data/default_cards", cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            var bulkDto = await response.Content.ReadFromJsonAsync<BulkDto>();
+            var bulkDto = await response.Content.ReadFromJsonAsync<BulkDto>(cancellationToken: cancellationToken);
             if (bulkDto is null)
             {
                 throw new InvalidOperationException("BulkDto is null");
             }
 
             using var fileClient = new HttpClient();
-            var responseFile = await fileClient.GetAsync(bulkDto.DownloadUri, HttpCompletionOption.ResponseHeadersRead);
+            var responseFile = await fileClient.GetAsync(bulkDto.DownloadUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             responseFile.EnsureSuccessStatusCode();
 
             await using var fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None);
-            await using var stream = await responseFile.Content.ReadAsStreamAsync();
+            await using var stream = await responseFile.Content.ReadAsStreamAsync(cancellationToken);
             await stream.CopyToAsync(fileStream, cancellationToken);
 
-            Console.WriteLine($"File downloaded successfully to {destinationPath}");
+            Console.WriteLine($@"File downloaded successfully to {destinationPath}");
 
             return destinationPath;
         }
@@ -199,7 +196,7 @@ public static class ScryfallUtility
         {
             if (!string.IsNullOrWhiteSpace(fallbackPath) && File.Exists(fallbackPath))
             {
-                Console.WriteLine($"Failed to download latest Scryfall data ({ex.Message}). Using fallback file {fallbackPath}.");
+                Console.WriteLine($@"Failed to download latest Scryfall data ({ex.Message}). Using fallback file {fallbackPath}.");
                 return fallbackPath;
             }
 
@@ -222,7 +219,7 @@ public static class ScryfallUtility
             {
                 try
                 {
-                    Console.WriteLine($"Failed to read bulk file '{primaryPath}'. Falling back to '{fallbackPath}'.");
+                    Console.WriteLine($@"Failed to read bulk file '{primaryPath}'. Falling back to '{fallbackPath}'.");
                     return File.OpenRead(fallbackPath);
                 }
                 catch (Exception fallbackException)

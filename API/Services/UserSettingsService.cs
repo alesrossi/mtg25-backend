@@ -16,21 +16,21 @@ public interface IUserSettingsService
 
 public class UserSettingsService : IUserSettingsService
 {
-    private readonly AppIdentityDbContext identityDbContext;
+    private readonly AppIdentityDbContext _identityDbContext;
 
     public UserSettingsService(AppIdentityDbContext identityDbContext)
     {
-        this.identityDbContext = identityDbContext;
+        _identityDbContext = identityDbContext;
     }
 
     public async Task<Settings?> GetSettingsAsync(string userId, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(userId))
         {
-            throw new ArgumentException("User identifier is required", nameof(userId));
+            throw new ArgumentException(@"User identifier is required", nameof(userId));
         }
 
-        return await identityDbContext.Settings
+        return await _identityDbContext.Settings
             .AsNoTracking()
             .FirstOrDefaultAsync(s => s.AppUserId == userId, cancellationToken);
     }

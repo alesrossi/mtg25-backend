@@ -1,8 +1,5 @@
-using System.Security.Claims;
 using API.Dtos.Friends;
 using API.Extensions;
-using API.Logging;
-using API.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Endpoints.Friends;

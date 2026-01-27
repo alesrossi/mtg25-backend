@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace API.Dtos.Binders;
 
 public class BinderDto
@@ -12,5 +9,5 @@ public class BinderDto
     public string OwnerId { get; set; } = string.Empty;
     public int CardsCount { get; set; }
     public double TotalPrice { get; set; }
-    public IReadOnlyList<BinderCardDto> Cards { get; set; } = Array.Empty<BinderCardDto>();
+    public IReadOnlyList<BinderCardDto> Cards { get; set; } = [];
 }

@@ -1,4 +1,3 @@
-using Core.Models.Identity;
 using Core.Enums;
 
 namespace API.Dtos.Wishlists;

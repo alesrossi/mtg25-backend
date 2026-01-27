@@ -1,7 +1,4 @@
-using System.Collections.Generic;
-using System.Linq;
 using System.Text.Json;
-using System.Threading;
 using API.Dtos.Notifications;
 using API.Logging;
 using Core.Enums;
@@ -9,7 +6,6 @@ using Core.Models.Identity;
 using Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Logging;
 
 namespace API.Services;
 
@@ -222,7 +218,7 @@ public class NotificationService
                     Name = "joined_league",
                     Message = "Notifications.JoinedLeagueApproved",
                     MessageKey = "Notifications.JoinedLeagueApproved",
-                    MessageArgsJson = SerializeArgs(Array.Empty<string>()),
+                    MessageArgsJson = SerializeArgs([]),
                     ObjectId = notification.ObjectId,
                     Origin = notification.Origin,
                     CreationDateTime = DateTime.UtcNow,
@@ -257,10 +253,10 @@ public class NotificationService
     {
         if (string.IsNullOrWhiteSpace(argsJson))
         {
-            return Array.Empty<string>();
+            return [];
         }
 
-        return JsonSerializer.Deserialize<string[]>(argsJson) ?? Array.Empty<string>();
+        return JsonSerializer.Deserialize<string[]>(argsJson) ?? [];
     }
 
     private async Task<Language?> ResolveUserLanguageAsync(string userId)
@@ -274,6 +270,7 @@ public class NotificationService
         if (!string.IsNullOrWhiteSpace(notification.MessageKey))
         {
             var args = DeserializeArgs(notification.MessageArgsJson);
+            // ReSharper disable once CoVariantArrayConversion
             return _messageLocalizer.GetMessageForLanguage(language, notification.MessageKey, args);
         }
 

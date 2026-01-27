@@ -263,7 +263,7 @@ public class DeckCardService
             setName = scryfallCard.SetName;
             typeLine = scryfallCard.TypeLine ?? string.Empty;
             imageUrl = resolvedImage;
-            backImageUrl = cardDataService.ResolveBackImageUrl(scryfallCard);
+            backImageUrl = CardDataService.ResolveBackImageUrl(scryfallCard);
             artCrop = imageUris.ArtCrop!;
             rarity = scryfallCard.Rarity;
             collectorNumber = scryfallCard.CollectorNumber;
@@ -362,7 +362,7 @@ public class DeckCardService
 
         var imageUris = CardDataService.ResolveImageUris(scryfallCard);
         var resolvedImage = imageUris?.Normal ?? imageUris?.Large ?? imageUris?.Png;
-        var resolvedBackImage = cardDataService.ResolveBackImageUrl(scryfallCard);
+        var resolvedBackImage = CardDataService.ResolveBackImageUrl(scryfallCard);
         
         var deckCard = await unitOfWork.Repository<DeckCard>().GetByIdAsync(id);
         if (deckCard == null)

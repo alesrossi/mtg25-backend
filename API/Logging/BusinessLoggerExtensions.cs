@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using Microsoft.Extensions.Logging;
-
 namespace API.Logging;
 
 public static class BusinessLoggerExtensions

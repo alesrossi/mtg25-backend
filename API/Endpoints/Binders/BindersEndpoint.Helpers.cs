@@ -1,5 +1,4 @@
 using API.Services;
-using Microsoft.AspNetCore.Http;
 
 namespace API.Endpoints.Binders;
 

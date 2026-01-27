@@ -2,5 +2,5 @@ namespace API.Dtos.Collections;
 
 public class CardsToBeDeletedDto
 {
-    public List<int> CardIds { get; } = new List<int>();
+    public List<int> CardIds { get; } = [];
 }

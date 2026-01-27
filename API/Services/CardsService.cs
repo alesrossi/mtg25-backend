@@ -16,7 +16,7 @@ public interface ICardsService
     Task<ScryfallCardDto> GetCardFromExactNameAsync(string name, string userId, CancellationToken cancellationToken = default);
     Task<ScryfallCardDto> GetCardFromScryfallIdAsync(string id, string userId, CancellationToken cancellationToken = default);
     Task<Card> UpdateCardAsync(int id, UpdateCollectionCardDto updateDto, string userId, CancellationToken cancellationToken = default);
-    Task<Card> UpdateCardVersionAsync(int id, UpdateCollectionCardWithSFIdDto updateDto, string userId, CancellationToken cancellationToken = default);
+    Task<Card> UpdateCardVersionAsync(int id, UpdateCollectionCardWithSfIdDto updateDto, string userId, CancellationToken cancellationToken = default);
     Task DeleteCardAsync(int id, string userId, CancellationToken cancellationToken = default);
     Task<Card> AddNewCardAsync(InternalCardDto cardDto, string userId, CancellationToken cancellationToken = default);
     Task<LinkedList<ScryfallCardDto>> AddCardListAsync(CardListDto cardListDto, string userId, CancellationToken cancellationToken = default);
@@ -93,7 +93,7 @@ public sealed class CardsService : ICardsService
         {
             var imageUris = CardDataService.ResolveImageUris(card.Value);
             var imageUrl = imageUris?.Normal ?? imageUris?.Large ?? imageUris?.Png;
-            var backImageUrl = _cardDataService.ResolveBackImageUrl(card.Value);
+            var backImageUrl = CardDataService.ResolveBackImageUrl(card.Value);
 
             return new MinimalCardDto
             {
@@ -258,7 +258,7 @@ public sealed class CardsService : ICardsService
         return card;
     }
 
-    public async Task<Card> UpdateCardVersionAsync(int id, UpdateCollectionCardWithSFIdDto updateDto, string userId, CancellationToken cancellationToken = default)
+    public async Task<Card> UpdateCardVersionAsync(int id, UpdateCollectionCardWithSfIdDto updateDto, string userId, CancellationToken cancellationToken = default)
     {
         if (userId is null)
         {
@@ -478,7 +478,7 @@ public sealed class CardsService : ICardsService
         var imageUris = CardDataService.ResolveImageUris(scryfallCardDto);
         var imageUrl = imageUris.Normal ?? imageUris.Large ?? imageUris.Png ?? throw new InvalidOperationException($"Missing image URL for card {scryfallCardDto.Name}");
         var artCrop = imageUris.ArtCrop ?? throw new InvalidOperationException($"Missing art crop for card {scryfallCardDto.Name}");
-        var backImageUrl = _cardDataService.ResolveBackImageUrl(scryfallCardDto);
+        var backImageUrl = CardDataService.ResolveBackImageUrl(scryfallCardDto);
 
         var (resolvedPrice, resolvedCurrency) = await ResolvePurchasePriceAsync(
             cardDto,

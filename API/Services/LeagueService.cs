@@ -6,7 +6,6 @@ using Core.Enums;
 using Core.Models.Identity;
 using Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Services;
@@ -76,7 +75,7 @@ public sealed class LeagueService : ILeagueService
         var leaguesById = res
             .Select(x => new LeagueDto
             {
-                Code = x.League.Code,
+                Code = x.League!.Code,
                 Name = x.League.Name,
                 Score = x.Score,
                 Id = x.LeagueId,
@@ -212,14 +211,14 @@ public sealed class LeagueService : ILeagueService
         var orderedPlayers = res
             .Where(x => x.LeagueId == league.Id && x.IsPlaying)
             .OrderByDescending(x => x.Score)
-            .ThenBy(x => x.User.FirstName)
-            .ThenBy(x => x.User.LastName);
+            .ThenBy(x => x.User!.FirstName)
+            .ThenBy(x => x.User!.LastName);
 
         foreach (var player in orderedPlayers)
         {
             leagueWithScores.Scores.Add(new Score
             {
-                FirstName = player.User.FirstName,
+                FirstName = player.User!.FirstName,
                 LastName = player.User.LastName,
                 UserId = player.User.Id,
                 Points = player.Score,
@@ -757,7 +756,7 @@ public sealed class LeagueService : ILeagueService
             userRounds.Add(new AppUserRound
             {
                 UserId = userLeague.UserId,
-                User = userLeague.User,
+                User = userLeague.User!,
                 RoundId = round.Id,
                 Round = round,
                 Position = position,
@@ -859,7 +858,7 @@ public sealed class LeagueService : ILeagueService
                 Name = "request_join_league",
                 Message = "Notifications.RequestJoinLeague",
                 MessageKey = "Notifications.RequestJoinLeague",
-                MessageArgs = new[] { user.FirstName, user.LastName, league.Name },
+                MessageArgs = [user.FirstName, user.LastName, league.Name],
                 ObjectId = league.Id.ToString(),
                 Origin = league.Id + "." + user.Id,
                 AppUserId = adminId
@@ -873,7 +872,7 @@ public sealed class LeagueService : ILeagueService
     {
         var user = await EnsureUserAsync(userId);
 
-        var league = await _dbContext.Leagues.FindAsync(new object?[] { leagueId }, cancellationToken);
+        var league = await _dbContext.Leagues.FindAsync([leagueId], cancellationToken);
         if (league is null)
         {
             throw LeagueServiceException.NotFound("Errors.Leagues.NotFound", includeBody: true);
@@ -920,7 +919,7 @@ public sealed class LeagueService : ILeagueService
             Name = "player_joined_league",
             Message = "Notifications.PlayerJoinedLeague",
             MessageKey = "Notifications.PlayerJoinedLeague",
-            MessageArgs = new[] { user.FirstName, user.LastName, league.Name },
+            MessageArgs = [user.FirstName, user.LastName, league.Name],
             ObjectId = league.Id.ToString(),
             Origin = $"{league.Id}.{user.Id}",
             AppUserId = league.OwnerId
@@ -962,7 +961,7 @@ public sealed class LeagueService : ILeagueService
             Name = "user_leave_league",
             Message = "Notifications.UserLeftLeague",
             MessageKey = "Notifications.UserLeftLeague",
-            MessageArgs = new[] { user.FirstName, user.LastName, league.Name },
+            MessageArgs = [user.FirstName, user.LastName, league.Name],
             ObjectId = league.Id.ToString(),
             Origin = league.Id + "." + user.Id,
             AppUserId = league.OwnerId

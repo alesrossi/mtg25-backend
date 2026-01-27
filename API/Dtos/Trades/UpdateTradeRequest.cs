@@ -1,13 +1,11 @@
-using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace API.Dtos.Trades;
 
 public sealed class UpdateTradeRequest
 {
-    public IReadOnlyList<TradeMatchUpdateDto> InitiatorMatches { get; init; } = Array.Empty<TradeMatchUpdateDto>();
-    public IReadOnlyList<TradeMatchUpdateDto> PartnerMatches { get; init; } = Array.Empty<TradeMatchUpdateDto>();
+    public IReadOnlyList<TradeMatchUpdateDto> InitiatorMatches { get; init; } = [];
+    public IReadOnlyList<TradeMatchUpdateDto> PartnerMatches { get; init; } = [];
     
     [Range(1, int.MaxValue)]
     public int? InitiatorCollectionId { get; init; }

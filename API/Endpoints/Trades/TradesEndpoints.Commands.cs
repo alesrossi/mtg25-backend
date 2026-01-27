@@ -73,7 +73,7 @@ public static partial class TradesEndpoints
             Name = "trade_request",
             Message = "Notifications.TradeRequest",
             MessageKey = "Notifications.TradeRequest",
-            MessageArgs = new[] { requester.DisplayName },
+            MessageArgs = [requester.DisplayName],
             Origin = $"trade_request.{requester.Id}",
             ObjectId = requester.Id,
             AppUserId = requestedUser.Id
@@ -116,7 +116,7 @@ public static partial class TradesEndpoints
                 Name = NotificationConstants.TradeCommitRequest,
                 Message = "Notifications.TradeCommitRequest",
                 MessageKey = "Notifications.TradeCommitRequest",
-                MessageArgs = new[] { requester.DisplayName },
+                MessageArgs = [requester.DisplayName],
                 Origin = $"{tradeId}.{userId}",
                 ObjectId = connection.TradeId,
                 AppUserId = recipient.UserId

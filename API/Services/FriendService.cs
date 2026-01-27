@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using API.Constants;
 using API.Dtos.Friends;
 using API.Dtos.Notifications;
@@ -82,7 +77,7 @@ public sealed class FriendService : IFriendService
             Name = NotificationConstants.FriendRequest,
             Message = "Notifications.FriendRequest",
             MessageKey = "Notifications.FriendRequest",
-            MessageArgs = new[] { requester.DisplayName },
+            MessageArgs = [requester.DisplayName],
             Origin = $"{requesterUserId}.{targetUserId}",
             ObjectId = $"{requesterUserId}:{targetUserId}",
             AppUserId = targetUserId

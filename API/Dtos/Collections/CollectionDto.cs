@@ -8,6 +8,6 @@ public class CollectionDto
     public string Color { get; set; } = null!;
     public int NumberOfCards { get; set; }
     public double TotalPrice { get; set; }
-    public List<InternalCardDto> Cards { get; set; } = new();
+    public List<InternalCardDto> Cards { get; set; } = [];
 
 }

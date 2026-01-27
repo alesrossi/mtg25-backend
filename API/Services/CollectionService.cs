@@ -105,7 +105,7 @@ public sealed class CollectionService : ICollectionService
 
         var cards = await _unitOfWork.Repository<Card>().ListAsync(listingSpec, tracking: false) ?? Array.Empty<Card>();
 
-        var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId);
+        var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId, cancellationToken);
         var mappedCards = new List<ExtensiveCardDto>(cards.Count);
         foreach (var card in cards)
         {
@@ -249,7 +249,7 @@ public sealed class CollectionService : ICollectionService
                 throw CollectionServiceException.BadRequest("Errors.Collections.FileTooLarge", includeBody: true);
             }
 
-            var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId);
+            var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId, cancellationToken);
             var userCurrency = _userSettingsService.ResolveCurrency(marketProvider);
             var importResult = source switch
             {
@@ -259,7 +259,7 @@ public sealed class CollectionService : ICollectionService
                 CollectionsEndpoints.ImportSource.Archidekt => await CollectionHelpers.ProcessArchidektCsvFile(file, _cardDataService, id, marketProvider, userCurrency),
                 CollectionsEndpoints.ImportSource.Dragonshield => await CollectionHelpers.ProcessDragonshieldCsvFile(file, _cardDataService, id, marketProvider, userCurrency),
                 CollectionsEndpoints.ImportSource.Delver => await CollectionHelpers.ProcessDelverCsvFile(file, _cardDataService, id, marketProvider, userCurrency),
-                _ => throw new ArgumentOutOfRangeException(nameof(source), source, "Unsupported import source.")
+                _ => throw new ArgumentOutOfRangeException(nameof(source), source, @"Unsupported import source.")
             };
 
             var collection = await _unitOfWork.Repository<Collection>().GetByIdAsync(id);
