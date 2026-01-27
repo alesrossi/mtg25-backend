@@ -1,4 +1,3 @@
-using System.Reflection;
 using Core.Enums;
 using Core.Models;
 using Microsoft.EntityFrameworkCore;
@@ -178,6 +177,5 @@ public class MainContext : DbContext
             entity.Navigation(e => e.Card)
                 .AutoInclude();
         });
-
     }
 }

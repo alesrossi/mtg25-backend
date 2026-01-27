@@ -42,7 +42,7 @@ namespace Infrastructure.Identity
                 .Property(s => s.Currency)
                 .HasConversion<string?>(
                     v => v.HasValue ? v.Value.ToCode() : null,
-                    v => string.IsNullOrWhiteSpace(v) ? (Currency?)null : CurrencyExtensions.ParseOrDefault(v, Currency.Eur))
+                    v => string.IsNullOrWhiteSpace(v) ? null : CurrencyExtensions.ParseOrDefault(v, Currency.Eur))
                 .HasDefaultValue(Currency.Eur);
 
             builder.Entity<Settings>()
