@@ -1,4 +1,3 @@
-using System.Linq;
 using System.Linq.Expressions;
 using Core.Models;
 
@@ -18,9 +17,9 @@ public class CardsByIdsSpecification : BaseSpecification<Card>
         if (collectionId.HasValue)
         {
             var collection = collectionId.Value;
-            return card => ids.Contains(card.Id) && card.CollectionId == collection;
+            return card => ids.AsEnumerable().Contains(card.Id) && card.CollectionId == collection;
         }
 
-        return card => ids.Contains(card.Id);
+        return card => ids.AsEnumerable().Contains(card.Id);
     }
 }
