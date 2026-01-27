@@ -1,10 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using API.Dtos.Cards;
 using API.Dtos.Wishlists;
 using API.Services;
-using Core.Interfaces;
 using Core.Models;
 using Core.Models.Identity;
 using FluentAssertions;
@@ -15,7 +11,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using TestUtilities.Builders;
 using TestUtilities.Scryfall;
-using Xunit;
 using Core.Enums;
 
 namespace UnitTests.Services;
@@ -27,7 +22,7 @@ public class WishlistServiceTests
     {
         await using var context = CreateContext();
         var unitOfWork = CreateUnitOfWork(context);
-        var ownerId = "user-1";
+        const string ownerId = "user-1";
         var wishlist = new Wishlist
         {
             Name = "Wishlist",
@@ -43,7 +38,7 @@ public class WishlistServiceTests
         var cardId = Guid.NewGuid().ToString();
         var card = builder.CreateOracleCard(id: cardId, name: "Island")
             with { Prices = new Prices("1.50", null, "1.50", null, null) };
-        var cardDataService = CardDataServiceTestHelper.CreateWithCards(new[] { card });
+        var cardDataService = CardDataServiceTestHelper.CreateWithCards([card]);
 
         var settingsServiceMock = new Mock<IUserSettingsService>();
         settingsServiceMock.Setup(s => s.GetMarketProviderAsync(ownerId))
@@ -65,21 +60,21 @@ public class WishlistServiceTests
 
         var created = await service.CreateWishlistCardsAsync(
             wishlist.Id,
-            new List<CreateWishlistCardDto>
-            {
+            [
                 new()
                 {
                     ScryfallId = cardId,
                     DesiredQuantity = 2,
                     ExactVersion = false
                 },
+
                 new()
                 {
                     ScryfallId = "missing",
                     DesiredQuantity = 1,
                     ExactVersion = false
                 }
-            },
+            ],
             ownerId);
 
         created.Should().HaveCount(1);
@@ -95,7 +90,7 @@ public class WishlistServiceTests
     {
         await using var context = CreateContext();
         var unitOfWork = CreateUnitOfWork(context);
-        var ownerId = "user-1";
+        const string ownerId = "user-1";
         var wishlist = new Wishlist
         {
             Name = "Wishlist",
@@ -119,11 +114,10 @@ public class WishlistServiceTests
         await context.SaveChangesAsync();
 
         var builder = new TestDataBuilder();
-        var cardDataService = CardDataServiceTestHelper.CreateWithCards(new[]
-        {
+        var cardDataService = CardDataServiceTestHelper.CreateWithCards([
             builder.CreateOracleCard(id: "different", name: "Card B")
                 with { Prices = new Prices("1.00", null, "1.00", null, null) }
-        });
+        ]);
 
         var settingsServiceMock = new Mock<IUserSettingsService>();
         settingsServiceMock.Setup(s => s.GetMarketProviderAsync(ownerId))
@@ -158,7 +152,7 @@ public class WishlistServiceTests
     {
         await using var context = CreateContext();
         var unitOfWork = CreateUnitOfWork(context);
-        var ownerId = "owner";
+        const string ownerId = "owner";
         var wishlist = new Wishlist
         {
             Name = "Wishlist",

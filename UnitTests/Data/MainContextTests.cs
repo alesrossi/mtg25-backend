@@ -1,10 +1,6 @@
-using System.Linq;
-using Core.Models;
 using FluentAssertions;
-using Infrastructure.Data;
 using TestUtilities.Builders;
 using TestUtilities.Database;
-using Xunit;
 
 namespace UnitTests.Data;
 

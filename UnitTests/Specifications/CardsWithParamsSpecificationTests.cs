@@ -1,4 +1,3 @@
-using System;
 using Core.Models;
 using Core.Specifications;
 using FluentAssertions;
@@ -40,7 +39,7 @@ public class CardsWithParamsSpecificationTests
         var spec = new CardsWithParamsSpecification(entityParams, collectionId: 1);
 
         spec.OrderBy.Should().NotBeNull();
-        spec.OrderBy!.Body.ToString().Should().Contain("TypeLine");
+        spec.OrderBy.Body.ToString().Should().Contain("TypeLine");
     }
 
     [Fact]
@@ -50,7 +49,7 @@ public class CardsWithParamsSpecificationTests
         var spec = new CardsWithParamsSpecification(entityParams, collectionId: 1);
 
         spec.OrderByDescending.Should().NotBeNull();
-        spec.OrderByDescending!.Body.ToString().Should().Contain("TypeLine");
+        spec.OrderByDescending.Body.ToString().Should().Contain("TypeLine");
     }
 
     private static Card CreateCard(int collectionId, string typeLine)

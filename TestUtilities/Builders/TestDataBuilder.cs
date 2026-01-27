@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using API.Dtos.Cards;
 using AutoFixture;
 using Core.Enums;
@@ -290,7 +287,7 @@ public class TestDataBuilder
             Object: "card",
             Id: cardId,
             OracleId: oracle,
-            MultiverseIds: new List<int>(),
+            MultiverseIds: [],
             MtgoId: null,
             TcgPlayerId: null,
             CardMarketId: null,
@@ -309,18 +306,18 @@ public class TestDataBuilder
             OracleText: null,
             Power: null,
             Toughness: null,
-            Colors: new List<string?>(),
-            ColorIdentity: new List<string?>(),
-            Keywords: new List<string?>(),
-            CardFaces: new List<CardFace>(),
-            AllParts: new List<RelatedCard?>(),
+            Colors: [],
+            ColorIdentity: [],
+            Keywords: [],
+            CardFaces: [],
+            AllParts: [],
             Legalities: new Legalities(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null),
-            Games: new List<string?> { "paper" },
+            Games: ["paper"],
             Reserved: false,
             GameChanger: false,
             Foil: true,
             NonFoil: true,
-            Finishes: new List<string?>(),
+            Finishes: [],
             Oversized: false,
             Promo: false,
             Reprint: false,
@@ -389,7 +386,7 @@ public class TestDataBuilder
             .With(l => l.RoundsToConsider, _random.Next(3, 6)) // Consider 3-5 rounds
             .With(l => l.MinimumRounds, _random.Next(2, 4)) // Minimum 2-3 rounds
             .With(l => l.TotalPlayers, new[] { 8, 16, 32, 64 }[_random.Next(4)]) // Common tournament sizes
-            .With(l => l.PointsToGive, new List<int> { 3, 1, 0 }) // Standard points system
+            .With(l => l.PointsToGive, [3, 1, 0]) // Standard points system
             .With(l => l.IsActive, true)
             .Without(l => l.Id)
             .Without(l => l.UserLeagues)
@@ -445,24 +442,4 @@ public class TestDataBuilder
         var number = _random.Next(1, 100);
         return $"{prefix[_random.Next(prefix.Length)]}{suffix}{number:D2}";
     }
-
-    /// <summary>
-    /// Creates realistic MTG mana costs like "{1}{R}", "{2}{U}{U}", etc.
-    /// </summary>
-    // private string GenerateManaCost()
-    // {
-    //     var colors = new[] { "{R}", "{G}", "{U}", "{B}", "{W}" };
-    //     var genericCost = _random.Next(8); // 0-7 generic mana
-    //     
-    //     // Select 0-3 random colors
-    //     var colorCount = _random.Next(0, 4);
-    //     var selectedColors = new List<string>();
-    //     
-    //     for (int i = 0; i < colorCount; i++)
-    //     {
-    //         selectedColors.Add(colors[_random.Next(colors.Length)]);
-    //     }
-    //     
-    //     return $"{{{genericCost}}}" + string.Join("", selectedColors);
-    // }
 }

@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using API.Dtos.Notifications;
 using API.Services;
 using Core.Models.Identity;
@@ -12,7 +7,6 @@ using Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using Xunit;
 
 namespace UnitTests.Services;
 
@@ -28,7 +22,7 @@ public class NotificationServiceTests
             Name = "request_join_league",
             Message = "Notifications.RequestJoinLeague",
             MessageKey = "Notifications.RequestJoinLeague",
-            MessageArgs = new[] { "First", "Last", "League" },
+            MessageArgs = ["First", "Last", "League"],
             Origin = "League",
             ObjectId = "42",
             AppUserId = "user-1"
@@ -108,7 +102,7 @@ public class NotificationServiceTests
     public async Task GetUserNotificationsAsync_ReturnsNotificationsOrderedByNewest()
     {
         await using var context = CreateContext();
-        var userId = "user-3";
+        const string userId = "user-3";
         context.Notifications.AddRange(
             new Notification
             {
@@ -139,8 +133,8 @@ public class NotificationServiceTests
         var result = await service.GetUserNotificationsAsync(userId);
 
         result.Should().HaveCount(2);
-        result.First().Name.Should().Be("newer");
-        result.Last().Name.Should().Be("older");
+        result[0].Name.Should().Be("newer");
+        result[1].Name.Should().Be("older");
     }
 
     [Fact]

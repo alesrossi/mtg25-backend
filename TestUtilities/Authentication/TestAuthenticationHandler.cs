@@ -72,7 +72,7 @@ public class TestAuthenticationHandler : AuthenticationHandler<TestAuthenticatio
     {
         private readonly TimeProvider _provider;
 
-        public TimeProviderSystemClock(TimeProvider provider) => this._provider = provider;
+        public TimeProviderSystemClock(TimeProvider provider) => _provider = provider;
 
         public DateTimeOffset UtcNow => _provider.GetUtcNow();
     }

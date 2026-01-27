@@ -7,18 +7,16 @@ namespace UnitTests.Specifications;
 
 public class DeckCardsWithDeckIdSpecificationTests
 {
-    private readonly TestDataBuilder _testDataBuilder;
-
     public DeckCardsWithDeckIdSpecificationTests()
     {
-        _testDataBuilder = new TestDataBuilder();
+        var unused = new TestDataBuilder();
     }
 
     [Fact]
     public void DeckCardsWithDeckIdSpecification_WithDeckId_FiltersByDeckId()
     {
         // Arrange
-        var deckId = 1;
+        const int deckId = 1;
         var spec = new DeckCardsWithDeckIdSpecification(deckId);
 
         var deckCard1 = new DeckCard
@@ -58,7 +56,7 @@ public class DeckCardsWithDeckIdSpecificationTests
     public void DeckCardsWithDeckIdSpecification_WithMaindeckOnly_FiltersMaindeckCards()
     {
         // Arrange
-        var deckId = 1;
+        const int deckId = 1;
         var spec = new DeckCardsWithDeckIdSpecification(deckId, maindeckOnly: true);
 
         var maindeckCard = new DeckCard
@@ -98,7 +96,7 @@ public class DeckCardsWithDeckIdSpecificationTests
     public void DeckCardsWithDeckIdSpecification_WithSideboardOnly_FiltersSideboardCards()
     {
         // Arrange
-        var deckId = 1;
+        const int deckId = 1;
         var spec = new DeckCardsWithDeckIdSpecification(deckId, maindeckOnly: false, sideboardOnly: true);
 
         var maindeckCard = new DeckCard
@@ -150,7 +148,7 @@ public class DeckCardsWithDeckIdSpecificationTests
     public void DeckCardsWithDeckIdSpecification_IncludesDeckAndOwnedCard()
     {
         // Arrange
-        var deckId = 1;
+        const int deckId = 1;
         var spec = new DeckCardsWithDeckIdSpecification(deckId);
 
         // Assert
@@ -163,7 +161,7 @@ public class DeckCardsWithDeckIdSpecificationTests
     public void DeckCardsWithDeckIdSpecification_OrdersByName()
     {
         // Arrange
-        var deckId = 1;
+        const int deckId = 1;
         var spec = new DeckCardsWithDeckIdSpecification(deckId);
 
         // Assert
@@ -175,7 +173,7 @@ public class DeckCardsWithDeckIdSpecificationTests
     public void DeckCardsWithDeckIdSpecification_WithBothFilters_FiltersCorrectly()
     {
         // Arrange
-        var deckId = 1;
+        const int deckId = 1;
         var spec = new DeckCardsWithDeckIdSpecification(deckId, maindeckOnly: true, sideboardOnly: false);
 
         var maindeckOnly = new DeckCard

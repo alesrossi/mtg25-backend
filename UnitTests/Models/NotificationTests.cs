@@ -1,6 +1,4 @@
-using System;
 using FluentAssertions;
-using Core.Models.Identity;
 using TestUtilities.Builders;
 
 namespace UnitTests.Models;

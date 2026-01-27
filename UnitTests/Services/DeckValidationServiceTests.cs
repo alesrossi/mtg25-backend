@@ -23,7 +23,6 @@ public class DeckValidationServiceTests
     [InlineData(DeckFormat.Pioneer, 60)]
     [InlineData(DeckFormat.Commander, 100)]
     [InlineData(DeckFormat.Limited, 40)]
-    [InlineData(DeckFormat.Limited, 40)]
     public void GetMinimumCardCount_ReturnsCorrectMinimum(DeckFormat format, int expectedMinimum)
     {
         // Act
@@ -39,7 +38,6 @@ public class DeckValidationServiceTests
     [InlineData(DeckFormat.Legacy, null)]
     [InlineData(DeckFormat.Pioneer, null)]
     [InlineData(DeckFormat.Commander, 100)]
-    [InlineData(DeckFormat.Limited, null)]
     [InlineData(DeckFormat.Limited, null)]
     public void GetMaximumCardCount_ReturnsCorrectMaximum(DeckFormat format, int? expectedMaximum)
     {
@@ -57,7 +55,6 @@ public class DeckValidationServiceTests
     [InlineData(DeckFormat.Pioneer, true)]
     [InlineData(DeckFormat.Commander, false)]
     [InlineData(DeckFormat.Limited, true)]
-    [InlineData(DeckFormat.Limited, true)]
     public void FormatAllowsSideboard_ReturnsCorrectValue(DeckFormat format, bool allowsSideboard)
     {
         // Act
@@ -73,8 +70,7 @@ public class DeckValidationServiceTests
     [InlineData(DeckFormat.Legacy, 15)]
     [InlineData(DeckFormat.Pioneer, 15)]
     [InlineData(DeckFormat.Commander, 0)]
-    [InlineData(DeckFormat.Limited, 0)] // No limit, but returns 0
-    [InlineData(DeckFormat.Limited, 0)] // No limit, but returns 0
+    [InlineData(DeckFormat.Limited, 0)]
     public void GetMaximumSideboardSize_ReturnsCorrectSize(DeckFormat format, int expectedSize)
     {
         // Act
@@ -181,6 +177,7 @@ public class DeckValidationServiceTests
             OwnerId = "user1",
             NumberOfCards = 0
         };
+        // ReSharper disable once CollectionNeverUpdated.Local
         var deckCards = new List<DeckCard>();
 
         // Act

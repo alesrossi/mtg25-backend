@@ -115,13 +115,14 @@ public class AppUserRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task FindByEmailAsync_WithInvalidEmail_ReturnsNull()
+    public Task FindByEmailAsync_WithInvalidEmail_ReturnsNull()
     {
         // Act
         var result = _identityContext.Users.FirstOrDefault(u => u.Email == "nonexistent@test.com");
 
         // Assert
         result.Should().BeNull("because no user exists with this email");
+        return Task.CompletedTask;
     }
 
     [Fact]
@@ -249,7 +250,7 @@ public class AppUserRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task UserProperties_AllRequired_ValidatesCorrectly()
+    public Task UserProperties_AllRequired_ValidatesCorrectly()
     {
         // Arrange & Act
         var user = _testDataBuilder.CreateUser("props@test.com", "propsuser");
@@ -267,6 +268,7 @@ public class AppUserRepositoryTests : IDisposable
         user.DisplayName.Should().Be("Property User");
         user.FirstName.Should().Be("Property");
         user.LastName.Should().Be("User");
+        return Task.CompletedTask;
     }
 
     [Fact]

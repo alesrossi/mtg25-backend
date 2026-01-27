@@ -1,4 +1,3 @@
-using System;
 using FluentAssertions;
 using Core.Models;
 using Core.Models.Identity;
@@ -24,7 +23,7 @@ public class LeagueTests
     public void League_WhenCreated_HasValidInitialState()
     {
         // Arrange & Act
-        var ownerId = "test-owner-id";
+        const string ownerId = "test-owner-id";
         var league = _testDataBuilder.CreateLeague(ownerId);
 
         // Assert
@@ -133,8 +132,8 @@ public class LeagueTests
     public void League_BelongsToOwner_MaintainsOwnership()
     {
         // Arrange & Act
-        var owner1 = "owner-1";
-        var owner2 = "owner-2";
+        const string owner1 = "owner-1";
+        const string owner2 = "owner-2";
 
         var league1 = _testDataBuilder.CreateLeague(owner1);
         league1.Name = "Owner 1 Tournament";

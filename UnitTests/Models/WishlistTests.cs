@@ -1,4 +1,3 @@
-using System;
 using FluentAssertions;
 using Core.Enums;
 using Core.Models;
@@ -13,7 +12,7 @@ public class WishlistTests
     [Fact]
     public void Wishlist_WhenCreated_HasExpectedDefaults()
     {
-        var ownerId = "test-owner";
+        const string ownerId = "test-owner";
         var wishlist = _testDataBuilder.CreateWishlist(ownerId, isPublic: false);
 
         wishlist.Id.Should().Be(0, "because new wishlist entities are not persisted yet");

@@ -1,14 +1,9 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using API.Dtos.Cards;
 using API.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using TestUtilities.Builders;
 using TestUtilities.Scryfall;
-using Xunit;
 
 namespace UnitTests.Services;
 

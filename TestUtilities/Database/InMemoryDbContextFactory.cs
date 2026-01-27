@@ -1,4 +1,3 @@
-
 using Core.Enums;
 using Infrastructure.Data;
 using Infrastructure.Identity;
@@ -102,24 +101,5 @@ public class InMemoryDbContextFactory
         
         // Save all changes
         context.SaveChanges();
-
-        // Create relationships between collections and cards
-        // (This would typically be done through your domain services)
-        // var collectionCard1 = new CollectionCard
-        // {
-        //     CollectionId = collection1.Id,
-        //     CardId = cards[1].Id, // Black Lotus in vintage collection
-        //     Quantity = 1
-        // };
-        //
-        // var collectionCard2 = new CollectionCard
-        // {
-        //     CollectionId = collection2.Id,
-        //     CardId = cards.Id, // Lightning Bolt in modern collection
-        //     Quantity = 4
-        // };
-        //
-        // context.CollectionCards.AddRange(collectionCard1, collectionCard2);
-        // context.SaveChanges();
     }
 }

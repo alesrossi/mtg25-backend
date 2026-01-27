@@ -110,7 +110,7 @@ public class CollectionRepositoryTests : IDisposable
         result.Should().HaveCount(2, "because user1 has exactly 2 collections");
         result.Should().OnlyContain(c => c.OwnerId == user1.Id, 
             "because we only want collections belonging to user1");
-        result.Select(c => c.Name).Should().Contain(new[] { "User1 Collection 1", "User1 Collection 2" },
+        result.Select(c => c.Name).Should().Contain(["User1 Collection 1", "User1 Collection 2"],
             "because these are the collections we created for user1");
     }
 
@@ -175,7 +175,7 @@ public class CollectionRepositoryTests : IDisposable
         // Assert - Verify the collection was actually saved
         var savedCollection = await _context.Collections.FindAsync(collection.Id);
         savedCollection.Should().NotBeNull("because the collection should be saved to the database");
-        savedCollection!.Name.Should().Be("New Collection");
+        savedCollection.Name.Should().Be("New Collection");
         savedCollection.OwnerId.Should().Be(user.Id);
 
         // Verify it's included in user collections
@@ -205,7 +205,7 @@ public class CollectionRepositoryTests : IDisposable
         // Assert - Verify changes were saved
         var updatedCollection = await _repository.GetByIdAsync(collection.Id);
         updatedCollection.Should().NotBeNull();
-        updatedCollection!.Name.Should().Be("Updated Name");
+        updatedCollection.Name.Should().Be("Updated Name");
     }
 
     [Fact]
@@ -329,9 +329,8 @@ public class CollectionRepositoryTests : IDisposable
         await _context.SaveChangesAsync();
 
         var collection = _testDataBuilder.CreateCollection(user.Id);
-        // Note: Not adding to context, so it doesn't exist in database
 
-        // Act & Assert - Entity Framework throws when trying to delete non-existent entities
+        // Act & Assert 
         var act = () =>
         {
             _repository.Delete(collection);

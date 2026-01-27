@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using API.Dtos.Leagues;
 using API.Services;
 using Core.Enums;
@@ -13,7 +9,6 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using Xunit;
 
 namespace UnitTests.Services;
 
@@ -41,7 +36,7 @@ public class LeagueServiceTests
             TotalPrize = 0,
             PrizePerPerson = 5,
             TotalPlayers = 2,
-            PointsToGive = new List<int> { 3, 1 },
+            PointsToGive = [3, 1],
             ScoringSystem = ScoringSystem.Positional,
             IsActive = true,
             IsPublic = true
@@ -113,13 +108,13 @@ public class LeagueServiceTests
         updatedUserLeagues[0].Score.Should().Be(3);
         updatedUserLeagues[0].RoundsPlayed.Should().Be(1);
         updatedUserLeagues[0].BestRound.Should().Be(1);
-        updatedUserLeagues[0].Rounds.Should().BeEquivalentTo(new[] { 1 });
+        updatedUserLeagues[0].Rounds.Should().BeEquivalentTo([1]);
         updatedUserLeagues[0].AvgPosition.Should().Be(1);
 
         updatedUserLeagues[1].Score.Should().Be(1);
         updatedUserLeagues[1].RoundsPlayed.Should().Be(1);
         updatedUserLeagues[1].BestRound.Should().Be(2);
-        updatedUserLeagues[1].Rounds.Should().BeEquivalentTo(new[] { 2 });
+        updatedUserLeagues[1].Rounds.Should().BeEquivalentTo([2]);
         updatedUserLeagues[1].AvgPosition.Should().Be(2);
 
         var round = await context.Rounds.SingleAsync(r => r.Order == 1);
@@ -220,7 +215,7 @@ public class LeagueServiceTests
         updatedUserLeague.Score.Should().Be(7);
         updatedUserLeague.RoundsPlayed.Should().Be(1);
         updatedUserLeague.BestRound.Should().Be(1);
-        updatedUserLeague.Rounds.Should().BeEquivalentTo(new[] { 1 });
+        updatedUserLeague.Rounds.Should().BeEquivalentTo([1]);
         updatedUserLeague.AvgPosition.Should().Be(1);
 
         var round = await context.Rounds.SingleAsync(r => r.Order == 1);
@@ -310,8 +305,7 @@ public class LeagueServiceTests
         await service.UpdateLeagueResultsAsync(
             league.Id,
             owner.Id,
-            new List<UserWithScore>
-            {
+            [
                 new()
                 {
                     UserId = playerOne.Id,
@@ -322,6 +316,7 @@ public class LeagueServiceTests
                     Gw = 20,
                     Ogw = 30
                 },
+
                 new()
                 {
                     UserId = playerTwo.Id,
@@ -332,7 +327,7 @@ public class LeagueServiceTests
                     Gw = 10,
                     Ogw = 5
                 }
-            });
+            ]);
 
         var userRounds = await context.UserRounds
             .OrderBy(ur => ur.Position)
@@ -369,7 +364,7 @@ public class LeagueServiceTests
             TotalPrize = 0,
             PrizePerPerson = 5,
             TotalPlayers = 1,
-            PointsToGive = new List<int> { 3, 1 },
+            PointsToGive = [3, 1],
             ScoringSystem = ScoringSystem.Positional,
             IsActive = true,
             IsPublic = true
@@ -405,7 +400,7 @@ public class LeagueServiceTests
 
         var service = CreateService(context, owner, player, outsider);
 
-        Func<Task> act = () => service.UpdateLeagueResultsAsync(
+        var act = () => service.UpdateLeagueResultsAsync(
             league.Id,
             owner.Id,
             new List<UserWithScore>
@@ -449,7 +444,7 @@ public class LeagueServiceTests
 
         var service = CreateService(context, owner, player);
 
-        Func<Task> act = () => service.JoinLeagueAsync(league.Id, player.Id);
+        var act = () => service.JoinLeagueAsync(league.Id, player.Id);
 
         var exception = await act.Should().ThrowAsync<LeagueServiceException>();
         exception.Which.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
@@ -529,7 +524,7 @@ public class LeagueServiceTests
     private static Mock<UserManager<AppUser>> CreateUserManagerMock(params AppUser[] users)
     {
         var store = new Mock<IUserStore<AppUser>>();
-        var manager = new Mock<UserManager<AppUser>>(store.Object, null, null, null, null, null, null, null, null);
+        var manager = new Mock<UserManager<AppUser>>(store.Object, null!, null!, null!, null!, null!, null!, null!, null!);
         foreach (var user in users)
         {
             manager.Setup(m => m.FindByIdAsync(user.Id)).ReturnsAsync(user);

@@ -1,4 +1,3 @@
-using System;
 using FluentAssertions;
 using Core.Models;
 using TestUtilities.Builders;
@@ -23,14 +22,14 @@ public class DeckTests
     public void Deck_WhenCreated_HasValidInitialState()
     {
         // Arrange & Act
-        var ownerId = "test-user-id";
+        const string ownerId = "test-user-id";
         var deck = _testDataBuilder.CreateDeck(ownerId);
 
         // Assert
         deck.Id.Should().Be(0, "because new deck entities are not persisted yet");
         deck.OwnerId.Should().Be(ownerId, "because deck should belong to the specified user");
         deck.Name.Should().NotBeNullOrEmpty("because deck name is required");
-        Enum.IsDefined(typeof(DeckFormat), deck.Format).Should().BeTrue("because format is required");
+        Enum.IsDefined(deck.Format).Should().BeTrue("because format is required");
         deck.NumberOfCards.Should().BeGreaterThanOrEqualTo(0, "because number of cards cannot be negative");
         deck.TotalPrice.Should().BeGreaterThanOrEqualTo(0, "because total price cannot be negative");
     }
@@ -39,8 +38,8 @@ public class DeckTests
     public void Deck_BelongsToOwner_MaintainsOwnership()
     {
         // Arrange & Act
-        var owner1 = "owner-1";
-        var owner2 = "owner-2";
+        const string owner1 = "owner-1";
+        const string owner2 = "owner-2";
 
         var deck1 = _testDataBuilder.CreateDeck(owner1);
         deck1.Name = "Owner 1 Deck";

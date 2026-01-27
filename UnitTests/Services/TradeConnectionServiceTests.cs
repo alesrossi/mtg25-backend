@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using API.Dtos.Binders;
 using API.Dtos.Cards;
 using API.Dtos.Trades;
@@ -61,7 +56,7 @@ public class TradeConnectionServiceTests : IDisposable
             NullLogger<NotificationService>.Instance,
             _notificationSettingsMock.Object,
             _messageLocalizerMock.Object);
-        _cardDataService = CardDataServiceTestHelper.CreateWithCards(Array.Empty<ScryfallCardDto>());
+        _cardDataService = CardDataServiceTestHelper.CreateWithCards([]);
         _userSettingsServiceMock.Setup(s => s.GetMarketProviderAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(MarketProvider.Mkm);
         _userSettingsServiceMock.Setup(s => s.ResolveCurrency(It.IsAny<MarketProvider>()))
@@ -159,7 +154,7 @@ public class TradeConnectionServiceTests : IDisposable
         var userManager = CreateUserManagerMock(initiator, partner);
         TimeSpan? capturedTtl = null;
         _sessionStoreMock.Setup(s => s.StoreAsync(It.IsAny<TradeConnectionDto>(), It.IsAny<TimeSpan?>(), It.IsAny<CancellationToken>()))
-            .Callback<TradeConnectionDto, TimeSpan?, CancellationToken>((_, ttl, __) => capturedTtl = ttl)
+            .Callback<TradeConnectionDto, TimeSpan?, CancellationToken>((_, ttl, _) => capturedTtl = ttl)
             .Returns(Task.CompletedTask);
 
         var service = CreateService(userManager.Object);
@@ -213,6 +208,7 @@ public class TradeConnectionServiceTests : IDisposable
             CreateBinderCard(initiator.Id, "Trade Match", quantityToTrade: 2)
         };
 
+        // ReSharper disable once CollectionNeverUpdated.Local
         var partnerBinderCards = new List<BinderCard>();
 
         SeedCardMarketData(initiatorBinderCards);
@@ -224,7 +220,7 @@ public class TradeConnectionServiceTests : IDisposable
 
         TradeConnectionDto? storedConnection = null;
         _sessionStoreMock.Setup(s => s.StoreAsync(It.IsAny<TradeConnectionDto>(), It.IsAny<TimeSpan?>(), It.IsAny<CancellationToken>()))
-            .Callback<TradeConnectionDto, TimeSpan?, CancellationToken>((connection, _, __) => storedConnection = connection)
+            .Callback<TradeConnectionDto, TimeSpan?, CancellationToken>((connection, _, _) => storedConnection = connection)
             .Returns(Task.CompletedTask);
 
         var service = CreateService(userManager.Object);
@@ -236,15 +232,15 @@ public class TradeConnectionServiceTests : IDisposable
         var matchId = storedConnection!.InitiatorMatches.Single().MatchId;
         var request = new UpdateTradeRequest
         {
-            InitiatorMatches = new[]
-            {
+            InitiatorMatches =
+            [
                 new TradeMatchUpdateDto
                 {
                     MatchId = matchId,
                     QuantityToTrade = 1,
                     IsSelected = false
                 }
-            }
+            ]
         };
 
         // Act
@@ -288,7 +284,7 @@ public class TradeConnectionServiceTests : IDisposable
         var userManager = CreateUserManagerMock(initiator, partner);
         TradeConnectionDto? storedConnection = null;
         _sessionStoreMock.Setup(s => s.StoreAsync(It.IsAny<TradeConnectionDto>(), It.IsAny<TimeSpan?>(), It.IsAny<CancellationToken>()))
-            .Callback<TradeConnectionDto, TimeSpan?, CancellationToken>((connection, _, __) => storedConnection = connection)
+            .Callback<TradeConnectionDto, TimeSpan?, CancellationToken>((connection, _, _) => storedConnection = connection)
             .Returns(Task.CompletedTask);
 
         var service = CreateService(userManager.Object);
@@ -300,14 +296,14 @@ public class TradeConnectionServiceTests : IDisposable
         var matchId = storedConnection!.InitiatorMatches.Single().MatchId;
         var request = new UpdateTradeRequest
         {
-            InitiatorMatches = new[]
-            {
+            InitiatorMatches =
+            [
                 new TradeMatchUpdateDto
                 {
                     MatchId = matchId,
                     QuantityToTrade = 5
                 }
-            }
+            ]
         };
 
         // Act
@@ -346,7 +342,7 @@ public class TradeConnectionServiceTests : IDisposable
         var userManager = CreateUserManagerMock(initiator, partner);
         TradeConnectionDto? storedConnection = null;
         _sessionStoreMock.Setup(s => s.StoreAsync(It.IsAny<TradeConnectionDto>(), It.IsAny<TimeSpan?>(), It.IsAny<CancellationToken>()))
-            .Callback<TradeConnectionDto, TimeSpan?, CancellationToken>((connection, _, __) => storedConnection = connection)
+            .Callback<TradeConnectionDto, TimeSpan?, CancellationToken>((connection, _, _) => storedConnection = connection)
             .Returns(Task.CompletedTask);
 
         var destinationCollection = _testDataBuilder.CreateCollection(initiator.Id);
@@ -401,7 +397,7 @@ public class TradeConnectionServiceTests : IDisposable
 
         TradeConnectionDto? storedConnection = null;
         _sessionStoreMock.Setup(s => s.StoreAsync(It.IsAny<TradeConnectionDto>(), It.IsAny<TimeSpan?>(), It.IsAny<CancellationToken>()))
-            .Callback<TradeConnectionDto, TimeSpan?, CancellationToken>((connection, _, __) => storedConnection = connection)
+            .Callback<TradeConnectionDto, TimeSpan?, CancellationToken>((connection, _, _) => storedConnection = connection)
             .Returns(Task.CompletedTask);
 
         var externalCollection = _testDataBuilder.CreateCollection("other-user");
@@ -456,7 +452,7 @@ public class TradeConnectionServiceTests : IDisposable
 
         TradeConnectionDto? storedConnection = null;
         _sessionStoreMock.Setup(s => s.StoreAsync(It.IsAny<TradeConnectionDto>(), It.IsAny<TimeSpan?>(), It.IsAny<CancellationToken>()))
-            .Callback<TradeConnectionDto, TimeSpan?, CancellationToken>((connection, _, __) => storedConnection = connection)
+            .Callback<TradeConnectionDto, TimeSpan?, CancellationToken>((connection, _, _) => storedConnection = connection)
             .Returns(Task.CompletedTask);
 
         var service = CreateService(userManager.Object);
@@ -486,8 +482,8 @@ public class TradeConnectionServiceTests : IDisposable
             TradeId = "trade-123",
             Initiator = new TradeParticipantDto { UserId = "init" },
             Partner = new TradeParticipantDto { UserId = "partner" },
-            InitiatorMatches = Array.Empty<TradeMatchDto>(),
-            PartnerMatches = Array.Empty<TradeMatchDto>()
+            InitiatorMatches = [],
+            PartnerMatches = []
         };
 
         _sessionStoreMock.Setup(s => s.GetAsync("trade-123", It.IsAny<CancellationToken>()))
@@ -575,7 +571,7 @@ public class TradeConnectionServiceTests : IDisposable
 
         await mainContext.SaveChangesAsync();
 
-        SeedCardMarketData(new[] { initiatorBinderCard, partnerBinderCard });
+        SeedCardMarketData([initiatorBinderCard, partnerBinderCard]);
 
         var connection = new TradeConnectionDto
         {
@@ -706,7 +702,7 @@ public class TradeConnectionServiceTests : IDisposable
                         Name = "Lightning Bolt",
                         QuantityToTrade = 1,
                         MaxQuantityToTrade = 1,
-                        Card = null
+                        Card = null!
                     }
                 }
             },
@@ -727,7 +723,7 @@ public class TradeConnectionServiceTests : IDisposable
                         Name = "Counterspell",
                         QuantityToTrade = 1,
                         MaxQuantityToTrade = 1,
-                        Card = null
+                        Card = null!
                     }
                 }
             }
@@ -739,7 +735,7 @@ public class TradeConnectionServiceTests : IDisposable
         var service = CreateService(userManager.Object);
 
         // Act
-        Func<Task> act = () => service.CommitTradeAsync("trade-commit", initiator.Id, CancellationToken.None);
+        var act = () => service.CommitTradeAsync("trade-commit", initiator.Id, CancellationToken.None);
 
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>();
@@ -844,7 +840,7 @@ public class TradeConnectionServiceTests : IDisposable
     private static Mock<UserManager<AppUser>> CreateUserManagerMock(params AppUser[] users)
     {
         var store = new Mock<IUserStore<AppUser>>();
-        var manager = new Mock<UserManager<AppUser>>(store.Object, null, null, null, null, null, null, null, null);
+        var manager = new Mock<UserManager<AppUser>>(store.Object, null!, null!, null!, null!, null!, null!, null!, null!);
         foreach (var user in users)
         {
             manager.Setup(m => m.FindByIdAsync(user.Id)).ReturnsAsync(user);

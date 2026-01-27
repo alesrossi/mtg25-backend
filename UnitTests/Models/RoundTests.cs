@@ -47,11 +47,11 @@ public class RoundTests
         var player2 = _testDataBuilder.CreateUser();
 
         // Act
-        round.Players = new List<AppUserRound>
-        {
+        round.Players =
+        [
             new() { UserId = player1.Id, User = player1, RoundId = 1, Round = round, Position = 1, Score = 3 },
             new() { UserId = player2.Id, User = player2, RoundId = 1, Round = round, Position = 2, Score = 1 }
-        };
+        ];
 
         // Assert
         round.Players.Should().HaveCount(2, "because two players were assigned to the round");

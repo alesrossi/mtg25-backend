@@ -119,7 +119,7 @@ public class DeckServiceTests
         var userManager = CreateUserManagerMock(user);
         var parserMock = new Mock<IDecklistParserService>();
         parserMock.Setup(p => p.ParseAsync(It.IsAny<string[]>()))
-            .ReturnsAsync(new DecklistParseResult(Array.Empty<CreateDeckCardDto>(), new[] { "Invalid line" }));
+            .ReturnsAsync(new DecklistParseResult([], ["Invalid line"]));
 
         var deckService = CreateService(unitOfWork, userManager.Object, parserMock.Object);
 
@@ -179,7 +179,7 @@ public class DeckServiceTests
     private static Mock<UserManager<AppUser>> CreateUserManagerMock(params AppUser[] users)
     {
         var store = new Mock<IUserStore<AppUser>>();
-        var manager = new Mock<UserManager<AppUser>>(store.Object, null, null, null, null, null, null, null, null);
+        var manager = new Mock<UserManager<AppUser>>(store.Object, null!, null!, null!, null!, null!, null!, null!, null!);
         foreach (var user in users)
         {
             manager.Setup(m => m.FindByIdAsync(user.Id)).ReturnsAsync(user);

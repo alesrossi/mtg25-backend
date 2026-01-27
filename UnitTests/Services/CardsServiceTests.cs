@@ -1,5 +1,3 @@
-using System;
-using System.Threading.Tasks;
 using API.Dtos.Cards;
 using API.Services;
 using Core.Interfaces;
@@ -13,7 +11,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using TestUtilities.Builders;
 using TestUtilities.Scryfall;
-using Xunit;
 
 namespace UnitTests.Services;
 
@@ -24,7 +21,7 @@ public class CardsServiceTests
     {
         await using var context = CreateContext();
         var unitOfWork = CreateUnitOfWork(context);
-        var ownerId = "user-1";
+        const string ownerId = "user-1";
         var collection = CreateCollection(ownerId, numberOfCards: 1, totalPrice: 2.00);
         context.Collections.Add(collection);
         await context.SaveChangesAsync();
@@ -60,7 +57,7 @@ public class CardsServiceTests
     {
         await using var context = CreateContext();
         var unitOfWork = CreateUnitOfWork(context);
-        var ownerId = "user-1";
+        const string ownerId = "user-1";
         var collection = CreateCollection(ownerId, numberOfCards: 1, totalPrice: 2.00);
         context.Collections.Add(collection);
         await context.SaveChangesAsync();
@@ -79,7 +76,7 @@ public class CardsServiceTests
                 Rarity = "rare",
                 ImageUris = new ImageUris("small", "normal", "large", "png", "art", "border")
             };
-        var cardDataService = CardDataServiceTestHelper.CreateWithCards(new[] { scryfallCard });
+        var cardDataService = CardDataServiceTestHelper.CreateWithCards([scryfallCard]);
 
         var service = CreateService(unitOfWork, cardDataService);
         var updateDto = new UpdateCollectionCardWithSfIdDto
@@ -116,7 +113,7 @@ public class CardsServiceTests
     {
         await using var context = CreateContext();
         var unitOfWork = CreateUnitOfWork(context);
-        var ownerId = "user-1";
+        const string ownerId = "user-1";
         var collection = CreateCollection(ownerId);
         context.Collections.Add(collection);
         await context.SaveChangesAsync();
@@ -124,7 +121,7 @@ public class CardsServiceTests
         var builder = new TestDataBuilder();
         var scryfallCard = builder.CreateOracleCard(id: "sf-1", name: "Card A")
             with { Prices = new Prices(null, null, "1.50", null, null) };
-        var cardDataService = CardDataServiceTestHelper.CreateWithCards(new[] { scryfallCard });
+        var cardDataService = CardDataServiceTestHelper.CreateWithCards([scryfallCard]);
 
         var settingsServiceMock = new Mock<IUserSettingsService>();
         settingsServiceMock.Setup(s => s.GetMarketProviderAsync(ownerId))
@@ -161,7 +158,7 @@ public class CardsServiceTests
     {
         await using var context = CreateContext();
         var unitOfWork = CreateUnitOfWork(context);
-        var ownerId = "user-1";
+        const string ownerId = "user-1";
         var collection = CreateCollection(ownerId);
         context.Collections.Add(collection);
         await context.SaveChangesAsync();
@@ -173,7 +170,7 @@ public class CardsServiceTests
         var builder = new TestDataBuilder();
         var scryfallCard = builder.CreateOracleCard(id: "sf-1", name: "Card A")
             with { Prices = new Prices(null, "2.50", null, "2.50", null) };
-        var cardDataService = CardDataServiceTestHelper.CreateWithCards(new[] { scryfallCard });
+        var cardDataService = CardDataServiceTestHelper.CreateWithCards([scryfallCard]);
 
         var settingsServiceMock = new Mock<IUserSettingsService>();
         settingsServiceMock.Setup(s => s.GetMarketProviderAsync(ownerId))
@@ -200,7 +197,7 @@ public class CardsServiceTests
 
         return new CardsService(
             unitOfWork,
-            cardDataService ?? CardDataServiceTestHelper.CreateWithCards(Array.Empty<ScryfallCardDto>()),
+            cardDataService ?? CardDataServiceTestHelper.CreateWithCards([]),
             userSettingsService ?? settingsServiceMock.Object);
     }
 

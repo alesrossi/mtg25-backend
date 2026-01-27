@@ -1,6 +1,3 @@
-using System;
-using System.Linq;
-using System.Threading.Tasks;
 using Core.Models.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,7 +28,7 @@ public static class TestUserFactory
         user.UserLeagues = new List<AppUserLeague>();
         user.LeagueRoles = new List<LeagueRoleAssignment>();
 
-        IdentityResult result = requirePassword
+        var result = requirePassword
             ? await userManager.CreateAsync(user, password ?? DefaultPassword)
             : await userManager.CreateAsync(user);
 

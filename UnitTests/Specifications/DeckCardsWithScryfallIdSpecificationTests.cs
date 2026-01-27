@@ -19,7 +19,7 @@ public class DeckCardsWithScryfallIdSpecificationTests
     public void DeckCardsWithOracleIdSpecification_WithOracleId_FiltersByOracleId()
     {
         // Arrange
-        var oracleId = "oracle-123";
+        const string oracleId = "oracle-123";
         var spec = new DeckCardsWithScryfallIdSpecification(oracleId);
 
         var deckCard1 = new DeckCard
@@ -59,8 +59,8 @@ public class DeckCardsWithScryfallIdSpecificationTests
     public void DeckCardsWithOracleIdSpecification_WithOracleIdAndDeckId_FiltersByBoth()
     {
         // Arrange
-        var oracleId = "oracle-123";
-        var deckId = 1;
+        const string oracleId = "oracle-123";
+        const int deckId = 1;
         var spec = new DeckCardsWithScryfallIdSpecification(oracleId, deckId);
 
         var matchingCard = new DeckCard
@@ -112,8 +112,8 @@ public class DeckCardsWithScryfallIdSpecificationTests
     public void DeckCardsWithOracleIdSpecification_WithOracleIdAndUserId_FiltersByUserOwnedDecks()
     {
         // Arrange
-        var oracleId = "oracle-123";
-        var userId = "user-123";
+        const string oracleId = "oracle-123";
+        const string userId = "user-123";
         var spec = new DeckCardsWithScryfallIdSpecification(oracleId, userId);
 
         var userDeckCard = new DeckCard
@@ -155,7 +155,7 @@ public class DeckCardsWithScryfallIdSpecificationTests
     public void DeckCardsWithOracleIdSpecification_IncludesDeckAndOwnedCard()
     {
         // Arrange
-        var oracleId = "oracle-123";
+        const string oracleId = "oracle-123";
         var spec = new DeckCardsWithScryfallIdSpecification(oracleId);
 
         // Assert
@@ -168,7 +168,7 @@ public class DeckCardsWithScryfallIdSpecificationTests
     public void DeckCardsWithOracleIdSpecification_OrdersByName()
     {
         // Arrange
-        var oracleId = "oracle-123";
+        const string oracleId = "oracle-123";
         var spec = new DeckCardsWithScryfallIdSpecification(oracleId);
 
         // Assert
@@ -180,9 +180,9 @@ public class DeckCardsWithScryfallIdSpecificationTests
     public void DeckCardsWithOracleIdSpecification_AllConstructors_IncludeSameNavigationProperties()
     {
         // Arrange
-        var oracleId = "oracle-123";
-        var deckId = 1;
-        var userId = "user-123";
+        const string oracleId = "oracle-123";
+        const int deckId = 1;
+        const string userId = "user-123";
 
         var spec1 = new DeckCardsWithScryfallIdSpecification(oracleId);
         var spec2 = new DeckCardsWithScryfallIdSpecification(oracleId, deckId);

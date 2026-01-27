@@ -1,4 +1,3 @@
-using System.Linq;
 using FluentAssertions;
 using Core.Models;
 using TestUtilities.Builders;
@@ -12,7 +11,7 @@ public class TradeBinderTests
     [Fact]
     public void TradeBinder_WhenCreated_HasExpectedDefaults()
     {
-        var ownerId = "binder-owner";
+        const string ownerId = "binder-owner";
 
         var tradeBinder = _testDataBuilder.CreateTradeBinder(ownerId, isPublic: false);
 

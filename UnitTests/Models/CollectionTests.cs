@@ -1,5 +1,4 @@
 using FluentAssertions;
-using Core.Models;
 using TestUtilities.Builders;
 
 namespace UnitTests.Models;

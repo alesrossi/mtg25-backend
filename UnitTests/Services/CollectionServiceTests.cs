@@ -24,7 +24,7 @@ public class CollectionServiceTests
     {
         await using var context = CreateContext();
         var unitOfWork = CreateUnitOfWork(context);
-        var ownerId = "user-1";
+        const string ownerId = "user-1";
         var collection = new Collection
         {
             Name = "Collection",
@@ -56,7 +56,7 @@ public class CollectionServiceTests
         var grouped = (GroupedCardsPaginationDto)result;
         grouped.TotalGroups.Should().Be(2);
         grouped.TotalCards.Should().Be(3);
-        grouped.Groups.Select(g => g.GroupKey).Should().BeEquivalentTo(new[] { "set-a", "set-b" });
+        grouped.Groups.Select(g => g.GroupKey).Should().BeEquivalentTo("set-a", "set-b");
     }
 
     [Fact]
@@ -64,7 +64,7 @@ public class CollectionServiceTests
     {
         await using var context = CreateContext();
         var unitOfWork = CreateUnitOfWork(context);
-        var ownerId = "user-1";
+        const string ownerId = "user-1";
         var collection = new Collection
         {
             Name = "Collection",
@@ -81,7 +81,7 @@ public class CollectionServiceTests
             with { Prices = new Prices("2.50", null, "2.50", null, null) };
         var cheapCard = builder.CreateOracleCard(id: "cheap", name: "Card B")
             with { Prices = new Prices("1.00", null, "1.00", null, null) };
-        var cardDataService = CardDataServiceTestHelper.CreateWithCards(new[] { priceyCard, cheapCard });
+        var cardDataService = CardDataServiceTestHelper.CreateWithCards([priceyCard, cheapCard]);
 
         context.Cards.AddRange(
             CreateCard(collection.Id, "Card A", "set-a", scryfallId: "pricey"),
@@ -110,7 +110,7 @@ public class CollectionServiceTests
     {
         await using var context = CreateContext();
         var unitOfWork = CreateUnitOfWork(context);
-        var ownerId = "user-1";
+        const string ownerId = "user-1";
         var collection = new Collection
         {
             Name = "Collection",
@@ -129,7 +129,7 @@ public class CollectionServiceTests
 
         var service = CreateService(unitOfWork);
 
-        var removed = await service.MassDeleteCardsAsync(collection.Id, ownerId, new List<int> { cardOne.Id, cardTwo.Id });
+        var removed = await service.MassDeleteCardsAsync(collection.Id, ownerId, [cardOne.Id, cardTwo.Id]);
 
         removed.Should().Be(2);
         var updatedCollection = await context.Collections.SingleAsync();

@@ -1,4 +1,3 @@
-using System;
 using FluentAssertions;
 using Core.Enums;
 using Core.Models;
@@ -104,7 +103,7 @@ public class CardTests
     {
         // Arrange & Act
         var card = _testDataBuilder.CreateCard(1);
-        var imageUrl = "https://cards.scryfall.io/normal/front/1/2/123456.jpg";
+        const string imageUrl = "https://cards.scryfall.io/normal/front/1/2/123456.jpg";
         card.ImageUrl = imageUrl;
 
         // Assert
