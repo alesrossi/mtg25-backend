@@ -39,8 +39,8 @@ public interface IDeckValidationService
 public class DeckValidationResult
 {
     public bool IsValid { get; set; }
-    public List<ValidationError> Errors { get; set; } = new();
-    public List<ValidationWarning> Warnings { get; set; } = new();
+    public List<ValidationError> Errors { get; set; } = [];
+    private List<ValidationWarning> Warnings { get; set; } = [];
     
     public void AddError(string message, ValidationErrorType type = ValidationErrorType.General)
     {

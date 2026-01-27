@@ -1,4 +1,3 @@
-using Core.Enums;
 namespace Core.Enums;
 
 public enum Currency

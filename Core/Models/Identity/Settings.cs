@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Core.Enums;
 
 namespace Core.Models.Identity;
@@ -10,6 +11,7 @@ public class Settings : BaseModel
     public Language LanguageUi { get; set; } = Language.It;
     public Language LanguageCards { get; set; } = Language.En;
     public bool? EnabledLocation { get; set; } = false;
+    [MaxLength(100)]
     public required string AppUserId { get; set; }
     public required AppUser AppUser { get; set; }
 }

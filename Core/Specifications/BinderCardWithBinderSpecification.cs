@@ -8,7 +8,7 @@ public class BinderCardWithBinderSpecification : BaseSpecification<BinderCard>
         : base(card => card.Id == binderCardId)
     {
         AddInclude(card => card.TradeBinder);
-        AddInclude(card => card.Card);
+        AddInclude(card => card.Card!);
         AddInclude(card => card.Card!.Collection!);
     }
 }

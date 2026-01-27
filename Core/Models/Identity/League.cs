@@ -1,11 +1,15 @@
+using System.ComponentModel.DataAnnotations;
 using Core.Enums;
 
 namespace Core.Models.Identity;
 
 public class League : BaseModel
 {
+    [MaxLength(100)]
     public required string Name { get; set; }
+    [MaxLength(100)]
     public required string OwnerId { get; set; }
+    [MaxLength(100)]
     public required string Code { get; set; }
     public required DeckFormat Format { get; set; }
     public int TotalRounds { get; set; }
