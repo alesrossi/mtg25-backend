@@ -1,13 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
-using API;
-using API.Constants;
 using API.Dtos.Friends;
 using Core.Enums;
 using Core.Models.Identity;
 using FluentAssertions;
 using Infrastructure.Identity;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TestUtilities.Authentication;
@@ -44,7 +41,7 @@ public class FriendsControllerTests : IClassFixture<CustomWebApplicationFactory>
         var friendship = await identityContext.AppUserFriends.FirstOrDefaultAsync(
             f => f.UserId == requester.Id && f.FriendId == target.Id);
         friendship.Should().NotBeNull();
-        friendship!.Status.Should().Be(FriendshipStatus.Pending);
+        friendship.Status.Should().Be(FriendshipStatus.Pending);
 
         var notification = await identityContext.Notifications.FirstOrDefaultAsync(
             n => n.AppUserId == target.Id && n.Origin == $"{requester.Id}.{target.Id}");
@@ -125,7 +122,7 @@ public class FriendsControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var friends = await response.Content.ReadFromJsonAsync<List<FriendDto>>(JsonContentHelper.DefaultOptions);
         friends.Should().NotBeNull();
-        friends!.Should().ContainSingle();
+        friends.Should().ContainSingle();
         friends.Single().UserId.Should().Be(target.Id);
     }
 

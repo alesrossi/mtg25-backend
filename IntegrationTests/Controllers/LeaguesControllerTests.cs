@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -185,7 +184,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var roundInfo = JsonSerializer.Deserialize<RoundInfoDto>(payload, JsonContentHelper.DefaultOptions);
 
         roundInfo.Should().NotBeNull();
-        roundInfo!.Id.Should().Be(roundId);
+        roundInfo.Id.Should().Be(roundId);
         roundInfo.Players.Should().HaveCount(2);
         roundInfo.Players[0].UserId.Should().Be(owner.Id);
         roundInfo.Players[0].Position.Should().Be(1);
@@ -500,7 +499,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             createdLeague.Name.Should().Be(createRequest.Name);
             createdLeague.OwnerId.Should().Be(user.Id);
             createdLeague.Code.Length.Should().Be(6);
-            await VerifyRoleAssignmentAsync(user.Id, createdLeague!.Id, LeagueRole.Admin);
+            await VerifyRoleAssignmentAsync(user.Id, createdLeague.Id, LeagueRole.Admin);
 
             using var scope = _factory.Services.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
@@ -525,7 +524,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             ["roundsToConsider"] = 0,
             ["minimumRounds"] = -1,
             ["pointsToGive"] = new List<int>(),
-            ["scoringSystem"] = ScoringSystem.Positional.ToString()
+            ["scoringSystem"] = nameof(ScoringSystem.Positional)
         };
 
         var response = await client.PostAsync("/api/leagues",
@@ -563,11 +562,11 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         {
             StartDate = DateTime.UtcNow,
             Description = "Round 1 kickoff",
-            Players = new List<UpdateRoundPlayerDto>
-            {
+            Players =
+            [
                 new() { UserId = owner.Id },
                 new() { UserId = player.Id }
-            }
+            ]
         };
 
         var response = await client.PutAsync(
@@ -616,10 +615,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
         var updateRequest = new UpdateRoundDto
         {
-            Players = new List<UpdateRoundPlayerDto>
-            {
-                new() { UserId = outsider.Id }
-            }
+            Players = [new() { UserId = outsider.Id }]
         };
 
         var response = await client.PutAsync(
@@ -641,7 +637,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             TotalRounds = 5,
             RoundsToConsider = 4,
             MinimumRounds = 2,
-            PointsToGive = new List<int> { 3, 1 },
+            PointsToGive = [3, 1],
             ScoringSystem = ScoringSystem.Positional
         };
 
@@ -699,7 +695,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task RequestJoinLeague_WithNonExistingLeagueCode_ReturnsNotFound()
     {
         // Arrange
-        var owner = await CreateTestUserAsync("leagueowner@example.com", "leagueowner");
+        await CreateTestUserAsync("leagueowner@example.com", "leagueowner");
         var joiner = await CreateTestUserAsync("joiner@example.com", "joiner");
         using var client = _factory.CreateClientWithUser(joiner.Id, joiner.UserName!, joiner.Email!);
 
@@ -733,7 +729,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var owner = await CreateTestUserAsync("leagueowner@example.com", "leagueowner");
         var joiner = await CreateTestUserAsync("joiner@example.com", "joiner");
         var league = await CreateTestLeagueAsync("Joinable League", owner.Id);
-        var notification = await CreateNotificationForUserAsync(joiner.Id, $"{league.Id}.{joiner.Id}", true);
+        await CreateNotificationForUserAsync(joiner.Id, $"{league.Id}.{joiner.Id}", true);
         using var client = _factory.CreateClientWithUser(joiner.Id, joiner.UserName!, joiner.Email!);
         
         var content = new StringContent("", Encoding.UTF8, "application/json");
@@ -770,7 +766,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         // Arrange
         var owner = await CreateTestUserAsync("leagueowner@example.com", "leagueowner");
         var joiner = await CreateTestUserAsync("joiner@example.com", "joiner");
-        var league = await CreateTestLeagueAsync("Joinable League", owner.Id);
+        await CreateTestLeagueAsync("Joinable League", owner.Id);
         using var client = _factory.CreateClientWithUser(joiner.Id, joiner.UserName!, joiner.Email!);
         
         var content = new StringContent("", Encoding.UTF8, "application/json");
@@ -932,11 +928,11 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             var membership = await verificationContext.UserLeagues
                 .FirstOrDefaultAsync(ul => ul.LeagueId == league.Id && ul.UserId == owner.Id);
             membership.Should().NotBeNull();
-            membership!.IsPlaying.Should().BeTrue();
+            membership.IsPlaying.Should().BeTrue();
 
             var refreshedLeague = await verificationContext.Leagues.FindAsync(league.Id);
             refreshedLeague.Should().NotBeNull();
-            refreshedLeague!.TotalPlayers.Should().Be(1);
+            refreshedLeague.TotalPlayers.Should().Be(1);
         }
     }
 
@@ -958,7 +954,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task JoinAsPlayer_WithUnknownLeague_ReturnsNotFound()
     {
         var owner = await CreateTestUserAsync("joinplayer-inactive@example.com", "joinplayer_notfound");
-        var league = await CreateTestLeagueAsync("Not Found League", owner.Id, isActive: true);
+        await CreateTestLeagueAsync("Not Found League", owner.Id, isActive: true);
         using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
 
         var response = await client.PatchAsync($"/api/leagues/{int.MaxValue}/owner-join",
@@ -1175,7 +1171,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             RoundsToConsider = 4,
             MinimumRounds = 2,
             TotalPlayers = 0,
-            PointsToGive = new List<int> { 3, 1, 0 },
+            PointsToGive = [3, 1, 0],
             PointsPerWin = 3,
             PointsPerDraw = 1,
             PointsPerLoss = 0,
@@ -1321,10 +1317,10 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             .FirstOrDefaultAsync(x => x.UserId == userId && x.LeagueId == leagueId);
 
         assignment.Should().NotBeNull();
-        assignment!.Roles.HasFlag(expectedRole).Should().BeTrue();
+        assignment.Roles.HasFlag(expectedRole).Should().BeTrue();
     }
     
-    private async Task<Notification> CreateNotificationForUserAsync(string userId, string origin, bool approval)
+    private async Task CreateNotificationForUserAsync(string userId, string origin, bool approval)
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
@@ -1341,7 +1337,6 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         
         dbContext.Notifications.Add(notification);
         await dbContext.SaveChangesAsync();
-        return notification;
     }
 
     private async Task VerifyLeagueUpdatedInDatabase(int leagueId, string expectedName)
@@ -1351,19 +1346,10 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         
         var league = await dbContext.Leagues.FindAsync(leagueId);
         league.Should().NotBeNull($"because league {leagueId} should exist in database");
-        league!.Name.Should().Be(expectedName, "because league name should be updated");
+        league.Name.Should().Be(expectedName, "because league name should be updated");
     }
 
-    private async Task VerifyUserAssociatedWithLeague(string userId, int leagueId)
-    {
-        using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
-        
-        var userLeague = dbContext.UserLeagues.FirstOrDefault(ul => ul.UserId == userId && ul.LeagueId == leagueId);
-        userLeague.Should().NotBeNull($"because user {userId} should be associated with league {leagueId}");
-    }
-    
-    private async Task VerifyNotificationAssociatedWithLeague(string userId, int leagueId)
+    private Task VerifyNotificationAssociatedWithLeague(string userId, int leagueId)
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
@@ -1372,6 +1358,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         
         var userLeague = dbContext.Notifications.FirstOrDefault(n => n.Origin == origin);
         userLeague.Should().NotBeNull($"because user {userId} should have a new notification associated with league {leagueId}");
+        return Task.CompletedTask;
     }
 
 

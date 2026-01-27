@@ -1,4 +1,3 @@
-using System;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -10,8 +9,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Core.Models;
 using Core.Models.Identity;
 using Infrastructure.Data;
-using Infrastructure.Identity;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using TestUtilities.Authentication;
 using TestUtilities.Builders;
@@ -42,7 +39,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Arrange
         var user = await CreateTestUserAsync("deckuser@example.com", "deckuser");
-        var decks = await CreateTestDecksForUserAsync(user.Id, 3);
+        await CreateTestDecksForUserAsync(user.Id, 3);
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
         // Act
@@ -100,7 +97,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Arrange
         var user = await CreateTestUserAsync("structuretest@example.com", "structuretest");
-        var deck = await CreateTestDeckAsync(user.Id, "Structure Test Deck", DeckFormat.Standard);
+        await CreateTestDeckAsync(user.Id, "Structure Test Deck", DeckFormat.Standard);
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
         // Act
@@ -117,12 +114,12 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
 
             returnedDecks.Should().NotBeNull();
             
-            if (returnedDecks!.Count > 0)
+            if (returnedDecks.Count > 0)
             {
                 var firstDeck = returnedDecks.First();
                 firstDeck.Id.Should().BeGreaterThan(0, "because deck should have valid ID");
                 firstDeck.Name.Should().NotBeNullOrEmpty("because deck should have name");
-                Enum.IsDefined(typeof(DeckFormat), firstDeck.Format).Should().BeTrue("because deck should have format");
+                Enum.IsDefined(firstDeck.Format).Should().BeTrue("because deck should have format");
                 firstDeck.OwnerId.Should().NotBeNullOrEmpty("because deck should have owner");
             }
         }
@@ -135,8 +132,8 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         var user1 = await CreateTestUserAsync("user1@example.com", "user1");
         var user2 = await CreateTestUserAsync("user2@example.com", "user2");
         
-        var user1Deck = await CreateTestDeckAsync(user1.Id, "User1's Deck", DeckFormat.Standard);
-        var user2Deck = await CreateTestDeckAsync(user2.Id, "User2's Deck", DeckFormat.Modern);
+        await CreateTestDeckAsync(user1.Id, "User1's Deck", DeckFormat.Standard);
+        await CreateTestDeckAsync(user2.Id, "User2's Deck", DeckFormat.Modern);
         
         // Test as user1
         using var client = _factory.CreateClientWithUser(user1.Id, user1.UserName!, user1.Email!);
@@ -184,7 +181,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
             responseContent, JsonContentHelper.DefaultOptions);
 
         createdDeck.Should().NotBeNull();
-        createdDeck!.Name.Should().Be(createRequest.Name);
+        createdDeck.Name.Should().Be(createRequest.Name);
         createdDeck.Format.Should().Be(createRequest.Format);
         createdDeck.OwnerId.Should().Be(user.Id);
         createdDeck.NumberOfCards.Should().Be(0);
@@ -231,7 +228,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
             responseContent, JsonContentHelper.DefaultOptions);
 
         returnedDeck.Should().NotBeNull();
-        returnedDeck!.Id.Should().Be(deck.Id);
+        returnedDeck.Id.Should().Be(deck.Id);
         returnedDeck.Name.Should().Be(deck.Name);
         returnedDeck.Format.Should().Be(deck.Format);
         returnedDeck.OwnerId.Should().Be(user.Id);
@@ -304,7 +301,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
             responseContent, JsonContentHelper.DefaultOptions);
 
         updatedDeck.Should().NotBeNull();
-        updatedDeck!.Id.Should().Be(deck.Id);
+        updatedDeck.Id.Should().Be(deck.Id);
         updatedDeck.Name.Should().Be(updateRequest.Name);
         updatedDeck.Format.Should().Be(updateRequest.Format);
         updatedDeck.OwnerId.Should().Be(user.Id);
@@ -443,12 +440,11 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task ImportDeck_WithValidDecklist_CreatesDeckAndCards()
     {
         var user = await CreateTestUserAsync("importer@example.com", "importer");
-        await SeedCardDataAsync(new[]
-        {
+        await SeedCardDataAsync([
             CreateOracleCardDto("1", "oracle-1", "Lightning Bolt", "LEA", "Limited Edition Alpha"),
             CreateOracleCardDto("2", "oracle-2", "Opt", "INV", "Invasion"),
             CreateOracleCardDto("3", "oracle-3", "Negate", "M10", "Magic 2010")
-        });
+        ]);
 
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
@@ -471,7 +467,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         var deckElement = document.RootElement.GetProperty("deck");
         var deckId = deckElement.GetProperty("id").GetInt32();
         deckElement.GetProperty("name").GetString().Should().Be("Imported Deck");
-        deckElement.GetProperty("format").GetString().Should().Be(DeckFormat.Modern.ToString());
+        deckElement.GetProperty("format").GetString().Should().Be(nameof(DeckFormat.Modern));
 
         var deckCards = document.RootElement.GetProperty("deckCards");
         deckCards.GetArrayLength().Should().Be(3);
@@ -488,7 +484,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         var context = scope.ServiceProvider.GetRequiredService<MainContext>();
         var importedDeck = await context.Decks.FindAsync(deckId);
         importedDeck.Should().NotBeNull();
-        importedDeck!.NumberOfCards.Should().Be(9);
+        importedDeck.NumberOfCards.Should().Be(9);
 
         var storedDeckCards = await context.DeckCards.Where(dc => dc.DeckId == deckId).ToListAsync();
         storedDeckCards.Should().HaveCount(3);
@@ -500,12 +496,11 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task ImportDeck_BasicLandsAreAlwaysFullyOwned()
     {
         var user = await CreateTestUserAsync("import-basics@example.com", "import_basics");
-        await SeedCardDataAsync(new[]
-        {
+        await SeedCardDataAsync([
             CreateOracleCardDto("island-1", "oracle-island", "Island", "MIR", "Mirage"),
             CreateOracleCardDto("mountain-1", "oracle-mountain", "Mountain", "MIR", "Mirage"),
             CreateOracleCardDto("bolt-1", "oracle-bolt", "Lightning Bolt", "LEA", "Limited Edition Alpha")
-        });
+        ]);
 
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
@@ -543,10 +538,9 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task ImportDeck_WithUnknownCard_ReturnsPartialSuccess()
     {
         var user = await CreateTestUserAsync("importerror@example.com", "importerror");
-        await SeedCardDataAsync(new[]
-        {
+        await SeedCardDataAsync([
             CreateOracleCardDto("1", "oracle-1", "Lightning Bolt", "LEA", "Limited Edition Alpha")
-        });
+        ]);
 
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
@@ -649,12 +643,11 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task ImportDeck_IgnoresNonNumericLinesAndKeepsSingleDivider()
     {
         var user = await CreateTestUserAsync("importfilter@example.com", "importfilter");
-        await SeedCardDataAsync(new[]
-        {
+        await SeedCardDataAsync([
             CreateOracleCardDto("1", "oracle-bolt", "Lightning Bolt", "LEA", "Limited Edition Alpha"),
             CreateOracleCardDto("2", "oracle-guide", "Goblin Guide", "ZEN", "Zendikar"),
             CreateOracleCardDto("3", "oracle-negate", "Negate", "M11", "Magic 2011")
-        });
+        ]);
 
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
@@ -705,10 +698,9 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task ImportDeck_WithoutAuthentication_ReturnsUnauthorized()
     {
-        await SeedCardDataAsync(new[]
-        {
+        await SeedCardDataAsync([
             CreateOracleCardDto("42", "oracle-42", "Lightning Bolt", "LEA", "Limited Edition Alpha")
-        });
+        ]);
 
         using var client = _factory.CreateClient();
         var request = new DeckImportRequestDto
@@ -749,7 +741,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
             JsonContentHelper.DefaultOptions);
 
         exportedLines.Should().NotBeNull();
-        exportedLines!.Should().Equal("3 Arc Lightning", "4 Lightning Bolt", string.Empty, "2 Negate");
+        exportedLines.Should().Equal("3 Arc Lightning", "4 Lightning Bolt", string.Empty, "2 Negate");
     }
 
     [Fact]
@@ -787,7 +779,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     private Task<AppUser> CreateTestUserAsync(string baseEmail, string baseUserName) =>
         TestUserFactory.CreateAsync(_factory.Services, _testDataBuilder, baseEmail, baseUserName);
 
-    private async Task<List<Deck>> CreateTestDecksForUserAsync(string userId, int count)
+    private async Task CreateTestDecksForUserAsync(string userId, int count)
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
@@ -805,8 +797,6 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
             
         dbContext.Decks.AddRange(decks);
         await dbContext.SaveChangesAsync();
-        
-        return decks;
     }
 
     private async Task<Deck> CreateTestDeckAsync(string userId, string name, DeckFormat format)
@@ -844,7 +834,7 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         
         var deck = await dbContext.Decks.FindAsync(deckId);
         deck.Should().NotBeNull($"because deck {deckId} should exist in database");
-        deck!.OwnerId.Should().Be(expectedUserId, "because deck should belong to the expected user");
+        deck.OwnerId.Should().Be(expectedUserId, "because deck should belong to the expected user");
     }
 
     private async Task SeedDeckCardsAsync(int deckId, params DeckCardSeed[] deckCards)

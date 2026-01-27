@@ -31,7 +31,7 @@ namespace IntegrationTests
             // keep existing unique-name logic
             var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmssffff");
             var random    = Guid.NewGuid().ToString("N")[..8];
-            var threadId  = System.Threading.Thread.CurrentThread.ManagedThreadId;
+            var threadId  = Thread.CurrentThread.ManagedThreadId;
 
             _testMainDbName     = $"test_main_{timestamp}_{threadId}_{random}";
             _testIdentityDbName = $"test_identity_{timestamp}_{threadId}_{random}";
@@ -63,7 +63,7 @@ namespace IntegrationTests
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
-            builder.ConfigureAppConfiguration((context, cfg) =>
+            builder.ConfigureAppConfiguration((_, cfg) =>
             {
                 // overwrite only the connection strings – everything else unchanged
                 cfg.AddInMemoryCollection(new Dictionary<string,string?>
@@ -154,30 +154,28 @@ namespace IntegrationTests
                 await using var conn = new NpgsqlConnection(_adminConnection);
                 await conn.OpenAsync();
 
-                await using (var cmd = conn.CreateCommand())
-                {
-                    // Terminate all connections to the test databases
-                    cmd.CommandText = $@"
+                await using var cmd = conn.CreateCommand();
+                // Terminate all connections to the test databases
+                cmd.CommandText = $@"
                         SELECT pg_terminate_backend(pid)
                         FROM pg_stat_activity
                         WHERE datname IN ('{_testMainDbName}', '{_testIdentityDbName}')
                           AND pid <> pg_backend_pid()";
-                    await cmd.ExecuteNonQueryAsync();
+                await cmd.ExecuteNonQueryAsync();
                     
-                    // Give terminated connections time to clean up
-                    await Task.Delay(50);
+                // Give terminated connections time to clean up
+                await Task.Delay(50);
 
-                    // Drop databases
-                    cmd.CommandText = $"DROP DATABASE IF EXISTS \"{_testMainDbName}\"";
-                    await cmd.ExecuteNonQueryAsync();
+                // Drop databases
+                cmd.CommandText = $"DROP DATABASE IF EXISTS \"{_testMainDbName}\"";
+                await cmd.ExecuteNonQueryAsync();
 
-                    cmd.CommandText = $"DROP DATABASE IF EXISTS \"{_testIdentityDbName}\"";
-                    await cmd.ExecuteNonQueryAsync();
-                }
+                cmd.CommandText = $"DROP DATABASE IF EXISTS \"{_testIdentityDbName}\"";
+                await cmd.ExecuteNonQueryAsync();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Warning: Failed to clean up test databases {_testMainDbName}, {_testIdentityDbName}: {ex.Message}");
+                Console.WriteLine($@"Warning: Failed to clean up test databases {_testMainDbName}, {_testIdentityDbName}: {ex.Message}");
             }
         }
 

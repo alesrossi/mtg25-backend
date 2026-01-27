@@ -37,7 +37,7 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
         var payload = await response.Content.ReadAsStringAsync();
         var dto = JsonSerializer.Deserialize<NotificationDto>(payload, JsonContentHelper.DefaultOptions);
         dto.Should().NotBeNull();
-        dto!.Id.Should().Be(notification.Id);
+        dto.Id.Should().Be(notification.Id);
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
     {
         var user = await CreateTestUserAsync("notifications-list@test.com", "notifications_list");
         await CreateNotificationAsync(user.Id);
-        await CreateNotificationAsync(user.Id, isInstant: true);
+        await CreateNotificationAsync(user.Id);
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
         var response = await client.GetAsync("/api/notifications");
@@ -66,7 +66,7 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
         var payload = await response.Content.ReadAsStringAsync();
         var dto = JsonSerializer.Deserialize<List<NotificationDto>>(payload, JsonContentHelper.DefaultOptions);
         dto.Should().NotBeNull();
-        dto!.Should().NotBeEmpty();
+        dto.Should().NotBeEmpty();
     }
 
     [Fact]
@@ -134,7 +134,7 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
     public async Task UpdateNotificationStatus_WithoutAuthentication_ReturnsUnauthorized()
     {
         var user = await CreateTestUserAsync("notifications-update-unauth@test.com", "notifications_update_unauth");
-        var notification = await CreateNotificationAsync(user.Id);
+        await CreateNotificationAsync(user.Id);
         using var client = _factory.CreateClient();
 
         var response = await client.PutAsync($"/api/notifications/read", JsonContentHelper.CreateContent(new { }));
@@ -147,7 +147,6 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
 
     private async Task<Notification> CreateNotificationAsync(
         string userId,
-        bool isInstant = false,
         bool isRead = false,
         string? name = null,
         string? message = null)
@@ -173,7 +172,7 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
         return notification;
     }
     
-    private async Task VerifyNotificationHasBeenRead(int id)
+    private Task VerifyNotificationHasBeenRead(int id)
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
@@ -181,5 +180,6 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
         var notification = dbContext.Notifications.FirstOrDefault(n => n.Id == id);
         notification.Should().NotBeNull($"because notification {id} should be updated");
         notification.IsRead.Should().Be(true, $"because notification {id} should be set to read");
+        return Task.CompletedTask;
     }
 }

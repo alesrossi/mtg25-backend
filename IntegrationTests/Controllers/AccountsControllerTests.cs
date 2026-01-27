@@ -116,7 +116,7 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
             responseContent, JsonContentHelper.DefaultOptions);
 
         userDto.Should().NotBeNull();
-        userDto!.Email.Should().Be(registerRequest.Email);
+        userDto.Email.Should().Be(registerRequest.Email);
         userDto.DisplayName.Should().Be(registerRequest.DisplayName);
 
         // Verify user was actually created in database
@@ -191,7 +191,7 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
     {
         // Arrange
         var email = $"loginuser_{Guid.NewGuid().ToString("N")[..8]}@test.com";
-        var password = "Password123!";
+        const string password = "Password123!";
         var user = await CreateTestUserWithPasswordAsync(email, "loginuser", password);
         using var client = _factory.CreateClient();
 
@@ -216,7 +216,7 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
             responseContent, JsonContentHelper.DefaultOptions);
 
         authDto.Should().NotBeNull();
-        authDto!.UserId.Should().NotBeNullOrEmpty();
+        authDto.UserId.Should().NotBeNullOrEmpty();
         authDto.Token.Should().NotBeNullOrEmpty("because login should return an authentication token");
     }
 
@@ -225,7 +225,7 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
     {
         // Arrange
         var email = $"logoutuser_{Guid.NewGuid().ToString("N")[..8]}@test.com";
-        var password = "Password123!";
+        const string password = "Password123!";
         var user = await CreateTestUserWithPasswordAsync(email, "logoutuser", password);
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
@@ -247,7 +247,7 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
             loginResponseContent, JsonContentHelper.DefaultOptions);
 
         authDto.Should().NotBeNull();
-        authDto!.Token.Should().NotBeNull();
+        authDto.Token.Should().NotBeNull();
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authDto.Token);
 

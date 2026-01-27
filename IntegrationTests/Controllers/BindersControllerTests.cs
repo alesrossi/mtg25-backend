@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -8,12 +6,10 @@ using Core.Models;
 using Core.Models.Identity;
 using FluentAssertions;
 using Infrastructure.Data;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using TestUtilities.Authentication;
 using TestUtilities.Builders;
 using TestUtilities.Serialization;
-using Core.Enums;
 
 namespace IntegrationTests.Controllers;
 
@@ -49,7 +45,7 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var binder = JsonSerializer.Deserialize<BinderDto>(payload, JsonContentHelper.DefaultOptions);
         binder.Should().NotBeNull();
-        binder!.Name.Should().Be(request.Name);
+        binder.Name.Should().Be(request.Name);
         binder.Description.Should().Be(request.Description);
         binder.IsPublic.Should().BeTrue();
         binder.OwnerId.Should().Be(user.Id);
@@ -122,7 +118,7 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var binders = JsonSerializer.Deserialize<List<BinderSummaryDto>>(payload, JsonContentHelper.DefaultOptions);
         binders.Should().NotBeNull();
-        binders!.Should().HaveCount(2);
+        binders.Should().HaveCount(2);
         binders.Should().NotContain(b => b.Id == otherBinder.Id);
     }
 
@@ -205,7 +201,7 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var updated = JsonSerializer.Deserialize<BinderDto>(payload, JsonContentHelper.DefaultOptions);
         updated.Should().NotBeNull();
-        updated!.Name.Should().Be(request.Name);
+        updated.Name.Should().Be(request.Name);
         updated.Description.Should().Be(request.Description);
         updated.IsPublic.Should().BeTrue();
     }
@@ -243,7 +239,7 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest,
             "because a non-boolean value for isPublic should fail model binding");
 
-        var payload = await response.Content.ReadAsStringAsync();
+        var unused = await response.Content.ReadAsStringAsync();
         // payload.Should().NotBeNullOrEmpty();
     }
 
@@ -376,7 +372,7 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var createdPayload = await createResponse.Content.ReadAsStringAsync();
         var createdCards = JsonSerializer.Deserialize<List<BinderCardDto>>(createdPayload, JsonContentHelper.DefaultOptions);
         createdCards.Should().NotBeNull();
-        createdCards!.Should().ContainSingle();
+        createdCards.Should().ContainSingle();
         var createdCard = createdCards.Single();
         createdCard.Name.Should().Be(card.Name);
         createdCard.QuantityToTrade.Should().Be(2);
@@ -386,7 +382,7 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var listPayload = await listResponse.Content.ReadAsStringAsync();
         var cards = JsonSerializer.Deserialize<List<BinderCardDto>>(listPayload, JsonContentHelper.DefaultOptions);
         cards.Should().NotBeNull();
-        cards!.Should().HaveCount(1);
+        cards.Should().HaveCount(1);
 
         var updateDto = new UpdateBinderCardDto
         {
@@ -400,7 +396,7 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var updatedPayload = await updateResponse.Content.ReadAsStringAsync();
         var updatedCard = JsonSerializer.Deserialize<BinderCardDto>(updatedPayload, JsonContentHelper.DefaultOptions);
         updatedCard.Should().NotBeNull();
-        updatedCard!.QuantityToTrade.Should().Be(1);
+        updatedCard.QuantityToTrade.Should().Be(1);
         updatedCard.Notes.Should().Be(updateDto.Notes);
 
         var deleteResponse = await client.DeleteAsync($"/api/binders/{binder.Id}/cards/{createdCard.Id}");
@@ -410,7 +406,7 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var confirmPayload = await confirmResponse.Content.ReadAsStringAsync();
         var remainingCards = JsonSerializer.Deserialize<List<BinderCardDto>>(confirmPayload, JsonContentHelper.DefaultOptions);
         remainingCards.Should().NotBeNull();
-        remainingCards!.Should().BeEmpty();
+        remainingCards.Should().BeEmpty();
     }
 
     [Fact]
@@ -524,7 +520,7 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var dto = JsonSerializer.Deserialize<BinderCardDto>(payload, JsonContentHelper.DefaultOptions);
 
         dto.Should().NotBeNull();
-        dto!.Id.Should().Be(binderCard.Id);
+        dto.Id.Should().Be(binderCard.Id);
         dto.TradeBinderId.Should().Be(binder.Id);
         dto.CardId.Should().Be(card.Id);
     }
@@ -665,7 +661,7 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var cards = JsonSerializer.Deserialize<List<BinderCardDto>>(payload, JsonContentHelper.DefaultOptions);
         cards.Should().NotBeNull();
-        cards!.Should().ContainSingle();
+        cards.Should().ContainSingle();
         cards[0].Name.Should().Be(binderCard.Name);
     }
 
@@ -735,7 +731,7 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var dto = JsonSerializer.Deserialize<BinderDto>(payload, JsonContentHelper.DefaultOptions);
 
         dto.Should().NotBeNull();
-        dto!.TotalPrice.Should().BeApproximately(5.0, 0.01, "2 cards at 2.5 each should total 5.0");
+        dto.TotalPrice.Should().BeApproximately(5.0, 0.01, "2 cards at 2.5 each should total 5.0");
         dto.Cards.Should().ContainSingle();
 
         var pricedCard = dto.Cards[0];

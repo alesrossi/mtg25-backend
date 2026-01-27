@@ -12,7 +12,7 @@ public static class Helpers
 
         try
         {
-            using var cmd = conn.CreateCommand();
+            await using var cmd = conn.CreateCommand();
             cmd.CommandText = sql;
             var result = await cmd.ExecuteScalarAsync();
             return result != null && (bool)result;

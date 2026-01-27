@@ -1,7 +1,4 @@
-using System;
-using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -26,13 +23,13 @@ namespace IntegrationTests.Controllers;
 [Collection("Integration Tests")]
 public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
 {
-    private readonly CustomWebApplicationFactory factory;
-    private readonly TestDataBuilder testDataBuilder;
+    private readonly CustomWebApplicationFactory _factory;
+    private readonly TestDataBuilder _testDataBuilder;
 
     public TradesControllerTests(CustomWebApplicationFactory factory)
     {
-        this.factory = factory;
-        testDataBuilder = new TestDataBuilder();
+        _factory = factory;
+        _testDataBuilder = new TestDataBuilder();
     }
 
     [Fact]
@@ -44,7 +41,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         await CreatePublicBinderCardAsync(initiator.Id, "Lightning Bolt");
         await CreatePublicWishlistCardAsync(partner.Id, "Lightning Bolt");
 
-        using var client = factory.CreateClientWithUser(initiator.Id, initiator.UserName!, initiator.Email!);
+        using var client = _factory.CreateClientWithUser(initiator.Id, initiator.UserName!, initiator.Email!);
 
         var response = await client.GetAsync($"/api/trades/match?initiatorUserId={initiator.Id}&partnerUserId={partner.Id}");
 
@@ -53,7 +50,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var dto = JsonSerializer.Deserialize<TradeConnectionDto>(payload, JsonContentHelper.DefaultOptions);
 
         dto.Should().NotBeNull();
-        dto!.InitiatorMatches.Should().ContainSingle(m => m.OfferingCard.Name == "Lightning Bolt" && m.ToUserId == partner.Id);
+        dto.InitiatorMatches.Should().ContainSingle(m => m.OfferingCard.Name == "Lightning Bolt" && m.ToUserId == partner.Id);
         dto.PartnerMatches.Should().BeEmpty();
         dto.InitiatorTotalValue.Should().BeGreaterThan(0);
         dto.ValueDifference.Should().Be(dto.InitiatorTotalValue - dto.PartnerTotalValue);
@@ -65,7 +62,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task Match_WhenPartnerUserIdMissing_ReturnsBadRequest()
     {
         var initiator = await CreateTestUserAsync("trade-initiator@test.com", "trade_initiator");
-        using var client = CreateClientWithUser(factory, initiator);
+        using var client = CreateClientWithUser(_factory, initiator);
 
         var response = await client.GetAsync($"/api/trades/match?initiatorUserId={initiator.Id}");
 
@@ -78,7 +75,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var initiator = await CreateTestUserAsync("trade-initiator@test.com", "trade_initiator");
         var partner = await CreateTestUserAsync("trade-partner@test.com", "trade_partner");
 
-        using var client = CreateClientWithUser(factory, partner);
+        using var client = CreateClientWithUser(_factory, partner);
         var response = await client.GetAsync($"/api/trades/match?initiatorUserId={initiator.Id}&partnerUserId={partner.Id}");
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -87,7 +84,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task Match_WhenServiceReportsMissingTrade_ReturnsNotFound()
     {
-        using var customFactory = factory.WithWebHostBuilder(builder =>
+        using var customFactory = _factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureServices(services =>
             {
@@ -111,12 +108,12 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var requester = await CreateTestUserAsync("trade-requester@test.com", "trade_requester");
         var target = await CreateTestUserAsync("trade-target@test.com", "trade_target");
 
-        using var client = CreateClientWithUser(factory, requester);
+        using var client = CreateClientWithUser(_factory, requester);
         var response = await client.SendAsync(new HttpRequestMessage(HttpMethod.Post, $"/api/trades/{target.Id}/request"));
 
         response.StatusCode.Should().Be(HttpStatusCode.Accepted);
 
-        await using var scope = factory.Services.CreateAsyncScope();
+        await using var scope = _factory.Services.CreateAsyncScope();
         var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
         var notification = await identityContext.Notifications.SingleAsync(n => n.AppUserId == target.Id);
 
@@ -131,7 +128,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task RequestTrade_WhenNotAuthenticated_ReturnsUnauthorized()
     {
         var target = await CreateTestUserAsync("trade-target@test.com", "trade_target");
-        using var client = factory.CreateClient();
+        using var client = _factory.CreateClient();
 
         var response = await client.SendAsync(new HttpRequestMessage(HttpMethod.Post, $"/api/trades/{target.Id}/request"));
 
@@ -143,7 +140,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         var requester = await CreateTestUserAsync("trade-requester@test.com", "trade_requester");
 
-        using var client = CreateClientWithUser(factory, requester);
+        using var client = CreateClientWithUser(_factory, requester);
         var response = await client.SendAsync(new HttpRequestMessage(HttpMethod.Post, $"/api/trades/{requester.Id}/request"));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -154,7 +151,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         var requester = await CreateTestUserAsync("trade-requester@test.com", "trade_requester");
 
-        using var client = CreateClientWithUser(factory, requester);
+        using var client = CreateClientWithUser(_factory, requester);
         var response = await client.SendAsync(new HttpRequestMessage(HttpMethod.Post, $"/api/trades/{Guid.NewGuid():N}/request"));
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
@@ -165,12 +162,12 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         var (initiator, partner, trade) = await PrepareTradeSessionAsync();
 
-        using var client = CreateClientWithUser(factory, initiator);
+        using var client = CreateClientWithUser(_factory, initiator);
         var response = await client.PostAsync($"/api/trades/{trade.TradeId}/request-commit", null);
 
         response.StatusCode.Should().Be(HttpStatusCode.Accepted);
 
-        await using var scope = factory.Services.CreateAsyncScope();
+        await using var scope = _factory.Services.CreateAsyncScope();
         var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
         var notification = await identityContext.Notifications.SingleAsync(n =>
             n.AppUserId == partner.Id && n.ObjectId == trade.TradeId && n.Name == "trade_commit_request");
@@ -184,7 +181,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var (_, _, trade) = await PrepareTradeSessionAsync();
         var intruder = await CreateTestUserAsync("trade-intruder@test.com", "trade_intruder");
 
-        using var client = CreateClientWithUser(factory, intruder);
+        using var client = CreateClientWithUser(_factory, intruder);
         var response = await client.PostAsync($"/api/trades/{trade.TradeId}/request-commit", null);
 
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
@@ -194,7 +191,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task RequestCommit_WhenNotAuthenticated_ReturnsUnauthorized()
     {
         var (_, _, trade) = await PrepareTradeSessionAsync();
-        using var client = factory.CreateClient();
+        using var client = _factory.CreateClient();
 
         var response = await client.PostAsync($"/api/trades/{trade.TradeId}/request-commit", null);
 
@@ -207,7 +204,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var initiator = await CreateTestUserAsync("trade-initiator@test.com", "trade_initiator");
         var partner = await CreateTestUserAsync("trade-partner@test.com", "trade_partner");
 
-        using var client = CreateClientWithUser(factory, initiator);
+        using var client = CreateClientWithUser(_factory, initiator);
         var response = await client.GetAsync($"/api/trades/match?initiatorUserId={initiator.Id}&partnerUserId={partner.Id}&liveTrading=false");
 
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
@@ -223,7 +220,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         await CreatePublicWishlistCardAsync(partner.Id, "Lightning Bolt");
         await CreateApprovedTradeNotificationAsync(initiator.Id, partner.Id);
 
-        using var client = CreateClientWithUser(factory, initiator);
+        using var client = CreateClientWithUser(_factory, initiator);
         var response = await client.GetAsync($"/api/trades/match?initiatorUserId={initiator.Id}&partnerUserId={partner.Id}&liveTrading=false");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -232,23 +229,23 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task UpdateTrade_WhenNotLive_RemovesCommitNotifications()
     {
-        var (initiator, partner, trade) = await PrepareTradeSessionAsync(liveTrading: false, requireApproval: true);
+        var (initiator, _, trade) = await PrepareTradeSessionAsync(liveTrading: false, requireApproval: true);
 
-        using var initiatorClient = CreateClientWithUser(factory, initiator);
+        using var initiatorClient = CreateClientWithUser(_factory, initiator);
         var requestCommitResponse = await initiatorClient.PostAsync($"/api/trades/{trade.TradeId}/request-commit", null);
         requestCommitResponse.StatusCode.Should().Be(HttpStatusCode.Accepted);
 
-        var matchId = trade.InitiatorMatches.First().MatchId;
+        var matchId = trade.InitiatorMatches[0].MatchId;
         var updateRequest = new UpdateTradeRequest
         {
-            InitiatorMatches = new[]
-            {
+            InitiatorMatches =
+            [
                 new TradeMatchUpdateDto
                 {
                     MatchId = matchId,
                     QuantityToTrade = 0
                 }
-            }
+            ]
         };
 
         var updateResponse = await initiatorClient.PutAsJsonAsync(
@@ -258,7 +255,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        await using var scope = factory.Services.CreateAsyncScope();
+        await using var scope = _factory.Services.CreateAsyncScope();
         var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
         var pendingNotifications = await identityContext.Notifications
             .Where(n => n.Name == "trade_commit_request" && n.ObjectId == trade.TradeId)
@@ -277,14 +274,14 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         await CreatePublicBinderCardAsync(initiator.Id, "Force of Will");
         await CreatePublicWishlistCardAsync(partner.Id, "Force of Will");
 
-        using var initiatorClient = factory.CreateClientWithUser(initiator.Id, initiator.UserName!, initiator.Email!);
+        using var initiatorClient = _factory.CreateClientWithUser(initiator.Id, initiator.UserName!, initiator.Email!);
         var matchResponse = await initiatorClient.GetAsync($"/api/trades/match?initiatorUserId={initiator.Id}&partnerUserId={partner.Id}");
         matchResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var tradeDto = await matchResponse.Content.ReadFromJsonAsync<TradeConnectionDto>(JsonContentHelper.DefaultOptions);
         tradeDto.Should().NotBeNull();
 
-        using var intruderClient = factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
-        var getResponse = await intruderClient.GetAsync($"/api/trades/{tradeDto!.TradeId}");
+        using var intruderClient = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
+        var getResponse = await intruderClient.GetAsync($"/api/trades/{tradeDto.TradeId}");
 
         getResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
@@ -294,13 +291,13 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         var (_, partner, trade) = await PrepareTradeSessionAsync();
 
-        using var partnerClient = CreateClientWithUser(factory, partner);
+        using var partnerClient = CreateClientWithUser(_factory, partner);
         var response = await partnerClient.GetAsync($"/api/trades/{trade.TradeId}");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var dto = await response.Content.ReadFromJsonAsync<TradeConnectionDto>(JsonContentHelper.DefaultOptions);
         dto.Should().NotBeNull();
-        dto!.TradeId.Should().Be(trade.TradeId);
+        dto.TradeId.Should().Be(trade.TradeId);
         dto.PartnerMatches.Should().BeEmpty();
     }
 
@@ -308,7 +305,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task GetTradeSession_WhenNotAuthenticated_ReturnsUnauthorized()
     {
         var (_, _, trade) = await PrepareTradeSessionAsync();
-        using var client = factory.CreateClient();
+        using var client = _factory.CreateClient();
 
         var response = await client.GetAsync($"/api/trades/{trade.TradeId}");
 
@@ -319,7 +316,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task GetTradeSession_WhenTradeDoesNotExist_ReturnsNotFound()
     {
         var user = await CreateTestUserAsync("trade-session-owner@test.com", "trade_session_owner");
-        using var client = CreateClientWithUser(factory, user);
+        using var client = CreateClientWithUser(_factory, user);
 
         var response = await client.GetAsync($"/api/trades/{Guid.NewGuid():N}");
 
@@ -330,20 +327,20 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task UpdateTradeSession_AllowsParticipantToAdjustSelection()
     {
         var (initiator, _, trade) = await PrepareTradeSessionAsync();
-        using var initiatorClient = CreateClientWithUser(factory, initiator);
+        using var initiatorClient = CreateClientWithUser(_factory, initiator);
 
-        var matchId = trade.InitiatorMatches.First().MatchId;
+        var matchId = trade.InitiatorMatches[0].MatchId;
         var request = new UpdateTradeRequest
         {
-            InitiatorMatches = new[]
-            {
+            InitiatorMatches =
+            [
                 new TradeMatchUpdateDto
                 {
                     MatchId = matchId,
                     QuantityToTrade = 0,
                     IsSelected = false
                 }
-            }
+            ]
         };
 
         var response = await initiatorClient.PutAsJsonAsync($"/api/trades/{trade.TradeId}", request, JsonContentHelper.DefaultOptions);
@@ -357,19 +354,19 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task UpdateTradeSession_WhenQuantityTooHigh_ReturnsBadRequest()
     {
         var (initiator, _, trade) = await PrepareTradeSessionAsync();
-        using var initiatorClient = CreateClientWithUser(factory, initiator);
+        using var initiatorClient = CreateClientWithUser(_factory, initiator);
 
-        var matchId = trade.InitiatorMatches.First().MatchId;
+        var matchId = trade.InitiatorMatches[0].MatchId;
         var request = new UpdateTradeRequest
         {
-            InitiatorMatches = new[]
-            {
+            InitiatorMatches =
+            [
                 new TradeMatchUpdateDto
                 {
                     MatchId = matchId,
                     QuantityToTrade = 5
                 }
-            }
+            ]
         };
 
         var response = await initiatorClient.PutAsJsonAsync($"/api/trades/{trade.TradeId}", request, JsonContentHelper.DefaultOptions);
@@ -380,21 +377,21 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task UpdateTradeSession_WhenRequesterNotParticipant_ReturnsForbidden()
     {
-        var (initiator, _, trade) = await PrepareTradeSessionAsync();
+        var (_, _, trade) = await PrepareTradeSessionAsync();
         var intruder = await CreateTestUserAsync("trade-intruder@test.com", "trade_intruder");
-        using var intruderClient = CreateClientWithUser(factory, intruder);
+        using var intruderClient = CreateClientWithUser(_factory, intruder);
 
-        var matchId = trade.InitiatorMatches.First().MatchId;
+        var matchId = trade.InitiatorMatches[0].MatchId;
         var request = new UpdateTradeRequest
         {
-            InitiatorMatches = new[]
-            {
+            InitiatorMatches =
+            [
                 new TradeMatchUpdateDto
                 {
                     MatchId = matchId,
                     QuantityToTrade = 1
                 }
-            }
+            ]
         };
 
         var response = await intruderClient.PutAsJsonAsync($"/api/trades/{trade.TradeId}", request, JsonContentHelper.DefaultOptions);
@@ -406,18 +403,18 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task UpdateTradeSession_WhenNotAuthenticated_ReturnsUnauthorized()
     {
         var (_, _, trade) = await PrepareTradeSessionAsync();
-        using var client = factory.CreateClient();
+        using var client = _factory.CreateClient();
 
         var request = new UpdateTradeRequest
         {
-            InitiatorMatches = new[]
-            {
+            InitiatorMatches =
+            [
                 new TradeMatchUpdateDto
                 {
-                    MatchId = trade.InitiatorMatches.First().MatchId,
+                    MatchId = trade.InitiatorMatches[0].MatchId,
                     QuantityToTrade = 1
                 }
-            }
+            ]
         };
 
         var response = await client.PutAsJsonAsync($"/api/trades/{trade.TradeId}", request, JsonContentHelper.DefaultOptions);
@@ -429,7 +426,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task UpdateTradeSession_WhenTradeMissing_ReturnsNotFound()
     {
         var initiator = await CreateTestUserAsync("trade-initiator@test.com", "trade_initiator");
-        using var client = CreateClientWithUser(factory, initiator);
+        using var client = CreateClientWithUser(_factory, initiator);
 
         var request = new UpdateTradeRequest
         {
@@ -445,7 +442,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task CancelTradeSession_AllowsParticipantToDelete()
     {
         var (initiator, _, trade) = await PrepareTradeSessionAsync();
-        using var client = CreateClientWithUser(factory, initiator);
+        using var client = CreateClientWithUser(_factory, initiator);
 
         var response = await client.DeleteAsync($"/api/trades/{trade.TradeId}");
 
@@ -460,7 +457,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         var (_, _, trade) = await PrepareTradeSessionAsync();
         var intruder = await CreateTestUserAsync("trade-intruder@test.com", "trade_intruder");
-        using var client = CreateClientWithUser(factory, intruder);
+        using var client = CreateClientWithUser(_factory, intruder);
 
         var response = await client.DeleteAsync($"/api/trades/{trade.TradeId}");
 
@@ -471,7 +468,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task CancelTradeSession_WhenNotAuthenticated_ReturnsUnauthorized()
     {
         var (_, _, trade) = await PrepareTradeSessionAsync();
-        using var client = factory.CreateClient();
+        using var client = _factory.CreateClient();
 
         var response = await client.DeleteAsync($"/api/trades/{trade.TradeId}");
 
@@ -482,7 +479,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task CancelTradeSession_WhenTradeMissing_ReturnsNotFound()
     {
         var initiator = await CreateTestUserAsync("trade-initiator@test.com", "trade_initiator");
-        using var client = CreateClientWithUser(factory, initiator);
+        using var client = CreateClientWithUser(_factory, initiator);
 
         var response = await client.DeleteAsync($"/api/trades/{Guid.NewGuid():N}");
 
@@ -496,8 +493,8 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var initiatorCollectionId = await GetAnyCollectionIdAsync(initiator.Id);
         var partnerCollectionId = await GetAnyCollectionIdAsync(partner.Id);
 
-        using var initiatorClient = CreateClientWithUser(factory, initiator);
-        using var partnerClient = CreateClientWithUser(factory, partner);
+        using var initiatorClient = CreateClientWithUser(_factory, initiator);
+        using var partnerClient = CreateClientWithUser(_factory, partner);
 
         var initiatorUpdate = new UpdateTradeRequest { InitiatorCollectionId = initiatorCollectionId };
         var partnerUpdate = new UpdateTradeRequest { PartnerCollectionId = partnerCollectionId };
@@ -532,7 +529,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         double initiatorInitialTotal;
         double partnerInitialTotal;
 
-        await using (var scope = factory.Services.CreateAsyncScope())
+        await using (var scope = _factory.Services.CreateAsyncScope())
         {
             var context = scope.ServiceProvider.GetRequiredService<MainContext>();
             var initiatorCollection = await context.Collections.FirstAsync(c => c.OwnerId == initiator.Id);
@@ -566,8 +563,8 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
             ? CalculateValue(initiatorMatch.OfferingCard.MarketPrice.Value, initiatorTradeQuantity)
             : 0;
 
-        using var initiatorClient = CreateClientWithUser(factory, initiator);
-        using var partnerClient = CreateClientWithUser(factory, partner);
+        using var initiatorClient = CreateClientWithUser(_factory, initiator);
+        using var partnerClient = CreateClientWithUser(_factory, partner);
 
         var initiatorUpdate = new UpdateTradeRequest { InitiatorCollectionId = initiatorCollectionId };
         var partnerUpdate = new UpdateTradeRequest { PartnerCollectionId = partnerCollectionId };
@@ -580,7 +577,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var response = await initiatorClient.PutAsync($"/api/trades/{trade.TradeId}/commit", content: null);
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-        await using var verificationScope = factory.Services.CreateAsyncScope();
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
         var verificationContext = verificationScope.ServiceProvider.GetRequiredService<MainContext>();
         var initiatorCollectionAfter = await verificationContext.Collections.AsNoTracking()
             .FirstAsync(c => c.OwnerId == initiator.Id);
@@ -598,7 +595,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task CommitTradeSession_WhenCollectionsMissing_ReturnsBadRequest()
     {
         var (initiator, _, trade) = await PrepareTradeSessionAsync(includePartnerOffer: true);
-        using var client = CreateClientWithUser(factory, initiator);
+        using var client = CreateClientWithUser(_factory, initiator);
 
         var response = await client.PutAsync($"/api/trades/{trade.TradeId}/commit", null);
 
@@ -610,7 +607,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         var (_, _, trade) = await PrepareTradeSessionAsync(includePartnerOffer: true);
         var intruder = await CreateTestUserAsync("trade-intruder@test.com", "trade_intruder");
-        using var client = CreateClientWithUser(factory, intruder);
+        using var client = CreateClientWithUser(_factory, intruder);
 
         var response = await client.PutAsync($"/api/trades/{trade.TradeId}/commit", null);
 
@@ -621,7 +618,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task CommitTradeSession_WhenNotAuthenticated_ReturnsUnauthorized()
     {
         var (_, _, trade) = await PrepareTradeSessionAsync(includePartnerOffer: true);
-        using var client = factory.CreateClient();
+        using var client = _factory.CreateClient();
 
         var response = await client.PutAsync($"/api/trades/{trade.TradeId}/commit", null);
 
@@ -632,7 +629,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task CommitTradeSession_WhenTradeMissing_ReturnsNotFound()
     {
         var initiator = await CreateTestUserAsync("trade-initiator@test.com", "trade_initiator");
-        using var client = CreateClientWithUser(factory, initiator);
+        using var client = CreateClientWithUser(_factory, initiator);
 
         var response = await client.PutAsync($"/api/trades/{Guid.NewGuid():N}/commit", null);
 
@@ -644,8 +641,8 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         var (initiator, partner, trade) = await PrepareTradeSessionAsync(includePartnerOffer: true, liveTrading: false, requireApproval: true);
 
-        using var initiatorClient = CreateClientWithUser(factory, initiator);
-        using var partnerClient = CreateClientWithUser(factory, partner);
+        using var initiatorClient = CreateClientWithUser(_factory, initiator);
+        using var partnerClient = CreateClientWithUser(_factory, partner);
 
         var initiatorCollectionId = await GetAnyCollectionIdAsync(initiator.Id);
         var partnerCollectionId = await GetAnyCollectionIdAsync(partner.Id);
@@ -666,8 +663,8 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         var (initiator, partner, trade) = await PrepareTradeSessionAsync(includePartnerOffer: true, liveTrading: false, requireApproval: true);
 
-        using var initiatorClient = CreateClientWithUser(factory, initiator);
-        using var partnerClient = CreateClientWithUser(factory, partner);
+        using var initiatorClient = CreateClientWithUser(_factory, initiator);
+        using var partnerClient = CreateClientWithUser(_factory, partner);
 
         var initiatorCollectionId = await GetAnyCollectionIdAsync(initiator.Id);
         var partnerCollectionId = await GetAnyCollectionIdAsync(partner.Id);
@@ -686,19 +683,19 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     private async Task<AppUser> CreateTestUserAsync(string email, string userName, IServiceProvider? services = null) =>
-        await TestUserFactory.CreateAsync(services ?? factory.Services, testDataBuilder, email, userName, requirePassword: true);
+        await TestUserFactory.CreateAsync(services ?? _factory.Services, _testDataBuilder, email, userName, requirePassword: true);
 
     private async Task CreatePublicWishlistCardAsync(string ownerId, string cardName, IServiceProvider? services = null)
     {
-        services ??= factory.Services;
+        services ??= _factory.Services;
         await using var scope = services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<MainContext>();
 
-        var wishlist = testDataBuilder.CreateWishlist(ownerId, isPublic: true);
+        var wishlist = _testDataBuilder.CreateWishlist(ownerId, isPublic: true);
         context.Wishlists.Add(wishlist);
         await context.SaveChangesAsync();
 
-        var card = testDataBuilder.CreateWishlistCard(wishlist.Id, Guid.NewGuid().ToString(), cardName);
+        var card = _testDataBuilder.CreateWishlistCard(wishlist.Id, Guid.NewGuid().ToString(), cardName);
         card.WishlistId = wishlist.Id;
         context.WishlistCards.Add(card);
         await context.SaveChangesAsync();
@@ -706,12 +703,12 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
 
     private async Task CreatePublicBinderCardAsync(string ownerId, string cardName, IServiceProvider? services = null)
     {
-        services ??= factory.Services;
+        services ??= _factory.Services;
         await using var scope = services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<MainContext>();
         var cardDataService = scope.ServiceProvider.GetRequiredService<CardDataService>();
 
-        var collection = testDataBuilder.CreateCollection(ownerId);
+        var collection = _testDataBuilder.CreateCollection(ownerId);
         context.Collections.Add(collection);
         await context.SaveChangesAsync();
 
@@ -719,13 +716,13 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
             ? cardData
             : cardDataService.CardDataById.Values.First();
 
-        var ownedCard = testDataBuilder.CreateCard(collection.Id, cardName);
+        var ownedCard = _testDataBuilder.CreateCard(collection.Id, cardName);
         ownedCard.ScryfallId = marketCard.Id;
         ownedCard.IsFoil = false;
         context.Cards.Add(ownedCard);
         await context.SaveChangesAsync();
 
-        var binder = testDataBuilder.CreateTradeBinder(ownerId, isPublic: true);
+        var binder = _testDataBuilder.CreateTradeBinder(ownerId, isPublic: true);
         context.TradeBinders.Add(binder);
         await context.SaveChangesAsync();
 
@@ -744,7 +741,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
 
     private async Task CreateApprovedTradeNotificationAsync(string requesterUserId, string requestedUserId)
     {
-        await using var scope = factory.Services.CreateAsyncScope();
+        await using var scope = _factory.Services.CreateAsyncScope();
         var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
 
         identityContext.Notifications.Add(new Notification
@@ -764,7 +761,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
 
     private async Task CreateCommitNotificationAsync(string tradeId, string requesterUserId, string recipientUserId, bool approval = false)
     {
-        await using var scope = factory.Services.CreateAsyncScope();
+        await using var scope = _factory.Services.CreateAsyncScope();
         var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
 
         identityContext.Notifications.Add(new Notification
@@ -788,7 +785,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         bool requireApproval = false,
         WebApplicationFactory<Program>? targetFactory = null)
     {
-        targetFactory ??= factory;
+        targetFactory ??= _factory;
         var services = targetFactory.Services;
 
         var initiator = await CreateTestUserAsync("trade-initiator@test.com", "trade_initiator", services);
@@ -821,7 +818,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var trade = await response.Content.ReadFromJsonAsync<TradeConnectionDto>(JsonContentHelper.DefaultOptions);
 
         trade.Should().NotBeNull();
-        return (initiator, partner, trade!);
+        return (initiator, partner, trade);
     }
 
     private static HttpClient CreateClientWithUser(WebApplicationFactory<Program> targetFactory, AppUser user) =>
@@ -839,7 +836,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
 
     private async Task<int> GetAnyCollectionIdAsync(string ownerId, IServiceProvider? services = null)
     {
-        services ??= factory.Services;
+        services ??= _factory.Services;
         await using var scope = services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<MainContext>();
         var collection = await context.Collections.FirstAsync(c => c.OwnerId == ownerId);

@@ -1,7 +1,5 @@
-using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using API.Dtos.Cards;
@@ -13,11 +11,9 @@ using Core.Models;
 using Core.Models.Identity;
 using Infrastructure.Data;
 using Infrastructure.Identity;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using TestUtilities.Authentication;
 using TestUtilities.Builders;
-using System.Linq;
 using TestUtilities.Scryfall;
 using TestUtilities.Serialization;
 
@@ -69,7 +65,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         var updatedCollection = await verificationContext.Collections.FindAsync(collection.Id);
 
         updatedCollection.Should().NotBeNull();
-        updatedCollection!.NumberOfCards.Should().Be(initialTotal - removedTotal);
+        updatedCollection.NumberOfCards.Should().Be(initialTotal - removedTotal);
     }
 
     [Fact]
@@ -129,7 +125,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
     {
         // Arrange
         var user = await CreateTestUserAsync("testuser@example.com", "testuser");
-        var collections = await CreateTestCollectionsForUserAsync(user.Id, 3);
+        await CreateTestCollectionsForUserAsync(user.Id, 3);
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
         // Act
@@ -144,7 +140,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
             responseContent, JsonContentHelper.DefaultOptions);
 
         returnedCollections.Should().NotBeNull();
-        returnedCollections!.Should().HaveCount(3, "because we created 3 collections for this user");
+        returnedCollections.Should().HaveCount(3, "because we created 3 collections for this user");
         returnedCollections.Should().Contain(c => c.Name.Contains("Collection"));
     }
 
@@ -179,7 +175,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
             responseContent, JsonContentHelper.DefaultOptions);
 
         collections.Should().NotBeNull();
-        collections!.Should().BeEmpty("because this user has no collections");
+        collections.Should().BeEmpty("because this user has no collections");
     }
 
     [Fact]
@@ -211,7 +207,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
             responseContent, JsonContentHelper.DefaultOptions);
 
         createdCollection.Should().NotBeNull();
-        createdCollection!.Name.Should().Be(createRequest.Name);
+        createdCollection.Name.Should().Be(createRequest.Name);
         createdCollection.OwnerId.Should().Be(user.Id);
         createdCollection.Id.Should().BeGreaterThan(0);
         
@@ -309,7 +305,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         var updatedCollection = JsonSerializer.Deserialize<Collection>(payload, JsonContentHelper.DefaultOptions);
 
         updatedCollection.Should().NotBeNull();
-        updatedCollection!.Name.Should().Be(updateRequest.Name);
+        updatedCollection.Name.Should().Be(updateRequest.Name);
         updatedCollection.Color.Should().Be(updateRequest.Color);
     }
 
@@ -393,7 +389,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
             responseContent, JsonContentHelper.DefaultOptions);
 
         returnedCollection.Should().NotBeNull();
-        returnedCollection!.Id.Should().Be(collection.Id);
+        returnedCollection.Id.Should().Be(collection.Id);
         returnedCollection.Name.Should().Be("Test Collection");
         returnedCollection.OwnerId.Should().Be(user.Id);
     }

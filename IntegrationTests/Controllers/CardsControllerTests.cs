@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -10,7 +8,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Core.Models;
 using Core.Models.Identity;
 using Infrastructure.Data;
-using Microsoft.AspNetCore.Identity;
 using TestUtilities.Authentication;
 using TestUtilities.Builders;
 using TestUtilities.Serialization;
@@ -55,7 +52,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             responseContent, JsonContentHelper.DefaultOptions);
 
         returnedCard.Should().NotBeNull();
-        returnedCard!.Id.Should().Be(card.Id);
+        returnedCard.Id.Should().Be(card.Id);
         returnedCard.Name.Should().Be("Lightning Bolt");
         returnedCard.CollectionId.Should().Be(collection.Id);
     }
@@ -138,7 +135,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         var updatedCard = JsonSerializer.Deserialize<Card>(payload, JsonContentHelper.DefaultOptions);
 
         updatedCard.Should().NotBeNull();
-        updatedCard!.Quantity.Should().Be(updateDto.Quantity);
+        updatedCard.Quantity.Should().Be(updateDto.Quantity);
         updatedCard.PurchasePrice.Should().Be(updateDto.PurchasePrice);
     }
 
@@ -281,7 +278,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         updatedCard.Should().NotBeNull();
         updatedCard.ScryfallId.Should().Be(updateDto.ScryfallId);
         updatedCard.SetName.Should().Be("Double Masters");
-        updatedCard!.Quantity.Should().Be(updateDto.Quantity);
+        updatedCard.Quantity.Should().Be(updateDto.Quantity);
         updatedCard.PurchasePrice.Should().Be(updateDto.PurchasePrice);
     }
     
@@ -449,7 +446,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         var updatedCollection = await verificationContext.Collections.FindAsync(collection.Id);
 
         updatedCollection.Should().NotBeNull();
-        updatedCollection!.NumberOfCards.Should().Be(0);
+        updatedCollection.NumberOfCards.Should().Be(0);
     }
 
     [Fact]
@@ -587,7 +584,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         var updatedCollection = await verificationContext.Collections.FindAsync(collection.Id);
 
         updatedCollection.Should().NotBeNull();
-        updatedCollection!.NumberOfCards.Should().Be(cardRequest.Quantity);
+        updatedCollection.NumberOfCards.Should().Be(cardRequest.Quantity);
     }
 
     [Fact]
@@ -623,8 +620,8 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         var createdCard = JsonSerializer.Deserialize<Card>(payload, JsonContentHelper.DefaultOptions);
 
         createdCard.Should().NotBeNull();
-        createdCard!.PurchasePrice.Should().BeGreaterThan(0, "because a live price should be applied when none is supplied");
-        Enum.IsDefined(typeof(Currency), createdCard.PurchasePriceCurrency).Should().BeTrue();
+        createdCard.PurchasePrice.Should().BeGreaterThan(0, "because a live price should be applied when none is supplied");
+        Enum.IsDefined(createdCard.PurchasePriceCurrency).Should().BeTrue();
     }
     
     [Fact]
@@ -722,8 +719,8 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         var cards = JsonSerializer.Deserialize<List<ScryfallCardDto>>(payload, JsonContentHelper.DefaultOptions);
 
         cards.Should().NotBeNull();
-        cards!.Should().HaveCount(2);
-        cards.Select(c => c.Name).Should().Contain(new[] { "Counterspell", "Lightning Bolt" });
+        cards.Should().HaveCount(2);
+        cards.Select(c => c.Name).Should().Contain(["Counterspell", "Lightning Bolt"]);
     }
 
     [Fact]

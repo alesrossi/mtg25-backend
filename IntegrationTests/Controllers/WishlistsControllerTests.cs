@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Text.Json;
 using API.Dtos.Cards;
@@ -11,12 +8,10 @@ using Core.Models;
 using Core.Models.Identity;
 using FluentAssertions;
 using Infrastructure.Data;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using TestUtilities.Authentication;
 using TestUtilities.Builders;
 using TestUtilities.Serialization;
-using TestUtilities.Scryfall;
 
 namespace IntegrationTests.Controllers;
 
@@ -53,7 +48,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
 
         var wishlist = JsonSerializer.Deserialize<WishlistDto>(responseContent, JsonContentHelper.DefaultOptions);
         wishlist.Should().NotBeNull();
-        wishlist!.Name.Should().Be(request.Name);
+        wishlist.Name.Should().Be(request.Name);
         wishlist.Description.Should().Be(request.Description);
         wishlist.IsPublic.Should().BeTrue();
         wishlist.OwnerId.Should().Be(user.Id);
@@ -127,7 +122,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
 
         var wishlists = JsonSerializer.Deserialize<List<WishlistSummaryDto>>(responseContent, JsonContentHelper.DefaultOptions);
         wishlists.Should().NotBeNull();
-        wishlists!.Should().HaveCount(2);
+        wishlists.Should().HaveCount(2);
         wishlists.Should().OnlyContain(w => w.CardsCount == 0 && w.IndividualCardsCount == 0 && w.TotalPrice == 0 && w.TotalPriceCurrency == null);
     }
 
@@ -171,7 +166,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         var updatedWishlist = JsonSerializer.Deserialize<WishlistDto>(payload, JsonContentHelper.DefaultOptions);
 
         updatedWishlist.Should().NotBeNull();
-        updatedWishlist!.Name.Should().Be(request.Name);
+        updatedWishlist.Name.Should().Be(request.Name);
         updatedWishlist.Description.Should().Be(request.Description);
         updatedWishlist.IsPublic.Should().BeTrue();
         updatedWishlist.CardsCount.Should().Be(0);
@@ -250,7 +245,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         var dto = JsonSerializer.Deserialize<WishlistDto>(payload, JsonContentHelper.DefaultOptions);
 
         dto.Should().NotBeNull();
-        dto!.Id.Should().Be(wishlist.Id);
+        dto.Id.Should().Be(wishlist.Id);
         dto.OwnerId.Should().Be(owner.Id);
     }
 
@@ -388,7 +383,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         var updatedCard = JsonSerializer.Deserialize<WishlistCardDto>(payload, JsonContentHelper.DefaultOptions);
 
         updatedCard.Should().NotBeNull();
-        updatedCard!.Id.Should().Be(wishlistCard.Id);
+        updatedCard.Id.Should().Be(wishlistCard.Id);
         updatedCard.DesiredQuantity.Should().Be(request.DesiredQuantity);
         updatedCard.IsFoil.Should().BeTrue();
         updatedCard.Language.Should().Be(request.Language);
@@ -466,7 +461,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         var wishlistPayload = await wishlistResponse.Content.ReadAsStringAsync();
         var wishlistDto = JsonSerializer.Deserialize<WishlistDto>(wishlistPayload, JsonContentHelper.DefaultOptions);
         wishlistDto.Should().NotBeNull();
-        wishlistDto!.CardsCount.Should().Be(createCardDto.DesiredQuantity);
+        wishlistDto.CardsCount.Should().Be(createCardDto.DesiredQuantity);
         wishlistDto.IndividualCardsCount.Should().Be(1);
 
         var listResponse = await client.GetAsync($"/api/wishlists/{wishlist.Id}/cards");
@@ -474,7 +469,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         var listPayload = await listResponse.Content.ReadAsStringAsync();
         var cards = JsonSerializer.Deserialize<List<WishlistCardDto>>(listPayload, JsonContentHelper.DefaultOptions);
         cards.Should().NotBeNull();
-        cards!.Should().HaveCount(1);
+        cards.Should().HaveCount(1);
 
         var deleteResponse = await client.DeleteAsync($"/api/wishlists/{wishlist.Id}/cards/{createdCardList[0].Id}");
         deleteResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
@@ -484,14 +479,14 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         var emptyWishlistPayload = await emptyWishlistResponse.Content.ReadAsStringAsync();
         var emptyWishlistDto = JsonSerializer.Deserialize<WishlistDto>(emptyWishlistPayload, JsonContentHelper.DefaultOptions);
         emptyWishlistDto.Should().NotBeNull();
-        emptyWishlistDto!.CardsCount.Should().Be(0);
+        emptyWishlistDto.CardsCount.Should().Be(0);
         emptyWishlistDto.IndividualCardsCount.Should().Be(0);
 
         var confirmResponse = await client.GetAsync($"/api/wishlists/{wishlist.Id}/cards");
         var confirmPayload = await confirmResponse.Content.ReadAsStringAsync();
         var remainingCards = JsonSerializer.Deserialize<List<WishlistCardDto>>(confirmPayload, JsonContentHelper.DefaultOptions);
         remainingCards.Should().NotBeNull();
-        remainingCards!.Should().BeEmpty();
+        remainingCards.Should().BeEmpty();
     }
 
     [Fact]
@@ -545,7 +540,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         var dto = JsonSerializer.Deserialize<WishlistCardDto>(payload, JsonContentHelper.DefaultOptions);
 
         dto.Should().NotBeNull();
-        dto!.Id.Should().Be(card.Id);
+        dto.Id.Should().Be(card.Id);
         dto.WishlistId.Should().Be(wishlist.Id);
     }
 
@@ -665,7 +660,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         {
             Prices = new Prices("2.00", "2.50", "1.50", "1.80", null)
         };
-        await SeedCardDataAsync(new[] { pricedCard });
+        await SeedCardDataAsync([pricedCard]);
 
         using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
         var request = new List<CreateWishlistCardDto>
@@ -688,7 +683,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         var dto = JsonSerializer.Deserialize<WishlistDto>(payload, JsonContentHelper.DefaultOptions);
 
         dto.Should().NotBeNull();
-        dto!.TotalPrice.Should().Be(4.5);
+        dto.TotalPrice.Should().Be(4.5);
         dto.TotalPriceCurrency.Should().Be(Currency.Eur);
     }
 
@@ -759,7 +754,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         {
             Prices = new Prices("2.00", "2.50", "1.50", "1.80", null)
         };
-        await SeedCardDataAsync(new[] { pricedCard });
+        await SeedCardDataAsync([pricedCard]);
 
         using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
         var createRequest = new List<CreateWishlistCardDto>
@@ -782,7 +777,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
             DesiredQuantity = 4
         };
 
-        var updateResponse = await client.PutAsync($"/api/wishlists/{wishlist.Id}/cards/{createdCards![0].Id}", JsonContentHelper.CreateContent(updateDto));
+        var updateResponse = await client.PutAsync($"/api/wishlists/{wishlist.Id}/cards/{createdCards[0].Id}", JsonContentHelper.CreateContent(updateDto));
         updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var wishlistResponse = await client.GetAsync($"/api/wishlists/{wishlist.Id}");
@@ -790,7 +785,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         var dto = JsonSerializer.Deserialize<WishlistDto>(payload, JsonContentHelper.DefaultOptions);
 
         dto.Should().NotBeNull();
-        dto!.TotalPrice.Should().Be(6.0);
+        dto.TotalPrice.Should().Be(6.0);
         dto.TotalPriceCurrency.Should().Be(Currency.Eur);
     }
 
@@ -881,7 +876,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         var createdCards = JsonSerializer.Deserialize<List<WishlistCard>>(createdPayload, JsonContentHelper.DefaultOptions);
         createdCards.Should().NotBeNull();
 
-        var deleteResponse = await client.DeleteAsync($"/api/wishlists/{wishlist.Id}/cards/{createdCards![0].Id}");
+        var deleteResponse = await client.DeleteAsync($"/api/wishlists/{wishlist.Id}/cards/{createdCards[0].Id}");
         deleteResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         var wishlistResponse = await client.GetAsync($"/api/wishlists/{wishlist.Id}");
@@ -889,7 +884,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         var dto = JsonSerializer.Deserialize<WishlistDto>(payload, JsonContentHelper.DefaultOptions);
 
         dto.Should().NotBeNull();
-        dto!.TotalPrice.Should().Be(0);
+        dto.TotalPrice.Should().Be(0);
         dto.TotalPriceCurrency.Should().BeNull();
     }
 
