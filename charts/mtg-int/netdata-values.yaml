@@ -1,0 +1,16 @@
+ingress:
+  enabled: false
+  annotations:
+    cert-manager.io/cluster-issuer: mtg-int-letsencrypt-prod
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - netdata.167.235.109.6.nip.io
+  path: /
+  pathType: Prefix
+  spec:
+    ingressClassName: nginx
+  tls:
+    - secretName: mtg-int-tls
+      hosts:
+        - netdata.167.235.109.6.nip.io

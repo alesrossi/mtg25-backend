@@ -129,6 +129,16 @@ api:
     credentialsSecretName: elasticsearch-int-credentials
     credentialsUsernameKey: username
     credentialsPasswordKey: password
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - api-int
+          topologyKey: "kubernetes.io/hostname"
  
 frontend:
   replicas: 2

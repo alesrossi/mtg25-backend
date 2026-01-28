@@ -14,6 +14,10 @@ spec:
       labels:
         app: api-int
     spec:
+      {{- if .Values.api.affinity }}
+      affinity:
+{{ toYaml .Values.api.affinity | indent 8 }}
+      {{- end }}
       {{- if .Values.api.scryfall.waitForBasePath }}
       initContainers:
         - name: wait-for-scryfall
