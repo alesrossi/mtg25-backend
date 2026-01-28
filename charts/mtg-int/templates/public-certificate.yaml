@@ -1,0 +1,14 @@
+{{- if .Values.certManager.publicCertificate.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.certManager.publicCertificate.name }}
+spec:
+  secretName: {{ .Values.certManager.publicCertificate.secretName }}
+  issuerRef:
+    name: {{ .Values.certManager.publicCertificate.issuerName }}
+    kind: ClusterIssuer
+    group: cert-manager.io
+  dnsNames:
+{{ toYaml .Values.certManager.publicCertificate.dnsNames | indent 4 }}
+{{- end }}

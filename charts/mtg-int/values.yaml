@@ -58,7 +58,7 @@ elasticsearch:
       value: "-Xms512m -Xmx512m"
 
 kibana:
-  enabled: false
+  enabled: true
   replicas: 2
   fullnameOverride: kibana-int
   elasticsearchHosts: "https://elasticsearch-int:9200"
@@ -121,7 +121,7 @@ api:
       size: 5Gi
   config:
     appsettingsIntegrationConfigMap: api-int-appsettings
-    manageAppsettingsConfigMap: false
+    manageAppsettingsConfigMap: true
   elasticsearch:
     caSecretName: elasticsearch-int-certs
     caSecretKey: ca.crt
@@ -186,6 +186,14 @@ certManager:
   issuerName: ""
   email: ""
   server: ""
+  publicCertificate:
+    enabled: true
+    name: mtg-int-public-tls
+    secretName: mtg-int-public-tls
+    issuerName: mtg-int-letsencrypt-prod
+    dnsNames:
+      - surveyl.top
+      - www.surveyl.top
 
 maintenance:
   restartCron:
