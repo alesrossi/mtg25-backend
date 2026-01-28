@@ -1,4 +1,5 @@
 using Core.Models;
+#pragma warning disable CS8603 // Possible null reference return.
 
 namespace Core.Specifications;
 

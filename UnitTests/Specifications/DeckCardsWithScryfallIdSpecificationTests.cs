@@ -8,11 +8,9 @@ namespace UnitTests.Specifications;
 
 public class DeckCardsWithScryfallIdSpecificationTests
 {
-    private readonly TestDataBuilder _testDataBuilder;
-
     public DeckCardsWithScryfallIdSpecificationTests()
     {
-        _testDataBuilder = new TestDataBuilder();
+        var unused = new TestDataBuilder();
     }
 
     [Fact]
@@ -173,7 +171,7 @@ public class DeckCardsWithScryfallIdSpecificationTests
 
         // Assert
         spec.OrderBy.Should().NotBeNull();
-        spec.OrderBy!.Body.ToString().Should().Contain("Name");
+        spec.OrderBy.Body.ToString().Should().Contain("Name");
     }
 
     [Fact]
@@ -198,7 +196,7 @@ public class DeckCardsWithScryfallIdSpecificationTests
             spec.Includes.Should().Contain(include => include.Body.ToString().Contains("Deck"));
             spec.Includes.Should().Contain(include => include.Body.ToString().Contains("OwnedCard"));
             spec.OrderBy.Should().NotBeNull();
-            spec.OrderBy!.Body.ToString().Should().Contain("Name");
+            spec.OrderBy.Body.ToString().Should().Contain("Name");
         }
     }
 }

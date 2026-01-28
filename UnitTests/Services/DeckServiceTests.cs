@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using API.Dtos.Cards;
 using API.Dtos.Decks;
 using API.Services;
@@ -16,8 +13,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using TestUtilities.Scryfall;
-using Xunit;
-using Core.Enums;
 
 namespace UnitTests.Services;
 

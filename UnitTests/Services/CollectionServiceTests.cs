@@ -149,7 +149,7 @@ public class CollectionServiceTests
             .Returns((MarketProvider provider) => provider == MarketProvider.Mkm ? Currency.Eur : Currency.Usd);
 
         var userManagerMock = new Mock<Microsoft.AspNetCore.Identity.UserManager<AppUser>>(
-            new Mock<IUserStore<AppUser>>().Object, null, null, null, null, null, null, null, null);
+            new Mock<IUserStore<AppUser>>().Object, null!, null!, null!, null!, null!, null!, null!, null!);
 
         return new CollectionService(
             unitOfWork,

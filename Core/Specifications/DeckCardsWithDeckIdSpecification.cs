@@ -1,4 +1,5 @@
 using Core.Models;
+#pragma warning disable CS8603 // Possible null reference return.
 
 namespace Core.Specifications;
 
@@ -8,6 +9,7 @@ public class DeckCardsWithDeckIdSpecification : BaseSpecification<DeckCard>
         : base(dc => dc.DeckId == deckId)
     {
         AddInclude(dc => dc.Deck);
+
         AddInclude(dc => dc.OwnedCard);
         AddOrderBy(dc => dc.Name);
     }

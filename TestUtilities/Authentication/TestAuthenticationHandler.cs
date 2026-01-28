@@ -3,6 +3,7 @@ using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+#pragma warning disable CS0618 // Type or member is obsolete
 
 namespace TestUtilities.Authentication;
 
