@@ -456,17 +456,22 @@ public sealed class DeckService : IDeckService
         _unitOfWork.Repository<Deck>().Add(deck);
         await _unitOfWork.Complete();
 
-        var createdCards = new List<DeckCardDto>();
         var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId, cancellationToken);
         deck.TotalPriceCurrency = _userSettingsService.ResolveCurrency(marketProvider);
+
+        var ownedCardsLookup = await BuildOwnedCardsLookupAsync(
+            userId,
+            parseResult.DeckCards.Select(dc => dc.Name));
+
+        var createdCards = await _deckCardService.CreateDeckCardsForImportAsync(
+            deck,
+            parseResult.DeckCards,
+            marketProvider,
+            ownedCardsLookup);
+
         var totalPrice = 0.0;
-
-        foreach (var deckCardDto in parseResult.DeckCards)
+        foreach (var created in createdCards)
         {
-            var created = await _deckCardService.CreateDeckCardAsync(deck.Id, deckCardDto);
-            deck.ColorIdentity.AddRange(created.ColorIdentity.Except(deck.ColorIdentity));
-            createdCards.Add(created);
-
             var cardPrice = ResolveCardMarketPrice(_cardDataService, created.ScryfallId, marketProvider);
             var quantity = created.MaindeckQuantity + created.SideboardQuantity;
             totalPrice += cardPrice * quantity;
@@ -476,10 +481,16 @@ public sealed class DeckService : IDeckService
         deck.NumberOfMainBoardCards = createdCards.Sum(dc => dc.MaindeckQuantity);
         deck.NumberOfSideBoardCards = createdCards.Sum(dc => dc.SideboardQuantity);
         deck.TotalPrice = Math.Round(totalPrice, 2, MidpointRounding.AwayFromZero);
+        deck.ColorIdentity = createdCards
+            .SelectMany(dc => dc.ColorIdentity ?? [])
+            .Where(ci => !string.IsNullOrWhiteSpace(ci))
+            .Select(ci => ci.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
         _unitOfWork.Repository<Deck>().Update(deck);
         await _unitOfWork.Complete();
 
-        return new ImportDeckDto(MapToDto(deck), createdCards, parseResult.Errors, skippedLines);
+        return new ImportDeckDto(MapToDto(deck), createdCards.ToList(), parseResult.Errors, skippedLines);
     }
 
     private static DeckDto MapToDto(Deck deck)
@@ -530,6 +541,62 @@ public sealed class DeckService : IDeckService
         }
 
         return filteredLines.ToArray();
+    }
+
+    private async Task<Dictionary<string, List<Card>>> BuildOwnedCardsLookupAsync(string ownerId, IEnumerable<string?> cardNames)
+    {
+        var nameSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var name in cardNames)
+        {
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                nameSet.Add(name.Trim());
+            }
+        }
+
+        var lookup = new Dictionary<string, List<Card>>(StringComparer.OrdinalIgnoreCase);
+        if (nameSet.Count == 0)
+        {
+            return lookup;
+        }
+
+        var userCollectionsSpec = new CollectionWithOwnerSpecification(ownerId);
+        var userCollections = await _unitOfWork.Repository<Collection>().ListAsync(userCollectionsSpec, tracking: false);
+        if (userCollections == null)
+        {
+            return lookup;
+        }
+
+        foreach (var collection in userCollections)
+        {
+            var cardsSpec = new CardsWithParamsSpecification(
+                new EntitySpecParams(),
+                collection.Id,
+                applySorting: false,
+                applyPaging: false);
+            var collectionCards = await _unitOfWork.Repository<Card>().ListAsync(cardsSpec, tracking: false);
+            if (collectionCards == null)
+            {
+                continue;
+            }
+
+            foreach (var card in collectionCards)
+            {
+                if (string.IsNullOrWhiteSpace(card.Name) || !nameSet.Contains(card.Name))
+                {
+                    continue;
+                }
+
+                if (!lookup.TryGetValue(card.Name, out var cards))
+                {
+                    cards = new List<Card>();
+                    lookup[card.Name] = cards;
+                }
+                cards.Add(card);
+            }
+        }
+
+        return lookup;
     }
 
     private static double ResolveCardMarketPrice(CardDataService cardDataService, string scryfallId, MarketProvider provider)

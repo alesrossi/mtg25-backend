@@ -121,6 +121,9 @@ public class MainContext : DbContext
             entity.Property(dc => dc.Name).IsRequired();
             entity.Property(dc => dc.SetCode).IsRequired();
             entity.Property(dc => dc.TypeLine).IsRequired();
+
+            entity.HasIndex(dc => dc.DeckId);
+            entity.HasIndex(dc => new { dc.DeckId, dc.Name });
         });
 
         modelBuilder.Entity<Deck>(entity =>
