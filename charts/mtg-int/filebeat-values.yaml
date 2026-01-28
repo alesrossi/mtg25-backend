@@ -1,0 +1,72 @@
+daemonset:
+  enabled: true
+  secretMounts: []
+  
+elasticsearch:
+  enabled: false
+
+deployment:
+  enabled: false
+  secretMounts: []
+
+filebeatConfig:
+  filebeat.yml: |
+    filebeat.autodiscover:
+      providers:
+        - type: kubernetes
+          node: ${NODE_NAME}
+          hints.enabled: true
+          templates:
+            - condition:
+                equals:
+                  kubernetes.namespace: integration
+              config:
+                - type: container
+                  paths:
+                    - /var/log/containers/*.log
+                  symlinks: true
+
+    processors:
+      - add_kubernetes_metadata:
+          host: ${NODE_NAME}
+          matchers:
+            - logs_path:
+                logs_path: "/var/log/containers/"
+
+    output.elasticsearch:
+      hosts: ["https://elasticsearch-int:9200"]
+      username: ${ELASTICSEARCH_USERNAME}
+      password: ${ELASTICSEARCH_PASSWORD}
+      ssl.certificate_authorities: ["/usr/share/filebeat/certs/ca.crt"]
+      index: "mtg25-k8s-logs-%{+yyyy.MM.dd}"
+
+    setup.ilm.enabled: false
+    setup.template.enabled: true
+    setup.template.name: "mtg25-k8s-logs"
+    setup.template.pattern: "mtg25-k8s-logs-*"
+
+extraEnvs:
+  - name: ELASTICSEARCH_USERNAME
+    valueFrom:
+      secretKeyRef:
+        name: elasticsearch-int-credentials
+        key: username
+  - name: ELASTICSEARCH_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: elasticsearch-int-credentials
+        key: password
+  - name: NODE_NAME
+    valueFrom:
+      fieldRef:
+        fieldPath: spec.nodeName
+
+extraVolumes:
+  - name: es-ca
+    secret:
+      secretName: elasticsearch-int-certs
+
+extraVolumeMounts:
+  - name: es-ca
+    mountPath: /usr/share/filebeat/certs
+    readOnly: true
