@@ -457,14 +457,17 @@ public class Program
 
     private static void ConfigureElasticsearchLogging(IConfiguration configuration, LoggerConfiguration loggerConfiguration)
     {
+        Console.Error.WriteLine("Elasticsearch logging init: start");
         var section = configuration.GetSection("ElasticsearchLogging");
         var nodeUris = section["NodeUris"];
         if (string.IsNullOrWhiteSpace(nodeUris))
         {
+            Console.Error.WriteLine("Elasticsearch logging init: missing ElasticsearchLogging:NodeUris");
             Console.Error.WriteLine("Elasticsearch logging disabled: missing ElasticsearchLogging:NodeUris");
             return;
         }
 
+        Console.Error.WriteLine($"Elasticsearch logging init: NodeUris={nodeUris}");
         var sinkOptions = new ElasticsearchSinkOptions(new Uri(nodeUris))
         {
             IndexFormat = section["IndexFormat"],
@@ -490,6 +493,7 @@ public class Program
         Console.Error.WriteLine($"Elasticsearch logging enabled: nodeUris={nodeUris}, auth={(string.IsNullOrWhiteSpace(username) ? "none" : "basic")}");
         if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(password))
         {
+            Console.Error.WriteLine("Elasticsearch logging init: basic auth configured");
             sinkOptions.ModifyConnectionSettings = connection =>
                 connection.BasicAuthentication(username, password);
         }
@@ -497,6 +501,7 @@ public class Program
         var caPath = section["CaCertificatePath"];
         if (!string.IsNullOrWhiteSpace(caPath))
         {
+            Console.Error.WriteLine($"Elasticsearch logging init: CA path configured at {caPath}");
             var existing = sinkOptions.ModifyConnectionSettings;
             sinkOptions.ModifyConnectionSettings = connection =>
             {
@@ -512,18 +517,22 @@ public class Program
         }
 
         loggerConfiguration.WriteTo.Elasticsearch(sinkOptions);
+        Console.Error.WriteLine("Elasticsearch logging init: sink configured");
     }
 
 
     private static void EnableSerilogSelfLog(IConfiguration configuration)
     {
+        Console.Error.WriteLine("SerilogSelfLog init: checking configuration");
         var enabled = configuration.GetValue("SerilogSelfLog:Enabled", false);
         if (!enabled)
         {
+            Console.Error.WriteLine("SerilogSelfLog init: disabled");
             return;
         }
 
         SelfLog.Enable(message => Console.Error.WriteLine($"SerilogSelfLog: {message}"));
+        Console.Error.WriteLine("SerilogSelfLog init: enabled");
     }
 
     private static EmitEventFailureHandling ParseEmitEventFailure(string? value)
