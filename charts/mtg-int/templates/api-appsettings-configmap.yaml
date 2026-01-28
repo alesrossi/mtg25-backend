@@ -1,11 +1,11 @@
 {{- if .Values.api.config.manageAppsettingsConfigMap }}
+{{- $settings := .Files.Get "files/appsettings.Integration.json" -}}
+{{- $settings = required "Missing files/appsettings.Integration.json in chart" $settings -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: api-int-appsettings
 data:
   appsettings.Integration.json: |
-  {{ .Files.Get "files/appsettings.Integration.json" | indent 4 }}
-  {{- $settings := .Files.Get "files/appsettings.Integration.json" -}}
-  {{ required "Missing files/appsettings.Integration.json in chart" $settings | indent 4 }}
-  {{- end }}
+{{ $settings | indent 4 }}
+{{- end }}

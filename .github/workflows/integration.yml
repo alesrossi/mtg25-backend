@@ -249,6 +249,7 @@ jobs:
           helm upgrade --install mtg-int ./charts/mtg-int \
             -n integration \
             --reuse-values \
+            --set api.config.manageAppsettingsConfigMap=false \
             --set api.image.tag="$IMAGE_TAG" \
             --set kibana.enabled=true \
             --debug
