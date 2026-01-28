@@ -49,8 +49,7 @@ namespace Infrastructure.Identity
                 .Property(s => s.LanguageUi)
                 .HasConversion<string>(
                     v => v.ToCode(),
-                    v => LanguageExtensions.ParseOrDefault(v, Language.It))
-                .HasDefaultValue(Language.It);
+                    v => LanguageExtensions.ParseOrDefault(v, Language.It));
 
             builder.Entity<Settings>()
                 .Property(s => s.LanguageCards)
