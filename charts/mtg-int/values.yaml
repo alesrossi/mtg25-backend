@@ -121,7 +121,7 @@ api:
       size: 5Gi
   config:
     appsettingsIntegrationConfigMap: api-int-appsettings
-    manageAppsettingsConfigMap: true
+    manageAppsettingsConfigMap: false
   elasticsearch:
     caSecretName: elasticsearch-int-certs
     caSecretKey: ca.crt
