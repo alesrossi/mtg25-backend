@@ -140,9 +140,11 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 3
           volumeMounts:
+{{- if .Values.api.config.manageAppsettingsConfigMap }}
             - name: appsettings
               mountPath: /app/appsettings.Integration.json
               subPath: appsettings.Integration.json
+{{- end }}
             - name: elasticsearch-certs
               mountPath: {{ .Values.api.elasticsearch.caMountPath }}
               subPath: elastic-ca.crt
@@ -154,9 +156,11 @@ spec:
             - name: bulk-data
               mountPath: /app/bulk-data
       volumes:
+{{- if .Values.api.config.manageAppsettingsConfigMap }}
         - name: appsettings
           configMap:
             name: {{ .Values.api.config.appsettingsIntegrationConfigMap }}
+{{- end }}
         - name: elasticsearch-certs
           secret:
             secretName: {{ .Values.api.elasticsearch.caSecretName }}
