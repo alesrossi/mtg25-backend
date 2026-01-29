@@ -80,12 +80,19 @@ kibana:
 
 api:
   replicas: 2
+  cors:
+    allowedOrigins: []
   image:
     repository: alesrossi/mtg-api
     tag: int-latest
     pullPolicy: Always
   service:
     port: 8080
+  cors:
+    allowedOrigins:
+      - "https://surveyl.top"
+      - "https://www.surveyl.top"
+      - "https://app.167.235.109.6.nip.io"
   env:
     ASPNETCORE_ENVIRONMENT: Integration
     ConnectionStrings__Redis: "redis-int:6379"
@@ -94,6 +101,9 @@ api:
     JWT__ExpiryMinutes: "60"
     Scryfall__BasePath: https://api.scryfall.com/
     Paths__Bulk: /tmp/mtg25-bulk
+    Cors__AllowedOrigins__0: "https://surveyl.top"
+    Cors__AllowedOrigins__1: "https://www.surveyl.top"
+    Cors__AllowedOrigins__2: "https://app.167.235.109.6.nip.io"
   extraEnv:
     - name: DOTNET_SYSTEM_NET_DISABLEIPV6
       value: "true"

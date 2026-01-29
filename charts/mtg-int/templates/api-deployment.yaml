@@ -93,6 +93,12 @@ spec:
               value: "{{ .Values.api.env.Scryfall__BasePath }}"
             - name: Paths__Bulk
               value: "{{ .Values.api.env.Paths__Bulk }}"
+{{- if .Values.api.cors.allowedOrigins }}
+{{- range $index, $origin := .Values.api.cors.allowedOrigins }}
+            - name: Cors__AllowedOrigins__{{ $index }}
+              value: "{{ $origin }}"
+{{- end }}
+{{- end }}
             - name: ConnectionStrings__DefaultConnection
               valueFrom:
                 secretKeyRef:
