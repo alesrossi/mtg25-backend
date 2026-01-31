@@ -1,0 +1,33 @@
+{{- $static := default dict .Values.staticSite -}}
+{{- $image := default dict (get $static "image") -}}
+{{- $service := default dict (get $static "service") -}}
+{{- if (default false (get $static "enabled")) }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: info-int
+spec:
+  replicas: {{ default 1 (get $static "replicas") }}
+  selector:
+    matchLabels:
+      app: info-int
+  template:
+    metadata:
+      labels:
+        app: info-int
+    spec:
+      containers:
+        - name: info-int
+          image: "{{ default "nginx" (get $image "repository") }}:{{ default "1.27-alpine" (get $image "tag") }}"
+          imagePullPolicy: {{ default "IfNotPresent" (get $image "pullPolicy") }}
+          ports:
+            - containerPort: {{ default 80 (get $service "port") }}
+          volumeMounts:
+            - name: info-content
+              mountPath: /usr/share/nginx/html
+              readOnly: true
+      volumes:
+        - name: info-content
+          configMap:
+            name: info-int-content
+{{- end }}

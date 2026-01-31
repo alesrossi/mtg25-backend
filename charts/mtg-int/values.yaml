@@ -159,6 +159,20 @@ frontend:
   service:
     port: 80
 
+staticSite:
+  enabled: false
+  replicas: 1
+  image:
+    repository: nginx
+    tag: 1.27-alpine
+    pullPolicy: IfNotPresent
+  service:
+    port: 80
+  content:
+    title: "SurveyL Info"
+    heading: "SurveyL"
+    text: "This page shares quick updates and reference information."
+
 adminer:
   image:
     repository: adminer
@@ -202,6 +216,9 @@ certManager:
     secretName: mtg-int-public-tls
     issuerName: mtg-int-letsencrypt-prod
     dnsNames:
+      - backend.surveyl.top
+      - info.surveyl.top
+      - www.info.surveyl.top
       - surveyl.top
       - www.surveyl.top
 

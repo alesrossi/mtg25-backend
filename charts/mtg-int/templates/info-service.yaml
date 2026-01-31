@@ -1,0 +1,16 @@
+{{- $static := default dict .Values.staticSite -}}
+{{- $service := default dict (get $static "service") -}}
+{{- if (default false (get $static "enabled")) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: info-int
+spec:
+  selector:
+    app: info-int
+  ports:
+    - name: http
+      port: {{ default 80 (get $service "port") }}
+      targetPort: {{ default 80 (get $service "port") }}
+  type: ClusterIP
+{{- end }}

@@ -1,0 +1,12 @@
+{{- $static := default dict .Values.staticSite -}}
+{{- if (default false (get $static "enabled")) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: info-int-content
+data:
+  index.html: |
+{{ .Files.Get "files/info/index.html" | nindent 4 }}
+  styles.css: |
+{{ .Files.Get "files/info/styles.css" | nindent 4 }}
+{{- end }}
