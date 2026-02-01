@@ -216,7 +216,6 @@ certManager:
     secretName: mtg-int-public-tls
     issuerName: mtg-int-letsencrypt-prod
     dnsNames:
-      - backend.surveyl.top
       - info.surveyl.top
       - www.info.surveyl.top
       - surveyl.top
