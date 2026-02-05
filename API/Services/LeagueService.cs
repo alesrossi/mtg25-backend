@@ -125,6 +125,47 @@ public sealed class LeagueService : ILeagueService
             leaguesById.TryAdd(league.Id, league);
         }
 
+        // Fetch current round orders for all leagues
+        var currentRoundIds = leaguesById.Values
+            .Where(l => l.CurrentRound > 0)
+            .Select(l => l.CurrentRound)
+            .Distinct()
+            .ToList();
+
+        if (currentRoundIds.Count > 0)
+        {
+            var roundOrders = await _dbContext.Rounds
+                .Where(r => currentRoundIds.Contains(r.Id))
+                .Select(r => new { r.Id, r.Order })
+                .AsNoTracking()
+                .ToDictionaryAsync(r => r.Id, r => r.Order, cancellationToken);
+
+            // Populate CurrentRoundOrder for all leagues and validate round existence
+            foreach (var league in leaguesById.Values)
+            {
+                if (league.CurrentRound > 0)
+                {
+                    if (!roundOrders.TryGetValue(league.CurrentRound, out var order))
+                    {
+                        throw LeagueServiceException.BadRequest("Errors.Leagues.InvalidCurrentRound");
+                    }
+                    league.CurrentRoundOrder = order;
+                }
+                else
+                {
+                    league.CurrentRoundOrder = 0;
+                }
+            }
+        }
+        else
+        {
+            // No leagues with current rounds, set all to 0
+            foreach (var league in leaguesById.Values)
+            {
+                league.CurrentRoundOrder = 0;
+            }
+        }
+
         return new UserWithLeaguesDto
         {
             Id = user.Id,
