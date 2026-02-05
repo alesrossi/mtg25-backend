@@ -1,206 +1,197 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="it">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CardVault - Trading Card Platform</title>
+  <title>Surveyl.top</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
+
 <body>
-<!-- Navigation Bar -->
-<nav class="navbar">
-  <div class="nav-container">
-    <div class="logo">
-      <span class="logo-icon">♠</span>
-      CardVault
-    </div>
-    <ul class="nav-links">
-      <li><a href="#home" class="nav-link active">Home</a></li>
-      <li><a href="#trades" class="nav-link">Trades</a></li>
-      <li><a href="#decks" class="nav-link">Decks</a></li>
-      <li><a href="#collections" class="nav-link">Collections</a></li>
-      <li><a href="#wishlists" class="nav-link">Wishlists</a></li>
-      <li><a href="#tournaments" class="nav-link">Tournaments</a></li>
-    </ul>
-    <div class="nav-actions">
-      <button class="btn-secondary">Sign In</button>
-      <button class="btn-primary">Get Started</button>
-    </div>
-  </div>
-</nav>
+<!-- Language Toggle (top-right) -->
+<div class="lang-switch" role="group" aria-label="Language">
+  <button type="button" class="lang-btn" data-lang="en" aria-pressed="false">EN</button>
+  <button type="button" class="lang-btn is-active" data-lang="it" aria-pressed="true">IT</button>
+</div>
 
 <!-- Hero Section -->
-<section id="home" class="hero">
+<section class="hero">
   <div class="hero-content">
-    <h1 class="hero-title">The Ultimate Trading Card Platform</h1>
-    <p class="hero-subtitle">Manage trades, build decks, showcase collections, and compete in tournaments</p>
-    <div class="hero-buttons">
-      <button class="btn-primary btn-large">Start Trading Today</button>
-      <button class="btn-secondary btn-large">Watch Demo</button>
+    <div class="hero-text">
+      <h1 class="hero-title" data-i18n="hero.title">The Ultimate Trading Card Platform</h1>
+      <p class="hero-subtitle" data-i18n="hero.subtitle">Manage trades, build decks, showcase collections, and
+        compete in tournaments — all in one place</p>
+      <button class="btn-primary btn-large" data-i18n="hero.cta">Get Started Free</button>
     </div>
-    <div class="hero-stats">
-      <div class="stat">
-        <div class="stat-number">50K+</div>
-        <div class="stat-label">Active Traders</div>
-      </div>
-      <div class="stat">
-        <div class="stat-number">2M+</div>
-        <div class="stat-label">Cards Listed</div>
-      </div>
-      <div class="stat">
-        <div class="stat-number">100K+</div>
-        <div class="stat-label">Deck Builds</div>
+    <div class="hero-phone">
+      <div class="phone-frame">
+        <div class="phone-screen">
+          <img src="https://i.imgur.com/5yhZf8I.png" alt="Surveyl Platform"
+               data-i18n-alt="hero.phoneAlt">
+        </div>
       </div>
     </div>
   </div>
 </section>
 
 <!-- Trades Section -->
-<section id="trades" class="feature-section trades-section">
-  <div class="section-header">
-    <h2>Secure Trading</h2>
-    <p>Safe and transparent peer-to-peer trading</p>
-  </div>
-  <div class="features-grid">
-    <div class="feature-card">
-      <div class="feature-icon trades-icon">📊</div>
-      <h3>Market Insights</h3>
-      <p>Real-time pricing data and market trends to make informed trading decisions</p>
+<section class="feature-showcase trades-showcase">
+  <div class="showcase-container">
+    <div class="showcase-phone">
+      <div class="phone-frame">
+        <div class="phone-screen">
+          <img src="https://i.imgur.com/HoVfme3.png" alt="Market Insights"
+               data-i18n-alt="trades.phoneAlt">
+        </div>
+      </div>
     </div>
-    <div class="feature-card">
-      <div class="feature-icon trades-icon">🔒</div>
-      <h3>Secure Escrow</h3>
-      <p>Protected transactions with built-in escrow service for peace of mind</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon trades-icon">⚡</div>
-      <h3>Instant Offers</h3>
-      <p>Quick negotiations and instant trade confirmations with other collectors</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon trades-icon">📱</div>
-      <h3>Trade History</h3>
-      <p>Complete record of all your trades with detailed analytics and insights</p>
-    </div>
-  </div>
-</section>
+    <div class="showcase-content">
+      <span class="section-label" data-i18n="trades.label">Local trading</span>
+      <h2 data-i18n="trades.title">Trade with Confidence</h2>
+      <p data-i18n="trades.desc">Are you tired of endless WhatsApp groups, facebook posts, expensive shipments
+        and scams? Do you want to trade like in the golden days of local game stores? With Surveyl all it
+        takes is a flick of your phone.</p>
+      <ul class="feature-list">
+        <li><span class="checkmark" aria-hidden="true">✓</span> <span data-i18n="trades.f1">Real-time market
+                            pricing</span></li>
+        <li><span class="checkmark" aria-hidden="true">✓</span> <span data-i18n="trades.f2">Trade binders &
+                            wishlists</span></li>
 
-<!-- Decks Section -->
-<section id="decks" class="feature-section decks-section">
-  <div class="section-header">
-    <h2>Deck Building</h2>
-    <p>Create, test, and share powerful deck combinations</p>
-  </div>
-  <div class="features-grid">
-    <div class="feature-card">
-      <div class="feature-icon decks-icon">🎯</div>
-      <h3>Smart Builder</h3>
-      <p>Intelligent deck builder with rule validation and card synergy suggestions</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon decks-icon">🔄</div>
-      <h3>Deck Evolution</h3>
-      <p>Track deck versions and improvements over time with version control</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon decks-icon">👥</div>
-      <h3>Community Decks</h3>
-      <p>Explore thousands of community-created decks and get inspiration</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon decks-icon">📊</div>
-      <h3>Performance Stats</h3>
-      <p>Detailed statistics on deck performance and meta analysis</p>
+        <li><span class="checkmark" aria-hidden="true">✓</span> <span data-i18n="trades.f3">Intelligent
+                            matching algorithm makes trading easy</span></li>
+        <li class="is-wip"><span class="checkmark empty" aria-hidden="true">○</span> <span
+                data-i18n="trades.f4">Instant trading on mobile using NFC technology</span></li>
+      </ul>
     </div>
   </div>
 </section>
 
 <!-- Collections Section -->
-<section id="collections" class="feature-section collections-section">
-  <div class="section-header">
-    <h2>Card Collections</h2>
-    <p>Organize and showcase your valuable card collections</p>
-  </div>
-  <div class="features-grid">
-    <div class="feature-card">
-      <div class="feature-icon collections-icon">🖼️</div>
-      <h3>Visual Gallery</h3>
-      <p>Beautiful gallery view to showcase your rarest and most valuable cards</p>
+<section class="feature-showcase collections-showcase">
+  <div class="showcase-container">
+    <div class="showcase-phone">
+      <div class="phone-frame">
+        <div class="phone-screen">
+          <img src="https://i.imgur.com/HoVfme3.png" alt="Collections"
+               data-i18n-alt="collections.phoneAlt">
+        </div>
+      </div>
     </div>
-    <div class="feature-card">
-      <div class="feature-icon collections-icon">📈</div>
-      <h3>Collection Value</h3>
-      <p>Real-time portfolio tracking and valuation of your entire collection</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon collections-icon">🏷️</div>
-      <h3>Smart Tagging</h3>
-      <p>Organize cards with custom tags, sets, and collection categories</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon collections-icon">🔍</div>
-      <h3>Advanced Search</h3>
-      <p>Powerful search and filter tools to find any card in your collection instantly</p>
+    <div class="showcase-content">
+      <span class="section-label" data-i18n="collections.label">Card Collections</span>
+      <h2 data-i18n="collections.title">Import from any source and start tracking</h2>
+      <p data-i18n="collections.desc">Organize & Showcase. Track your collection value in real-time, organize
+        with custom tags, find any card version that exists and discover new cards with advanced search
+        filters</p>
+      <ul class="feature-list">
+        <li><span class="checkmark" aria-hidden="true">✓</span> <span data-i18n="collections.f1">Quickly
+                            move cards you don't need to your trade binders</span></li>
+        <li><span class="checkmark" aria-hidden="true">✓</span> <span data-i18n="collections.f2">Import
+                            cards from any source in seconds</span></li>
+        <li><span class="checkmark" aria-hidden="true">✓</span> <span data-i18n="collections.f3">Traded
+                            cards are automatically moved to the right collection, no need to manually update
+                            anything</span></li>
+      </ul>
     </div>
   </div>
 </section>
 
-<!-- Wishlists Section -->
-<section id="wishlists" class="feature-section wishlists-section">
-  <div class="section-header">
-    <h2>Wishlists</h2>
-    <p>Track cards you want to acquire and get notified when they become available</p>
-  </div>
-  <div class="features-grid">
-    <div class="feature-card">
-      <div class="feature-icon wishlists-icon">⭐</div>
-      <h3>Smart Notifications</h3>
-      <p>Get instant alerts when wishlist items match your criteria</p>
+<!-- Decks Section -->
+<section class="feature-showcase decks-showcase alt">
+  <div class="showcase-container reverse">
+    <div class="showcase-content">
+      <span class="section-label" data-i18n="decks.label">Deck Building</span>
+      <h2 data-i18n="decks.title">The most advanced deck buiilder in the market</h2>
+      <p data-i18n="decks.desc">Create and import decks from any source, view them in a beautiful interface
+        and get immadiate pricing and market data for every card. Share your decks with friends and the
+        community, or keep them private.</p>
+      <ul class="feature-list">
+        <li><span class="checkmark" aria-hidden="true">✓</span> <span data-i18n="decks.f1">Version control &
+                            history. Yes manage your decks with your team and friends just like you would a GIT
+                            repository</span></li>
+        <li><span class="checkmark" aria-hidden="true">✓</span> <span data-i18n="decks.f2">Quickly check if
+                            you own the cards, compare prices for multiple versions and create wishlists from missing
+                            cards</span></li>
+        <li class="is-wip"><span class="checkmark empty" aria-hidden="true">○</span> <span
+                data-i18n="decks.f3">Test your decks solo or with a friend with our built in
+                            simulator</span></li>
+        <li class="is-wip"><span class="checkmark empty" aria-hidden="true">○</span> <span
+                data-i18n="decks.f4">Create deck primers, sideboard guides and any other documentation you
+                            need to master your deck</span></li>
+      </ul>
     </div>
-    <div class="feature-card">
-      <div class="feature-icon wishlists-icon">💰</div>
-      <h3>Price Tracking</h3>
-      <p>Monitor price fluctuations and get notified of better deals</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon wishlists-icon">📋</div>
-      <h3>Multiple Lists</h3>
-      <p>Create multiple wishlists for different collections or goals</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon wishlists-icon">🎁</div>
-      <h3>Share & Collaborate</h3>
-      <p>Share wishlist links with friends or traders for easier negotiations</p>
+    <div class="showcase-phone">
+      <div class="phone-frame">
+        <div class="phone-screen">
+          <img src="https://i.imgur.com/XkMjd7w.png" alt="Deck Builder"
+               data-i18n-alt="decks.phoneAlt">
+        </div>
+      </div>
     </div>
   </div>
 </section>
+
+
 
 <!-- Tournaments Section -->
-<section id="tournaments" class="feature-section tournaments-section">
-  <div class="section-header">
-    <h2>Competitive Tournaments</h2>
-    <p>Compete against players worldwide and climb the rankings</p>
+<section class="feature-showcase tournaments-showcase">
+  <div class="showcase-container">
+    <div class="showcase-phone">
+      <div class="phone-frame">
+        <div class="phone-screen">
+          <img src="https://i.imgur.com/o8kRC5l.png" alt="Tournaments"
+               data-i18n-alt="tournaments.phoneAlt">
+        </div>
+      </div>
+    </div>
+    <div class="showcase-content">
+      <span class="section-label" data-i18n="tournaments.label">Competitive Gaming</span>
+      <h2 data-i18n="tournaments.title">Compete &amp; Win Rewards</h2>
+      <p data-i18n="tournaments.desc">Participate in competitive tournaments with players worldwide. Climb the
+        rankings, earn exclusive rewards, and showcase your skills in various tournament formats.</p>
+      <ul class="feature-list">
+        <li><span class="checkmark" aria-hidden="true">✓</span> <span data-i18n="tournaments.f1">Ranked
+                            competitions</span></li>
+        <li><span class="checkmark" aria-hidden="true">✓</span> <span data-i18n="tournaments.f2">Multiple
+                            formats</span></li>
+        <li class="is-wip"><span class="checkmark empty" aria-hidden="true">○</span> <span
+                data-i18n="tournaments.f3">Live tournament streaming</span></li>
+        <li class="is-wip"><span class="checkmark empty" aria-hidden="true">○</span> <span
+                data-i18n="tournaments.f4">Live tournament streaming</span></li>
+      </ul>
+    </div>
   </div>
-  <div class="features-grid">
-    <div class="feature-card">
-      <div class="feature-icon tournaments-icon">🏆</div>
-      <h3>Ranked Competitions</h3>
-      <p>Participate in official tournaments with real-time ranking and leaderboards</p>
+</section>
+
+<!-- Community Section -->
+<section class="feature-showcase community-showcase alt">
+  <div class="showcase-container reverse">
+    <div class="showcase-content">
+      <span class="section-label" data-i18n="community.label">Community</span>
+      <h2 data-i18n="community.title">Bringing a sense of community back to Magict</h2>
+      <p data-i18n="community.desc">Find new friends, join local groups and participate in events happening
+        around you.</p>
+      <ul class="feature-list">
+        <li><span class="checkmark" aria-hidden="true">✓</span> <span data-i18n="community.f1">Create and
+                            join local teams and groups, share decks, cards and collections</span></li>
+        <li class="is-wip"><span class="checkmark empty" aria-hidden="true">○</span> <span
+                data-i18n="community.f2">If you are a content creator, Surveyl is the perfect platform to
+                            grow your audience and share your content, share your decks and accept payments directly
+                            through the platform for your premium content or services</span></li>
+        <li class="is-wip"><span class="checkmark empty" aria-hidden="true">○</span> <span
+                data-i18n="community.f3">If you are a local game store owner, Surveyl is the perfect
+                            platform to manage your community, organize events and tournaments and sell your cards... No
+                            more third party fees</span></li>
+      </ul>
     </div>
-    <div class="feature-card">
-      <div class="feature-icon tournaments-icon">🎮</div>
-      <h3>Multiple Formats</h3>
-      <p>Various tournament formats: Swiss, single elimination, round robin</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon tournaments-icon">💎</div>
-      <h3>Prize Pool</h3>
-      <p>Win cards, currency, and exclusive rewards in major tournaments</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon tournaments-icon">📊</div>
-      <h3>Match History</h3>
-      <p>Detailed match records and tournament history tracking</p>
+    <div class="showcase-phone">
+      <div class="phone-frame">
+        <div class="phone-screen">
+          <img src="https://i.imgur.com/o8kRC5l.png" alt="Wishlists"
+               data-i18n-alt="wishlists.phoneAlt">
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -208,79 +199,328 @@
 <!-- CTA Section -->
 <section class="cta-section">
   <div class="cta-content">
-    <h2>Ready to Start Your Journey?</h2>
-    <p>Join thousands of card collectors and traders on CardVault</p>
-    <button class="btn-primary btn-large">Join Now - It's Free</button>
+    <h2 data-i18n="cta.title">Ready to Join the Community?</h2>
+    <p data-i18n="cta.desc">Start your trading card journey with CardVault today</p>
+    <div class="cta-buttons">
+      <button class="btn-primary btn-large" data-i18n="cta.button">Get Started Free</button>
+      <a href="https://discord.gg/h78uKtDr" target="_blank" rel="noopener noreferrer"
+         class="btn-discord btn-large">
+        <svg width="20" height="20" viewBox="0 0 71 55" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <g clip-path="url(#clip0)">
+            <path
+                    d="M60.1045 4.8978C55.5792 2.8214 50.7265 1.2916 45.6527 0.41542C45.5603 0.39851 45.468 0.440769 45.4204 0.525289C44.7963 1.6353 44.105 3.0834 43.6209 4.2216C38.1637 3.4046 32.7345 3.4046 27.3892 4.2216C26.905 3.0581 26.1886 1.6353 25.5617 0.525289C25.5141 0.443589 25.4218 0.40133 25.3294 0.41542C20.2584 1.2888 15.4057 2.8186 10.8776 4.8978C10.8384 4.9147 10.8048 4.9429 10.7825 4.9795C1.57795 18.7309 -0.943561 32.1443 0.293408 45.3914C0.299005 45.4562 0.335386 45.5182 0.385761 45.5576C6.45866 50.0174 12.3413 52.7249 18.1147 54.5195C18.2071 54.5477 18.305 54.5139 18.3638 54.4378C19.7295 52.5728 20.9469 50.6063 21.9907 48.5383C22.0523 48.4172 21.9935 48.2735 21.8676 48.2256C19.9366 47.4931 18.0979 46.6 16.3292 45.5858C16.1893 45.5041 16.1781 45.304 16.3068 45.2082C16.679 44.9293 17.0513 44.6391 17.4067 44.3461C17.471 44.2926 17.5606 44.2813 17.6362 44.3151C29.2558 49.6202 41.8354 49.6202 53.3179 44.3151C53.3935 44.2785 53.4831 44.2898 53.5502 44.3433C53.9057 44.6363 54.2779 44.9293 54.6529 45.2082C54.7816 45.304 54.7732 45.5041 54.6333 45.5858C52.8646 46.6197 51.0259 47.4931 49.0921 48.2228C48.9662 48.2707 48.9102 48.4172 48.9718 48.5383C50.038 50.6034 51.2554 52.5699 52.5959 54.435C52.6519 54.5139 52.7526 54.5477 52.845 54.5195C58.6464 52.7249 64.529 50.0174 70.6019 45.5576C70.6551 45.5182 70.6887 45.459 70.6943 45.3942C72.1747 30.0791 68.2147 16.7757 60.1968 4.9823C60.1772 4.9429 60.1437 4.9147 60.1045 4.8978ZM23.7259 37.3253C20.2276 37.3253 17.3451 34.1136 17.3451 30.1693C17.3451 26.225 20.1717 23.0133 23.7259 23.0133C27.308 23.0133 30.1626 26.2532 30.1066 30.1693C30.1066 34.1136 27.28 37.3253 23.7259 37.3253ZM47.3178 37.3253C43.8196 37.3253 40.9371 34.1136 40.9371 30.1693C40.9371 26.225 43.7636 23.0133 47.3178 23.0133C50.9 23.0133 53.7545 26.2532 53.6986 30.1693C53.6986 34.1136 50.9 37.3253 47.3178 37.3253Z"
+                    fill="currentColor" />
+          </g>
+        </svg>
+        <span data-i18n="cta.discord">Join Discord</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ Section -->
+<section class="faq-section">
+  <div class="faq-container">
+    <h2 class="faq-title" data-i18n="faq.title">Frequently Asked Questions</h2>
+    <div class="faq-list">
+      <div class="faq-item">
+        <button class="faq-question" type="button">
+          <span data-i18n="faq.q1">What is CardVault?</span>
+          <span class="faq-icon">+</span>
+        </button>
+        <div class="faq-answer">
+          <p data-i18n="faq.a1">CardVault is a platform to manage trades, decks, collections, wishlists,
+            and tournaments for trading card games.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-question" type="button">
+          <span data-i18n="faq.q2">Is CardVault free to use?</span>
+          <span class="faq-icon">+</span>
+        </button>
+        <div class="faq-answer">
+          <p data-i18n="faq.a2">Yes, CardVault offers a free plan with all the core features for
+            collectors and competitive players.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-question" type="button">
+          <span data-i18n="faq.q3">Can I use CardVault on mobile?</span>
+          <span class="faq-icon">+</span>
+        </button>
+        <div class="faq-answer">
+          <p data-i18n="faq.a3">The interface is fully responsive and works great on phones, tablets, and
+            desktop browsers.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-question" type="button">
+          <span data-i18n="faq.q4">Can I use CardVault on mobile?</span>
+          <span class="faq-icon">+</span>
+        </button>
+        <div class="faq-answer">
+          <p data-i18n="faq.a4">The interface is fully responsive and works great on phones, tablets, and
+            desktop browsers.</p>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
 <!-- Footer -->
 <footer class="footer">
-  <div class="footer-container">
-    <div class="footer-column">
-      <h4>CardVault</h4>
-      <p>The ultimate platform for trading card enthusiasts</p>
+  <div class="footer-content">
+    <div class="footer-section">
+      <h3 data-i18n="footer.brand">CardVault</h3>
+      <p data-i18n="footer.tagline">The complete trading card platform for collectors and competitors</p>
     </div>
-    <div class="footer-column">
-      <h4>Quick Links</h4>
+    <div class="footer-section">
+      <h4 data-i18n="footer.community">Community</h4>
       <ul>
-        <li><a href="#trades">Trades</a></li>
-        <li><a href="#decks">Decks</a></li>
-        <li><a href="#collections">Collections</a></li>
+        <li><a href="https://discord.gg/h78uKtDr" data-i18n="footer.discord">Discord</a></li>
       </ul>
     </div>
-    <div class="footer-column">
-      <h4>Community</h4>
+    <div class="footer-section">
+      <h4 data-i18n="footer.legal">Legal</h4>
       <ul>
-        <li><a href="#">Discord</a></li>
-        <li><a href="#">Twitter</a></li>
-        <li><a href="#">Reddit</a></li>
-      </ul>
-    </div>
-    <div class="footer-column">
-      <h4>Legal</h4>
-      <ul>
-        <li><a href="#">Privacy Policy</a></li>
-        <li><a href="#">Terms of Service</a></li>
-        <li><a href="#">Contact</a></li>
+        <li><a href="#" data-i18n="footer.privacy">Privacy</a></li>
+        <li><a href="#" data-i18n="footer.terms">Terms</a></li>
+        <li><a href="mailto:alessandro0024@gmail.com" data-i18n="footer.contact">Business contact</a></li>
       </ul>
     </div>
   </div>
   <div class="footer-bottom">
-    <p>&copy; 2026 CardVault. All rights reserved.</p>
+    <p data-i18n="footer.copy">&copy; 2026 Surveyl.top. All rights reserved.</p>
   </div>
 </footer>
 
 <script>
-  // Smooth scrolling for navigation links
-  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', function (e) {
-      e.preventDefault();
-      const target = document.querySelector(this.getAttribute('href'));
-      if (target) {
-        target.scrollIntoView({ behavior: 'smooth' });
-        document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
-        this.classList.add('active');
-      }
+  // Smooth scroll for buttons
+  document.querySelectorAll('button.btn-primary').forEach(button => {
+    button.addEventListener('click', function () {
+      window.location.href = 'https://surveyl.top/auth/register'; // Change this URL
     });
   });
 
-  // Update active nav link on scroll
-  window.addEventListener('scroll', () => {
-    let current = '';
-    document.querySelectorAll('section').forEach(section => {
-      const sectionTop = section.offsetTop;
-      if (pageYOffset >= sectionTop - 200) {
-        current = section.getAttribute('id');
+  // Intersection Observer for animations
+  const observerOptions = {
+    threshold: 0.1,
+    rootMargin: '0px 0px -100px 0px'
+  };
+
+  const observer = new IntersectionObserver(function (entries) {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('animate-in');
+        observer.unobserve(entry.target);
       }
     });
-    document.querySelectorAll('.nav-link').forEach(link => {
-      link.classList.remove('active');
-      if (link.getAttribute('href') === `#${current}`) {
-        link.classList.add('active');
-      }
+  }, observerOptions);
+
+  document.querySelectorAll('.feature-showcase, .cta-section').forEach(el => {
+    observer.observe(el);
+  });
+
+  // i18n dictionary
+  const i18n = {
+    en: {
+      "hero.title": "A new generation of Magic tools",
+      "hero.subtitle": "Manage trades, build and share decks, manage all your collections, compete in tournaments and participate in amazing communities — all in one place",
+      "hero.cta": "Get Started Free",
+      "hero.phoneAlt": "Surveyl.top Homepage",
+
+      "trades.label": "Local trading",
+      "trades.title": "Trade with Confidence",
+      "trades.desc": "Are you tired of endless WhatsApp groups, facebook posts, expensive shipments and scams? Do you want to trade like in the golden days of local game stores? With Surveyl all it takes is a flick of your phone.",
+      "trades.f1": "Real-time market pricing",
+      "trades.f2": "Trade binders & wishlists",
+      "trades.f3": "Intelligent matching algorithm makes trading easy",
+      "trades.f4": "Instant trading on mobile using NFC technology",
+      "trades.phoneAlt": "Local trading",
+
+      "decks.label": "Deck Building",
+      "decks.title": "The most advanced deck builder in the market",
+      "decks.desc": "Create and import decks from any source, view them in a beautiful interface and get immadiate pricing and market data for every card. Share your decks with friends and the community, or keep them private.",
+      "decks.f1": "Version control & history. Yes manage your decks with your team and friends just like you would a GIT repository",
+      "decks.f2": "Quickly check if you own the cards, compare prices for multiple versions and create wishlists from missing cards",
+      "decks.f3": "Test your decks solo or with a friend with our built in simulator",
+      "decks.f4": "Create deck primers, sideboard guides and any other documentation you need to master your deck",
+      "decks.phoneAlt": "Deck Builder",
+
+      "collections.label": "Card Collections",
+      "collections.title": "Import from any source and start tracking",
+      "collections.desc": "Organize & Showcase. Track your collection value in real-time, organize with custom tags, find any card version that exists and discover new cards with advanced search filters",
+      "collections.f1": "Quickly move cards you don't need to your trade binders",
+      "collections.f2": "Import cards from any source in seconds",
+      "collections.f3": "Traded cards are automatically moved to the right collection, no need to manually update anything",
+      "collections.phoneAlt": "Collections",
+
+
+      "tournaments.label": "Competitive Leagues",
+      "tournaments.title": "The best way to track leagues and tournaments",
+      "tournaments.desc": "Wether you are a local game store owner, a regional organizer or just a group of friends wanting to keep track of your commander nights, Surveyl makes it easy to create and manage tournaments and leagues of any format.",
+      "tournaments.f1": "Join leagues from codes or from public leagues. Or create your own, choose your format, rules and how many rounds to play",
+      "tournaments.f2": "Track players for each round, enter results and view standings in real-time",
+      "tournaments.f3": "Support for decklists, match history and open decklists",
+      "tournaments.f4": "Analytics to track your performance and progress as a player",
+      "tournaments.phoneAlt": "Tournaments",
+
+      "community.label": "Community",
+      "community.title": "Bringing a sense of community back to Magic",
+      "community.desc": "Find new friends, join local groups and participate in events happening around you.",
+      "community.f1": "Create and join local teams and groups, share decks, cards and collections",
+      "community.f2": "If you are a content creator, Surveyl is the perfect platform to grow your audience and share your content, share your decks and accept payments directly through the platform for your premium content or services",
+      "community.f3": "If you are a local game store owner, Surveyl is the perfect platform to manage your community, organize events and tournaments and sell your cards... No more third party fees",
+      "community.phoneAlt": "Community",
+
+      "cta.title": "Ready to Join the Community?",
+      "cta.desc": "Start using Surveyl.top today and experience a new way to play Magic",
+      "cta.button": "Get Started Free",
+      "cta.sub": "No credit card required",
+      "cta.discord": "Join Discord",
+
+      "faq.title": "Frequently Asked Questions",
+      "faq.q1": "What is Surveyl?",
+      "faq.a1": "Surveyl is a platform to manage trades, decks, collections, wishlists, and tournaments for Magic.",
+      "faq.q2": "Is Surveyl free to use?",
+      "faq.a2": "Yes, most of the features are and will always be free for all users. We are working on some premium features that will be available for a small subscription fee.",
+      "faq.q3": "Can I use Surveyl.top on mobile?",
+      "faq.a3": "Yes, you can use Surveyl.top on any device on Android you can find the official app in the play store. We are working on the iOS app and it will be available soon.",
+      "faq.q4": "How can I report a bug?",
+      "faq.a4": "Right now the official way to report bugs is through the Discord. If you don't have Discord you can use the Business contact at the bottom of the page.",
+
+      "footer.brand": "Surveyl.top",
+      "footer.tagline": "A new generation of Magic tools",
+      "footer.community": "Community",
+      "footer.discord": "Discord",
+      "footer.legal": "Legal",
+      "footer.privacy": "Privacy",
+      "footer.terms": "Terms",
+      "footer.contact": "Business contact",
+      "footer.copy": "© 2026 Surveyl.top. All rights reserved."
+    },
+    it: {
+      "hero.title": "Una nuova generazione di strumenti per Magic",
+      "hero.subtitle": "Gestisci scambi, crea e condividi mazzi, gestisci tutte le tue collezioni, partecipa a tornei e unisciti a community incredibili — tutto in un unico posto",
+      "hero.cta": "Inizia gratis",
+      "hero.phoneAlt": "Homepage Surveyl.top",
+
+      "trades.label": "Scambi locali",
+      "trades.title": "Scambia con fiducia",
+      "trades.desc": "Sei stanco di infiniti gruppi WhatsApp, post su Facebook, spedizioni costose e truffe? Vuoi scambiare come nei vecchi tempi dei negozi di quartiere? Con Surveyl ti basta un tap sul telefono.",
+      "trades.f1": "Prezzi di mercato in tempo reale",
+      "trades.f2": "Raccoglitori e wishlist",
+      "trades.f3": "Algoritmo intelligente che rende gli scambi facili",
+      "trades.f4": "Scambi istantanei da mobile con tecnologia NFC",
+      "trades.phoneAlt": "Scambi locali",
+
+      "decks.label": "Costruzione mazzi",
+      "decks.title": "Il deck builder più avanzato sul mercato",
+      "decks.desc": "Crea e importa mazzi da qualsiasi fonte, visualizzali in un'interfaccia bellissima e ottieni prezzi e dati di mercato immediati per ogni carta. Condividi i tuoi mazzi con amici e la community, oppure mantienili privati.",
+      "decks.f1": "Version control e history. Sì, gestisci i tuoi mazzi con il team e con i tuoi amici proprio come faresti con un repository GIT",
+      "decks.f2": "Verifica rapidamente se possiedi le carte, confronta i prezzi di versioni diverse e crea wishlist dalle carte mancanti",
+      "decks.f3": "Testa i tuoi mazzi da solo o con un amico grazie al nostro simulatore integrato",
+      "decks.f4": "Crea guide ai mazzi, sideboard guide e qualsiasi altra documentazione necessaria per padroneggiare il tuo mazzo",
+      "decks.phoneAlt": "Deck Builder",
+
+      "collections.label": "Collezioni di carte",
+      "collections.title": "Importa da qualsiasi fonte e inizia a tracciare",
+      "collections.desc": "Organizza e mostra. Traccia il valore della tua collezione in tempo reale, organizza con tag personalizzati, trova qualsiasi versione di carta esistente e scopri nuove carte con filtri di ricerca avanzati",
+      "collections.f1": "Sposta rapidamente le carte di cui non hai bisogno nei tuoi raccoglitori",
+      "collections.f2": "Importa carte da qualsiasi fonte in pochi secondi",
+      "collections.f3": "Le carte scambiate vengono automaticamente spostate nella collezione giusta, senza bisogno di aggiornare manualmente nulla",
+      "collections.phoneAlt": "Collezioni",
+
+      "tournaments.label": "Leghe competitive",
+      "tournaments.title": "Il modo migliore per tracciare leghe e tornei",
+      "tournaments.desc": "Che tu sia il proprietario di un negozio, un organizzatore regionale o semplicemente un gruppo di amici che vuole tenere traccia delle serate Commander, Surveyl rende facile creare e gestire tornei e leghe di qualsiasi formato.",
+      "tournaments.f1": "Unisciti a leghe tramite codici o da leghe pubbliche. Oppure crea la tua, scegli il formato, le regole e quanti round giocare",
+      "tournaments.f2": "Traccia i giocatori per ogni round, inserisci i risultati e visualizza le classifiche in tempo reale",
+      "tournaments.f3": "Supporto per decklist, cronologia partite e decklist aperte",
+      "tournaments.f4": "Analisi per tracciare le tue prestazioni e i progressi come giocatore",
+      "tournaments.phoneAlt": "Tornei",
+
+      "community.label": "Community",
+      "community.title": "Riportare il senso di community in Magic",
+      "community.desc": "Trova nuovi amici, unisciti a gruppi locali e partecipa agli eventi intorno a te.",
+      "community.f1": "Crea e unisciti a team e gruppi locali, condividi mazzi, carte e collezioni",
+      "community.f2": "Se sei un content creator, Surveyl è la piattaforma perfetta per far crescere il tuo pubblico e condividere i tuoi contenuti, condividi i tuoi mazzi e accetta pagamenti direttamente attraverso la piattaforma per i tuoi contenuti premium o servizi",
+      "community.f3": "Se sei il proprietario di un negozio locale, Surveyl è la piattaforma perfetta per gestire la tua community, organizzare eventi e tornei e vendere le tue carte... Niente più commissioni di terze parti",
+      "community.phoneAlt": "Community",
+
+      "cta.title": "Pronto a unirti alla community?",
+      "cta.desc": "Inizia a usare Surveyl.top oggi e scopri un nuovo modo di giocare a Magic",
+      "cta.button": "Inizia gratis",
+      "cta.sub": "Nessuna carta di credito richiesta",
+      "cta.discord": "Unisciti a Discord",
+
+      "faq.title": "Domande frequenti",
+      "faq.q1": "Cos'è Surveyl?",
+      "faq.a1": "Surveyl è una piattaforma per gestire scambi, mazzi, collezioni, liste desideri e tornei per Magic.",
+      "faq.q2": "Surveyl è gratuito?",
+      "faq.a2": "Sì, la maggior parte delle funzionalità è e sarà sempre gratuita per tutti gli utenti. Stiamo lavorando su alcune funzionalità premium che saranno disponibili con un piccolo abbonamento.",
+      "faq.q3": "Posso usare Surveyl.top da mobile?",
+      "faq.a3": "Sì, puoi usare Surveyl.top su qualsiasi dispositivo. Su Android puoi trovare l'app ufficiale nel Play Store. Stiamo lavorando sull'app iOS che sarà disponibile presto.",
+      "faq.q4": "Come posso segnalare un bug?",
+      "faq.a4": "Al momento il modo ufficiale di segnalare un Bug è tramite Discord. Se non hai Discord puoi usare il contatto Business in fondo alla pagina.",
+
+      "footer.brand": "Surveyl.top",
+      "footer.tagline": "Una nuova generazione di strumenti per Magic",
+      "footer.community": "Community",
+      "footer.discord": "Discord",
+      "footer.legal": "Legale",
+      "footer.privacy": "Privacy",
+      "footer.terms": "Termini",
+      "footer.contact": "Contatto commerciale",
+      "footer.copy": "© 2026 Surveyl.top. Tutti i diritti riservati."
+    }
+
+  };
+
+  function applyLanguage(lang) {
+    const dict = i18n[lang] || i18n.it;
+
+    document.documentElement.lang = lang;
+
+    document.querySelectorAll("[data-i18n]").forEach(el => {
+      const key = el.getAttribute("data-i18n");
+      if (dict[key]) el.textContent = dict[key];
+    });
+
+    document.querySelectorAll("[data-i18n-alt]").forEach(el => {
+      const key = el.getAttribute("data-i18n-alt");
+      if (dict[key]) el.setAttribute("alt", dict[key]);
+    });
+
+    document.querySelectorAll(".lang-btn").forEach(btn => {
+      const isActive = btn.getAttribute("data-lang") === lang;
+      btn.classList.toggle("is-active", isActive);
+      btn.setAttribute("aria-pressed", String(isActive));
+    });
+
+    try { localStorage.setItem("cv_lang", lang); } catch (e) { }
+  }
+
+  document.querySelectorAll(".lang-btn").forEach(btn => {
+    btn.addEventListener("click", () => applyLanguage(btn.getAttribute("data-lang")));
+  });
+
+  // FAQ toggle
+  document.querySelectorAll(".faq-item").forEach(item => {
+    const btn = item.querySelector(".faq-question");
+    btn.addEventListener("click", () => {
+      const isOpen = item.classList.contains("is-open");
+      document.querySelectorAll(".faq-item.is-open").forEach(i => i.classList.remove("is-open"));
+      if (!isOpen) item.classList.add("is-open");
     });
   });
+
+  // Initial language: default Italian
+  const saved = (() => { try { return localStorage.getItem("cv_lang"); } catch (e) { return null; } })();
+  const browserLang = (navigator.language || navigator.userLanguage || "it").slice(0, 2);
+  const initial = saved || (browserLang === "en" ? "en" : "it");
+  applyLanguage(initial);
 </script>
 </body>
+
 </html>
