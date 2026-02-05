@@ -23,4 +23,5 @@ public class LeagueDto
     public bool IsPlaying { get; set; }
     public required string OwnerId { get; set; }
     public bool IsPublic { get; set; }
+    public List<string> AdminIds { get; set; } = [];
 }

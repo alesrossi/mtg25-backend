@@ -168,6 +168,30 @@ public sealed class LeagueService : ILeagueService
             }
         }
 
+        var leagueIds = leaguesById.Keys.ToList();
+        var adminAssignmentsRaw = await _dbContext.LeagueRoleAssignments
+            .AsNoTracking()
+            .Where(lr => leagueIds.Contains(lr.LeagueId))
+            .Select(lr => new { lr.LeagueId, lr.UserId, lr.Roles })
+            .ToListAsync(cancellationToken);
+        var adminUserIdsByLeague = adminAssignmentsRaw
+            .Where(x => x.Roles.HasFlag(LeagueRole.Admin))
+            .GroupBy(x => x.LeagueId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.UserId).ToList());
+
+        foreach (var league in leaguesById.Values)
+        {
+            var ids = new List<string> { league.OwnerId };
+            if (adminUserIdsByLeague.TryGetValue(league.Id, out var userIds))
+            {
+                foreach (var id in userIds.Where(id => id != league.OwnerId))
+                {
+                    ids.Add(id);
+                }
+            }
+            league.AdminIds = ids;
+        }
+
         return new UserWithLeaguesDto
         {
             Id = user.Id,
@@ -201,6 +225,17 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.Unauthorized("Errors.Leagues.UserNotInLeague");
         }
 
+        var adminAssignmentsRaw = await _dbContext.LeagueRoleAssignments
+            .AsNoTracking()
+            .Where(lr => lr.LeagueId == league.Id)
+            .Select(lr => new { lr.UserId, lr.Roles })
+            .ToListAsync(cancellationToken);
+        var adminIdsList = new List<string> { league.OwnerId };
+        foreach (var id in adminAssignmentsRaw.Where(x => x.Roles.HasFlag(LeagueRole.Admin)).Select(x => x.UserId).Where(id => id != league.OwnerId))
+        {
+            adminIdsList.Add(id);
+        }
+
         return new LeagueDto
         {
             Id = league.Id,
@@ -219,7 +254,8 @@ public sealed class LeagueService : ILeagueService
             OwnerId = league.OwnerId,
             IsActive = league.IsActive,
             IsPlaying = res.IsPlaying,
-            IsPublic = league.IsPublic
+            IsPublic = league.IsPublic,
+            AdminIds = adminIdsList
         };
     }
 

@@ -750,6 +750,119 @@ public class LeagueServiceTests
         returnedLeague.IsPlaying.Should().BeFalse("because owned leagues have IsPlaying = false");
     }
 
+    [Fact]
+    public async Task GetLeagueByIdAsync_PopulatesAdminIds_WithOwnerAndRoleAdmins()
+    {
+        await using var context = CreateContext();
+        var owner = CreateUser("owner");
+        var admin = CreateUser("admin");
+        var member = CreateUser("member");
+        context.Users.AddRange(owner, admin, member);
+
+        var league = new League
+        {
+            Name = "League",
+            OwnerId = owner.Id,
+            Code = "ABC",
+            Format = DeckFormat.Standard,
+            TotalRounds = 1,
+            CurrentRound = 0,
+            RoundsToConsider = 1,
+            MinimumRounds = 1,
+            TotalPrize = 0,
+            PrizePerPerson = 0,
+            TotalPlayers = 2,
+            ScoringSystem = ScoringSystem.Positional,
+            IsActive = true,
+            IsPublic = true
+        };
+        context.Leagues.Add(league);
+        await context.SaveChangesAsync();
+
+        context.UserLeagues.AddRange(
+            new AppUserLeague { UserId = owner.Id, User = owner, League = league, LeagueId = league.Id, Score = 0, IsPlaying = true },
+            new AppUserLeague { UserId = admin.Id, User = admin, League = league, LeagueId = league.Id, Score = 0, IsPlaying = true },
+            new AppUserLeague { UserId = member.Id, User = member, League = league, LeagueId = league.Id, Score = 0, IsPlaying = true });
+        context.LeagueRoleAssignments.Add(new LeagueRoleAssignment
+        {
+            LeagueId = league.Id,
+            League = league,
+            UserId = admin.Id,
+            User = admin,
+            Roles = LeagueRole.Admin
+        });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var service = CreateService(context, owner, admin, member);
+
+        var result = await service.GetLeagueByIdAsync(league.Id, member.Id);
+
+        result.Should().NotBeNull();
+        result.AdminIds.Should().Contain(owner.Id);
+        result.AdminIds.Should().Contain(admin.Id);
+        result.AdminIds.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task GetLeaguesForUserAsync_PopulatesAdminIds_WithOwnerAndRoleAdmins()
+    {
+        await using var context = CreateContext();
+        var owner = CreateUser("owner");
+        var admin = CreateUser("admin");
+        context.Users.AddRange(owner, admin);
+
+        var league = new League
+        {
+            Name = "League",
+            OwnerId = owner.Id,
+            Code = "ABC",
+            Format = DeckFormat.Standard,
+            TotalRounds = 1,
+            CurrentRound = 0,
+            RoundsToConsider = 1,
+            MinimumRounds = 1,
+            TotalPrize = 0,
+            PrizePerPerson = 0,
+            TotalPlayers = 1,
+            ScoringSystem = ScoringSystem.Positional,
+            IsActive = true,
+            IsPublic = true
+        };
+        context.Leagues.Add(league);
+        await context.SaveChangesAsync();
+
+        context.UserLeagues.Add(new AppUserLeague
+        {
+            UserId = admin.Id,
+            User = admin,
+            League = league,
+            LeagueId = league.Id,
+            Score = 0,
+            IsPlaying = true
+        });
+        context.LeagueRoleAssignments.Add(new LeagueRoleAssignment
+        {
+            LeagueId = league.Id,
+            League = league,
+            UserId = admin.Id,
+            User = admin,
+            Roles = LeagueRole.Admin
+        });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var service = CreateService(context, owner, admin);
+
+        var result = await service.GetLeaguesForUserAsync(admin.Id);
+
+        result.Should().NotBeNull();
+        result.Leagues.Should().HaveCount(1);
+        result.Leagues[0].AdminIds.Should().Contain(owner.Id);
+        result.Leagues[0].AdminIds.Should().Contain(admin.Id);
+        result.Leagues[0].AdminIds.Should().HaveCount(2);
+    }
+
     private static AppIdentityDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<AppIdentityDbContext>()
