@@ -57,6 +57,7 @@ public class Program
             app.UseAuthentication();
             app.UseAuthorization();
             app.UseApiNotFoundHandler();
+            // TODO: discutere con responsabile - valutare spostare UseCors prima di UseAuthentication/UseAuthorization per gestire correttamente le preflight requests CORS
             app.UseCors("DefaultCors");
 
             app.MapApiEndpoints();
