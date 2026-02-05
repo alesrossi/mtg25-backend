@@ -64,13 +64,14 @@ public class DeckCardService
 
         var marketProvider = await ResolveMarketProviderAsync(deck.OwnerId);
 
-        // Build a lookup of deck card names so ownership can be matched across printings
-        var cardNames = (deckCards ?? [])
-            .Select(dc => dc.Name)
-            .Where(name => !string.IsNullOrWhiteSpace(name) && !IsBasicLandName(name))
+        // Build a lookup of deck card Oracle IDs so ownership can be matched across printings
+        var cardOracleIds = (deckCards ?? [])
+            .Where(dc => !IsBasicLandName(dc.Name))
+            .Select(dc => dc.OracleId)
+            .Where(oracleId => !string.IsNullOrWhiteSpace(oracleId))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
-        var cardNameSet = new HashSet<string>(cardNames, StringComparer.OrdinalIgnoreCase);
+        var cardOracleIdSet = new HashSet<string>(cardOracleIds, StringComparer.OrdinalIgnoreCase);
         
         // Get user's collections
         var userCollectionsSpec = new CollectionWithOwnerSpecification(deck.OwnerId);
@@ -78,8 +79,8 @@ public class DeckCardService
         
         // Get all owned cards that match the deck card names in one query per collection
         var ownedCardsLookup = new Dictionary<string, List<Card>>(StringComparer.OrdinalIgnoreCase);
-        
-        if (userCollections != null && cardNameSet.Count > 0)
+
+        if (userCollections != null && cardOracleIdSet.Count > 0)
         {
             foreach (var collection in userCollections)
             {
@@ -91,13 +92,13 @@ public class DeckCardService
                 var collectionCards = await _unitOfWork.Repository<Card>().ListAsync(cardsSpec, tracking: false);
                 
                 var matchingCards = collectionCards?
-                    .Where(c => !string.IsNullOrWhiteSpace(c.Name) && cardNameSet.Contains(c.Name))
+                    .Where(c => !string.IsNullOrWhiteSpace(c.OracleId) && cardOracleIdSet.Contains(c.OracleId))
                     .ToList();
                 if (matchingCards?.Any() == true)
                 {
                     foreach (var card in matchingCards)
                     {
-                        var lookupKey = card.Name;
+                        var lookupKey = card.OracleId;
                         if (string.IsNullOrWhiteSpace(lookupKey))
                         {
                             continue;
@@ -203,12 +204,18 @@ public class DeckCardService
         }
 
         var trimmedName = createDto.Name.Trim();
-        var ownedCard = await FindOwnedCardByNameAsync(deck.OwnerId, trimmedName);
+        if (!_cardDataService.CardDataByName.TryGetValue(trimmedName, out var namedCardData))
+        {
+            _logger.LogOperationWarning(CreateDeckCardOperation, "Card not found in Scryfall data", new { deckId, Name = trimmedName });
+            throw new InvalidOperationException($"Card '{trimmedName}' was not found in the card database.");
+        }
 
-        ScryfallCardDto? scryfallCard;
+        var oracleId = namedCardData.OracleId;
+        var ownedCard = await FindOwnedCardByOracleIdAsync(deck.OwnerId, oracleId);
+
+        ScryfallCardDto? scryfallCard = namedCardData;
         string resolvedName;
         string resolvedScryfallId;
-        string oracleId;
         string setCode;
         string? setName;
         string typeLine;
@@ -236,18 +243,12 @@ public class DeckCardService
 
             if (!_cardDataService.CardDataById.TryGetValue(ownedCard.ScryfallId, out scryfallCard))
             {
-                _cardDataService.CardDataByName.TryGetValue(ownedCard.Name, out scryfallCard);
+                scryfallCard = namedCardData;
             }
         }
         else
         {
-            if (!_cardDataService.CardDataByName.TryGetValue(trimmedName, out scryfallCard))
-            {
-                _logger.LogOperationWarning(CreateDeckCardOperation, "Card not found in Scryfall data", new { deckId, Name = trimmedName });
-                throw new InvalidOperationException($"Card '{trimmedName}' was not found in the card database.");
-            }
-
-            var imageUris = CardDataService.ResolveImageUris(scryfallCard);
+            var imageUris = CardDataService.ResolveImageUris(namedCardData);
             var resolvedImage = imageUris?.Normal ?? imageUris?.Large ?? imageUris?.Png;
             if (string.IsNullOrWhiteSpace(resolvedImage) || string.IsNullOrWhiteSpace(imageUris?.ArtCrop))
             {
@@ -255,23 +256,23 @@ public class DeckCardService
                 throw new InvalidOperationException($"Card '{trimmedName}' is missing image data.");
             }
 
-            resolvedName = scryfallCard.Name;
-            resolvedScryfallId = scryfallCard.Id;
-            oracleId = scryfallCard.OracleId;
-            setCode = scryfallCard.Set;
-            setName = scryfallCard.SetName;
-            typeLine = scryfallCard.TypeLine ?? string.Empty;
+            resolvedName = namedCardData.Name;
+            resolvedScryfallId = namedCardData.Id;
+            oracleId = namedCardData.OracleId;
+            setCode = namedCardData.Set;
+            setName = namedCardData.SetName;
+            typeLine = namedCardData.TypeLine ?? string.Empty;
             imageUrl = resolvedImage;
-            backImageUrl = CardDataService.ResolveBackImageUrl(scryfallCard);
+            backImageUrl = CardDataService.ResolveBackImageUrl(namedCardData);
             artCrop = imageUris.ArtCrop!;
-            rarity = scryfallCard.Rarity;
-            collectorNumber = scryfallCard.CollectorNumber;
+            rarity = namedCardData.Rarity;
+            collectorNumber = namedCardData.CollectorNumber;
         }
 
         var effectiveTypeLine = string.IsNullOrWhiteSpace(typeLine)
             ? scryfallCard?.TypeLine ?? string.Empty
             : typeLine;
-        await EnsureCopyLimitAsync(deckId, resolvedName, effectiveTypeLine, requestedQuantity, null, CreateDeckCardOperation);
+        await EnsureCopyLimitAsync(deckId, oracleId, resolvedName, effectiveTypeLine, requestedQuantity, null, CreateDeckCardOperation);
 
         var colorIdentity = NormalizeColorIdentity(scryfallCard?.ColorIdentity);
 
@@ -340,13 +341,19 @@ public class DeckCardService
             }
 
             var trimmedName = createDto.Name.Trim();
-            ownedCardsLookup.TryGetValue(trimmedName, out var ownedCards);
+            if (!_cardDataService.CardDataByName.TryGetValue(trimmedName, out var namedCardData))
+            {
+                _logger.LogOperationWarning(ImportDeckCardsOperation, "Card not found in Scryfall data", new { deck.Id, Name = trimmedName });
+                throw new InvalidOperationException($"Card '{trimmedName}' was not found in the card database.");
+            }
+
+            var oracleId = namedCardData.OracleId;
+            ownedCardsLookup.TryGetValue(oracleId, out var ownedCards);
             var ownedCard = ownedCards?.FirstOrDefault();
 
-            ScryfallCardDto? scryfallCard;
+            ScryfallCardDto? scryfallCard = namedCardData;
             string resolvedName;
             string resolvedScryfallId;
-            string oracleId;
             string setCode;
             string? setName;
             string typeLine;
@@ -374,18 +381,12 @@ public class DeckCardService
 
                 if (!_cardDataService.CardDataById.TryGetValue(ownedCard.ScryfallId, out scryfallCard))
                 {
-                    _cardDataService.CardDataByName.TryGetValue(ownedCard.Name, out scryfallCard);
+                    scryfallCard = namedCardData;
                 }
             }
             else
             {
-                if (!_cardDataService.CardDataByName.TryGetValue(trimmedName, out scryfallCard))
-                {
-                    _logger.LogOperationWarning(ImportDeckCardsOperation, "Card not found in Scryfall data", new { deck.Id, Name = trimmedName });
-                    throw new InvalidOperationException($"Card '{trimmedName}' was not found in the card database.");
-                }
-
-                var imageUris = CardDataService.ResolveImageUris(scryfallCard);
+                var imageUris = CardDataService.ResolveImageUris(namedCardData);
                 var resolvedImage = imageUris?.Normal ?? imageUris?.Large ?? imageUris?.Png;
                 if (string.IsNullOrWhiteSpace(resolvedImage) || string.IsNullOrWhiteSpace(imageUris?.ArtCrop))
                 {
@@ -393,17 +394,17 @@ public class DeckCardService
                     throw new InvalidOperationException($"Card '{trimmedName}' is missing image data.");
                 }
 
-                resolvedName = scryfallCard.Name;
-                resolvedScryfallId = scryfallCard.Id;
-                oracleId = scryfallCard.OracleId;
-                setCode = scryfallCard.Set;
-                setName = scryfallCard.SetName;
-                typeLine = scryfallCard.TypeLine ?? string.Empty;
+                resolvedName = namedCardData.Name;
+                resolvedScryfallId = namedCardData.Id;
+                oracleId = namedCardData.OracleId;
+                setCode = namedCardData.Set;
+                setName = namedCardData.SetName;
+                typeLine = namedCardData.TypeLine ?? string.Empty;
                 imageUrl = resolvedImage;
-                backImageUrl = CardDataService.ResolveBackImageUrl(scryfallCard);
+                backImageUrl = CardDataService.ResolveBackImageUrl(namedCardData);
                 artCrop = imageUris.ArtCrop!;
-                rarity = scryfallCard.Rarity;
-                collectorNumber = scryfallCard.CollectorNumber;
+                rarity = namedCardData.Rarity;
+                collectorNumber = namedCardData.CollectorNumber;
             }
 
             var effectiveTypeLine = string.IsNullOrWhiteSpace(typeLine)
@@ -412,14 +413,14 @@ public class DeckCardService
 
             if (!IsBasicLandTypeLine(effectiveTypeLine))
             {
-                copyCounts.TryGetValue(resolvedName, out var existingTotal);
+                copyCounts.TryGetValue(oracleId, out var existingTotal);
                 var updatedTotal = existingTotal + requestedQuantity;
                 if (updatedTotal > 4)
                 {
                     _logger.LogOperationWarning(ImportDeckCardsOperation, "Copy limit exceeded", new { deck.Id, resolvedName, requestedQuantity });
                     throw new InvalidOperationException($"Adding '{resolvedName}' would exceed the 4-copy limit for this deck.");
                 }
-                copyCounts[resolvedName] = updatedTotal;
+                copyCounts[oracleId] = updatedTotal;
             }
 
             var colorIdentity = NormalizeColorIdentity(scryfallCard?.ColorIdentity);
@@ -470,7 +471,7 @@ public class DeckCardService
         var previousMaindeck = deckCard.MaindeckQuantity;
         var previousSideboard = deckCard.SideboardQuantity;
         var requestedQuantity = updateDto.MaindeckQuantity + updateDto.SideboardQuantity;
-        await EnsureCopyLimitAsync(deckCard.DeckId, deckCard.Name, deckCard.TypeLine, requestedQuantity, deckCard.Id, UpdateDeckCardOperation);
+        await EnsureCopyLimitAsync(deckCard.DeckId, deckCard.OracleId, deckCard.Name, deckCard.TypeLine, requestedQuantity, deckCard.Id, UpdateDeckCardOperation);
 
         deckCard.MaindeckQuantity = updateDto.MaindeckQuantity;
         deckCard.SideboardQuantity = updateDto.SideboardQuantity;
@@ -521,7 +522,7 @@ public class DeckCardService
 
         var requestedQuantity = updateDto.MaindeckQuantity + updateDto.SideboardQuantity;
         var resolvedTypeLine = scryfallCard.TypeLine ?? deckCard.TypeLine;
-        await EnsureCopyLimitAsync(deckCard.DeckId, deckCard.Name, resolvedTypeLine, requestedQuantity, deckCard.Id, UpdateDeckCardOperation);
+        await EnsureCopyLimitAsync(deckCard.DeckId, scryfallCard.OracleId, deckCard.Name, resolvedTypeLine, requestedQuantity, deckCard.Id, UpdateDeckCardOperation);
 
         var previousMaindeck = deckCard.MaindeckQuantity;
         var previousSideboard = deckCard.SideboardQuantity;
@@ -529,6 +530,7 @@ public class DeckCardService
         deckCard.SideboardQuantity = updateDto.SideboardQuantity;
         deckCard.OwnedCardId = updateDto.OwnedCardId;
         deckCard.ScryfallId = scryfallCard.Id;
+        deckCard.OracleId = scryfallCard.OracleId;
         deckCard.SetName = scryfallCard.SetName;
         deckCard.SetCode = scryfallCard.SetId!;
         deckCard.ArtCrop = imageUris!.ArtCrop!;
@@ -637,7 +639,7 @@ public class DeckCardService
                     applyPaging: false);
                 var collectionCards = await _unitOfWork.Repository<Card>().ListAsync(cardsSpec, tracking: false);
                 
-                var matchingCards = collectionCards?.Where(c => c.Name == deckCard.Name).ToList();
+                var matchingCards = collectionCards?.Where(c => c.OracleId == deckCard.OracleId).ToList();
                 if (matchingCards?.Any() == true)
                 {
                     totalOwnedQuantity += matchingCards.Sum(c => c.Quantity);
@@ -656,7 +658,7 @@ public class DeckCardService
             return CreateDeckCardDto(deckCard, marketProvider, ResolveBasicLandOwnedQuantity(deckCard));
         }
 
-        var lookupKey = deckCard.Name;
+        var lookupKey = deckCard.OracleId;
         var ownedCards = !string.IsNullOrWhiteSpace(lookupKey) && ownedCardsLookup.TryGetValue(lookupKey, out var cards)
             ? cards
             : new List<Card>();
@@ -781,9 +783,9 @@ public class DeckCardService
         }
     }
 
-    private async Task<Card?> FindOwnedCardByNameAsync(string ownerId, string cardName)
+    private async Task<Card?> FindOwnedCardByOracleIdAsync(string ownerId, string oracleId)
     {
-        if (string.IsNullOrWhiteSpace(cardName))
+        if (string.IsNullOrWhiteSpace(oracleId))
         {
             return null;
         }
@@ -798,12 +800,12 @@ public class DeckCardService
         foreach (var collection in collections)
         {
             var cardsSpec = new CardsWithParamsSpecification(
-                new EntitySpecParams { Search = cardName },
+                new EntitySpecParams(),
                 collection.Id,
                 applySorting: false,
                 applyPaging: false);
             var collectionCards = await _unitOfWork.Repository<Card>().ListAsync(cardsSpec, tracking: false);
-            var ownedCard = collectionCards?.FirstOrDefault(c => string.Equals(c.Name, cardName, StringComparison.OrdinalIgnoreCase));
+            var ownedCard = collectionCards?.FirstOrDefault(c => string.Equals(c.OracleId, oracleId, StringComparison.OrdinalIgnoreCase));
             if (ownedCard != null)
             {
                 return ownedCard;
@@ -837,7 +839,7 @@ public class DeckCardService
         await _unitOfWork.Complete();
     }
 
-    private async Task EnsureCopyLimitAsync(int deckId, string cardName, string? typeLine, int requestedTotalQuantity, int? existingDeckCardId, string operation)
+    private async Task EnsureCopyLimitAsync(int deckId, string oracleId, string cardName, string? typeLine, int requestedTotalQuantity, int? existingDeckCardId, string operation)
     {
         if (IsBasicLandTypeLine(typeLine))
         {
@@ -848,7 +850,7 @@ public class DeckCardService
         var deckCards = await _unitOfWork.Repository<DeckCard>().ListAsync(spec, tracking: false) ?? [];
 
         var existingTotal = deckCards
-            .Where(dc => string.Equals(dc.Name, cardName, StringComparison.OrdinalIgnoreCase))
+            .Where(dc => string.Equals(dc.OracleId, oracleId, StringComparison.OrdinalIgnoreCase))
             .Where(dc => !existingDeckCardId.HasValue || dc.Id != existingDeckCardId.Value)
             .Sum(dc => dc.MaindeckQuantity + dc.SideboardQuantity);
 

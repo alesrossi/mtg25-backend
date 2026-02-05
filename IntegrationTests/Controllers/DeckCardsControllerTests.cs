@@ -21,6 +21,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
 {
     private readonly CustomWebApplicationFactory _factory;
     private readonly TestDataBuilder _testDataBuilder;
+    private readonly Dictionary<string, string> _oracleIdsByName = new(StringComparer.OrdinalIgnoreCase);
 
     public DeckCardsControllerTests(CustomWebApplicationFactory factory)
     {
@@ -942,6 +943,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         using var scope = _factory.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<MainContext>();
         var deckCard = CreateDeckCardEntity(deckId, scryfallId, name, "LEA", 4, 0);
+        deckCard.OracleId = GetOracleIdForName(name);
         deckCard.SetName = "Test Set";
         deckCard.Rarity = "rare";
         context.DeckCards.Add(deckCard);
@@ -982,7 +984,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         {
             var ownedCard = _testDataBuilder.CreateCardWithOracleId(
                 collectionId, 
-                deckCard.ScryfallId, 
+                deckCard.OracleId,
                 deckCard.Name, 
                 2); // Set owned quantity to 2
             context.Cards.Add(ownedCard);
@@ -996,6 +998,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         using var scope = _factory.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<MainContext>();
         var ownedCard = _testDataBuilder.CreateCardWithOracleId(collectionId, scryfallId, name, quantity);
+        ownedCard.OracleId = GetOracleIdForName(name);
         context.Cards.Add(ownedCard);
         await context.SaveChangesAsync();
     }
@@ -1041,6 +1044,18 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         return Task.CompletedTask;
     }
 
+    private string GetOracleIdForName(string name)
+    {
+        if (_oracleIdsByName.TryGetValue(name, out var oracleId))
+        {
+            return oracleId;
+        }
+
+        oracleId = Guid.NewGuid().ToString();
+        _oracleIdsByName[name] = oracleId;
+        return oracleId;
+    }
+
     private ScryfallCardDto CreateScryfallCard(string id, string name, string setCode, string setName) =>
-        _testDataBuilder.CreateOracleCard(id: id, oracleId: Guid.NewGuid().ToString(), name: name, setCode: setCode, setName: setName);
+        _testDataBuilder.CreateOracleCard(id: id, oracleId: GetOracleIdForName(name), name: name, setCode: setCode, setName: setName);
 }

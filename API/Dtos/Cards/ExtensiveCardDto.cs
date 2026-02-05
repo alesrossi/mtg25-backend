@@ -9,6 +9,7 @@ public class ExtensiveCardDto
     public int Id { get; set; }
     public required string Name { get; set; }
     public required string ScryfallId { get; set; }
+    public required string OracleId { get; set; }
     public int CollectionId { get; set; }
     public required int Quantity { get; set; }
     public required Language Language { get; set; }

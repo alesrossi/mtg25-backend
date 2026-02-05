@@ -99,6 +99,7 @@ public sealed class CardsService : ICardsService
             {
                 Name = card.Value.Name,
                 ScryfallId = card.Key,
+                OracleId = card.Value.OracleId,
                 ImageUrl = imageUrl,
                 BackImageUrl = backImageUrl
             };
@@ -327,7 +328,7 @@ public sealed class CardsService : ICardsService
                     "card-invalid-sf-id");
             }
 
-            if (scryfallCardDto.Name != card.Name)
+            if (!string.Equals(scryfallCardDto.OracleId, card.OracleId, StringComparison.OrdinalIgnoreCase))
             {
                 throw CardsServiceException.Problem(
                     StatusCodes.Status400BadRequest,
@@ -350,6 +351,7 @@ public sealed class CardsService : ICardsService
             card.IsMisprint = updateDto.IsMisprint;
             card.IsAltered = updateDto.IsAltered;
             card.ScryfallId = updateDto.ScryfallId;
+            card.OracleId = scryfallCardDto.OracleId;
             card.ArtCrop = scryfallCardDto.ImageUris!.ArtCrop!;
             card.ImageUrl = scryfallCardDto.ImageUris!.Large!;
             card.SetCode = scryfallCardDto.SetId!;
@@ -550,6 +552,7 @@ public sealed class CardsService : ICardsService
             Id = card.Id,
             Name = card.Name,
             ScryfallId = card.ScryfallId,
+            OracleId = card.OracleId,
             CollectionId = card.CollectionId,
             Quantity = card.Quantity,
             Language = card.Language,

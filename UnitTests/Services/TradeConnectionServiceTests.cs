@@ -33,6 +33,7 @@ public class TradeConnectionServiceTests : IDisposable
     private readonly Mock<IUserSettingsService> _notificationSettingsMock = new();
     private readonly Mock<IMessageLocalizer> _messageLocalizerMock = new();
     private readonly TestDataBuilder _testDataBuilder = new();
+    private readonly Dictionary<string, string> _oracleIdsByName = new(StringComparer.OrdinalIgnoreCase);
     private int _idSequence = 1;
 
     public TradeConnectionServiceTests()
@@ -528,11 +529,13 @@ public class TradeConnectionServiceTests : IDisposable
         var initiatorCard = _testDataBuilder.CreateCard(initiatorCollection.Id, "Lightning Bolt", price: 2);
         initiatorCard.Collection = initiatorCollection;
         initiatorCard.Quantity = 2;
+        initiatorCard.OracleId = initiatorCard.ScryfallId;
         mainContext.Cards.Add(initiatorCard);
 
         var partnerCard = _testDataBuilder.CreateCard(partnerCollection.Id, "Counterspell", price: 3);
         partnerCard.Collection = partnerCollection;
         partnerCard.Quantity = 1;
+        partnerCard.OracleId = partnerCard.ScryfallId;
         mainContext.Cards.Add(partnerCard);
 
         var initiatorBinder = _testDataBuilder.CreateTradeBinder(initiator.Id, isPublic: true);
@@ -553,7 +556,7 @@ public class TradeConnectionServiceTests : IDisposable
 
         var partnerWishlist = _testDataBuilder.CreateWishlist(partner.Id, isPublic: true);
         mainContext.Wishlists.Add(partnerWishlist);
-        var partnerWishlistCard = _testDataBuilder.CreateWishlistCard(partnerWishlist.Id, initiatorCard.ScryfallId, initiatorCard.Name);
+        var partnerWishlistCard = _testDataBuilder.CreateWishlistCard(partnerWishlist.Id, initiatorCard.OracleId, initiatorCard.Name);
         partnerWishlistCard.WishlistId = partnerWishlist.Id;
         partnerWishlistCard.Wishlist = partnerWishlist;
         partnerWishlistCard.DesiredQuantity = 1;
@@ -562,7 +565,7 @@ public class TradeConnectionServiceTests : IDisposable
 
         var initiatorWishlist = _testDataBuilder.CreateWishlist(initiator.Id, isPublic: true);
         mainContext.Wishlists.Add(initiatorWishlist);
-        var initiatorWishlistCard = _testDataBuilder.CreateWishlistCard(initiatorWishlist.Id, partnerCard.ScryfallId, partnerCard.Name);
+        var initiatorWishlistCard = _testDataBuilder.CreateWishlistCard(initiatorWishlist.Id, partnerCard.OracleId, partnerCard.Name);
         initiatorWishlistCard.WishlistId = initiatorWishlist.Id;
         initiatorWishlistCard.Wishlist = initiatorWishlist;
         initiatorWishlistCard.DesiredQuantity = 1;
@@ -762,11 +765,24 @@ public class TradeConnectionServiceTests : IDisposable
         return user;
     }
 
+    private string GetOracleIdForName(string cardName)
+    {
+        if (_oracleIdsByName.TryGetValue(cardName, out var oracleId))
+        {
+            return oracleId;
+        }
+
+        oracleId = Guid.NewGuid().ToString();
+        _oracleIdsByName[cardName] = oracleId;
+        return oracleId;
+    }
+
     private Wishlist CreateWishlistWithCard(string ownerId, string cardName)
     {
         var wishlist = _testDataBuilder.CreateWishlist(ownerId, isPublic: true);
         wishlist.Id = NextId();
-        var card = _testDataBuilder.CreateWishlistCard(wishlist.Id, Guid.NewGuid().ToString(), cardName);
+        var oracleId = GetOracleIdForName(cardName);
+        var card = _testDataBuilder.CreateWishlistCard(wishlist.Id, oracleId, cardName);
         card.Id = NextId();
         wishlist.WishlistCards = new List<WishlistCard> { card };
         return wishlist;
@@ -783,6 +799,7 @@ public class TradeConnectionServiceTests : IDisposable
         var ownedCard = _testDataBuilder.CreateCard(collection.Id, cardName, price: 1);
         ownedCard.Id = NextId();
         ownedCard.IsFoil = false;
+        ownedCard.ScryfallId = ownedCard.OracleId = GetOracleIdForName(cardName);
 
         var binderCard = _testDataBuilder.CreateBinderCard(binder.Id, ownedCard.Id, cardName, quantityToTrade);
         binderCard.Id = NextId();
@@ -821,6 +838,7 @@ public class TradeConnectionServiceTests : IDisposable
         {
             var scryfallCard = _testDataBuilder.CreateOracleCard(
                 id: card.Card!.ScryfallId,
+                oracleId: card.Card!.OracleId,
                 name: card.Card!.Name);
 
             return scryfallCard with

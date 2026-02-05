@@ -136,7 +136,8 @@ public class DecklistParserService : IDecklistParserService
             return false;
         }
 
-        if (!deckCards.TryGetValue(cardData.Name, out var existingDto))
+        var oracleId = cardData.OracleId;
+        if (!deckCards.TryGetValue(oracleId, out var existingDto))
         {
             existingDto = new CreateDeckCardDto
             {
@@ -145,7 +146,7 @@ public class DecklistParserService : IDecklistParserService
                 SideboardQuantity = 0
             };
 
-            deckCards[cardData.Name] = existingDto;
+            deckCards[oracleId] = existingDto;
         }
 
         if (inSideboard)

@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using API.Dtos.Cards;
+using API.Services;
 using Core.Enums;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
@@ -267,6 +268,21 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             IsAltered = false,
             ScryfallId = "dd60b291-0a88-4e8e-bef8-76cdfd6c8183"
         };
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+            var cardDataService = scope.ServiceProvider.GetRequiredService<CardDataService>();
+            var oracleId = cardDataService.CardDataById.TryGetValue(updateDto.ScryfallId, out var scryfallCard)
+                ? scryfallCard.OracleId
+                : cardDataService.CardDataByName.TryGetValue("Force of Will", out var namedCard)
+                    ? namedCard.OracleId
+                    : cardDataService.CardDataById.Values.First().OracleId;
+
+            var trackedCard = await context.Cards.FindAsync(card.Id);
+            trackedCard!.OracleId = oracleId;
+            await context.SaveChangesAsync();
+        }
 
         var content = JsonContentHelper.CreateContent(updateDto);
         var response = await client.PutAsync($"/api/cards/{card.Id}/versions", content);

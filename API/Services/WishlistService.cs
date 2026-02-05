@@ -250,7 +250,7 @@ public sealed class WishlistService : IWishlistService
         if (updateDto.ScryfallId is not null)
         {
             var card = _cardDataService.CardDataById[updateDto.ScryfallId];
-            if (card.Name == wishlistCard.Name)
+            if (string.Equals(card.OracleId, wishlistCard.OracleId, StringComparison.OrdinalIgnoreCase))
             {
                 var imageUris = CardDataService.ResolveImageUris(card);
                 var imageUrl = imageUris.Large ?? imageUris?.Normal ?? imageUris?.Png ?? imageUris?.Small;
@@ -258,6 +258,7 @@ public sealed class WishlistService : IWishlistService
                 var backImageUrl = CardDataService.ResolveBackImageUrl(card);
 
                 wishlistCard.ScryfallId = updateDto.ScryfallId;
+                wishlistCard.OracleId = card.OracleId;
                 wishlistCard.ImageUrl = imageUrl;
                 wishlistCard.BackImageUrl = backImageUrl;
                 wishlistCard.ArtCrop = artCrop;

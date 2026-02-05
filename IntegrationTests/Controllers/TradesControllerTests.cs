@@ -690,12 +690,19 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         services ??= _factory.Services;
         await using var scope = services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+        var cardDataService = scope.ServiceProvider.GetRequiredService<CardDataService>();
 
         var wishlist = _testDataBuilder.CreateWishlist(ownerId, isPublic: true);
         context.Wishlists.Add(wishlist);
         await context.SaveChangesAsync();
 
-        var card = _testDataBuilder.CreateWishlistCard(wishlist.Id, Guid.NewGuid().ToString(), cardName);
+        var marketCard = cardDataService.CardDataByName.TryGetValue(cardName, out var cardData)
+            ? cardData
+            : cardDataService.CardDataById.Values.First();
+
+        var card = _testDataBuilder.CreateWishlistCard(wishlist.Id, marketCard.OracleId, cardName);
+        card.ScryfallId = marketCard.Id;
+        card.OracleId = marketCard.OracleId;
         card.WishlistId = wishlist.Id;
         context.WishlistCards.Add(card);
         await context.SaveChangesAsync();
@@ -718,6 +725,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var ownedCard = _testDataBuilder.CreateCard(collection.Id, cardName);
         ownedCard.ScryfallId = marketCard.Id;
+        ownedCard.OracleId = marketCard.OracleId;
         ownedCard.IsFoil = false;
         context.Cards.Add(ownedCard);
         await context.SaveChangesAsync();

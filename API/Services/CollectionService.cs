@@ -590,6 +590,7 @@ public sealed class CollectionService : ICollectionService
             Id = card.Id,
             Name = card.Name,
             ScryfallId = card.ScryfallId,
+            OracleId = card.OracleId,
             CollectionId = card.CollectionId,
             Quantity = card.Quantity,
             Language = card.Language,

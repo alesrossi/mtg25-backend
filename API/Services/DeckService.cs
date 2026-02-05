@@ -358,7 +358,7 @@ public sealed class DeckService : IDeckService
             throw DeckServiceException.BadRequest("Errors.Decks.InvalidScryfallId", new { errors = new[] { "Invalid Scryfall ID provided." } }, includeBody: true);
         }
 
-        if (!string.Equals(scryfallCard.Name, deckCard.Name, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(scryfallCard.OracleId, deckCard.OracleId, StringComparison.OrdinalIgnoreCase))
         {
             throw DeckServiceException.BadRequest("Errors.Decks.ScryfallNameMismatch", new { errors = new[] { $"'{updateDto.ScryfallId}' is not a valid version for '{deckCard.Name}'." } }, includeBody: true);
         }
@@ -545,17 +545,23 @@ public sealed class DeckService : IDeckService
 
     private async Task<Dictionary<string, List<Card>>> BuildOwnedCardsLookupAsync(string ownerId, IEnumerable<string?> cardNames)
     {
-        var nameSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var oracleIdSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var name in cardNames)
         {
-            if (!string.IsNullOrWhiteSpace(name))
+            if (string.IsNullOrWhiteSpace(name))
             {
-                nameSet.Add(name.Trim());
+                continue;
+            }
+
+            if (_cardDataService.CardDataByName.TryGetValue(name.Trim(), out var cardData)
+                && !string.IsNullOrWhiteSpace(cardData.OracleId))
+            {
+                oracleIdSet.Add(cardData.OracleId);
             }
         }
 
         var lookup = new Dictionary<string, List<Card>>(StringComparer.OrdinalIgnoreCase);
-        if (nameSet.Count == 0)
+        if (oracleIdSet.Count == 0)
         {
             return lookup;
         }
@@ -582,15 +588,15 @@ public sealed class DeckService : IDeckService
 
             foreach (var card in collectionCards)
             {
-                if (string.IsNullOrWhiteSpace(card.Name) || !nameSet.Contains(card.Name))
+                if (string.IsNullOrWhiteSpace(card.OracleId) || !oracleIdSet.Contains(card.OracleId))
                 {
                     continue;
                 }
 
-                if (!lookup.TryGetValue(card.Name, out var cards))
+                if (!lookup.TryGetValue(card.OracleId, out var cards))
                 {
                     cards = new List<Card>();
-                    lookup[card.Name] = cards;
+                    lookup[card.OracleId] = cards;
                 }
                 cards.Add(card);
             }

@@ -327,20 +327,27 @@ public sealed class TradeConnectionService : ITradeConnectionService
         };
     }
 
-    private static IReadOnlyList<TradeMatchDto> FindMatches(
+    private IReadOnlyList<TradeMatchDto> FindMatches(
         IEnumerable<BinderCardDto> offeringCards,
         IEnumerable<WishlistCard> desiredCards,
         string fromUserId,
         string toUserId)
     {
         var desiredLookup = desiredCards
-            .GroupBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+            .Where(c => !string.IsNullOrWhiteSpace(c.OracleId))
+            .GroupBy(c => c.OracleId, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
 
         var matches = new List<TradeMatchDto>();
         foreach (var binderCard in offeringCards)
         {
-            if (desiredLookup.TryGetValue(binderCard.Name, out var wishlistCards))
+            var oracleId = ResolveOracleId(binderCard);
+            if (string.IsNullOrWhiteSpace(oracleId))
+            {
+                continue;
+            }
+
+            if (desiredLookup.TryGetValue(oracleId, out var wishlistCards))
             {
                 foreach (var unused in wishlistCards)
                 {
@@ -426,6 +433,28 @@ public sealed class TradeConnectionService : ITradeConnectionService
             && _cardDataService.CardDataByName.TryGetValue(card.Name, out var byBinderName))
         {
             return byBinderName;
+        }
+
+        return null;
+    }
+
+    private string? ResolveOracleId(BinderCardDto binderCard)
+    {
+        if (!string.IsNullOrWhiteSpace(binderCard.Card?.OracleId))
+        {
+            return binderCard.Card.OracleId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(binderCard.Card?.ScryfallId)
+            && _cardDataService.CardDataById.TryGetValue(binderCard.Card.ScryfallId, out var byId))
+        {
+            return byId.OracleId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(binderCard.Name)
+            && _cardDataService.CardDataByName.TryGetValue(binderCard.Name, out var byName))
+        {
+            return byName.OracleId;
         }
 
         return null;
@@ -560,7 +589,7 @@ public sealed class TradeConnectionService : ITradeConnectionService
         }
     }
 
-    private static IReadOnlyList<TradeTransfer> BuildTransfers(IEnumerable<TradeMatchDto> matches, string fromUserId, string toUserId)
+    private IReadOnlyList<TradeTransfer> BuildTransfers(IEnumerable<TradeMatchDto> matches, string fromUserId, string toUserId)
     {
         return matches
             .Where(match => match.IsSelected && match.OfferingCard.QuantityToTrade > 0)
@@ -569,11 +598,13 @@ public sealed class TradeConnectionService : ITradeConnectionService
             {
                 var reference = group.First();
                 var quantity = Math.Max(0, Math.Min(reference.OfferingCard.QuantityToTrade, reference.OfferingCard.MaxQuantityToTrade));
+                var oracleId = ResolveOracleId(reference.OfferingCard) ?? string.Empty;
                 return new TradeTransfer(
                     reference.OfferingCard.Id,
                     reference.OfferingCard.CardId,
                     reference.OfferingCard.TradeBinderId,
                     reference.CardName,
+                    oracleId,
                     quantity,
                     fromUserId,
                     toUserId,
@@ -678,7 +709,7 @@ public sealed class TradeConnectionService : ITradeConnectionService
 
         await RemoveWishlistEntriesAsync(
             transfer.ToUserId,
-            transfer.CardName,
+            transfer.OracleId,
             transfer.Quantity,
             wishlistCache,
             wishlistsToRecalculate,
@@ -788,13 +819,13 @@ public sealed class TradeConnectionService : ITradeConnectionService
 
     private async Task RemoveWishlistEntriesAsync(
         string ownerId,
-        string cardName,
+        string oracleId,
         int quantity,
         IDictionary<string, IReadOnlyList<Wishlist>> wishlistCache,
         ISet<int> wishlistsToRecalculate,
         CancellationToken cancellationToken)
     {
-        if (quantity <= 0)
+        if (quantity <= 0 || string.IsNullOrWhiteSpace(oracleId))
         {
             return;
         }
@@ -811,7 +842,7 @@ public sealed class TradeConnectionService : ITradeConnectionService
             }
 
             var matchingCards = wishlist.WishlistCards
-                .Where(card => string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase))
+                .Where(card => string.Equals(card.OracleId, oracleId, StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
             if (matchingCards.Count == 0)
@@ -936,7 +967,9 @@ public sealed class TradeConnectionService : ITradeConnectionService
         int CardId,
         // ReSharper disable once NotAccessedPositionalProperty.Local
         int TradeBinderId,
+        // ReSharper disable once NotAccessedPositionalProperty.Local
         string CardName,
+        string OracleId,
         int Quantity,
         string FromUserId,
         string ToUserId,

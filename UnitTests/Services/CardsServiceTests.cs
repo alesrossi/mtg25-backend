@@ -67,7 +67,7 @@ public class CardsServiceTests
         await context.SaveChangesAsync();
 
         var builder = new TestDataBuilder();
-        var scryfallCard = builder.CreateOracleCard(id: "new-id", name: "Card A")
+        var scryfallCard = builder.CreateOracleCard(id: "new-id", oracleId: "oi-1", name: "Card A")
             with
             {
                 SetId = "set-id-123",
