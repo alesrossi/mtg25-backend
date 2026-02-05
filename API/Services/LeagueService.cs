@@ -92,6 +92,10 @@ public sealed class LeagueService : ILeagueService
                 IsActive = x.League.IsActive,
                 IsPlaying = x.IsPlaying,
                 ScoringSystem = x.League.ScoringSystem,
+                PointsToGive = x.League.PointsToGive,
+                PointsPerWin = x.League.PointsPerWin,
+                PointsPerDraw = x.League.PointsPerDraw,
+                PointsPerLoss = x.League.PointsPerLoss,
                 OwnerId = x.League.OwnerId,
                 IsPublic = x.League.IsPublic
             })
@@ -116,6 +120,10 @@ public sealed class LeagueService : ILeagueService
                 IsActive = league.IsActive,
                 IsPlaying = false,
                 ScoringSystem = league.ScoringSystem,
+                PointsToGive = league.PointsToGive,
+                PointsPerWin = league.PointsPerWin,
+                PointsPerDraw = league.PointsPerDraw,
+                PointsPerLoss = league.PointsPerLoss,
                 OwnerId = league.OwnerId,
                 IsPublic = league.IsPublic
             })
@@ -251,6 +259,10 @@ public sealed class LeagueService : ILeagueService
             TotalPlayers = league.TotalPlayers,
             Score = res!.Score,
             ScoringSystem = league.ScoringSystem,
+            PointsToGive = league.PointsToGive,
+            PointsPerWin = league.PointsPerWin,
+            PointsPerDraw = league.PointsPerDraw,
+            PointsPerLoss = league.PointsPerLoss,
             OwnerId = league.OwnerId,
             IsActive = league.IsActive,
             IsPlaying = res.IsPlaying,
