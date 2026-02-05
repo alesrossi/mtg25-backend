@@ -503,6 +503,253 @@ public class LeagueServiceTests
         notifications.Should().OnlyContain(n => n.Origin == $"{league.Id}.{requester.Id}");
     }
 
+    [Fact]
+    public async Task GetLeaguesForUserAsync_WithValidCurrentRound_PopulatesCurrentRoundOrder()
+    {
+        // Arrange
+        await using var context = CreateContext();
+        var user = CreateUser("user");
+        var owner = CreateUser("owner");
+        context.Users.AddRange(user, owner);
+
+        var league = new League
+        {
+            Name = "Test League",
+            OwnerId = owner.Id,
+            Code = "TEST01",
+            Format = DeckFormat.Standard,
+            TotalRounds = 3,
+            CurrentRound = 0,
+            RoundsToConsider = 3,
+            MinimumRounds = 1,
+            TotalPrize = 0,
+            PrizePerPerson = 5,
+            TotalPlayers = 1,
+            ScoringSystem = ScoringSystem.Positional,
+            IsActive = true,
+            IsPublic = true
+        };
+
+        context.Leagues.Add(league);
+        await context.SaveChangesAsync();
+
+        var rounds = new List<Round>
+        {
+            new() { League = league, LeagueId = league.Id, Order = 1 },
+            new() { League = league, LeagueId = league.Id, Order = 2 },
+            new() { League = league, LeagueId = league.Id, Order = 3 }
+        };
+        context.Rounds.AddRange(rounds);
+        await context.SaveChangesAsync();
+
+        league.CurrentRound = rounds[1].Id; // Set to second round (Order = 2)
+        context.Leagues.Update(league);
+        await context.SaveChangesAsync();
+
+        context.UserLeagues.Add(new AppUserLeague
+        {
+            UserId = user.Id,
+            User = user,
+            League = league,
+            LeagueId = league.Id,
+            Score = 10,
+            RoundsPlayed = 1,
+            BestRound = 1,
+            AvgPosition = 1,
+            IsPlaying = true
+        });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var service = CreateService(context, user, owner);
+
+        // Act
+        var result = await service.GetLeaguesForUserAsync(user.Id);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Leagues.Should().HaveCount(1);
+        
+        var returnedLeague = result.Leagues[0];
+        returnedLeague.Id.Should().Be(league.Id);
+        returnedLeague.CurrentRound.Should().Be(rounds[1].Id);
+        returnedLeague.CurrentRoundOrder.Should().Be(2, "because the current round has Order = 2");
+    }
+
+    [Fact]
+    public async Task GetLeaguesForUserAsync_WithCurrentRoundZero_SetsCurrentRoundOrderToZero()
+    {
+        // Arrange
+        await using var context = CreateContext();
+        var user = CreateUser("user");
+        var owner = CreateUser("owner");
+        context.Users.AddRange(user, owner);
+
+        var league = new League
+        {
+            Name = "Zero Round League",
+            OwnerId = owner.Id,
+            Code = "ZERO01",
+            Format = DeckFormat.Standard,
+            TotalRounds = 3,
+            CurrentRound = 0,
+            RoundsToConsider = 3,
+            MinimumRounds = 1,
+            TotalPrize = 0,
+            PrizePerPerson = 5,
+            TotalPlayers = 1,
+            ScoringSystem = ScoringSystem.Positional,
+            IsActive = true,
+            IsPublic = true
+        };
+
+        context.Leagues.Add(league);
+        await context.SaveChangesAsync();
+
+        context.UserLeagues.Add(new AppUserLeague
+        {
+            UserId = user.Id,
+            User = user,
+            League = league,
+            LeagueId = league.Id,
+            Score = 0,
+            RoundsPlayed = 0,
+            BestRound = 0,
+            AvgPosition = 0,
+            IsPlaying = true
+        });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var service = CreateService(context, user, owner);
+
+        // Act
+        var result = await service.GetLeaguesForUserAsync(user.Id);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Leagues.Should().HaveCount(1);
+        
+        var returnedLeague = result.Leagues[0];
+        returnedLeague.CurrentRound.Should().Be(0);
+        returnedLeague.CurrentRoundOrder.Should().Be(0, "because CurrentRoundOrder should be 0 when CurrentRound is 0");
+    }
+
+    [Fact]
+    public async Task GetLeaguesForUserAsync_WithInvalidCurrentRound_ThrowsBadRequest()
+    {
+        // Arrange
+        await using var context = CreateContext();
+        var user = CreateUser("user");
+        var owner = CreateUser("owner");
+        context.Users.AddRange(user, owner);
+
+        var league = new League
+        {
+            Name = "Invalid Round League",
+            OwnerId = owner.Id,
+            Code = "INV01",
+            Format = DeckFormat.Standard,
+            TotalRounds = 3,
+            CurrentRound = int.MaxValue, // Non-existent round ID
+            RoundsToConsider = 3,
+            MinimumRounds = 1,
+            TotalPrize = 0,
+            PrizePerPerson = 5,
+            TotalPlayers = 1,
+            ScoringSystem = ScoringSystem.Positional,
+            IsActive = true,
+            IsPublic = true
+        };
+
+        context.Leagues.Add(league);
+        await context.SaveChangesAsync();
+
+        context.UserLeagues.Add(new AppUserLeague
+        {
+            UserId = user.Id,
+            User = user,
+            League = league,
+            LeagueId = league.Id,
+            Score = 0,
+            RoundsPlayed = 0,
+            BestRound = 0,
+            AvgPosition = 0,
+            IsPlaying = true
+        });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var service = CreateService(context, user, owner);
+
+        // Act
+        var act = () => service.GetLeaguesForUserAsync(user.Id);
+
+        // Assert
+        var exception = await act.Should().ThrowAsync<LeagueServiceException>();
+        exception.Which.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
+        exception.Which.Message.Should().Contain("Errors.Leagues.InvalidCurrentRound");
+    }
+
+    [Fact]
+    public async Task GetLeaguesForUserAsync_WithOwnedLeague_PopulatesCurrentRoundOrder()
+    {
+        // Arrange
+        await using var context = CreateContext();
+        var owner = CreateUser("owner");
+        context.Users.Add(owner);
+
+        var league = new League
+        {
+            Name = "Owned League",
+            OwnerId = owner.Id,
+            Code = "OWN01",
+            Format = DeckFormat.Standard,
+            TotalRounds = 2,
+            CurrentRound = 0,
+            RoundsToConsider = 2,
+            MinimumRounds = 1,
+            TotalPrize = 0,
+            PrizePerPerson = 5,
+            TotalPlayers = 0,
+            ScoringSystem = ScoringSystem.Positional,
+            IsActive = true,
+            IsPublic = true
+        };
+
+        context.Leagues.Add(league);
+        await context.SaveChangesAsync();
+
+        var rounds = new List<Round>
+        {
+            new() { League = league, LeagueId = league.Id, Order = 1 },
+            new() { League = league, LeagueId = league.Id, Order = 2 }
+        };
+        context.Rounds.AddRange(rounds);
+        await context.SaveChangesAsync();
+
+        league.CurrentRound = rounds[0].Id; // Set to first round (Order = 1)
+        context.Leagues.Update(league);
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var service = CreateService(context, owner);
+
+        // Act
+        var result = await service.GetLeaguesForUserAsync(owner.Id);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Leagues.Should().HaveCount(1);
+        
+        var returnedLeague = result.Leagues[0];
+        returnedLeague.Id.Should().Be(league.Id);
+        returnedLeague.CurrentRound.Should().Be(rounds[0].Id);
+        returnedLeague.CurrentRoundOrder.Should().Be(1, "because the current round has Order = 1");
+        returnedLeague.Score.Should().Be(0, "because owned leagues have Score = 0");
+        returnedLeague.IsPlaying.Should().BeFalse("because owned leagues have IsPlaying = false");
+    }
+
     private static AppIdentityDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<AppIdentityDbContext>()

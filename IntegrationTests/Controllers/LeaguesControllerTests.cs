@@ -46,9 +46,16 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.OK,
             "because authenticated users should be able to access their leagues");
 
-        // Note: The endpoint might return a different type than expected based on the implementation
         var responseContent = await response.Content.ReadAsStringAsync();
-        responseContent.Should().NotBeNullOrEmpty("because the user has associated leagues");
+        var userWithLeagues = JsonSerializer.Deserialize<UserWithLeaguesDto>(responseContent, JsonContentHelper.DefaultOptions);
+        
+        userWithLeagues.Should().NotBeNull("because the user has associated leagues");
+        userWithLeagues!.Leagues.Should().HaveCount(1);
+        
+        var returnedLeague = userWithLeagues.Leagues[0];
+        returnedLeague.Id.Should().Be(league.Id);
+        returnedLeague.CurrentRound.Should().BeGreaterThan(0, "because the league should have a current round");
+        returnedLeague.CurrentRoundOrder.Should().Be(1, "because the first round should have order 1");
     }
 
     [Fact]
@@ -77,6 +84,71 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         // Assert
         response.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetLeaguesFromUser_WithInvalidCurrentRound_ReturnsBadRequest()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync("invalidround@example.com", "invalidround");
+        var league = await CreateTestLeagueAsync("Invalid Round League", user.Id);
+        await AssociateUserWithLeagueAsync(user.Id, league.Id);
+        
+        // Set CurrentRound to a non-existent round ID
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var trackedLeague = await dbContext.Leagues.FirstAsync(l => l.Id == league.Id);
+            trackedLeague.CurrentRound = int.MaxValue; // Non-existent round ID
+            dbContext.Leagues.Update(trackedLeague);
+            await dbContext.SaveChangesAsync();
+        }
+        
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        // Act
+        var response = await client.GetAsync("/api/leagues/user");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest,
+            "because a league with a non-existent current round should return bad request");
+    }
+
+    [Fact]
+    public async Task GetLeaguesFromUser_WithCurrentRoundZero_SetsCurrentRoundOrderToZero()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync("zeroround@example.com", "zeroround");
+        var league = await CreateTestLeagueAsync("Zero Round League", user.Id);
+        await AssociateUserWithLeagueAsync(user.Id, league.Id);
+        
+        // Set CurrentRound to 0
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var trackedLeague = await dbContext.Leagues.FirstAsync(l => l.Id == league.Id);
+            trackedLeague.CurrentRound = 0;
+            dbContext.Leagues.Update(trackedLeague);
+            await dbContext.SaveChangesAsync();
+        }
+        
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        // Act
+        var response = await client.GetAsync("/api/leagues/user");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        
+        var responseContent = await response.Content.ReadAsStringAsync();
+        var userWithLeagues = JsonSerializer.Deserialize<UserWithLeaguesDto>(responseContent, JsonContentHelper.DefaultOptions);
+        
+        userWithLeagues.Should().NotBeNull();
+        userWithLeagues!.Leagues.Should().HaveCount(1);
+        
+        var returnedLeague = userWithLeagues.Leagues[0];
+        returnedLeague.CurrentRound.Should().Be(0);
+        returnedLeague.CurrentRoundOrder.Should().Be(0, "because CurrentRoundOrder should be 0 when CurrentRound is 0");
     }
 
     [Fact]

@@ -11,6 +11,7 @@ public class LeagueDto
     public required DeckFormat Format { get; set; }
     public int TotalRounds { get; set; }
     public int CurrentRound { get; set; }
+    public int CurrentRoundOrder { get; set; }
     public int RoundsToConsider { get; set; }
     public int MinimumRounds { get; set; }
     public double TotalPrize { get; set; }
