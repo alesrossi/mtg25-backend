@@ -97,8 +97,14 @@ public static partial class NotificationsEndpoints
             return Results.Unauthorized();
         }
 
-        await notificationService.UpdateNotificationAsync(notificationIds, null, true, userId);
-        
-        return Results.Ok();
+        try
+        {
+            await notificationService.UpdateNotificationAsync(notificationIds, null, true, userId);
+            return Results.Ok();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Results.Forbid();
+        }
     }
 }

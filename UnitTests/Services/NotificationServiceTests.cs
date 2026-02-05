@@ -6,6 +6,7 @@ using FluentAssertions;
 using Core.Enums;
 using Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -307,7 +308,7 @@ public class NotificationServiceTests
     }
 
     [Fact]
-    public async Task UpdateNotificationAsync_WhenApprovingRequestJoinLeague_CreatesAdditionalNotification()
+    public async Task UpdateNotificationAsync_WhenApprovingRequestJoinLeague_CallsLeagueService()
     {
         await using var context = CreateContext();
         const string leagueId = "123";
@@ -327,24 +328,45 @@ public class NotificationServiceTests
         context.Notifications.Add(notification);
         await context.SaveChangesAsync();
         context.ChangeTracker.Clear();
-        var service = CreateService(context);
+        
+        // Mock ILeagueService to verify it's called
+        var leagueServiceMock = new Mock<ILeagueService>();
+        leagueServiceMock
+            .Setup(s => s.JoinLeagueAsync(123, userId, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        
+        // Mock IServiceScopeFactory to provide the mocked league service
+        var serviceScopeMock = new Mock<IServiceScope>();
+        var serviceProviderMock = new Mock<IServiceProvider>();
+        serviceProviderMock
+            .Setup(sp => sp.GetRequiredService<ILeagueService>())
+            .Returns(leagueServiceMock.Object);
+        serviceScopeMock.Setup(s => s.ServiceProvider).Returns(serviceProviderMock.Object);
+        serviceScopeMock.Setup(s => s.DisposeAsync()).Returns(ValueTask.CompletedTask);
+        
+        var serviceScopeFactoryMock = new Mock<IServiceScopeFactory>();
+        serviceScopeFactoryMock
+            .Setup(f => f.CreateAsyncScope())
+            .Returns(serviceScopeMock.Object);
+        
+        var service = CreateService(context, serviceScopeFactoryMock.Object);
         var initialCount = await context.Notifications.CountAsync();
 
         var result = await service.UpdateNotificationAsync([notification.Id], isRead: null, approval: true, userToUpdate: "user-admin");
 
         result.Should().BeTrue();
         var finalCount = await context.Notifications.CountAsync();
-        finalCount.Should().Be(initialCount + 1, "because approving request_join_league should create one additional notification");
+        // No additional notification should be created - user is added directly to league
+        finalCount.Should().Be(initialCount, "because approving request_join_league should not create additional notification, user is added directly to league");
         
         var updated = await context.Notifications.SingleAsync(n => n.Id == notification.Id);
         updated.Approval.Should().BeTrue();
         
-        var additionalNotification = await context.Notifications
-            .SingleAsync(n => n.Name == NotificationConstants.JoinedLeague);
-        additionalNotification.Name.Should().Be(NotificationConstants.JoinedLeague);
-        additionalNotification.AppUserId.Should().Be(userId);
-        additionalNotification.Origin.Should().Be($"{leagueId}.{userId}");
-        additionalNotification.ObjectId.Should().Be(leagueId);
+        // Verify that JoinLeagueAsync was called with correct parameters
+        leagueServiceMock.Verify(
+            s => s.JoinLeagueAsync(123, userId, It.IsAny<CancellationToken>()),
+            Times.Once,
+            "JoinLeagueAsync should be called once when approving a league join request");
     }
 
     private static AppIdentityDbContext CreateContext()
@@ -357,7 +379,7 @@ public class NotificationServiceTests
         return context;
     }
 
-    private static NotificationService CreateService(AppIdentityDbContext context)
+    private static NotificationService CreateService(AppIdentityDbContext context, IServiceScopeFactory? serviceScopeFactory = null)
     {
         var settingsService = new Mock<IUserSettingsService>();
         settingsService.Setup(s => s.GetSettingsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -372,6 +394,6 @@ public class NotificationServiceTests
         localizer.Setup(l => l.GetMessageForLanguage(It.IsAny<Language?>(), It.IsAny<string>(), It.IsAny<object[]>()))
             .Returns("localized");
 
-        return new NotificationService(context, NullLogger<NotificationService>.Instance, settingsService.Object, localizer.Object);
+        return new NotificationService(context, NullLogger<NotificationService>.Instance, settingsService.Object, localizer.Object, serviceScopeFactory);
     }
 }

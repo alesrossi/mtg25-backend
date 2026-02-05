@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using API.Constants;
 using API.Dtos.Notifications;
+using Core.Enums;
 using Core.Models.Identity;
 using FluentAssertions;
 using Infrastructure.Identity;
@@ -149,6 +150,9 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
         var approver = await CreateTestUserAsync("approver@test.com", "approver");
         var requester = await CreateTestUserAsync("requester@test.com", "requester");
         
+        // Create a real league for the join request
+        var league = await CreateTestLeagueAsync("Test League", approver.Id);
+        
         var friendRequestNotification = await CreateNotificationAsync(
             approver.Id,
             name: NotificationConstants.FriendRequest,
@@ -167,8 +171,8 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
         var leagueNotification = await CreateNotificationAsync(
             approver.Id,
             name: NotificationConstants.RequestJoinLeague,
-            origin: $"123.{requester.Id}",
-            objectId: "123");
+            origin: $"{league.Id}.{requester.Id}",
+            objectId: league.Id.ToString());
         
         using var client = _factory.CreateClientWithUser(approver.Id, approver.UserName!, approver.Email!);
         
@@ -186,17 +190,28 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         
-        var finalCount = await GetNotificationCountAsync();
-        finalCount.Should().Be(initialCount + 1, "because only request_join_league should create an additional notification");
-        
+        // Verify all notifications are approved
         await VerifyNotificationApproved(friendRequestNotification.Id);
         await VerifyNotificationApproved(tradeNotification.Id);
         await VerifyNotificationApproved(genericNotification.Id);
         await VerifyNotificationApproved(leagueNotification.Id);
         
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var dbContext = verificationScope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var membership = await dbContext.UserLeagues
+            .FirstOrDefaultAsync(ul => ul.LeagueId == league.Id && ul.UserId == requester.Id);
+        membership.Should().NotBeNull("because the requester should be added to the league after approval");
+
+        var finalCount = await GetNotificationCountAsync();
+        finalCount.Should().Be(initialCount + 2, "because JoinLeagueAsync creates player_joined_league for owner and joined_league for requester");
+
+        var playerJoinedNotifications = await GetNotificationsByNameAsync("player_joined_league");
+        playerJoinedNotifications.Should().HaveCount(1, "because JoinLeagueAsync should create a notification for the league owner");
+        playerJoinedNotifications[0].AppUserId.Should().Be(approver.Id, "because the notification should be sent to the league owner");
+
         var joinedLeagueNotifications = await GetNotificationsByNameAsync(NotificationConstants.JoinedLeague);
-        joinedLeagueNotifications.Should().HaveCount(1, "because only one request_join_league was approved");
-        joinedLeagueNotifications[0].AppUserId.Should().Be(requester.Id);
+        joinedLeagueNotifications.Should().HaveCount(1, "because JoinLeagueAsync should notify the requester that they were added to the league");
+        joinedLeagueNotifications[0].AppUserId.Should().Be(requester.Id, "because the notification should be sent to the requester");
     }
 
     private Task<AppUser> CreateTestUserAsync(string email, string userName) =>
@@ -267,5 +282,73 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
         return await dbContext.Notifications
             .Where(n => n.Name == name)
             .ToListAsync();
+    }
+    
+    private async Task<League> CreateTestLeagueAsync(string name, string ownerId, bool isActive = true, bool isPublic = true)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        
+        var uniqueId = Guid.NewGuid().ToString("N")[..8];
+        var league = new League
+        {
+            Name = name,
+            OwnerId = ownerId,
+            Code = $"TL{uniqueId}"[..8],
+            Format = DeckFormat.Standard,
+            TotalRounds = 5,
+            RoundsToConsider = 4,
+            MinimumRounds = 2,
+            TotalPlayers = 0,
+            PointsToGive = [3, 1, 0],
+            PointsPerWin = 3,
+            PointsPerDraw = 1,
+            PointsPerLoss = 0,
+            ScoringSystem = ScoringSystem.Positional,
+            IsActive = isActive,
+            IsPublic = isPublic
+        };
+        
+        dbContext.Leagues.Add(league);
+        await dbContext.SaveChangesAsync();
+
+        var rounds = Enumerable.Range(1, league.TotalRounds)
+            .Select(order => new Round
+            {
+                LeagueId = league.Id,
+                League = league,
+                Order = order
+            })
+            .ToList();
+
+        dbContext.Rounds.AddRange(rounds);
+        await dbContext.SaveChangesAsync();
+
+        league.CurrentRound = rounds[0].Id;
+        dbContext.Leagues.Update(league);
+        await dbContext.SaveChangesAsync();
+
+        dbContext.LeagueRoleAssignments.Add(new LeagueRoleAssignment
+        {
+            LeagueId = league.Id,
+            UserId = ownerId,
+            Roles = LeagueRole.Admin
+        });
+
+        dbContext.UserLeagues.Add(new AppUserLeague
+        {
+            UserId = ownerId,
+            LeagueId = league.Id,
+            Score = 0,
+            RoundsPlayed = 0,
+            Rounds = [],
+            BestRound = 0,
+            AvgPosition = 0,
+            IsPlaying = false
+        });
+
+        await dbContext.SaveChangesAsync();
+        
+        return league;
     }
 }
