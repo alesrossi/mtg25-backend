@@ -24,6 +24,7 @@ public class DeckCardsWithScryfallIdSpecificationTests
         {
             DeckId = 1,
             ScryfallId = oracleId,
+            OracleId = oracleId,
             Name = "Lightning Bolt",
             SetCode = "LEA",
             TypeLine = "Instant",
@@ -35,6 +36,7 @@ public class DeckCardsWithScryfallIdSpecificationTests
         {
             DeckId = 2,
             ScryfallId = "oracle-456",
+            OracleId = "oracle-456",
             Name = "Counterspell",
             SetCode = "ICE",
             TypeLine = "Instant",
@@ -65,6 +67,7 @@ public class DeckCardsWithScryfallIdSpecificationTests
         {
             DeckId = deckId,
             ScryfallId = oracleId,
+            OracleId = oracleId,
             Name = "Lightning Bolt",
             SetCode = "LEA",
             TypeLine = "Instant",
@@ -76,6 +79,7 @@ public class DeckCardsWithScryfallIdSpecificationTests
         {
             DeckId = 2,
             ScryfallId = oracleId,
+            OracleId = oracleId,
             Name = "Lightning Bolt",
             SetCode = "LEA",
             TypeLine = "Instant",
@@ -87,6 +91,7 @@ public class DeckCardsWithScryfallIdSpecificationTests
         {
             DeckId = deckId,
             ScryfallId = "oracle-456",
+            OracleId = "oracle-456",
             Name = "Counterspell",
             SetCode = "ICE",
             TypeLine = "Instant",
@@ -118,6 +123,7 @@ public class DeckCardsWithScryfallIdSpecificationTests
         {
             DeckId = 1,
             ScryfallId = oracleId,
+            OracleId = oracleId,
             Name = "Lightning Bolt",
             SetCode = "LEA",
             TypeLine = "Instant",
@@ -130,6 +136,7 @@ public class DeckCardsWithScryfallIdSpecificationTests
         {
             DeckId = 2,
             ScryfallId = oracleId,
+            OracleId = oracleId,
             Name = "Lightning Bolt",
             SetCode = "LEA",
             TypeLine = "Instant",

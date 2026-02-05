@@ -107,6 +107,7 @@ public class WishlistServiceTests
             WishlistId = wishlist.Id,
             Name = "Card A",
             ScryfallId = "original",
+            OracleId = "oracle-original",
             DesiredQuantity = 1,
             ExactVersion = false
         };

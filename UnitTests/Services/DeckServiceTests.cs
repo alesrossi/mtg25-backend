@@ -81,6 +81,7 @@ public class DeckServiceTests
             DeckId = deck.Id,
             Deck = deck,
             ScryfallId = "existing",
+            OracleId = "existing",
             Name = "Lightning Bolt",
             SetCode = "lea",
             TypeLine = "Instant",

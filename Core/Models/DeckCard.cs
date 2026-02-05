@@ -10,6 +10,8 @@ public class DeckCard : BaseModel
     // Card reference (Scryfall data)
     [MaxLength(100)]
     public required string ScryfallId { get; set; }
+    [MaxLength(100)]
+    public required string OracleId { get; set; }
     [MaxLength(200)]
     public required string Name { get; set; }
     [MaxLength(100)]

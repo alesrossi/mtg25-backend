@@ -59,6 +59,7 @@ public class CardsWithParamsSpecificationTests
             CollectionId = collectionId,
             Name = "Test Card",
             ScryfallId = Guid.NewGuid().ToString(),
+            OracleId = Guid.NewGuid().ToString(),
             Quantity = 1,
             Language = Language.En,
             Condition = Condition.NearMint,

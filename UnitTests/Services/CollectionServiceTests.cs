@@ -281,6 +281,7 @@ public class CollectionServiceTests
         string name,
         string setCode,
         string? scryfallId = null,
+        string? oracleId = null,
         double purchasePrice = 1.00,
         int quantity = 1)
     {
@@ -288,6 +289,7 @@ public class CollectionServiceTests
         {
             Name = name,
             ScryfallId = scryfallId ?? Guid.NewGuid().ToString(),
+            OracleId = oracleId ?? Guid.NewGuid().ToString(),
             CollectionId = collectionId,
             Quantity = quantity,
             Language = Language.En,

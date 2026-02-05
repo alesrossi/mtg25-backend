@@ -9,6 +9,8 @@ public class Card : BaseModel
     public required string Name { get; set; }
     [MaxLength(100)]
     public required string ScryfallId { get; set; }
+    [MaxLength(100)]
+    public required string OracleId { get; set; }
     public int CollectionId { get; set; }
     public Collection? Collection { get; set; }
     public required int Quantity { get; set; }

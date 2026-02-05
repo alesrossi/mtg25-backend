@@ -37,6 +37,7 @@ public class WishlistTests
         {
             WishlistId = wishlist.Id,
             ScryfallId = Guid.NewGuid().ToString(),
+            OracleId = Guid.NewGuid().ToString(),
             Name = "Lightning Bolt",
             DesiredQuantity = 2
         };
@@ -72,6 +73,7 @@ public class WishlistCardTests
         {
             WishlistId = 1,
             ScryfallId = Guid.NewGuid().ToString(),
+            OracleId = Guid.NewGuid().ToString(),
             Name = "Sol Ring",
             DesiredQuantity = 1,
             IsFoil = true,

@@ -9,6 +9,8 @@ public class WishlistCard : BaseModel
     public Wishlist Wishlist { get; set; } = null!;
     [MaxLength(100)]
     public required string ScryfallId { get; set; }
+    [MaxLength(100)]
+    public required string OracleId { get; set; }
     public bool ExactVersion { get; set; }
     [MaxLength(200)]
     public required string Name { get; set; }

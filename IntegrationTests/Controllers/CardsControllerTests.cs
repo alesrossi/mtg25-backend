@@ -897,6 +897,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
             Name = name,
             ScryfallId = Guid.NewGuid()
                 .ToString(),
+            OracleId = Guid.NewGuid().ToString(),
             Quantity = quantity,
             Language = Language.En,
             Condition = Condition.NearMint,

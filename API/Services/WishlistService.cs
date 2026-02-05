@@ -208,6 +208,7 @@ public sealed class WishlistService : IWishlistService
                     MinimumCondition = x.MinimumCondition,
                     Name = card.Name,
                     ScryfallId = x.ScryfallId,
+                    OracleId = card.OracleId,
                     ExactVersion = x.ExactVersion,
                     Notes = x.Notes,
                     OriginalDeckId = x.OriginalDeckId,

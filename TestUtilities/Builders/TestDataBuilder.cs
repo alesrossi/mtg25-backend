@@ -130,10 +130,12 @@ public class TestDataBuilder
         int maindeckQuantity = 0,
         int sideboardQuantity = 0)
     {
+        var resolvedId = oracleId ?? Guid.NewGuid().ToString();
         return new DeckCard
         {
             DeckId = deckId,
-            ScryfallId = oracleId ?? Guid.NewGuid().ToString(),
+            ScryfallId = resolvedId,
+            OracleId = resolvedId,
             Name = name ?? $"Card {_random.Next(1, 1_000)}",
             SetCode = setCode ?? GetRandomSetCode(),
             TypeLine = GetRandomTypeLine(),
@@ -157,9 +159,11 @@ public class TestDataBuilder
 
     public WishlistCard CreateWishlistCard(int wishlistId, string? oracleId = null, string? name = null)
     {
+        var resolvedId = oracleId ?? _fixture.Create<Guid>().ToString();
         return _fixture.Build<WishlistCard>()
             .With(c => c.WishlistId, wishlistId)
-            .With(c => c.ScryfallId, oracleId ?? _fixture.Create<Guid>().ToString())
+            .With(c => c.ScryfallId, resolvedId)
+            .With(c => c.OracleId, resolvedId)
             .With(c => c.Name, name ?? $"Card {_random.Next(1, 1000)}")
             .With(c => c.DesiredQuantity, _random.Next(1, 5))
             .With(c => c.IsFoil, _random.Next(10) == 0)
@@ -234,11 +238,13 @@ public class TestDataBuilder
             "Swords to Plowshares", "Path to Exile", "Force of Will"
         };
 
+        var oracleId = _fixture.Create<Guid>().ToString();
         return _fixture.Build<Card>()
             .With(c => c.CollectionId, collectionId)
             .With(c => c.Name, name ?? cardNames[_random.Next(cardNames.Length)])
             .With(c => c.PurchasePrice, price ?? _fixture.Create<double>() % 1000)
             .With(c => c.ScryfallId, _fixture.Create<Guid>().ToString())
+            .With(c => c.OracleId, oracleId)
             .With(c => c.Quantity, _random.Next(1, 10))
             .With(c => c.Language, Language.En)
             .With(c => c.Condition, Condition.NearMint)
@@ -265,6 +271,7 @@ public class TestDataBuilder
     {
         var card = CreateCard(collectionId, name);
         card.ScryfallId = oracleId;
+        card.OracleId = oracleId;
         card.Quantity = quantity;
         return card;
     }

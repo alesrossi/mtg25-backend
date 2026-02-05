@@ -99,6 +99,7 @@ public class DeckTests
         {
             DeckId = deck.Id,
             ScryfallId = "12345678-1234-1234-1234-123456789012",
+            OracleId = "oracle-12345678-1234-1234-1234-123456789012",
             Name = "Lightning Bolt",
             SetCode = "LEA",
             TypeLine = "Instant",

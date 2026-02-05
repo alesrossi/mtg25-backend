@@ -23,6 +23,7 @@ public class DeckCardsWithDeckIdSpecificationTests
         {
             DeckId = deckId,
             ScryfallId = "oracle-1",
+            OracleId = "oracle-1",
             Name = "Lightning Bolt",
             SetCode = "LEA",
             TypeLine = "Instant",
@@ -34,6 +35,7 @@ public class DeckCardsWithDeckIdSpecificationTests
         {
             DeckId = 2,
             ScryfallId = "oracle-2", 
+            OracleId = "oracle-2",
             Name = "Counterspell",
             SetCode = "ICE",
             TypeLine = "Instant",
@@ -63,6 +65,7 @@ public class DeckCardsWithDeckIdSpecificationTests
         {
             DeckId = deckId,
             ScryfallId = "oracle-1",
+            OracleId = "oracle-1",
             Name = "Lightning Bolt",
             SetCode = "LEA",
             TypeLine = "Instant",
@@ -74,6 +77,7 @@ public class DeckCardsWithDeckIdSpecificationTests
         {
             DeckId = deckId,
             ScryfallId = "oracle-2",
+            OracleId = "oracle-2",
             Name = "Counterspell",
             SetCode = "ICE", 
             TypeLine = "Instant",
@@ -103,6 +107,7 @@ public class DeckCardsWithDeckIdSpecificationTests
         {
             DeckId = deckId,
             ScryfallId = "oracle-1",
+            OracleId = "oracle-1",
             Name = "Lightning Bolt",
             SetCode = "LEA",
             TypeLine = "Instant",
@@ -114,6 +119,7 @@ public class DeckCardsWithDeckIdSpecificationTests
         {
             DeckId = deckId,
             ScryfallId = "oracle-2",
+            OracleId = "oracle-2",
             Name = "Counterspell",
             SetCode = "ICE",
             TypeLine = "Instant",
@@ -125,6 +131,7 @@ public class DeckCardsWithDeckIdSpecificationTests
         {
             DeckId = deckId,
             ScryfallId = "oracle-3",
+            OracleId = "oracle-3",
             Name = "Brainstorm",
             SetCode = "ICE",
             TypeLine = "Instant",
@@ -180,6 +187,7 @@ public class DeckCardsWithDeckIdSpecificationTests
         {
             DeckId = deckId,
             ScryfallId = "oracle-1",
+            OracleId = "oracle-1",
             Name = "Lightning Bolt",
             SetCode = "LEA",
             TypeLine = "Instant",
@@ -191,6 +199,7 @@ public class DeckCardsWithDeckIdSpecificationTests
         {
             DeckId = deckId,
             ScryfallId = "oracle-2",
+            OracleId = "oracle-2",
             Name = "Counterspell",
             SetCode = "ICE",
             TypeLine = "Instant",
@@ -202,6 +211,7 @@ public class DeckCardsWithDeckIdSpecificationTests
         {
             DeckId = deckId,
             ScryfallId = "oracle-3",
+            OracleId = "oracle-3",
             Name = "Brainstorm",
             SetCode = "ICE",
             TypeLine = "Instant",

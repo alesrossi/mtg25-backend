@@ -101,6 +101,7 @@ public static class CollectionHelpers
             {
                 Name = cardName,
                 ScryfallId = ocd.Id,
+                OracleId = ocd.OracleId,
                 Quantity = record.Quantity,
                 Language = LanguageExtensions.ParseOrDefault(record.Language),
                 IsFoil = record.IsFoil,
@@ -206,6 +207,7 @@ public static class CollectionHelpers
             {
                 Name = ocd.Name,
                 ScryfallId = ocd.Id,
+                OracleId = ocd.OracleId,
                 Quantity = record.Quantity,
                 Language = language,
                 Condition = defaultCondition,
@@ -326,6 +328,7 @@ public static class CollectionHelpers
             {
                 Name = ocd.Name,
                 ScryfallId = ocd.Id,
+                OracleId = ocd.OracleId,
                 Quantity = record.Quantity,
                 Language = language,
                 IsFoil = record.IsFoil,
@@ -450,6 +453,7 @@ public static class CollectionHelpers
             {
                 Name = ocd.Name,
                 ScryfallId = ocd.Id,
+                OracleId = ocd.OracleId,
                 Quantity = record.Quantity,
                 Language = language,
                 Condition = Condition.NearMint,
@@ -572,6 +576,7 @@ public static class CollectionHelpers
             {
                 Name = ocd.Name,
                 ScryfallId = ocd.Id,
+                OracleId = ocd.OracleId,
                 Quantity = record.Quantity,
                 Language = language,
                 Condition = Condition.NearMint,
@@ -668,6 +673,7 @@ public static class CollectionHelpers
             {
                 Name = ocd.Name,
                 ScryfallId = ocd.Id,
+                OracleId = ocd.OracleId,
                 Quantity = record.Quantity,
                 Language = language,
                 Condition = cardCondition,

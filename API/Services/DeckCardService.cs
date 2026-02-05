@@ -208,6 +208,7 @@ public class DeckCardService
         ScryfallCardDto? scryfallCard;
         string resolvedName;
         string resolvedScryfallId;
+        string oracleId;
         string setCode;
         string? setName;
         string typeLine;
@@ -222,6 +223,7 @@ public class DeckCardService
         {
             resolvedName = ownedCard.Name;
             resolvedScryfallId = ownedCard.ScryfallId;
+            oracleId = ownedCard.OracleId;
             setCode = ownedCard.SetCode;
             setName = ownedCard.SetName;
             typeLine = ownedCard.TypeLine;
@@ -255,6 +257,7 @@ public class DeckCardService
 
             resolvedName = scryfallCard.Name;
             resolvedScryfallId = scryfallCard.Id;
+            oracleId = scryfallCard.OracleId;
             setCode = scryfallCard.Set;
             setName = scryfallCard.SetName;
             typeLine = scryfallCard.TypeLine ?? string.Empty;
@@ -276,6 +279,7 @@ public class DeckCardService
         {
             DeckId = deckId,
             ScryfallId = resolvedScryfallId,
+            OracleId = oracleId,
             Name = resolvedName,
             SetCode = setCode,
             SetName = setName,
@@ -342,6 +346,7 @@ public class DeckCardService
             ScryfallCardDto? scryfallCard;
             string resolvedName;
             string resolvedScryfallId;
+            string oracleId;
             string setCode;
             string? setName;
             string typeLine;
@@ -356,6 +361,7 @@ public class DeckCardService
             {
                 resolvedName = ownedCard.Name;
                 resolvedScryfallId = ownedCard.ScryfallId;
+                oracleId = ownedCard.OracleId;
                 setCode = ownedCard.SetCode;
                 setName = ownedCard.SetName;
                 typeLine = ownedCard.TypeLine;
@@ -389,6 +395,7 @@ public class DeckCardService
 
                 resolvedName = scryfallCard.Name;
                 resolvedScryfallId = scryfallCard.Id;
+                oracleId = scryfallCard.OracleId;
                 setCode = scryfallCard.Set;
                 setName = scryfallCard.SetName;
                 typeLine = scryfallCard.TypeLine ?? string.Empty;
@@ -421,6 +428,7 @@ public class DeckCardService
             {
                 DeckId = deck.Id,
                 ScryfallId = resolvedScryfallId,
+                OracleId = oracleId,
                 Name = resolvedName,
                 SetCode = setCode,
                 SetName = setName,

@@ -26,7 +26,7 @@ public class CardsServiceTests
         context.Collections.Add(collection);
         await context.SaveChangesAsync();
 
-        var card = CreateCard(collection.Id, "Card A", "sf-1", quantity: 1, purchasePrice: 2.00);
+        var card = CreateCard(collection.Id, "Card A", "sf-1", "oi-1", quantity: 1, purchasePrice: 2.00);
         context.Cards.Add(card);
         await context.SaveChangesAsync();
 
@@ -62,7 +62,7 @@ public class CardsServiceTests
         context.Collections.Add(collection);
         await context.SaveChangesAsync();
 
-        var card = CreateCard(collection.Id, "Card A", "old-id", quantity: 1, purchasePrice: 2.00);
+        var card = CreateCard(collection.Id, "Card A", "old-id", "oi-1", quantity: 1, purchasePrice: 2.00);
         context.Cards.Add(card);
         await context.SaveChangesAsync();
 
@@ -163,7 +163,7 @@ public class CardsServiceTests
         context.Collections.Add(collection);
         await context.SaveChangesAsync();
 
-        var card = CreateCard(collection.Id, "Card A", "sf-1", quantity: 1, purchasePrice: 2.00, isFoil: true);
+        var card = CreateCard(collection.Id, "Card A", "sf-1", "oi-1", quantity: 1, purchasePrice: 2.00, isFoil: true);
         context.Cards.Add(card);
         await context.SaveChangesAsync();
 
@@ -230,6 +230,7 @@ public class CardsServiceTests
         int collectionId,
         string name,
         string scryfallId,
+        string oracleId,
         int quantity,
         double purchasePrice,
         bool isFoil = false)
@@ -238,6 +239,7 @@ public class CardsServiceTests
         {
             Name = name,
             ScryfallId = scryfallId,
+            OracleId = oracleId,
             CollectionId = collectionId,
             Quantity = quantity,
             Language = Language.En,

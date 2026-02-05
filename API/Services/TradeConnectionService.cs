@@ -727,6 +727,7 @@ public sealed class TradeConnectionService : ITradeConnectionService
         {
             Name = sourceCard.Name,
             ScryfallId = sourceCard.ScryfallId,
+            OracleId = sourceCard.OracleId,
             Collection = collection,
             CollectionId = collection.Id,
             Quantity = quantity,

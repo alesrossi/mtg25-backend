@@ -489,6 +489,7 @@ public sealed class CardsService : ICardsService
         var card = new Card
         {
             ScryfallId = scryfallCardDto.Id,
+            OracleId = scryfallCardDto.OracleId,
             Name = scryfallCardDto.Name,
             Collection = collection,
             Quantity = cardDto.Quantity,
