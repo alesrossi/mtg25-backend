@@ -1,4 +1,5 @@
 using System.Text.Json;
+using API.Constants;
 using API.Dtos.Notifications;
 using API.Logging;
 using Core.Enums;
@@ -213,20 +214,23 @@ public class NotificationService
                 notification.Approval = approval.Value;
                 _context.Notifications.Update(notification);
                 
-                var newNotification = new Notification
+                if (notification.Name == NotificationConstants.RequestJoinLeague)
                 {
-                    Name = "joined_league",
-                    Message = "Notifications.JoinedLeagueApproved",
-                    MessageKey = "Notifications.JoinedLeagueApproved",
-                    MessageArgsJson = SerializeArgs([]),
-                    ObjectId = notification.ObjectId,
-                    Origin = notification.Origin,
-                    CreationDateTime = DateTime.UtcNow,
-                    AppUserId = notification.Origin.Split('.')[1],
-                    AppUser = null!
-                };
-                
-                _context.Notifications.Add(newNotification);
+                    var newNotification = new Notification
+                    {
+                        Name = NotificationConstants.JoinedLeague,
+                        Message = "Notifications.JoinedLeagueApproved",
+                        MessageKey = "Notifications.JoinedLeagueApproved",
+                        MessageArgsJson = SerializeArgs([]),
+                        ObjectId = notification.ObjectId,
+                        Origin = notification.Origin,
+                        CreationDateTime = DateTime.UtcNow,
+                        AppUserId = notification.Origin.Split('.')[1],
+                        AppUser = null!
+                    };
+                    
+                    _context.Notifications.Add(newNotification);
+                }
             }
             
             _logger.LogOperationSuccess(UpdateNotificationOperation, new { notification.Id, notification.Name });

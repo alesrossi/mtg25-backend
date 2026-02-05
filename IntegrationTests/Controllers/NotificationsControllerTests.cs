@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using API.Constants;
 using API.Dtos.Notifications;
 using Core.Models.Identity;
 using FluentAssertions;
@@ -142,6 +143,62 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
+    [Fact]
+    public async Task ApproveNotification_RespectsContract()
+    {
+        var approver = await CreateTestUserAsync("approver@test.com", "approver");
+        var requester = await CreateTestUserAsync("requester@test.com", "requester");
+        
+        var friendRequestNotification = await CreateNotificationAsync(
+            approver.Id,
+            name: NotificationConstants.FriendRequest,
+            origin: $"{requester.Id}.{approver.Id}");
+        
+        var tradeNotification = await CreateNotificationAsync(
+            approver.Id,
+            name: NotificationConstants.TradeCommitRequest,
+            origin: $"trade.{requester.Id}");
+        
+        var genericNotification = await CreateNotificationAsync(
+            approver.Id,
+            name: "generic_notification",
+            origin: "generic.origin");
+        
+        var leagueNotification = await CreateNotificationAsync(
+            approver.Id,
+            name: NotificationConstants.RequestJoinLeague,
+            origin: $"123.{requester.Id}",
+            objectId: "123");
+        
+        using var client = _factory.CreateClientWithUser(approver.Id, approver.UserName!, approver.Email!);
+        
+        var initialCount = await GetNotificationCountAsync();
+        
+        var notificationsToApprove = new[] 
+        { 
+            friendRequestNotification.Id, 
+            tradeNotification.Id, 
+            genericNotification.Id,
+            leagueNotification.Id
+        };
+        
+        var response = await client.PutAsync("/api/notifications/approve", JsonContentHelper.CreateContent(notificationsToApprove));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        
+        var finalCount = await GetNotificationCountAsync();
+        finalCount.Should().Be(initialCount + 1, "because only request_join_league should create an additional notification");
+        
+        await VerifyNotificationApproved(friendRequestNotification.Id);
+        await VerifyNotificationApproved(tradeNotification.Id);
+        await VerifyNotificationApproved(genericNotification.Id);
+        await VerifyNotificationApproved(leagueNotification.Id);
+        
+        var joinedLeagueNotifications = await GetNotificationsByNameAsync(NotificationConstants.JoinedLeague);
+        joinedLeagueNotifications.Should().HaveCount(1, "because only one request_join_league was approved");
+        joinedLeagueNotifications[0].AppUserId.Should().Be(requester.Id);
+    }
+
     private Task<AppUser> CreateTestUserAsync(string email, string userName) =>
         TestUserFactory.CreateAsync(_factory.Services, _testDataBuilder, email, userName, requirePassword: true);
 
@@ -149,7 +206,9 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
         string userId,
         bool isRead = false,
         string? name = null,
-        string? message = null)
+        string? message = null,
+        string? origin = null,
+        string? objectId = null)
     {
         using var scope = _factory.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
@@ -160,7 +219,8 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
             Name = name ?? $"Notification {Guid.NewGuid():N}"[..16],
             Message = message ?? "Test notification body for integration tests",
             IsRead = isRead,
-            Origin = "IntegrationTests",
+            Origin = origin ?? "IntegrationTests",
+            ObjectId = objectId,
             CreationDateTime = DateTime.UtcNow,
             AppUserId = userId,
             AppUser = user
@@ -181,5 +241,31 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
         notification.Should().NotBeNull($"because notification {id} should be updated");
         notification.IsRead.Should().Be(true, $"because notification {id} should be set to read");
         return Task.CompletedTask;
+    }
+    
+    private async Task VerifyNotificationApproved(int id)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        
+        var notification = await dbContext.Notifications.FirstOrDefaultAsync(n => n.Id == id);
+        notification.Should().NotBeNull($"because notification {id} should exist");
+        notification.Approval.Should().BeTrue($"because notification {id} should be approved");
+    }
+    
+    private async Task<int> GetNotificationCountAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        return await dbContext.Notifications.CountAsync();
+    }
+    
+    private async Task<List<Notification>> GetNotificationsByNameAsync(string name)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        return await dbContext.Notifications
+            .Where(n => n.Name == name)
+            .ToListAsync();
     }
 }
