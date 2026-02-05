@@ -12,12 +12,15 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using TestUtilities.Builders;
 using TestUtilities.Scryfall;
 
 namespace UnitTests.Services;
 
 public class DeckServiceTests
 {
+    private readonly TestDataBuilder _builder = new();
+
     [Fact]
     public async Task GetDecksForUserAsync_WhenNoDecks_ReturnsNotFound()
     {
@@ -132,6 +135,132 @@ public class DeckServiceTests
         exception.Which.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
         exception.Which.IncludeBody.Should().BeTrue();
         (await context.Decks.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task GetMissingDeckCardsAsync_ExcludesBasicLands()
+    {
+        // Arrange
+        await using var context = CreateContext();
+        var unitOfWork = CreateUnitOfWork(context);
+        var user = CreateUser("user-1");
+        var deck = new Deck
+        {
+            Name = "Test Deck",
+            Format = DeckFormat.Modern,
+            OwnerId = user.Id,
+            NumberOfCards = 0,
+            TotalPrice = 0
+        };
+        context.Decks.Add(deck);
+        await context.SaveChangesAsync();
+
+        // Create card data for basic lands and regular cards
+        var islandCard = _builder.CreateOracleCard("island-1", "oracle-island", "Island", "MIR", "Mirage") with
+        {
+            TypeLine = "Basic Land — Island"
+        };
+        var forestCard = _builder.CreateOracleCard("forest-1", "oracle-forest", "Forest", "MIR", "Mirage") with
+        {
+            TypeLine = "Basic Land — Forest"
+        };
+        var boltCard = _builder.CreateOracleCard("bolt-1", "oracle-bolt", "Lightning Bolt", "LEA", "Limited Edition Alpha") with
+        {
+            TypeLine = "Instant"
+        };
+        var counterCard = _builder.CreateOracleCard("counter-1", "oracle-counter", "Counterspell", "LEA", "Limited Edition Alpha") with
+        {
+            TypeLine = "Instant"
+        };
+
+        var cardDataService = CardDataServiceTestHelper.CreateWithCards([islandCard, forestCard, boltCard, counterCard]);
+        var settingsServiceMock = new Mock<IUserSettingsService>();
+        settingsServiceMock.Setup(s => s.GetMarketProviderAsync(It.IsAny<string>()))
+            .ReturnsAsync(MarketProvider.Mkm);
+        settingsServiceMock.Setup(s => s.ResolveCurrency(It.IsAny<MarketProvider>()))
+            .Returns((MarketProvider provider) => provider == MarketProvider.Mkm ? Currency.Eur : Currency.Usd);
+
+        var deckCardService = new DeckCardService(
+            unitOfWork,
+            NullLogger<DeckCardService>.Instance,
+            cardDataService,
+            settingsServiceMock.Object);
+
+        // Create deck cards: 2 basic lands and 2 regular cards (none owned)
+        var islandDeckCard = new DeckCard
+        {
+            DeckId = deck.Id,
+            Deck = deck,
+            ScryfallId = islandCard.Id,
+            OracleId = islandCard.OracleId,
+            Name = islandCard.Name,
+            SetCode = islandCard.Set,
+            SetName = islandCard.SetName,
+            TypeLine = islandCard.TypeLine,
+            MaindeckQuantity = 4,
+            SideboardQuantity = 0
+        };
+        var forestDeckCard = new DeckCard
+        {
+            DeckId = deck.Id,
+            Deck = deck,
+            ScryfallId = forestCard.Id,
+            OracleId = forestCard.OracleId,
+            Name = forestCard.Name,
+            SetCode = forestCard.Set,
+            SetName = forestCard.SetName,
+            TypeLine = forestCard.TypeLine,
+            MaindeckQuantity = 3,
+            SideboardQuantity = 0
+        };
+        var boltDeckCard = new DeckCard
+        {
+            DeckId = deck.Id,
+            Deck = deck,
+            ScryfallId = boltCard.Id,
+            OracleId = boltCard.OracleId,
+            Name = boltCard.Name,
+            SetCode = boltCard.Set,
+            SetName = boltCard.SetName,
+            TypeLine = boltCard.TypeLine,
+            MaindeckQuantity = 4,
+            SideboardQuantity = 0
+        };
+        var counterDeckCard = new DeckCard
+        {
+            DeckId = deck.Id,
+            Deck = deck,
+            ScryfallId = counterCard.Id,
+            OracleId = counterCard.OracleId,
+            Name = counterCard.Name,
+            SetCode = counterCard.Set,
+            SetName = counterCard.SetName,
+            TypeLine = counterCard.TypeLine,
+            MaindeckQuantity = 2,
+            SideboardQuantity = 0
+        };
+
+        context.DeckCards.AddRange(islandDeckCard, forestDeckCard, boltDeckCard, counterDeckCard);
+        await context.SaveChangesAsync();
+
+        var userManager = CreateUserManagerMock(user);
+        var deckService = new DeckService(
+            unitOfWork,
+            userManager.Object,
+            deckCardService,
+            new ValidationService(),
+            new Mock<IDecklistParserService>().Object,
+            cardDataService,
+            settingsServiceMock.Object);
+
+        // Act
+        var result = await deckService.GetMissingDeckCardsAsync(deck.Id, user.Id);
+
+        // Assert
+        result.Should().HaveCount(2);
+        result.Select(dc => dc.Name).Should().BeEquivalentTo(new[] { "Lightning Bolt", "Counterspell" });
+        result.Should().NotContain(dc => dc.Name == "Island" || dc.Name == "Forest");
+        result.All(dc => !dc.IsOwned).Should().BeTrue();
     }
 
     private static DeckService CreateService(IUnitOfWork unitOfWork, UserManager<AppUser> userManager, IDecklistParserService? parserService = null)

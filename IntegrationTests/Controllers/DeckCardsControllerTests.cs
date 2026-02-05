@@ -465,6 +465,50 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
+    public async Task GetMissingDeckCards_ExcludesBasicLands()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync("missingcards-basics@example.com", "missingcards_basics");
+        var deck = await CreateTestDeckForUserAsync(user.Id);
+        
+        // Seed card data for basic lands and regular cards
+        await SeedDefaultCardDataAsync("Island", "Basic Land — Island");
+        await SeedDefaultCardDataAsync("Forest", "Basic Land — Forest");
+        await SeedDefaultCardDataAsync("Lightning Bolt", "Instant");
+        await SeedDefaultCardDataAsync("Counterspell", "Instant");
+        
+        // Create deck cards: 2 basic lands and 2 regular cards (none owned)
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+        
+        var islandCard = CreateDeckCardEntity(deck.Id, GetOracleIdForName("Island"), "Island", "MIR", 4, 0);
+        islandCard.TypeLine = "Basic Land — Island";
+        var forestCard = CreateDeckCardEntity(deck.Id, GetOracleIdForName("Forest"), "Forest", "MIR", 3, 0);
+        forestCard.TypeLine = "Basic Land — Forest";
+        var boltCard = CreateDeckCardEntity(deck.Id, GetOracleIdForName("Lightning Bolt"), "Lightning Bolt", "LEA", 4, 0);
+        var counterCard = CreateDeckCardEntity(deck.Id, GetOracleIdForName("Counterspell"), "Counterspell", "LEA", 2, 0);
+        
+        context.DeckCards.AddRange(islandCard, forestCard, boltCard, counterCard);
+        await context.SaveChangesAsync();
+        
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        // Act
+        var response = await client.GetAsync($"/api/decks/{deck.Id}/missing-cards");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        var missingCards = DeserializeDeckCardList(responseContent);
+
+        // Should only return the 2 regular cards, not the basic lands
+        missingCards.Should().HaveCount(2);
+        missingCards.Select(dc => dc.Name).Should().BeEquivalentTo(new[] { "Lightning Bolt", "Counterspell" });
+        missingCards.Should().NotContain(dc => dc.Name == "Island" || dc.Name == "Forest");
+        missingCards.All(dc => !dc.IsOwned).Should().BeTrue();
+    }
+
+    [Fact]
     public async Task UpdateDeckCard_WithValidData_UpdatesDeckCard()
     {
         // Arrange
