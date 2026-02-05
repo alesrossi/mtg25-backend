@@ -1,3 +1,4 @@
+using API.Constants;
 using API.Dtos.Notifications;
 using API.Services;
 using Core.Models.Identity;
@@ -220,6 +221,130 @@ public class NotificationServiceTests
         var untouched = await context.Notifications.SingleAsync(n => n.Name == "untouched");
         untouched.IsRead.Should().BeFalse();
         untouched.Approval.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateNotificationAsync_WhenApproving_UpdatesApprovalField()
+    {
+        await using var context = CreateContext();
+        var notification = new Notification
+        {
+            Name = "test_notification",
+            Message = "Test message",
+            Origin = "test.origin",
+            AppUserId = "user-1",
+            Approval = false,
+            CreationDateTime = DateTime.UtcNow,
+            AppUser = null!
+        };
+        context.Notifications.Add(notification);
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+        var service = CreateService(context);
+
+        var result = await service.UpdateNotificationAsync([notification.Id], isRead: null, approval: true, userToUpdate: "user-1");
+
+        result.Should().BeTrue();
+        var updated = await context.Notifications.SingleAsync(n => n.Id == notification.Id);
+        updated.Approval.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UpdateNotificationAsync_WhenApproving_DoesNotCreateUnexpectedNotifications()
+    {
+        await using var context = CreateContext();
+        var notifications = new List<Notification>
+        {
+            new()
+            {
+                Name = NotificationConstants.FriendRequest,
+                Message = "Friend request",
+                Origin = "user1.user2",
+                AppUserId = "user2",
+                Approval = false,
+                CreationDateTime = DateTime.UtcNow,
+                AppUser = null!
+            },
+            new()
+            {
+                Name = NotificationConstants.TradeCommitRequest,
+                Message = "Trade commit request",
+                Origin = "trade.origin",
+                AppUserId = "user3",
+                Approval = false,
+                CreationDateTime = DateTime.UtcNow,
+                AppUser = null!
+            },
+            new()
+            {
+                Name = "generic_notification",
+                Message = "Generic notification",
+                Origin = "generic.origin",
+                AppUserId = "user4",
+                Approval = false,
+                CreationDateTime = DateTime.UtcNow,
+                AppUser = null!
+            }
+        };
+        context.Notifications.AddRange(notifications);
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+        var service = CreateService(context);
+        var initialCount = await context.Notifications.CountAsync();
+
+        var result = await service.UpdateNotificationAsync(
+            notifications.Select(n => n.Id).ToList(),
+            isRead: null,
+            approval: true,
+            userToUpdate: "approver");
+
+        result.Should().BeTrue();
+        var finalCount = await context.Notifications.CountAsync();
+        finalCount.Should().Be(initialCount, "because approving non-league notifications should not create additional notifications");
+        
+        var updated = await context.Notifications.Where(n => notifications.Select(nt => nt.Id).Contains(n.Id)).ToListAsync();
+        updated.Should().OnlyContain(n => n.Approval == true);
+    }
+
+    [Fact]
+    public async Task UpdateNotificationAsync_WhenApprovingRequestJoinLeague_CreatesAdditionalNotification()
+    {
+        await using var context = CreateContext();
+        const string leagueId = "123";
+        const string userId = "user-requester";
+        var notification = new Notification
+        {
+            Name = NotificationConstants.RequestJoinLeague,
+            Message = "Notifications.RequestJoinLeague",
+            MessageKey = "Notifications.RequestJoinLeague",
+            Origin = $"{leagueId}.{userId}",
+            ObjectId = leagueId,
+            AppUserId = "user-admin",
+            Approval = false,
+            CreationDateTime = DateTime.UtcNow,
+            AppUser = null!
+        };
+        context.Notifications.Add(notification);
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+        var service = CreateService(context);
+        var initialCount = await context.Notifications.CountAsync();
+
+        var result = await service.UpdateNotificationAsync([notification.Id], isRead: null, approval: true, userToUpdate: "user-admin");
+
+        result.Should().BeTrue();
+        var finalCount = await context.Notifications.CountAsync();
+        finalCount.Should().Be(initialCount + 1, "because approving request_join_league should create one additional notification");
+        
+        var updated = await context.Notifications.SingleAsync(n => n.Id == notification.Id);
+        updated.Approval.Should().BeTrue();
+        
+        var additionalNotification = await context.Notifications
+            .SingleAsync(n => n.Name == NotificationConstants.JoinedLeague);
+        additionalNotification.Name.Should().Be(NotificationConstants.JoinedLeague);
+        additionalNotification.AppUserId.Should().Be(userId);
+        additionalNotification.Origin.Should().Be($"{leagueId}.{userId}");
+        additionalNotification.ObjectId.Should().Be(leagueId);
     }
 
     private static AppIdentityDbContext CreateContext()
