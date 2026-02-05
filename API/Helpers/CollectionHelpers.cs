@@ -20,15 +20,22 @@ public static class CollectionHelpers
         Currency userCurrency)
     {
         await using var stream = file.OpenReadStream();
-        using var reader = new StreamReader(stream);
-        if (reader.Peek() == 's')
+        using var streamReader = new StreamReader(stream);
+        TextReader reader = streamReader;
+        var firstLine = await streamReader.ReadLineAsync();
+        var firstLineForCheck = firstLine?.TrimStart('\uFEFF', ' ', '\t');
+        if (!string.IsNullOrWhiteSpace(firstLineForCheck) &&
+            (firstLineForCheck.StartsWith("sep=", StringComparison.OrdinalIgnoreCase) ||
+             firstLineForCheck.StartsWith("\"sep=", StringComparison.OrdinalIgnoreCase)))
         {
-            var firstLine = await reader.ReadLineAsync();
-            if (!string.IsNullOrWhiteSpace(firstLine) && firstLine.StartsWith("sep=", StringComparison.OrdinalIgnoreCase))
-            {
-                // skip separator declaration
-            }
+            // skip separator declaration
         }
+        else if (firstLine != null)
+        {
+            var remainder = await streamReader.ReadToEndAsync();
+            reader = new StringReader(firstLine + Environment.NewLine + remainder);
+        }
+
         var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
 
         var importedCards = new List<Card>();
@@ -474,7 +481,22 @@ public static class CollectionHelpers
         Currency userCurrency)
     {
         await using var stream = file.OpenReadStream();
-        using var reader = new StreamReader(stream);
+        using var streamReader = new StreamReader(stream);
+        TextReader reader = streamReader;
+        var firstLine = await streamReader.ReadLineAsync();
+        var firstLineForCheck = firstLine?.TrimStart('\uFEFF', ' ', '\t');
+        if (!string.IsNullOrWhiteSpace(firstLineForCheck) &&
+            (firstLineForCheck.StartsWith("sep=", StringComparison.OrdinalIgnoreCase) ||
+             firstLineForCheck.StartsWith("\"sep=", StringComparison.OrdinalIgnoreCase)))
+        {
+            // skip separator declaration
+        }
+        else if (firstLine != null)
+        {
+            var remainder = await streamReader.ReadToEndAsync();
+            reader = new StringReader(firstLine + Environment.NewLine + remainder);
+        }
+        
         using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
 
         var importedCards = new List<Card>();
