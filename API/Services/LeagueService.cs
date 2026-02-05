@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using API.Constants;
 using API.Dtos.Leagues;
 using API.Dtos.Notifications;
 using Core.Enums;
@@ -28,6 +29,7 @@ public interface ILeagueService
     Task JoinAsPlayerAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
     Task PromoteLeagueAdminAsync(int leagueId, string userId, string targetUserId, CancellationToken cancellationToken = default);
     Task TerminateLeagueAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
+    Task<bool> IsLeagueAdminAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
 }
 
 public sealed class LeagueService : ILeagueService
@@ -955,7 +957,7 @@ public sealed class LeagueService : ILeagueService
         await AssignLeagueRoleAsync(user.Id, league.Id, LeagueRole.Player, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        var newNotification = new NewNotificationDto
+        var ownerNotification = new NewNotificationDto
         {
             Name = "player_joined_league",
             Message = "Notifications.PlayerJoinedLeague",
@@ -965,8 +967,19 @@ public sealed class LeagueService : ILeagueService
             Origin = $"{league.Id}.{user.Id}",
             AppUserId = league.OwnerId
         };
+        await _notificationService.CreateNotificationAsync(ownerNotification);
 
-        await _notificationService.CreateNotificationAsync(newNotification);
+        var requesterNotification = new NewNotificationDto
+        {
+            Name = NotificationConstants.JoinedLeague,
+            Message = "Notifications.JoinedLeague",
+            MessageKey = "Notifications.JoinedLeague",
+            MessageArgs = [league.Name],
+            ObjectId = league.Id.ToString(),
+            Origin = $"{league.Id}.{user.Id}",
+            AppUserId = user.Id
+        };
+        await _notificationService.CreateNotificationAsync(requesterNotification);
     }
 
     public async Task LeaveLeagueAsync(int leagueId, string userId, CancellationToken cancellationToken = default)
@@ -1184,6 +1197,19 @@ public sealed class LeagueService : ILeagueService
 
         _dbContext.Update(league);
         await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<bool> IsLeagueAdminAsync(int leagueId, string userId, CancellationToken cancellationToken = default)
+    {
+        var league = await _dbContext.Leagues
+            .AsNoTracking()
+            .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
+        if (league is null)
+        {
+            return false;
+        }
+
+        return await IsLeagueAdminAsync(league, userId, cancellationToken);
     }
 
     private async Task<AppUser> EnsureUserAsync(string userId)

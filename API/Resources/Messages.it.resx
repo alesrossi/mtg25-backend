@@ -42,6 +42,9 @@
   <data name="Notifications.JoinedLeagueApproved" xml:space="preserve">
     <value>Sei stato approvato per unirti a una lega.</value>
   </data>
+  <data name="Notifications.JoinedLeague" xml:space="preserve">
+    <value>Sei stato aggiunto a {0}.</value>
+  </data>
   <data name="Errors.Trades.MissingUserIds" xml:space="preserve">
     <value>Sono richiesti entrambi gli identificativi utente.</value>
   </data>

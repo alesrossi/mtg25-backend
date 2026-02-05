@@ -60,10 +60,14 @@ public static partial class NotificationsEndpoints
         group.MapPut("/approve", ApproveNotificationAsync)
             .RequireAuthorization()
             .WithSummary("Approves notification from Id")
-            .WithDescription("Sets the approval of a notification from false to true")
+            .WithDescription(
+                "Sets the approval of a notification from false to true. " +
+                "For request_join_league notifications, only the league owner or a league admin can approve; " +
+                "otherwise the request returns 403 Forbidden and the approval is not applied.")
             .Produces<NotificationDto>()
             .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status403Forbidden, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
     }
 }
