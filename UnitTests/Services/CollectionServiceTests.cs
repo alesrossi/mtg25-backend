@@ -137,6 +137,110 @@ public class CollectionServiceTests
         updatedCollection.TotalPrice.Should().Be(4.00);
     }
 
+    [Fact]
+    public async Task MassExportCardsToBinderAsync_AddsBinderCardsWithResolvedNames()
+    {
+        await using var context = CreateContext();
+        var unitOfWork = CreateUnitOfWork(context);
+        const string ownerId = "user-1";
+        var collection = new Collection
+        {
+            Name = "Collection",
+            Color = "Blue",
+            NumberOfCards = 0,
+            TotalPrice = 0,
+            OwnerId = ownerId
+        };
+        var binder = new TradeBinder
+        {
+            Name = "Binder",
+            Description = null,
+            IsPublic = false,
+            OwnerId = ownerId
+        };
+        context.Collections.Add(collection);
+        context.TradeBinders.Add(binder);
+        await context.SaveChangesAsync();
+
+        var cardOne = CreateCard(collection.Id, "Local A", "set-a", scryfallId: "card-a", quantity: 3);
+        var cardTwo = CreateCard(collection.Id, "Local B", "set-b", scryfallId: "card-b", quantity: 1);
+        context.Cards.AddRange(cardOne, cardTwo);
+        await context.SaveChangesAsync();
+
+        var builder = new TestDataBuilder();
+        var cardDataService = CardDataServiceTestHelper.CreateWithCards(new[]
+        {
+            builder.CreateOracleCard(id: "card-a", name: "Oracle A", setCode: cardOne.SetCode, setName: cardOne.SetName),
+            builder.CreateOracleCard(id: "card-b", name: "Oracle B", setCode: cardTwo.SetCode, setName: cardTwo.SetName)
+        });
+
+        var service = CreateService(unitOfWork, cardDataService: cardDataService);
+
+        var added = await service.MassExportCardsToBinderAsync(collection.Id, ownerId, binder.Id, [cardOne.Id, cardTwo.Id]);
+
+        added.Should().Be(2);
+        var binderCards = await context.BinderCards.ToListAsync();
+        binderCards.Should().HaveCount(2);
+        binderCards.Single(card => card.CardId == cardOne.Id).Name.Should().Be("Oracle A");
+        binderCards.Single(card => card.CardId == cardTwo.Id).Name.Should().Be("Oracle B");
+        binderCards.Single(card => card.CardId == cardOne.Id).QuantityToTrade.Should().Be(cardOne.Quantity);
+    }
+
+    [Fact]
+    public async Task MassExportCardsToBinderAsync_IgnoresCardsNotInCollection()
+    {
+        await using var context = CreateContext();
+        var unitOfWork = CreateUnitOfWork(context);
+        const string ownerId = "user-1";
+        var collection = new Collection
+        {
+            Name = "Collection",
+            Color = "Blue",
+            NumberOfCards = 0,
+            TotalPrice = 0,
+            OwnerId = ownerId
+        };
+        var otherCollection = new Collection
+        {
+            Name = "Other",
+            Color = "Green",
+            NumberOfCards = 0,
+            TotalPrice = 0,
+            OwnerId = ownerId
+        };
+        var binder = new TradeBinder
+        {
+            Name = "Binder",
+            Description = null,
+            IsPublic = false,
+            OwnerId = ownerId
+        };
+        context.Collections.AddRange(collection, otherCollection);
+        context.TradeBinders.Add(binder);
+        await context.SaveChangesAsync();
+
+        var validCard = CreateCard(collection.Id, "Valid", "set-a", scryfallId: "card-valid", quantity: 2);
+        var otherCard = CreateCard(otherCollection.Id, "Other", "set-b", scryfallId: "card-other", quantity: 1);
+        context.Cards.AddRange(validCard, otherCard);
+        await context.SaveChangesAsync();
+
+        var builder = new TestDataBuilder();
+        var cardDataService = CardDataServiceTestHelper.CreateWithCards(new[]
+        {
+            builder.CreateOracleCard(id: "card-valid", name: "Oracle Valid", setCode: validCard.SetCode, setName: validCard.SetName),
+            builder.CreateOracleCard(id: "card-other", name: "Oracle Other", setCode: otherCard.SetCode, setName: otherCard.SetName)
+        });
+
+        var service = CreateService(unitOfWork, cardDataService: cardDataService);
+
+        var added = await service.MassExportCardsToBinderAsync(collection.Id, ownerId, binder.Id, [validCard.Id, otherCard.Id, int.MaxValue]);
+
+        added.Should().Be(1);
+        var binderCards = await context.BinderCards.ToListAsync();
+        binderCards.Should().ContainSingle();
+        binderCards.Single().CardId.Should().Be(validCard.Id);
+    }
+
     private static CollectionService CreateService(
         IUnitOfWork unitOfWork,
         CardDataService? cardDataService = null,

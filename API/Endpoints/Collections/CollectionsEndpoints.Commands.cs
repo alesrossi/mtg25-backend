@@ -170,4 +170,35 @@ public static partial class CollectionsEndpoints
             return await MapCollectionServiceException(ex, context, messageLocalizer, userId);
         }
     }
+
+    private static async Task<IResult> MassExportCardsToBinder(
+        int id,
+        [FromQuery] int binderId,
+        [FromBody] List<int>? cardIds,
+        HttpContext context,
+        [FromServices] ICollectionService collectionService,
+        [FromServices] ILogger<CollectionsEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
+        CancellationToken cancellationToken)
+    {
+        const string operation = "Collections.ExportToBinder";
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { id, binderId });
+            return Results.Unauthorized();
+        }
+
+        try
+        {
+            var addedCount = await collectionService.MassExportCardsToBinderAsync(id, userId, binderId, cardIds, cancellationToken);
+            logger.LogOperationSuccess(operation, new { id, binderId, Added = addedCount });
+            return Results.Ok(addedCount);
+        }
+        catch (CollectionServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { id, binderId, userId });
+            return await MapCollectionServiceException(ex, context, messageLocalizer, userId);
+        }
+    }
 }

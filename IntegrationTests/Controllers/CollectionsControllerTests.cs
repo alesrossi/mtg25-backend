@@ -121,6 +121,229 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
     }
 
     [Fact]
+    public async Task MassExportCardsToBinder_WithValidData_AddsBinderCards()
+    {
+        var user = await CreateTestUserAsync("massexport-valid@example.com", "massexport_valid");
+        var collection = await CreateTestCollectionAsync(user.Id, "Export Collection");
+        var binder = await CreateTestBinderAsync(user.Id);
+        List<Card> cards;
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+            cards =
+            [
+                _testDataBuilder.CreateCard(collection.Id, name: "Local A", price: 1.25),
+                _testDataBuilder.CreateCard(collection.Id, name: "Local B", price: 2.75)
+            ];
+            cards[0].ScryfallId = Guid.NewGuid().ToString();
+            cards[0].Quantity = 3;
+            cards[1].ScryfallId = Guid.NewGuid().ToString();
+            cards[1].Quantity = 1;
+
+            context.Cards.AddRange(cards);
+            await context.SaveChangesAsync();
+        }
+
+        SeedCardNameData([
+            (cards[0], "Oracle A"),
+            (cards[1], "Oracle B")
+        ]);
+
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var request = new HttpRequestMessage(HttpMethod.Post,
+            $"/api/collections/{collection.Id}/export-to-binder?binderId={binder.Id}")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(cards.Select(c => c.Id)), Encoding.UTF8, "application/json")
+        };
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadAsStringAsync();
+        var addedCount = JsonSerializer.Deserialize<int>(payload);
+        addedCount.Should().Be(cards.Count);
+
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<MainContext>();
+        var binderCards = await verificationContext.BinderCards
+            .Where(card => card.TradeBinderId == binder.Id)
+            .ToListAsync();
+
+        binderCards.Should().HaveCount(cards.Count);
+        binderCards.Select(card => card.Name).Should().BeEquivalentTo("Oracle A", "Oracle B");
+        binderCards.Single(card => card.CardId == cards[0].Id).QuantityToTrade.Should().Be(cards[0].Quantity);
+    }
+
+    [Fact]
+    public async Task MassExportCardsToBinder_IgnoresCardsNotInCollection()
+    {
+        var user = await CreateTestUserAsync("massexport-ignore@example.com", "massexport_ignore");
+        var collection = await CreateTestCollectionAsync(user.Id, "Export Collection");
+        var otherCollection = await CreateTestCollectionAsync(user.Id, "Other Collection");
+        var binder = await CreateTestBinderAsync(user.Id);
+        Card validCard;
+        Card otherCard;
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+            validCard = _testDataBuilder.CreateCard(collection.Id, name: "Local Valid", price: 1.25);
+            validCard.ScryfallId = Guid.NewGuid().ToString();
+            otherCard = _testDataBuilder.CreateCard(otherCollection.Id, name: "Local Other", price: 1.50);
+            otherCard.ScryfallId = Guid.NewGuid().ToString();
+
+            context.Cards.AddRange(validCard, otherCard);
+            await context.SaveChangesAsync();
+        }
+
+        SeedCardNameData([
+            (validCard, "Oracle Valid"),
+            (otherCard, "Oracle Other")
+        ]);
+
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var request = new HttpRequestMessage(HttpMethod.Post,
+            $"/api/collections/{collection.Id}/export-to-binder?binderId={binder.Id}")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(new[] { validCard.Id, otherCard.Id, int.MaxValue }),
+                Encoding.UTF8,
+                "application/json")
+        };
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadAsStringAsync();
+        var addedCount = JsonSerializer.Deserialize<int>(payload);
+        addedCount.Should().Be(1);
+
+        await using var verificationScope = _factory.Services.CreateAsyncScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<MainContext>();
+        var binderCards = await verificationContext.BinderCards
+            .Where(card => card.TradeBinderId == binder.Id)
+            .ToListAsync();
+
+        binderCards.Should().ContainSingle();
+        binderCards.Single().CardId.Should().Be(validCard.Id);
+    }
+
+    [Fact]
+    public async Task MassExportCardsToBinder_WithEmptyRequest_ReturnsBadRequest()
+    {
+        var user = await CreateTestUserAsync("massexport-empty@example.com", "massexport_empty");
+        var collection = await CreateTestCollectionAsync(user.Id, "Export Collection");
+        var binder = await CreateTestBinderAsync(user.Id);
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var request = new HttpRequestMessage(HttpMethod.Post,
+            $"/api/collections/{collection.Id}/export-to-binder?binderId={binder.Id}")
+        {
+            Content = new StringContent("[]", Encoding.UTF8, "application/json")
+        };
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task MassExportCardsToBinder_WithMissingBinderId_ReturnsBadRequest()
+    {
+        var user = await CreateTestUserAsync("massexport-missing-binder@example.com", "massexport_missing_binder");
+        var collection = await CreateTestCollectionAsync(user.Id, "Export Collection");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var request = new HttpRequestMessage(HttpMethod.Post,
+            $"/api/collections/{collection.Id}/export-to-binder")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(new[] { 1, 2 }), Encoding.UTF8, "application/json")
+        };
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task MassExportCardsToBinder_WithNonOwner_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("massexport-owner@example.com", "massexport_owner");
+        var intruder = await CreateTestUserAsync("massexport-intruder@example.com", "massexport_intruder");
+        var collection = await CreateTestCollectionAsync(owner.Id, "Export Collection");
+        var binder = await CreateTestBinderAsync(owner.Id);
+        var cards = await CreateTestCardsForCollectionAsync(collection.Id, 1);
+
+        using var client = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
+        var request = new HttpRequestMessage(HttpMethod.Post,
+            $"/api/collections/{collection.Id}/export-to-binder?binderId={binder.Id}")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(cards.Select(c => c.Id)), Encoding.UTF8, "application/json")
+        };
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task MassExportCardsToBinder_WithInvalidCollection_ReturnsNotFound()
+    {
+        var user = await CreateTestUserAsync("massexport-missing-collection@example.com", "massexport_missing_collection");
+        var binder = await CreateTestBinderAsync(user.Id);
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var request = new HttpRequestMessage(HttpMethod.Post,
+            $"/api/collections/{int.MaxValue}/export-to-binder?binderId={binder.Id}")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(new[] { 1, 2 }), Encoding.UTF8, "application/json")
+        };
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task MassExportCardsToBinder_WithInvalidBinder_ReturnsNotFound()
+    {
+        var user = await CreateTestUserAsync("massexport-missing-binderid@example.com", "massexport_missing_binderid");
+        var collection = await CreateTestCollectionAsync(user.Id, "Export Collection");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var request = new HttpRequestMessage(HttpMethod.Post,
+            $"/api/collections/{collection.Id}/export-to-binder?binderId={int.MaxValue}")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(new[] { 1, 2 }), Encoding.UTF8, "application/json")
+        };
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task MassExportCardsToBinder_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var user = await CreateTestUserAsync("massexport-noauth@example.com", "massexport_noauth");
+        var collection = await CreateTestCollectionAsync(user.Id, "Export Collection");
+        var binder = await CreateTestBinderAsync(user.Id);
+        using var client = _factory.CreateClient();
+
+        var request = new HttpRequestMessage(HttpMethod.Post,
+            $"/api/collections/{collection.Id}/export-to-binder?binderId={binder.Id}")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(new[] { 1, 2 }), Encoding.UTF8, "application/json")
+        };
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task GetCollections_WithAuthenticatedUser_ReturnsUserCollections()
     {
         // Arrange
@@ -486,7 +709,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
 
 
 
-    private async Task<List<Collection>> CreateTestCollectionsForUserAsync(string userId, int count)
+    private async Task CreateTestCollectionsForUserAsync(string userId, int count)
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
@@ -503,8 +726,6 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
             
         dbContext.Collections.AddRange(collections);
         await dbContext.SaveChangesAsync();
-        
-        return collections;
     }
 
     private async Task<Collection> CreateTestCollectionAsync(string userId, string name)
@@ -522,6 +743,18 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         return collection;
     }
 
+    private async Task<TradeBinder> CreateTestBinderAsync(string userId, bool isPublic = false)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
+
+        var binder = _testDataBuilder.CreateTradeBinder(userId, isPublic);
+        dbContext.TradeBinders.Add(binder);
+        await dbContext.SaveChangesAsync();
+
+        return binder;
+    }
+
     private async Task VerifyCollectionExistsInDatabase(int collectionId, string expectedUserId)
     {
         using var scope = _factory.Services.CreateScope();
@@ -529,18 +762,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         
         var collection = await dbContext.Collections.FindAsync(collectionId);
         collection.Should().NotBeNull($"because collection {collectionId} should exist in database");
-        collection!.OwnerId.Should().Be(expectedUserId, "because collection should belong to the expected user");
-    }
-
-    private async Task VerifyCollectionInDatabase(int collectionId, string expectedName, string expectedColor)
-    {
-        using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
-        
-        var collection = await dbContext.Collections.FindAsync(collectionId);
-        collection.Should().NotBeNull();
-        collection!.Name.Should().Be(expectedName);
-        collection.Color.Should().Be(expectedColor);
+        collection.OwnerId.Should().Be(expectedUserId, "because collection should belong to the expected user");
     }
 
     private async Task VerifyCollectionDeletedFromDatabase(int collectionId)
@@ -559,7 +781,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         
         var cards = new List<Card>();
         
-        for (int i = 1; i <= count; i++)
+        for (var i = 1; i <= count; i++)
         {
             var card = _testDataBuilder.CreateCard(collectionId);
             card.Name = $"Test Card {i}";
@@ -609,6 +831,21 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         CardDataServiceTestHelper.Populate(cardDataService, scryfallCards);
     }
 
+    private void SeedCardNameData(IEnumerable<(Card Card, string Name)> cardNames)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var cardDataService = scope.ServiceProvider.GetRequiredService<CardDataService>();
+
+        var scryfallCards = cardNames.Select(cp =>
+            _testDataBuilder.CreateOracleCard(
+                id: cp.Card.ScryfallId,
+                name: cp.Name,
+                setCode: cp.Card.SetCode,
+                setName: cp.Card.SetName)).ToList();
+
+        CardDataServiceTestHelper.Populate(cardDataService, scryfallCards);
+    }
+
     #endregion
 
     #region Card Filtering Tests
@@ -632,7 +869,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
             responseContent, JsonContentHelper.DefaultOptions);
 
         result.Should().NotBeNull();
-        result!.Data.Should().HaveCount(5, "because we created 5 test cards");
+        result.Data.Should().HaveCount(5, "because we created 5 test cards");
     }
 
     [Fact]
@@ -691,7 +928,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
             responseContent, JsonContentHelper.DefaultOptions);
 
         result.Should().NotBeNull();
-        result!.Data.Should().HaveCount(1);
+        result.Data.Should().HaveCount(1);
         result.Data!.First().Name.Should().Be("Test Card 1");
     }
 
@@ -714,7 +951,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
             responseContent, JsonContentHelper.DefaultOptions);
 
         result.Should().NotBeNull();
-        result!.Data.Should().HaveCount(2, "because 2 cards have LEA set code");
+        result.Data.Should().HaveCount(2, "because 2 cards have LEA set code");
         result.Data!.Should().OnlyContain(c => c.SetCode == "LEA");
     }
 
@@ -734,7 +971,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
             responseContent, JsonContentHelper.DefaultOptions);
 
         result.Should().NotBeNull();
-        result!.Data.Should().HaveCount(2);
+        result.Data.Should().HaveCount(2);
         result.Data!.Should().OnlyContain(c => c.TypeLine.Contains("Creature"));
     }
 
@@ -757,7 +994,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
             responseContent, JsonContentHelper.DefaultOptions);
 
         result.Should().NotBeNull();
-        result!.Data.Should().NotBeEmpty();
+        result.Data.Should().NotBeEmpty();
         
         var prices = result.Data!.Select(c => c.PurchasePrice).ToList();
         prices.Should().BeInAscendingOrder("because sort=priceAsc was specified");
@@ -779,7 +1016,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
             responseContent, JsonContentHelper.DefaultOptions);
 
         result.Should().NotBeNull();
-        var typeLines = result!.Data!.Select(c => c.TypeLine).ToList();
+        var typeLines = result.Data!.Select(c => c.TypeLine).ToList();
         typeLines.Should().BeInDescendingOrder();
     }
 
@@ -817,7 +1054,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
             descContent, JsonContentHelper.DefaultOptions);
 
         descResult.Should().NotBeNull();
-        descResult!.Data.Should().NotBeNull();
+        descResult.Data.Should().NotBeNull();
         var descPrices = descResult.Data!
             .Select(c => c.Price)
             .Where(p => p.HasValue)
@@ -833,7 +1070,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
             ascContent, JsonContentHelper.DefaultOptions);
 
         ascResult.Should().NotBeNull();
-        ascResult!.Data.Should().NotBeNull();
+        ascResult.Data.Should().NotBeNull();
         var ascPrices = ascResult.Data!
             .Select(c => c.Price)
             .Where(p => p.HasValue)
@@ -862,7 +1099,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
             responseContent, JsonContentHelper.DefaultOptions);
 
         result.Should().NotBeNull();
-        result!.Groups.Should().HaveCount(2, "because there are 2 different sets (Alpha/Beta)");
+        result.Groups.Should().HaveCount(2, "because there are 2 different sets (Alpha/Beta)");
         result.TotalCards.Should().Be(5, "because there are 5 total cards");
         result.TotalGroups.Should().Be(2, "because there are 2 different sets");
     }

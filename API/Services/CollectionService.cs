@@ -27,6 +27,7 @@ public interface ICollectionService
     Task DeleteCollectionAsync(int id, string userId, CancellationToken cancellationToken = default);
     Task<CollectionImportResult> ImportCardsAsync(int id, string userId, IFormFile file, CollectionsEndpoints.ImportSource source, CancellationToken cancellationToken = default);
     Task<int> MassDeleteCardsAsync(int id, string userId, List<int>? cardIds, CancellationToken cancellationToken = default);
+    Task<int> MassExportCardsToBinderAsync(int id, string userId, int binderId, List<int>? cardIds, CancellationToken cancellationToken = default);
 }
 
 public sealed class CollectionService : ICollectionService
@@ -36,6 +37,7 @@ public sealed class CollectionService : ICollectionService
     private readonly CardDataService _cardDataService;
     private readonly IUserSettingsService _userSettingsService;
     private readonly UserManager<AppUser> _userManager;
+    private static readonly string[] body = new[] { "Binder ID must be provided." };
 
     public CollectionService(
         IUnitOfWork unitOfWork,
@@ -356,6 +358,87 @@ public sealed class CollectionService : ICollectionService
         return cardsToDelete.Count;
     }
 
+    public async Task<int> MassExportCardsToBinderAsync(
+        int id,
+        string userId,
+        int binderId,
+        List<int>? cardIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (userId is null)
+        {
+            throw CollectionServiceException.Unauthorized("Errors.Collections.MissingUserId");
+        }
+
+        if (binderId <= 0)
+        {
+            throw CollectionServiceException.BadRequest(new
+            {
+                errors = new
+                {
+                    BinderId = body
+                }
+            }, true);
+        }
+
+        var collection = await _unitOfWork.Repository<Collection>().GetByIdAsync(id);
+        if (collection is null)
+        {
+            throw CollectionServiceException.NotFound("Errors.Collections.NotFound");
+        }
+        if (collection.OwnerId != userId)
+        {
+            throw CollectionServiceException.Unauthorized("Errors.Collections.Unauthorized");
+        }
+
+        var binder = await _unitOfWork.Repository<TradeBinder>().GetByIdAsync(binderId);
+        if (binder is null)
+        {
+            throw CollectionServiceException.NotFound("Errors.Binders.NotFound");
+        }
+        if (binder.OwnerId != userId)
+        {
+            throw CollectionServiceException.Unauthorized("Errors.Binders.Unauthorized");
+        }
+
+        if (cardIds is null || cardIds.Count == 0)
+        {
+            throw CollectionServiceException.BadRequest("Errors.Collections.NoCardIdsProvided", includeBody: true);
+        }
+
+        var distinctIds = cardIds.Where(cardId => cardId > 0).Distinct().ToArray();
+        if (distinctIds.Length == 0)
+        {
+            throw CollectionServiceException.BadRequest("Errors.Collections.NoCardIdsProvided", includeBody: true);
+        }
+
+        var cardsToExport = await _unitOfWork.Repository<Card>()
+            .ListAsync(new CardsByIdsSpecification(distinctIds, id)) ?? [];
+
+        if (cardsToExport.Count == 0)
+        {
+            return 0;
+        }
+
+        var binderCards = new List<BinderCard>(cardsToExport.Count);
+        binderCards.AddRange(from card in cardsToExport
+        let resolvedName = ResolveCardName(card)
+        select new BinderCard
+        {
+            TradeBinderId = binder.Id,
+            CardId = card.Id,
+            Card = card,
+            Name = resolvedName,
+            QuantityToTrade = Math.Max(0, card.Quantity),
+            Notes = null
+        });
+
+        _unitOfWork.Repository<BinderCard>().Add(binderCards);
+        await _unitOfWork.Complete();
+
+        return binderCards.Count;
+    }
+
     private async Task<GroupedCardsPaginationDto> GetGroupedCardsFromCollectionAsync(
         int collectionId,
         EntitySpecParams entityParams)
@@ -431,6 +514,23 @@ public sealed class CollectionService : ICollectionService
             TotalCards = totalCards,
             Groups = paginatedGroups
         };
+    }
+
+    private string ResolveCardName(Card card)
+    {
+        if (!string.IsNullOrWhiteSpace(card.ScryfallId) &&
+            _cardDataService.CardDataById.TryGetValue(card.ScryfallId, out var byId))
+        {
+            return byId.Name;
+        }
+
+        if (!string.IsNullOrWhiteSpace(card.Name) &&
+            _cardDataService.CardDataByName.TryGetValue(card.Name, out var byName))
+        {
+            return byName.Name;
+        }
+
+        return card.Name;
     }
 
     private static bool SortsByCurrentPrice(string? sort) =>
