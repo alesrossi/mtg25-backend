@@ -141,7 +141,7 @@ public class RequestLoggingMiddleware
                         "HTTP {Method} {Path} request body: {RequestBody}",
                         request.Method,
                         requestPath,
-                        requestBody);
+                        requestBody?.Trim() ?? string.Empty);
                 }
 
                 if (captureResponseBody && !string.IsNullOrWhiteSpace(responseBody))
@@ -150,7 +150,7 @@ public class RequestLoggingMiddleware
                         "HTTP {Method} {Path} response body: {ResponseBody}",
                         request.Method,
                         requestPath,
-                        responseBody);
+                        responseBody?.Trim() ?? string.Empty);
                 }
             }
         }
