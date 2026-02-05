@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using API.Constants;
 using API.Dtos.Leagues;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
@@ -1182,6 +1183,33 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task PromoteLeagueAdmin_WithOwnerPromotingMember_CreatesNotification()
+    {
+        var owner = await CreateTestUserAsync("promote-notif-owner@example.com", "promote_notif_owner");
+        var player = await CreateTestUserAsync("promote-notif-player@example.com", "promote_notif_player");
+        var league = await CreateTestLeagueAsync("Promotion Notification League", owner.Id);
+        await AssociateUserWithLeagueAsync(player.Id, league.Id);
+        
+        var initialCount = await GetNotificationCountAsync();
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var response = await client.PatchAsync($"/api/leagues/{league.Id}/promote/{player.Id}",
+            new StringContent(string.Empty, Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        await VerifyRoleAssignmentAsync(player.Id, league.Id, LeagueRole.Admin);
+
+        var finalCount = await GetNotificationCountAsync();
+        finalCount.Should().Be(initialCount + 1, "because PromoteLeagueAdminAsync should create a notification for the promoted user");
+
+        var notifications = await GetNotificationsByNameAsync(NotificationConstants.PromotedToLeagueAdmin);
+        notifications.Should().HaveCount(1, "because PromoteLeagueAdminAsync should create exactly one notification");
+        notifications[0].AppUserId.Should().Be(player.Id, "because the notification should be sent to the promoted user");
+        notifications[0].ObjectId.Should().Be(league.Id.ToString(), "because the notification should reference the league ID");
+        notifications[0].Origin.Should().Be($"{league.Id}.{player.Id}", "because the notification origin should match the league and user IDs");
+    }
+
+    [Fact]
     public async Task PromoteLeagueAdmin_WithNonOwner_ReturnsUnauthorized()
     {
         var owner = await CreateTestUserAsync("promote-owner2@example.com", "promote_owner2");
@@ -1478,6 +1506,22 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var userLeague = dbContext.Notifications.FirstOrDefault(n => n.Origin == origin);
         userLeague.Should().NotBeNull($"because user {userId} should have a new notification associated with league {leagueId}");
         return Task.CompletedTask;
+    }
+
+    private async Task<int> GetNotificationCountAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        return await dbContext.Notifications.CountAsync();
+    }
+
+    private async Task<List<Notification>> GetNotificationsByNameAsync(string name)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        return await dbContext.Notifications
+            .Where(n => n.Name == name)
+            .ToListAsync();
     }
 
 

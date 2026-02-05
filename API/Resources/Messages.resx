@@ -45,6 +45,9 @@
   <data name="Notifications.JoinedLeague" xml:space="preserve">
     <value>You have been added to {0}.</value>
   </data>
+  <data name="Notifications.PromotedToLeagueAdmin" xml:space="preserve">
+    <value>You have been promoted to admin of {0}.</value>
+  </data>
   <data name="Errors.Trades.MissingUserIds" xml:space="preserve">
     <value>Both user identifiers are required.</value>
   </data>

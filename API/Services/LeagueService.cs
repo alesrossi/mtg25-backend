@@ -1210,6 +1210,18 @@ public sealed class LeagueService : ILeagueService
 
         await AssignLeagueRoleAsync(targetUser.Id, league.Id, LeagueRole.Admin, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var notification = new NewNotificationDto
+        {
+            Name = NotificationConstants.PromotedToLeagueAdmin,
+            Message = "Notifications.PromotedToLeagueAdmin",
+            MessageKey = "Notifications.PromotedToLeagueAdmin",
+            MessageArgs = [league.Name],
+            ObjectId = league.Id.ToString(),
+            Origin = $"{league.Id}.{targetUser.Id}",
+            AppUserId = targetUser.Id
+        };
+        await _notificationService.CreateNotificationAsync(notification);
     }
     
     public async Task TerminateLeagueAsync(int leagueId, string userId, CancellationToken cancellationToken = default)

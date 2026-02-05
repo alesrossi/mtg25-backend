@@ -336,18 +336,17 @@ public class NotificationServiceTests
             .Returns(Task.CompletedTask);
         
         // Mock IServiceScopeFactory to provide the mocked league service
-        var serviceScopeMock = new Mock<IServiceScope>();
         var serviceProviderMock = new Mock<IServiceProvider>();
         serviceProviderMock
             .Setup(sp => sp.GetRequiredService<ILeagueService>())
             .Returns(leagueServiceMock.Object);
+        var serviceScopeMock = new Mock<IServiceScope>();
         serviceScopeMock.Setup(s => s.ServiceProvider).Returns(serviceProviderMock.Object);
-        serviceScopeMock.Setup(s => s.DisposeAsync()).Returns(ValueTask.CompletedTask);
         
         var serviceScopeFactoryMock = new Mock<IServiceScopeFactory>();
         serviceScopeFactoryMock
             .Setup(f => f.CreateAsyncScope())
-            .Returns(serviceScopeMock.Object);
+            .Returns(new AsyncServiceScope(serviceScopeMock.Object));
         
         var service = CreateService(context, serviceScopeFactoryMock.Object);
         var initialCount = await context.Notifications.CountAsync();

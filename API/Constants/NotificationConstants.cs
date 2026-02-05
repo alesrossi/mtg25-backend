@@ -10,4 +10,5 @@ public static class NotificationConstants
     public const string FriendRequest = "friend_request";
     public const string RequestJoinLeague = "request_join_league";
     public const string JoinedLeague = "joined_league";
+    public const string PromotedToLeagueAdmin = "promoted_to_league_admin";
 }
