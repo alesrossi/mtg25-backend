@@ -195,4 +195,22 @@ public class CardDataService
             ?? backImageUris.Png
             ?? backImageUris.Small;
     }
+
+    /// <summary>
+    /// Returns Oracle card mana cost in Scryfall format (e.g. "{2}{U}{U}").
+    /// For multi-face cards uses the main (first) face cost. Null or empty for lands.
+    /// </summary>
+    public static string? ResolveMainFaceManaCost(ScryfallCardDto? card)
+    {
+        if (card is null)
+        {
+            return null;
+        }
+
+        var cost = card.CardFaces is { Count: > 0 }
+            ? card.CardFaces[0].ManaCost
+            : card.ManaCost;
+
+        return string.IsNullOrWhiteSpace(cost) ? null : cost.Trim();
+    }
 }

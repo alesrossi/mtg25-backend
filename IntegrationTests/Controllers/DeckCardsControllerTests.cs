@@ -52,6 +52,22 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
+    public async Task GetDeckCards_ReturnsManaCostInDeckCardDto()
+    {
+        var user = await CreateTestUserAsync("deckcards-manacost@example.com", "deckcards_manacost");
+        var deck = await CreateTestDeckForUserAsync(user.Id);
+        await SeedDefaultCardDataAsync("Counterspell", "Instant", ["U"], "{U}{U}");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+        await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(BuildDeckCardRequest("Counterspell", 1)));
+
+        var response = await client.GetAsync($"/api/decks/{deck.Id}/cards");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var cards = DeserializeDeckCardList(await response.Content.ReadAsStringAsync());
+        var counterspell = cards.Should().ContainSingle(dc => dc.Name == "Counterspell").Subject;
+        counterspell.ManaCost.Should().Be("{U}{U}");
+    }
+
+    [Fact]
     public async Task GetDeckCards_WithoutAuthentication_ReturnsUnauthorized()
     {
         var user = await CreateTestUserAsync("deckcards-noauth@example.com", "deckcards_noauth");
@@ -190,7 +206,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         // Arrange
         var user = await CreateTestUserAsync("testuser@example.com", "testuser");
         var deck = await CreateTestDeckForUserAsync(user.Id);
-        await SeedDefaultCardDataAsync("Lightning Bolt");
+        await SeedDefaultCardDataAsync("Lightning Bolt", manaCost: "{R}");
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
         var createDto = new CreateDeckCardDto
@@ -213,6 +229,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         createdDeckCard.DeckId.Should().Be(deck.Id);
         createdDeckCard.Name.Should().Be("Lightning Bolt");
         createdDeckCard.MaindeckQuantity.Should().Be(4);
+        createdDeckCard.ManaCost.Should().Be("{R}");
     }
 
     [Fact]
@@ -339,6 +356,12 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
 
         var secondResponse = await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(secondDto));
         secondResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var listResponse = await client.GetAsync($"/api/decks/{deck.Id}/cards");
+        var cards = DeserializeDeckCardList(await listResponse.Content.ReadAsStringAsync());
+        var plainsCards = cards.Where(dc => dc.Name == "Plains").ToList();
+        plainsCards.Should().HaveCount(2, "basic lands allow multiple deck card entries");
+        plainsCards.All(dc => dc.ManaCost == null).Should().BeTrue("basic lands have no mana cost");
     }
 
     [Fact]
@@ -801,7 +824,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         ]);
         
         await SeedCardDataAsync([
-            CreateScryfallCard(updateDto.ScryfallId, "Force of Will", "2XM", "Double Masters")
+            CreateScryfallCard(updateDto.ScryfallId, "Force of Will", "2XM", "Double Masters") with { ManaCost = "{3}{U}{U}" }
         ]);
 
         var response = await client.PutAsync($"/api/decks/{deck.Id}/cards/{deckCard.Id}/versions", SerializeToJson(updateDto));
@@ -813,6 +836,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         updatedDeckCard.Should().NotBeNull();
         updatedDeckCard.ScryfallId.Should().Be(updateDto.ScryfallId);
         updatedDeckCard.SetName.Should().Be("Double Masters");
+        updatedDeckCard.ManaCost.Should().Be("{3}{U}{U}");
     }
 
     [Fact]
@@ -1059,12 +1083,13 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
             SideboardQuantity = sideQuantity
         };
 
-    private Task SeedDefaultCardDataAsync(string name, string typeLine = "Instant", IEnumerable<string?>? colorIdentity = null)
+    private Task SeedDefaultCardDataAsync(string name, string typeLine = "Instant", IEnumerable<string?>? colorIdentity = null, string? manaCost = null)
     {
         var card = CreateScryfallCard(Guid.NewGuid().ToString(), name, "TST", "Test Set") with
         {
             TypeLine = typeLine,
-            ColorIdentity = colorIdentity?.ToList() ?? []
+            ColorIdentity = colorIdentity?.ToList() ?? [],
+            ManaCost = manaCost
         };
         return SeedCardDataAsync([card]);
     }

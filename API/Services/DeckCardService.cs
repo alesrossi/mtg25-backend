@@ -275,6 +275,7 @@ public class DeckCardService
         await EnsureCopyLimitAsync(deckId, oracleId, resolvedName, effectiveTypeLine, requestedQuantity, null, CreateDeckCardOperation);
 
         var colorIdentity = NormalizeColorIdentity(scryfallCard?.ColorIdentity);
+        var manaCost = CardDataService.ResolveMainFaceManaCost(scryfallCard);
 
         var deckCard = new DeckCard
         {
@@ -285,6 +286,7 @@ public class DeckCardService
             SetCode = setCode,
             SetName = setName,
             TypeLine = string.IsNullOrWhiteSpace(effectiveTypeLine) ? "Card" : effectiveTypeLine,
+            ManaCost = manaCost,
             ColorIdentity = colorIdentity,
             ImageUrl = imageUrl,
             BackImageUrl = backImageUrl,
@@ -424,6 +426,7 @@ public class DeckCardService
             }
 
             var colorIdentity = NormalizeColorIdentity(scryfallCard?.ColorIdentity);
+            var manaCost = CardDataService.ResolveMainFaceManaCost(scryfallCard);
 
             var deckCard = new DeckCard
             {
@@ -434,6 +437,7 @@ public class DeckCardService
                 SetCode = setCode,
                 SetName = setName,
                 TypeLine = string.IsNullOrWhiteSpace(effectiveTypeLine) ? "Card" : effectiveTypeLine,
+                ManaCost = manaCost,
                 ColorIdentity = colorIdentity,
                 ImageUrl = imageUrl,
                 BackImageUrl = backImageUrl,
@@ -539,6 +543,7 @@ public class DeckCardService
         deckCard.CollectorNumber = scryfallCard.CollectorNumber;
         deckCard.Rarity = scryfallCard.Rarity;
         deckCard.TypeLine = resolvedTypeLine ?? deckCard.TypeLine;
+        deckCard.ManaCost = CardDataService.ResolveMainFaceManaCost(scryfallCard);
         deckCard.ColorIdentity = NormalizeColorIdentity(scryfallCard.ColorIdentity);
 
         _unitOfWork.Repository<DeckCard>().Update(deckCard);
@@ -686,6 +691,7 @@ public class DeckCardService
             Rarity = deckCard.Rarity,
             CollectorNumber = deckCard.CollectorNumber,
             TypeLine = deckCard.TypeLine,
+            ManaCost = deckCard.ManaCost,
             MaindeckQuantity = deckCard.MaindeckQuantity,
             SideboardQuantity = deckCard.SideboardQuantity,
             OwnedCardId = ownedCardIdOverride ?? deckCard.OwnedCardId,

@@ -63,6 +63,7 @@ public class DeckCardTests
             Name = "Lightning Bolt",
             SetCode = "LEA",
             TypeLine = "Instant",
+            ManaCost = null,
             MaindeckQuantity = 4,
             SideboardQuantity = 0,
             SetName = null,
@@ -73,12 +74,32 @@ public class DeckCardTests
         };
 
         // Assert
+        deckCard.ManaCost.Should().BeNull();
         deckCard.SetName.Should().BeNull();
         deckCard.ImageUrl.Should().BeNull();
         deckCard.Rarity.Should().BeNull();
         deckCard.CollectorNumber.Should().BeNull();
         deckCard.OwnedCardId.Should().BeNull();
         deckCard.OwnedCard.Should().BeNull();
+    }
+
+    [Fact]
+    public void DeckCard_WithManaCost_ShouldStoreScryfallFormat()
+    {
+        var deckCard = new DeckCard
+        {
+            DeckId = 1,
+            ScryfallId = "scryfall-1",
+            OracleId = "oracle-1",
+            Name = "Counterspell",
+            SetCode = "LEA",
+            TypeLine = "Instant",
+            ManaCost = "{U}{U}",
+            MaindeckQuantity = 2,
+            SideboardQuantity = 0
+        };
+
+        deckCard.ManaCost.Should().Be("{U}{U}");
     }
 
     [Theory]
