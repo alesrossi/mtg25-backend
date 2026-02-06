@@ -416,7 +416,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
-    public async Task GetMissingDeckCards_ReturnsOnlyUnownedCards()
+    public async Task GetMissingDeckCards_ReturnsCardsWithMissingQuantity()
     {
         // Arrange
         var user = await CreateTestUserAsync("missingcards@example.com", "missingcards");
@@ -435,10 +435,11 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         var responseContent = await response.Content.ReadAsStringAsync();
         var missingCards = DeserializeDeckCardList(responseContent);
 
-        missingCards.Should().HaveCount(2);
-        missingCards.All(dc => !dc.IsOwned).Should().BeTrue();
-        var expectedOracleIds = deckCards.Skip(2).Select(dc => dc.ScryfallId).ToList();
-        missingCards.Select(dc => dc.ScryfallId).Should().BeEquivalentTo(expectedOracleIds);
+        missingCards.Should().HaveCount(4);
+        missingCards.All(dc => dc.OwnedQuantity < dc.TotalQuantity).Should().BeTrue();
+        missingCards.Where(dc => dc.OwnedQuantity == 2).Should().HaveCount(2);
+        var expectedScryfallIds = deckCards.Select(dc => dc.ScryfallId).ToList();
+        missingCards.Select(dc => dc.ScryfallId).Should().BeEquivalentTo(expectedScryfallIds);
     }
 
     [Fact]
@@ -505,7 +506,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         missingCards.Should().HaveCount(2);
         missingCards.Select(dc => dc.Name).Should().BeEquivalentTo(new[] { "Lightning Bolt", "Counterspell" });
         missingCards.Should().NotContain(dc => dc.Name == "Island" || dc.Name == "Forest");
-        missingCards.All(dc => !dc.IsOwned).Should().BeTrue();
+        missingCards.All(dc => dc.OwnedQuantity < dc.TotalQuantity).Should().BeTrue();
     }
 
     [Fact]

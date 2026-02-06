@@ -150,10 +150,10 @@ public sealed class DeckService : IDeckService
             throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
         }
 
-        var missingCards = (await _deckCardService.GetDeckCardsAsync(deckId, ownedOnly: false))
-            .Where(card => !IsBasicLand(card))
+        var allDeckCards = await _deckCardService.GetDeckCardsAsync(deckId);
+        var missingCards = allDeckCards
+            .Where(card => !IsBasicLand(card) && card.OwnedQuantity < card.TotalQuantity)
             .ToList();
-        
         return missingCards;
     }
 
