@@ -771,6 +771,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         returnedCard.Should().NotBeNull();
         returnedCard.Name.Should().Be(cardName);
         returnedCard.ImageUris!.Large.Should().NotBeNull();
+        returnedCard.Artist.Should().NotBeNullOrEmpty("because artist should be present in Scryfall data");
     }
 
     [Fact]
@@ -817,6 +818,7 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         returnedCard.Id.Should().Be(oracleId);
         returnedCard.Name.Should().Be(cardName);
         returnedCard.ImageUris!.Large.Should().NotBeNull();
+        returnedCard.Artist.Should().NotBeNullOrEmpty("because artist should be present in Scryfall data");
     }
 
     [Fact]
