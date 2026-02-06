@@ -122,6 +122,35 @@ public static partial class LeaguesEndpoint
         }
     }
 
+    private static async Task<IResult> GetRoundsByLeagueIdAsync(
+        int leagueId,
+        HttpContext context,
+        [FromServices] ILeagueService leagueService,
+        [FromServices] ILogger<LeaguesEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
+        CancellationToken cancellationToken)
+    {
+        const string operation = "Leagues.GetRounds";
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { leagueId });
+            return Results.Unauthorized();
+        }
+
+        try
+        {
+            var rounds = await leagueService.GetRoundsByLeagueIdAsync(leagueId, userId, cancellationToken);
+            logger.LogOperationSuccess(operation, new { leagueId, rounds.Count });
+            return Results.Ok(rounds);
+        }
+        catch (LeagueServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { leagueId, userId });
+            return await MapLeagueServiceException(ex, context, messageLocalizer, userId);
+        }
+    }
+
     private static async Task<IResult> ListLeagueWithScores(
         int id,
         HttpContext context,
