@@ -1,7 +1,9 @@
+using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.Json;
 using API.Dtos.Binders;
+using API.Services;
 using Core.Models;
 using Core.Models.Identity;
 using FluentAssertions;
@@ -9,6 +11,7 @@ using Infrastructure.Data;
 using Microsoft.Extensions.DependencyInjection;
 using TestUtilities.Authentication;
 using TestUtilities.Builders;
+using TestUtilities.Scryfall;
 using TestUtilities.Serialization;
 
 namespace IntegrationTests.Controllers;
@@ -721,6 +724,22 @@ public class BindersControllerTests : IClassFixture<CustomWebApplicationFactory>
 
             context.BinderCards.Add(binderCard);
             await context.SaveChangesAsync();
+        }
+
+        var priceText = 2.5.ToString(CultureInfo.InvariantCulture);
+        var scryfallCard = _testDataBuilder.CreateOracleCard(
+            id: card.ScryfallId,
+            name: card.Name,
+            setCode: card.SetCode,
+            setName: card.SetName);
+        scryfallCard = scryfallCard with
+        {
+            Prices = new API.Dtos.Cards.Prices(priceText, priceText, priceText, priceText, null)
+        };
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var cardDataService = scope.ServiceProvider.GetRequiredService<CardDataService>();
+            CardDataServiceTestHelper.Populate(cardDataService, [scryfallCard]);
         }
 
         using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);

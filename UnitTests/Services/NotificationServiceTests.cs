@@ -332,21 +332,24 @@ public class NotificationServiceTests
         // Mock ILeagueService to verify it's called
         var leagueServiceMock = new Mock<ILeagueService>();
         leagueServiceMock
+            .Setup(s => s.IsLeagueAdminAsync(123, "user-admin", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        leagueServiceMock
             .Setup(s => s.JoinLeagueAsync(123, userId, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         
-        // Mock IServiceScopeFactory to provide the mocked league service
+        // Mock IServiceScopeFactory: use CreateScope() (interface method); CreateAsyncScope() is an extension that calls it
         var serviceProviderMock = new Mock<IServiceProvider>();
         serviceProviderMock
-            .Setup(sp => sp.GetRequiredService<ILeagueService>())
+            .Setup(sp => sp.GetService(typeof(ILeagueService)))
             .Returns(leagueServiceMock.Object);
         var serviceScopeMock = new Mock<IServiceScope>();
         serviceScopeMock.Setup(s => s.ServiceProvider).Returns(serviceProviderMock.Object);
         
         var serviceScopeFactoryMock = new Mock<IServiceScopeFactory>();
         serviceScopeFactoryMock
-            .Setup(f => f.CreateAsyncScope())
-            .Returns(new AsyncServiceScope(serviceScopeMock.Object));
+            .Setup(f => f.CreateScope())
+            .Returns(serviceScopeMock.Object);
         
         var service = CreateService(context, serviceScopeFactoryMock.Object);
         var initialCount = await context.Notifications.CountAsync();
