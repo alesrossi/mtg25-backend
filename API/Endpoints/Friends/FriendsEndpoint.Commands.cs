@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using API.Dtos.Friends;
 using API.Helpers;
 using API.Logging;
 using API.Services;
@@ -8,6 +9,67 @@ namespace API.Endpoints.Friends;
 
 public static partial class FriendsEndpoints
 {
+    private static async Task<IResult> SendFriendRequestByEmailAsync(
+        [FromBody] SendFriendRequestByEmailRequest request,
+        HttpContext context,
+        [FromServices] IFriendService friendService,
+        [FromServices] IMessageLocalizer messageLocalizer,
+        [FromServices] ILogger<FriendsEndpointLogCategory> logger,
+        CancellationToken cancellationToken)
+    {
+        const string operation = "Friends.RequestByEmail";
+        var requesterId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrWhiteSpace(requesterId))
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { });
+            return Results.Unauthorized();
+        }
+
+        if (request is null || string.IsNullOrWhiteSpace(request.Email))
+        {
+            logger.LogOperationWarning(operation, "Missing or invalid email", new { requesterId });
+            return await LocalizedErrorResultFactory.BadRequestAsync(
+                context,
+                messageLocalizer,
+                requesterId,
+                "Errors.Friends.InvalidRequest");
+        }
+
+        try
+        {
+            await friendService.SendFriendRequestByEmailAsync(requesterId, request.Email.Trim(), cancellationToken);
+            logger.LogOperationSuccess(operation, new { requesterId });
+            return Results.Ok();
+        }
+        catch (ArgumentException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { requesterId });
+            return await LocalizedErrorResultFactory.BadRequestAsync(
+                context,
+                messageLocalizer,
+                requesterId,
+                "Errors.Friends.InvalidRequest");
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { requesterId });
+            return await LocalizedErrorResultFactory.BadRequestAsync(
+                context,
+                messageLocalizer,
+                requesterId,
+                "Errors.Friends.InvalidRequest");
+        }
+        catch (KeyNotFoundException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { requesterId });
+            return await LocalizedErrorResultFactory.NotFoundAsync(
+                context,
+                messageLocalizer,
+                requesterId,
+                "Errors.Friends.NotFound");
+        }
+    }
+
     private static async Task<IResult> SendFriendRequestAsync(
         string userId,
         HttpContext context,

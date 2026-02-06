@@ -62,6 +62,69 @@ public class FriendsControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task SendFriendRequestByEmail_CreatesPendingFriendshipAndNotification()
+    {
+        var requester = await CreateTestUserAsync("requester@test.com", "requester");
+        var target = await CreateTestUserAsync("target@test.com", "target");
+
+        using var client = _factory.CreateClientWithUser(requester.Id, requester.UserName!, requester.Email!);
+        var request = new SendFriendRequestByEmailRequest { Email = target.Email! };
+        var response = await client.PostAsync("/api/friends/request-by-email", JsonContentHelper.CreateContent(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+
+        var friendship = await identityContext.AppUserFriends.FirstOrDefaultAsync(
+            f => f.UserId == requester.Id && f.FriendId == target.Id);
+        friendship.Should().NotBeNull();
+        friendship!.Status.Should().Be(FriendshipStatus.Pending);
+
+        var notification = await identityContext.Notifications.FirstOrDefaultAsync(
+            n => n.AppUserId == target.Id && n.Origin == $"{requester.Id}.{target.Id}");
+        notification.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task SendFriendRequestByEmail_WhenUserNotFound_ReturnsNotFound()
+    {
+        var requester = await CreateTestUserAsync("requester@test.com", "requester");
+
+        using var client = _factory.CreateClientWithUser(requester.Id, requester.UserName!, requester.Email!);
+        var request = new SendFriendRequestByEmailRequest { Email = "nonexistent@test.com" };
+        var response = await client.PostAsync("/api/friends/request-by-email", JsonContentHelper.CreateContent(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task SendFriendRequestByEmail_WhenDuplicate_ReturnsBadRequest()
+    {
+        var requester = await CreateTestUserAsync("requester@test.com", "requester");
+        var target = await CreateTestUserAsync("target@test.com", "target");
+        await CreateFriendshipAsync(requester.Id, target.Id);
+
+        using var client = _factory.CreateClientWithUser(requester.Id, requester.UserName!, requester.Email!);
+        var request = new SendFriendRequestByEmailRequest { Email = target.Email! };
+        var response = await client.PostAsync("/api/friends/request-by-email", JsonContentHelper.CreateContent(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task SendFriendRequestByEmail_WhenSelfEmail_ReturnsBadRequest()
+    {
+        var requester = await CreateTestUserAsync("requester@test.com", "requester");
+
+        using var client = _factory.CreateClientWithUser(requester.Id, requester.UserName!, requester.Email!);
+        var request = new SendFriendRequestByEmailRequest { Email = requester.Email! };
+        var response = await client.PostAsync("/api/friends/request-by-email", JsonContentHelper.CreateContent(request));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task AcceptFriendRequest_AllowsRecipientToFinalize()
     {
         var requester = await CreateTestUserAsync("requester@test.com", "requester");
