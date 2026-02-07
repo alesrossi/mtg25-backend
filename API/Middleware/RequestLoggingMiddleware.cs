@@ -15,6 +15,7 @@ public class RequestLoggingMiddleware
     private readonly RequestLoggingOptions _options;
 
     private const string CorrelationIdItemKey = "CorrelationId";
+    private const string ExceptionOccurredKey = "RequestLoggingMiddleware.ExceptionOccurred";
 
     public RequestLoggingMiddleware(
         RequestDelegate next,
@@ -86,6 +87,7 @@ public class RequestLoggingMiddleware
             }
             catch (Exception ex)
             {
+                context.Items[ExceptionOccurredKey] = true;
                 _logger.LogError(
                     ex,
                     "Unhandled exception while processing HTTP {Method} {Path}",
@@ -112,7 +114,9 @@ public class RequestLoggingMiddleware
 
                 stopwatch.Stop();
                 var elapsedMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
-                var statusCode = context.Response?.StatusCode ?? StatusCodes.Status200OK;
+                // When an unhandled exception occurred, response may not have been started so StatusCode can still be 200; use 500 and "failed with exception".
+                var exceptionOccurred = context.Items[ExceptionOccurredKey] as bool? == true;
+                var statusCode = exceptionOccurred ? StatusCodes.Status500InternalServerError : (context.Response?.StatusCode ?? StatusCodes.Status200OK);
                 var level = MapToLogLevel(statusCode);
                 var slowThreshold = Math.Max(_options.SlowRequestThresholdMs, 0);
                 var isSlow = slowThreshold > 0 && elapsedMilliseconds > slowThreshold;
@@ -122,18 +126,27 @@ public class RequestLoggingMiddleware
                     level = LogLevel.Warning;
                 }
 
-                var message = isSlow
-                    ? "HTTP {Method} {Path} responded {StatusCode} in {Elapsed:0.00} ms (slow)"
-                    : "HTTP {Method} {Path} responded {StatusCode} in {Elapsed:0.00} ms";
+                var message = exceptionOccurred
+                    ? "HTTP {Method} {Path} failed with exception in {Elapsed:0.00} ms"
+                    : isSlow
+                        ? "HTTP {Method} {Path} responded {StatusCode} in {Elapsed:0.00} ms (slow)"
+                        : "HTTP {Method} {Path} responded {StatusCode} in {Elapsed:0.00} ms";
 
-                _logger.Log(
-                    level,
-                    // ReSharper disable once TemplateIsNotCompileTimeConstantProblem
-                    message,
-                    request.Method,
-                    requestPath,
-                    statusCode,
-                    elapsedMilliseconds);
+                if (exceptionOccurred)
+                {
+                    _logger.Log(level, message, request.Method, requestPath, elapsedMilliseconds);
+                }
+                else
+                {
+                    _logger.Log(
+                        level,
+                        // ReSharper disable once TemplateIsNotCompileTimeConstantProblem
+                        message,
+                        request.Method,
+                        requestPath,
+                        statusCode,
+                        elapsedMilliseconds);
+                }
 
                 if (captureRequestBody && !string.IsNullOrWhiteSpace(requestBody))
                 {
@@ -141,7 +154,7 @@ public class RequestLoggingMiddleware
                         "HTTP {Method} {Path} request body: {RequestBody}",
                         request.Method,
                         requestPath,
-                        requestBody);
+                        requestBody?.Trim() ?? string.Empty);
                 }
 
                 if (captureResponseBody && !string.IsNullOrWhiteSpace(responseBody))
@@ -150,7 +163,7 @@ public class RequestLoggingMiddleware
                         "HTTP {Method} {Path} response body: {ResponseBody}",
                         request.Method,
                         requestPath,
-                        responseBody);
+                        responseBody?.Trim() ?? string.Empty);
                 }
             }
         }

@@ -12,6 +12,7 @@ namespace API.Services;
 public interface IFriendService
 {
     Task SendFriendRequestAsync(string requesterUserId, string targetUserId, CancellationToken cancellationToken = default);
+    Task SendFriendRequestByEmailAsync(string requesterUserId, string email, CancellationToken cancellationToken = default);
     Task AcceptFriendRequestAsync(string requesterUserId, string recipientUserId, CancellationToken cancellationToken = default);
     Task RejectFriendRequestAsync(string otherUserId, string recipientUserId, CancellationToken cancellationToken = default);
     Task DeleteFriendshipAsync(string userId, string friendUserId, CancellationToken cancellationToken = default);
@@ -84,6 +85,19 @@ public sealed class FriendService : IFriendService
         };
 
         await _notificationService.CreateNotificationAsync(notification);
+    }
+
+    public async Task SendFriendRequestByEmailAsync(string requesterUserId, string email, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            throw new ArgumentException("Email is required.");
+        }
+
+        var target = await _userManager.FindByEmailAsync(email)
+            ?? throw new KeyNotFoundException("User was not found.");
+
+        await SendFriendRequestAsync(requesterUserId, target.Id, cancellationToken);
     }
 
     public async Task AcceptFriendRequestAsync(string otherUserId, string recipientUserId, CancellationToken cancellationToken = default)

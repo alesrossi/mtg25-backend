@@ -29,6 +29,11 @@ if [ -z "$INT_JWT_SECRET" ]; then
     echo "Export it with: export INT_JWT_SECRET=yourjwtsecret"
     exit 1
 fi
+# HMAC-SHA256 requires key size > 256 bits (33+ chars)
+if [ "$(printf '%s' "$INT_JWT_SECRET" | wc -c)" -lt 33 ]; then
+    echo -e "${RED}❌ Error: INT_JWT_SECRET must be at least 33 characters (>256 bits for HMAC-SHA256)${NC}"
+    exit 1
+fi
 
 export IMAGE_TAG=${IMAGE_TAG:-"int-latest"}
 export FRONTEND_REGISTRY=${FRONTEND_REGISTRY:-"alesrossi"}

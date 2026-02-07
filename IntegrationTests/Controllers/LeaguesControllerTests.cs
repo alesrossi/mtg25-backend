@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using API.Constants;
 using API.Dtos.Leagues;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
@@ -46,9 +47,39 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.OK,
             "because authenticated users should be able to access their leagues");
 
-        // Note: The endpoint might return a different type than expected based on the implementation
         var responseContent = await response.Content.ReadAsStringAsync();
-        responseContent.Should().NotBeNullOrEmpty("because the user has associated leagues");
+        var userWithLeagues = JsonSerializer.Deserialize<UserWithLeaguesDto>(responseContent, JsonContentHelper.DefaultOptions);
+        
+        userWithLeagues.Should().NotBeNull("because the user has associated leagues");
+        userWithLeagues!.Leagues.Should().HaveCount(1);
+        
+        var returnedLeague = userWithLeagues.Leagues[0];
+        returnedLeague.Id.Should().Be(league.Id);
+        returnedLeague.CurrentRound.Should().BeGreaterThan(0, "because the league should have a current round");
+        returnedLeague.CurrentRoundOrder.Should().Be(1, "because the first round should have order 1");
+        returnedLeague.AdminIds.Should().Contain(user.Id, "because the league owner is always an admin");
+    }
+
+    [Fact]
+    public async Task GetLeaguesFromUser_WithPromotedAdmin_PopulatesAdminIds()
+    {
+        var owner = await CreateTestUserAsync("useradmin-owner@example.com", "useradmin_owner");
+        var admin = await CreateTestUserAsync("useradmin-admin@example.com", "useradmin_admin");
+        var league = await CreateTestLeagueAsync("User Admin League", owner.Id);
+        await AssociateUserWithLeagueAsync(admin.Id, league.Id);
+        await GrantAdminRoleAsync(admin.Id, league.Id);
+
+        using var client = _factory.CreateClientWithUser(admin.Id, admin.UserName!, admin.Email!);
+        var response = await client.GetAsync("/api/leagues/user");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        var userWithLeagues = JsonSerializer.Deserialize<UserWithLeaguesDto>(responseContent, JsonContentHelper.DefaultOptions);
+        userWithLeagues.Should().NotBeNull();
+        userWithLeagues!.Leagues.Should().HaveCount(1);
+        userWithLeagues.Leagues[0].AdminIds.Should().Contain(owner.Id);
+        userWithLeagues.Leagues[0].AdminIds.Should().Contain(admin.Id);
+        userWithLeagues.Leagues[0].AdminIds.Should().HaveCount(2);
     }
 
     [Fact]
@@ -77,6 +108,71 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         // Assert
         response.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetLeaguesFromUser_WithInvalidCurrentRound_ReturnsBadRequest()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync("invalidround@example.com", "invalidround");
+        var league = await CreateTestLeagueAsync("Invalid Round League", user.Id);
+        await AssociateUserWithLeagueAsync(user.Id, league.Id);
+        
+        // Set CurrentRound to a non-existent round ID
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var trackedLeague = await dbContext.Leagues.FirstAsync(l => l.Id == league.Id);
+            trackedLeague.CurrentRound = int.MaxValue; // Non-existent round ID
+            dbContext.Leagues.Update(trackedLeague);
+            await dbContext.SaveChangesAsync();
+        }
+        
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        // Act
+        var response = await client.GetAsync("/api/leagues/user");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest,
+            "because a league with a non-existent current round should return bad request");
+    }
+
+    [Fact]
+    public async Task GetLeaguesFromUser_WithCurrentRoundZero_SetsCurrentRoundOrderToZero()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync("zeroround@example.com", "zeroround");
+        var league = await CreateTestLeagueAsync("Zero Round League", user.Id);
+        await AssociateUserWithLeagueAsync(user.Id, league.Id);
+        
+        // Set CurrentRound to 0
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var trackedLeague = await dbContext.Leagues.FirstAsync(l => l.Id == league.Id);
+            trackedLeague.CurrentRound = 0;
+            dbContext.Leagues.Update(trackedLeague);
+            await dbContext.SaveChangesAsync();
+        }
+        
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        // Act
+        var response = await client.GetAsync("/api/leagues/user");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        
+        var responseContent = await response.Content.ReadAsStringAsync();
+        var userWithLeagues = JsonSerializer.Deserialize<UserWithLeaguesDto>(responseContent, JsonContentHelper.DefaultOptions);
+        
+        userWithLeagues.Should().NotBeNull();
+        userWithLeagues!.Leagues.Should().HaveCount(1);
+        
+        var returnedLeague = userWithLeagues.Leagues[0];
+        returnedLeague.CurrentRound.Should().Be(0);
+        returnedLeague.CurrentRoundOrder.Should().Be(0, "because CurrentRoundOrder should be 0 when CurrentRound is 0");
     }
 
     [Fact]
@@ -120,7 +216,31 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             "because valid league IDs should return league data");
 
         var responseContent = await response.Content.ReadAsStringAsync();
-        responseContent.Should().NotBeNullOrEmpty();
+        var leagueDto = JsonSerializer.Deserialize<LeagueDto>(responseContent, JsonContentHelper.DefaultOptions);
+        leagueDto.Should().NotBeNull();
+        leagueDto!.AdminIds.Should().Contain(user.Id, "because the league owner is always an admin");
+    }
+
+    [Fact]
+    public async Task GetLeagueFromId_WithPromotedAdmin_ReturnsAdminIdsIncludingAdmin()
+    {
+        var owner = await CreateTestUserAsync("adminids-owner@example.com", "adminids_owner");
+        var admin = await CreateTestUserAsync("adminids-admin@example.com", "adminids_admin");
+        var league = await CreateTestLeagueAsync("League With Admins", owner.Id);
+        await AssociateUserWithLeagueAsync(owner.Id, league.Id);
+        await AssociateUserWithLeagueAsync(admin.Id, league.Id);
+        await GrantAdminRoleAsync(admin.Id, league.Id);
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+        var response = await client.GetAsync($"/api/leagues/{league.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        var leagueDto = JsonSerializer.Deserialize<LeagueDto>(responseContent, JsonContentHelper.DefaultOptions);
+        leagueDto.Should().NotBeNull();
+        leagueDto!.AdminIds.Should().Contain(owner.Id);
+        leagueDto.AdminIds.Should().Contain(admin.Id);
+        leagueDto.AdminIds.Should().HaveCount(2);
     }
 
     [Fact]
@@ -1063,6 +1183,33 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task PromoteLeagueAdmin_WithOwnerPromotingMember_CreatesNotification()
+    {
+        var owner = await CreateTestUserAsync("promote-notif-owner@example.com", "promote_notif_owner");
+        var player = await CreateTestUserAsync("promote-notif-player@example.com", "promote_notif_player");
+        var league = await CreateTestLeagueAsync("Promotion Notification League", owner.Id);
+        await AssociateUserWithLeagueAsync(player.Id, league.Id);
+        
+        var initialCount = await GetNotificationCountAsync();
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var response = await client.PatchAsync($"/api/leagues/{league.Id}/promote/{player.Id}",
+            new StringContent(string.Empty, Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        await VerifyRoleAssignmentAsync(player.Id, league.Id, LeagueRole.Admin);
+
+        var finalCount = await GetNotificationCountAsync();
+        finalCount.Should().Be(initialCount + 1, "because PromoteLeagueAdminAsync should create a notification for the promoted user");
+
+        var notifications = await GetNotificationsByNameAsync(NotificationConstants.PromotedToLeagueAdmin);
+        notifications.Should().HaveCount(1, "because PromoteLeagueAdminAsync should create exactly one notification");
+        notifications[0].AppUserId.Should().Be(player.Id, "because the notification should be sent to the promoted user");
+        notifications[0].ObjectId.Should().Be(league.Id.ToString(), "because the notification should reference the league ID");
+        notifications[0].Origin.Should().Be($"{league.Id}.{player.Id}", "because the notification origin should match the league and user IDs");
+    }
+
+    [Fact]
     public async Task PromoteLeagueAdmin_WithNonOwner_ReturnsUnauthorized()
     {
         var owner = await CreateTestUserAsync("promote-owner2@example.com", "promote_owner2");
@@ -1359,6 +1506,22 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var userLeague = dbContext.Notifications.FirstOrDefault(n => n.Origin == origin);
         userLeague.Should().NotBeNull($"because user {userId} should have a new notification associated with league {leagueId}");
         return Task.CompletedTask;
+    }
+
+    private async Task<int> GetNotificationCountAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        return await dbContext.Notifications.CountAsync();
+    }
+
+    private async Task<List<Notification>> GetNotificationsByNameAsync(string name)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        return await dbContext.Notifications
+            .Where(n => n.Name == name)
+            .ToListAsync();
     }
 
 

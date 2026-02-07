@@ -31,7 +31,9 @@ public class DeckCard : BaseModel
     public string? CollectorNumber { get; set; }
     [MaxLength(200)]
     public required string TypeLine { get; set; }
-    
+    [MaxLength(50)]
+    public string? ManaCost { get; set; }
+
     // Deck-specific properties
     public int MaindeckQuantity { get; set; }
     public int SideboardQuantity { get; set; }

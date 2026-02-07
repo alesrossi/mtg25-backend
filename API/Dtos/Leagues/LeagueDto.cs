@@ -11,6 +11,7 @@ public class LeagueDto
     public required DeckFormat Format { get; set; }
     public int TotalRounds { get; set; }
     public int CurrentRound { get; set; }
+    public int CurrentRoundOrder { get; set; }
     public int RoundsToConsider { get; set; }
     public int MinimumRounds { get; set; }
     public double TotalPrize { get; set; }
@@ -18,8 +19,13 @@ public class LeagueDto
     public int TotalPlayers { get; set; }
     public required int Score { get; set; }
     public ScoringSystem ScoringSystem { get; set; }
+    public List<int>? PointsToGive { get; set; }
+    public int? PointsPerWin { get; set; }
+    public int? PointsPerDraw { get; set; }
+    public int? PointsPerLoss { get; set; }
     public bool IsActive { get; set; }
     public bool IsPlaying { get; set; }
     public required string OwnerId { get; set; }
     public bool IsPublic { get; set; }
+    public List<string> AdminIds { get; set; } = [];
 }

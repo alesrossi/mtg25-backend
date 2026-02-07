@@ -81,6 +81,7 @@ out/
 # Visual Studio Code
 .vscode/
 .vscode/settings.json
+.cursor/
 
 # Visual Studio
 .vs/

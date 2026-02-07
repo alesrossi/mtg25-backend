@@ -52,6 +52,22 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
+    public async Task GetDeckCards_ReturnsManaCostInDeckCardDto()
+    {
+        var user = await CreateTestUserAsync("deckcards-manacost@example.com", "deckcards_manacost");
+        var deck = await CreateTestDeckForUserAsync(user.Id);
+        await SeedDefaultCardDataAsync("Counterspell", "Instant", ["U"], "{U}{U}");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+        await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(BuildDeckCardRequest("Counterspell", 1)));
+
+        var response = await client.GetAsync($"/api/decks/{deck.Id}/cards");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var cards = DeserializeDeckCardList(await response.Content.ReadAsStringAsync());
+        var counterspell = cards.Should().ContainSingle(dc => dc.Name == "Counterspell").Subject;
+        counterspell.ManaCost.Should().Be("{U}{U}");
+    }
+
+    [Fact]
     public async Task GetDeckCards_WithoutAuthentication_ReturnsUnauthorized()
     {
         var user = await CreateTestUserAsync("deckcards-noauth@example.com", "deckcards_noauth");
@@ -190,7 +206,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         // Arrange
         var user = await CreateTestUserAsync("testuser@example.com", "testuser");
         var deck = await CreateTestDeckForUserAsync(user.Id);
-        await SeedDefaultCardDataAsync("Lightning Bolt");
+        await SeedDefaultCardDataAsync("Lightning Bolt", manaCost: "{R}");
         using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
 
         var createDto = new CreateDeckCardDto
@@ -213,6 +229,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         createdDeckCard.DeckId.Should().Be(deck.Id);
         createdDeckCard.Name.Should().Be("Lightning Bolt");
         createdDeckCard.MaindeckQuantity.Should().Be(4);
+        createdDeckCard.ManaCost.Should().Be("{R}");
     }
 
     [Fact]
@@ -339,6 +356,12 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
 
         var secondResponse = await client.PostAsync($"/api/decks/{deck.Id}/cards", SerializeToJson(secondDto));
         secondResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var listResponse = await client.GetAsync($"/api/decks/{deck.Id}/cards");
+        var cards = DeserializeDeckCardList(await listResponse.Content.ReadAsStringAsync());
+        var plainsCards = cards.Where(dc => dc.Name == "Plains").ToList();
+        plainsCards.Should().HaveCount(2, "basic lands allow multiple deck card entries");
+        plainsCards.All(dc => dc.ManaCost == null).Should().BeTrue("basic lands have no mana cost");
     }
 
     [Fact]
@@ -416,7 +439,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
-    public async Task GetMissingDeckCards_ReturnsOnlyUnownedCards()
+    public async Task GetMissingDeckCards_ReturnsCardsWithMissingQuantity()
     {
         // Arrange
         var user = await CreateTestUserAsync("missingcards@example.com", "missingcards");
@@ -435,10 +458,11 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         var responseContent = await response.Content.ReadAsStringAsync();
         var missingCards = DeserializeDeckCardList(responseContent);
 
-        missingCards.Should().HaveCount(2);
-        missingCards.All(dc => !dc.IsOwned).Should().BeTrue();
-        var expectedOracleIds = deckCards.Skip(2).Select(dc => dc.ScryfallId).ToList();
-        missingCards.Select(dc => dc.ScryfallId).Should().BeEquivalentTo(expectedOracleIds);
+        missingCards.Should().HaveCount(4);
+        missingCards.All(dc => dc.OwnedQuantity < dc.TotalQuantity).Should().BeTrue();
+        missingCards.Where(dc => dc.OwnedQuantity == 2).Should().HaveCount(2);
+        var expectedScryfallIds = deckCards.Select(dc => dc.ScryfallId).ToList();
+        missingCards.Select(dc => dc.ScryfallId).Should().BeEquivalentTo(expectedScryfallIds);
     }
 
     [Fact]
@@ -462,6 +486,50 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         var response = await client.GetAsync($"/api/decks/{int.MaxValue}/missing-cards");
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetMissingDeckCards_ExcludesBasicLands()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync("missingcards-basics@example.com", "missingcards_basics");
+        var deck = await CreateTestDeckForUserAsync(user.Id);
+        
+        // Seed card data for basic lands and regular cards
+        await SeedDefaultCardDataAsync("Island", "Basic Land — Island");
+        await SeedDefaultCardDataAsync("Forest", "Basic Land — Forest");
+        await SeedDefaultCardDataAsync("Lightning Bolt", "Instant");
+        await SeedDefaultCardDataAsync("Counterspell", "Instant");
+        
+        // Create deck cards: 2 basic lands and 2 regular cards (none owned)
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+        
+        var islandCard = CreateDeckCardEntity(deck.Id, GetOracleIdForName("Island"), "Island", "MIR", 4, 0);
+        islandCard.TypeLine = "Basic Land — Island";
+        var forestCard = CreateDeckCardEntity(deck.Id, GetOracleIdForName("Forest"), "Forest", "MIR", 3, 0);
+        forestCard.TypeLine = "Basic Land — Forest";
+        var boltCard = CreateDeckCardEntity(deck.Id, GetOracleIdForName("Lightning Bolt"), "Lightning Bolt", "LEA", 4, 0);
+        var counterCard = CreateDeckCardEntity(deck.Id, GetOracleIdForName("Counterspell"), "Counterspell", "LEA", 2, 0);
+        
+        context.DeckCards.AddRange(islandCard, forestCard, boltCard, counterCard);
+        await context.SaveChangesAsync();
+        
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        // Act
+        var response = await client.GetAsync($"/api/decks/{deck.Id}/missing-cards");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        var missingCards = DeserializeDeckCardList(responseContent);
+
+        // Should only return the 2 regular cards, not the basic lands
+        missingCards.Should().HaveCount(2);
+        missingCards.Select(dc => dc.Name).Should().BeEquivalentTo(new[] { "Lightning Bolt", "Counterspell" });
+        missingCards.Should().NotContain(dc => dc.Name == "Island" || dc.Name == "Forest");
+        missingCards.All(dc => dc.OwnedQuantity < dc.TotalQuantity).Should().BeTrue();
     }
 
     [Fact]
@@ -756,7 +824,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         ]);
         
         await SeedCardDataAsync([
-            CreateScryfallCard(updateDto.ScryfallId, "Force of Will", "2XM", "Double Masters")
+            CreateScryfallCard(updateDto.ScryfallId, "Force of Will", "2XM", "Double Masters") with { ManaCost = "{3}{U}{U}" }
         ]);
 
         var response = await client.PutAsync($"/api/decks/{deck.Id}/cards/{deckCard.Id}/versions", SerializeToJson(updateDto));
@@ -768,6 +836,7 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
         updatedDeckCard.Should().NotBeNull();
         updatedDeckCard.ScryfallId.Should().Be(updateDto.ScryfallId);
         updatedDeckCard.SetName.Should().Be("Double Masters");
+        updatedDeckCard.ManaCost.Should().Be("{3}{U}{U}");
     }
 
     [Fact]
@@ -1014,12 +1083,13 @@ public class DeckCardsControllerTests : IClassFixture<CustomWebApplicationFactor
             SideboardQuantity = sideQuantity
         };
 
-    private Task SeedDefaultCardDataAsync(string name, string typeLine = "Instant", IEnumerable<string?>? colorIdentity = null)
+    private Task SeedDefaultCardDataAsync(string name, string typeLine = "Instant", IEnumerable<string?>? colorIdentity = null, string? manaCost = null)
     {
         var card = CreateScryfallCard(Guid.NewGuid().ToString(), name, "TST", "Test Set") with
         {
             TypeLine = typeLine,
-            ColorIdentity = colorIdentity?.ToList() ?? []
+            ColorIdentity = colorIdentity?.ToList() ?? [],
+            ManaCost = manaCost
         };
         return SeedCardDataAsync([card]);
     }

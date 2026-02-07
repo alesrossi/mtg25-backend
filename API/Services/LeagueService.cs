@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using API.Constants;
 using API.Dtos.Leagues;
 using API.Dtos.Notifications;
 using Core.Enums;
@@ -17,6 +18,7 @@ public interface ILeagueService
     Task<LeagueDto> GetLeagueByIdAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
     Task<LeagueWithScoresDto> GetLeagueScoresAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
     Task<RoundInfoDto> GetRoundByIdAsync(int leagueId, int roundId, string userId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<RoundInfoDto>> GetRoundsByLeagueIdAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
     Task<League> UpdateLeagueAsync(int leagueId, string userId, UpdateLeagueDto updateLeague, CancellationToken cancellationToken = default);
     Task<Round> UpdateRoundAsync(int leagueId, int roundId, string userId, UpdateRoundDto updateRound, CancellationToken cancellationToken = default);
     Task UpdateLeagueResultsAsync(int leagueId, string userId, List<UserWithScore> userList, CancellationToken cancellationToken = default);
@@ -28,6 +30,7 @@ public interface ILeagueService
     Task JoinAsPlayerAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
     Task PromoteLeagueAdminAsync(int leagueId, string userId, string targetUserId, CancellationToken cancellationToken = default);
     Task TerminateLeagueAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
+    Task<bool> IsLeagueAdminAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
 }
 
 public sealed class LeagueService : ILeagueService
@@ -90,6 +93,10 @@ public sealed class LeagueService : ILeagueService
                 IsActive = x.League.IsActive,
                 IsPlaying = x.IsPlaying,
                 ScoringSystem = x.League.ScoringSystem,
+                PointsToGive = x.League.PointsToGive,
+                PointsPerWin = x.League.PointsPerWin,
+                PointsPerDraw = x.League.PointsPerDraw,
+                PointsPerLoss = x.League.PointsPerLoss,
                 OwnerId = x.League.OwnerId,
                 IsPublic = x.League.IsPublic
             })
@@ -114,6 +121,10 @@ public sealed class LeagueService : ILeagueService
                 IsActive = league.IsActive,
                 IsPlaying = false,
                 ScoringSystem = league.ScoringSystem,
+                PointsToGive = league.PointsToGive,
+                PointsPerWin = league.PointsPerWin,
+                PointsPerDraw = league.PointsPerDraw,
+                PointsPerLoss = league.PointsPerLoss,
                 OwnerId = league.OwnerId,
                 IsPublic = league.IsPublic
             })
@@ -123,6 +134,71 @@ public sealed class LeagueService : ILeagueService
         foreach (var league in ownedLeagues)
         {
             leaguesById.TryAdd(league.Id, league);
+        }
+
+        // Fetch current round orders for all leagues
+        var currentRoundIds = leaguesById.Values
+            .Where(l => l.CurrentRound > 0)
+            .Select(l => l.CurrentRound)
+            .Distinct()
+            .ToList();
+
+        if (currentRoundIds.Count > 0)
+        {
+            var roundOrders = await _dbContext.Rounds
+                .Where(r => currentRoundIds.Contains(r.Id))
+                .Select(r => new { r.Id, r.Order })
+                .AsNoTracking()
+                .ToDictionaryAsync(r => r.Id, r => r.Order, cancellationToken);
+
+            // Populate CurrentRoundOrder for all leagues and validate round existence
+            foreach (var league in leaguesById.Values)
+            {
+                if (league.CurrentRound > 0)
+                {
+                    if (!roundOrders.TryGetValue(league.CurrentRound, out var order))
+                    {
+                        throw LeagueServiceException.BadRequest("Errors.Leagues.InvalidCurrentRound");
+                    }
+                    league.CurrentRoundOrder = order;
+                }
+                else
+                {
+                    league.CurrentRoundOrder = 0;
+                }
+            }
+        }
+        else
+        {
+            // No leagues with current rounds, set all to 0
+            foreach (var league in leaguesById.Values)
+            {
+                league.CurrentRoundOrder = 0;
+            }
+        }
+
+        var leagueIds = leaguesById.Keys.ToList();
+        var adminAssignmentsRaw = await _dbContext.LeagueRoleAssignments
+            .AsNoTracking()
+            .Where(lr => leagueIds.Contains(lr.LeagueId))
+            .Select(lr => new { lr.LeagueId, lr.UserId, lr.Roles })
+            .ToListAsync(cancellationToken);
+        var adminUserIdsByLeague = adminAssignmentsRaw
+            .Where(x => x.Roles.HasFlag(LeagueRole.Admin))
+            .GroupBy(x => x.LeagueId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.UserId).ToList());
+
+        foreach (var league in leaguesById.Values)
+        {
+            var ids = new List<string> { league.OwnerId };
+            if (adminUserIdsByLeague.TryGetValue(league.Id, out var userIds))
+            {
+                foreach (var id in userIds.Where(id => id != league.OwnerId))
+                {
+                    ids.Add(id);
+                }
+            }
+            league.AdminIds = ids;
         }
 
         return new UserWithLeaguesDto
@@ -158,6 +234,17 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.Unauthorized("Errors.Leagues.UserNotInLeague");
         }
 
+        var adminAssignmentsRaw = await _dbContext.LeagueRoleAssignments
+            .AsNoTracking()
+            .Where(lr => lr.LeagueId == league.Id)
+            .Select(lr => new { lr.UserId, lr.Roles })
+            .ToListAsync(cancellationToken);
+        var adminIdsList = new List<string> { league.OwnerId };
+        foreach (var id in adminAssignmentsRaw.Where(x => x.Roles.HasFlag(LeagueRole.Admin)).Select(x => x.UserId).Where(id => id != league.OwnerId))
+        {
+            adminIdsList.Add(id);
+        }
+
         return new LeagueDto
         {
             Id = league.Id,
@@ -173,10 +260,15 @@ public sealed class LeagueService : ILeagueService
             TotalPlayers = league.TotalPlayers,
             Score = res!.Score,
             ScoringSystem = league.ScoringSystem,
+            PointsToGive = league.PointsToGive,
+            PointsPerWin = league.PointsPerWin,
+            PointsPerDraw = league.PointsPerDraw,
+            PointsPerLoss = league.PointsPerLoss,
             OwnerId = league.OwnerId,
             IsActive = league.IsActive,
             IsPlaying = res.IsPlaying,
-            IsPublic = league.IsPublic
+            IsPublic = league.IsPublic,
+            AdminIds = adminIdsList
         };
     }
 
@@ -288,6 +380,107 @@ public sealed class LeagueService : ILeagueService
             LeagueId = round.LeagueId,
             Players = userRounds
         };
+    }
+
+    public async Task<IReadOnlyList<RoundInfoDto>> GetRoundsByLeagueIdAsync(int leagueId, string userId, CancellationToken cancellationToken = default)
+    {
+        await EnsureUserAsync(userId);
+
+        var league = await _dbContext.Leagues
+            .AsNoTracking()
+            .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
+        if (league is null)
+        {
+            throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
+        }
+
+        var membership = await _dbContext.UserLeagues
+            .AsNoTracking()
+            .FirstOrDefaultAsync(ul => ul.LeagueId == leagueId && ul.UserId == userId, cancellationToken);
+        if (userId != league.OwnerId && membership is null)
+        {
+            throw LeagueServiceException.Unauthorized("Errors.Leagues.UserNotInLeague");
+        }
+
+        // Se TotalRounds è 0, restituire lista vuota
+        if (league.TotalRounds == 0)
+        {
+            return new List<RoundInfoDto>();
+        }
+
+        // Recuperare tutti i round esistenti
+        var existingRounds = await _dbContext.Rounds
+            .AsNoTracking()
+            .Where(r => r.LeagueId == leagueId)
+            .OrderBy(r => r.Order)
+            .ToListAsync(cancellationToken);
+
+        // Recuperare tutti i giocatori per i round esistenti in una singola query
+        var roundIds = existingRounds.Select(r => r.Id).ToList();
+        var allUserRounds = roundIds.Count > 0
+            ? await _dbContext.UserRounds
+                .AsNoTracking()
+                .Where(ur => roundIds.Contains(ur.RoundId))
+                .OrderBy(ur => ur.Position)
+                .ToListAsync(cancellationToken)
+            : new List<AppUserRound>();
+
+        // Raggruppare i giocatori per RoundId
+        var userRoundsByRoundId = allUserRounds
+            .GroupBy(ur => ur.RoundId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(ur => new UserRoundInfoDto
+                {
+                    UserId = ur.UserId,
+                    Position = ur.Position,
+                    Score = ur.Score,
+                    Wins = ur.Wins,
+                    Draws = ur.Draws,
+                    Losses = ur.Losses,
+                    Omw = ur.Omw,
+                    Gw = ur.Gw,
+                    Ogw = ur.Ogw
+                }).ToList()
+            );
+
+        // Creare round virtuali per gli order mancanti
+        var result = new List<RoundInfoDto>();
+        for (int order = 1; order <= league.TotalRounds; order++)
+        {
+            var existingRound = existingRounds.FirstOrDefault(r => r.Order == order);
+            if (existingRound != null)
+            {
+                // Round esistente
+                var userRounds = userRoundsByRoundId.GetValueOrDefault(existingRound.Id, new List<UserRoundInfoDto>());
+                result.Add(new RoundInfoDto
+                {
+                    Id = existingRound.Id,
+                    Status = existingRound.Status,
+                    StartDate = existingRound.StartDate,
+                    Description = existingRound.Description,
+                    Order = existingRound.Order,
+                    LeagueId = existingRound.LeagueId,
+                    Players = userRounds
+                });
+            }
+            else
+            {
+                // Round virtuale (non ancora creato)
+                result.Add(new RoundInfoDto
+                {
+                    Id = 0,
+                    Status = Status.NotPlayed,
+                    StartDate = null,
+                    Description = null,
+                    Order = order,
+                    LeagueId = leagueId,
+                    Players = new List<UserRoundInfoDto>()
+                });
+            }
+        }
+
+        return result;
     }
 
     public async Task<League> UpdateLeagueAsync(int leagueId, string userId, UpdateLeagueDto updateLeague, CancellationToken cancellationToken = default)
@@ -914,7 +1107,7 @@ public sealed class LeagueService : ILeagueService
         await AssignLeagueRoleAsync(user.Id, league.Id, LeagueRole.Player, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        var newNotification = new NewNotificationDto
+        var ownerNotification = new NewNotificationDto
         {
             Name = "player_joined_league",
             Message = "Notifications.PlayerJoinedLeague",
@@ -924,8 +1117,19 @@ public sealed class LeagueService : ILeagueService
             Origin = $"{league.Id}.{user.Id}",
             AppUserId = league.OwnerId
         };
+        await _notificationService.CreateNotificationAsync(ownerNotification);
 
-        await _notificationService.CreateNotificationAsync(newNotification);
+        var requesterNotification = new NewNotificationDto
+        {
+            Name = NotificationConstants.JoinedLeague,
+            Message = "Notifications.JoinedLeague",
+            MessageKey = "Notifications.JoinedLeague",
+            MessageArgs = [league.Name],
+            ObjectId = league.Id.ToString(),
+            Origin = $"{league.Id}.{user.Id}",
+            AppUserId = user.Id
+        };
+        await _notificationService.CreateNotificationAsync(requesterNotification);
     }
 
     public async Task LeaveLeagueAsync(int leagueId, string userId, CancellationToken cancellationToken = default)
@@ -1120,6 +1324,18 @@ public sealed class LeagueService : ILeagueService
 
         await AssignLeagueRoleAsync(targetUser.Id, league.Id, LeagueRole.Admin, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var notification = new NewNotificationDto
+        {
+            Name = NotificationConstants.PromotedToLeagueAdmin,
+            Message = "Notifications.PromotedToLeagueAdmin",
+            MessageKey = "Notifications.PromotedToLeagueAdmin",
+            MessageArgs = [league.Name],
+            ObjectId = league.Id.ToString(),
+            Origin = $"{league.Id}.{targetUser.Id}",
+            AppUserId = targetUser.Id
+        };
+        await _notificationService.CreateNotificationAsync(notification);
     }
     
     public async Task TerminateLeagueAsync(int leagueId, string userId, CancellationToken cancellationToken = default)
@@ -1143,6 +1359,19 @@ public sealed class LeagueService : ILeagueService
 
         _dbContext.Update(league);
         await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<bool> IsLeagueAdminAsync(int leagueId, string userId, CancellationToken cancellationToken = default)
+    {
+        var league = await _dbContext.Leagues
+            .AsNoTracking()
+            .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
+        if (league is null)
+        {
+            return false;
+        }
+
+        return await IsLeagueAdminAsync(league, userId, cancellationToken);
     }
 
     private async Task<AppUser> EnsureUserAsync(string userId)

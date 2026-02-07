@@ -365,6 +365,9 @@ public class TestDataBuilder
             Rarity: GetRandomRarity(),
             Watermark: null,
             FlavorText: null,
+            Artist: "Test Artist",
+            ArtistId: Guid.NewGuid().ToString(),
+            IllustrationId: Guid.NewGuid().ToString(),
             CardBackId: null,
             Prices: new Prices("", "", "", "", "")
         );

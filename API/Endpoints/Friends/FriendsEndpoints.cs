@@ -19,6 +19,15 @@ public static partial class FriendsEndpoints
             .Produces<IReadOnlyList<FriendDto>>()
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json");
 
+        group.MapPost("/request-by-email", SendFriendRequestByEmailAsync)
+            .RequireAuthorization()
+            .WithSummary("Send friend request by email")
+            .WithDescription("Creates a pending friendship request by specifying the recipient's email.")
+            .Produces(StatusCodes.Status200OK)
+            .Produces<ProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json");
+
         group.MapPost("/{userId}/request", SendFriendRequestAsync)
             .RequireAuthorization()
             .WithSummary("Send friend request")
