@@ -109,7 +109,9 @@ public record Legalities(
     string? Duel,
     string? Oldschool,
     string? Premodern,
-    string? Predh
+    string? Predh,
+    string? Commander,
+    string? Penny
 );
 
 public record Prices (string? Usd,
@@ -118,4 +120,3 @@ public record Prices (string? Usd,
     string? EurFoil, 
     string? Tix
 );
-

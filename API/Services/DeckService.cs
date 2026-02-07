@@ -1,5 +1,6 @@
 using System.Globalization;
 using API.Dtos.Decks;
+using API.Helpers;
 using Core.Interfaces;
 using Core.Models;
 using Core.Models.Identity;
@@ -427,18 +428,45 @@ public sealed class DeckService : IDeckService
 
         var decklistLines = FilterDecklistLines(importDto.Decklist);
         var parseResult = await _decklistParserService.ParseAsync(decklistLines);
-        var skippedLines = parseResult.Errors.Count;
+        var legalDeckCards = new List<CreateDeckCardDto>(parseResult.DeckCards.Count);
+        var legalityErrors = new List<string>();
 
-        if (!parseResult.DeckCards.Any())
+        foreach (var deckCard in parseResult.DeckCards)
         {
-            var errors = parseResult.Errors.Any()
-                ? parseResult.Errors
+            var trimmedName = deckCard.Name?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(trimmedName))
+            {
+                continue;
+            }
+
+            if (!_cardDataService.CardDataByName.TryGetValue(trimmedName, out var cardData))
+            {
+                legalityErrors.Add($"Card '{trimmedName}' was not found in the card database.");
+                continue;
+            }
+
+            if (!DeckLegalityHelper.IsLegal(importDto.Format, cardData))
+            {
+                legalityErrors.Add($"Card '{trimmedName}' is not legal in {importDto.Format}.");
+                continue;
+            }
+
+            legalDeckCards.Add(deckCard);
+        }
+
+        var allErrors = parseResult.Errors.Concat(legalityErrors).ToList();
+        var skippedLines = allErrors.Count;
+
+        if (!legalDeckCards.Any())
+        {
+            var errors = allErrors.Any()
+                ? allErrors
                 : ["Decklist did not contain any valid cards."];
 
             throw DeckServiceException.BadRequest("Errors.Decks.NoCardsParsed", new
             {
                 errors,
-                deckCards = parseResult.DeckCards,
+                deckCards = legalDeckCards,
                 skippedLines
             }, includeBody: true);
         }
@@ -461,11 +489,11 @@ public sealed class DeckService : IDeckService
 
         var ownedCardsLookup = await BuildOwnedCardsLookupAsync(
             userId,
-            parseResult.DeckCards.Select(dc => dc.Name));
+            legalDeckCards.Select(dc => dc.Name));
 
         var createdCards = await _deckCardService.CreateDeckCardsForImportAsync(
             deck,
-            parseResult.DeckCards,
+            legalDeckCards,
             marketProvider,
             ownedCardsLookup);
 
@@ -490,7 +518,7 @@ public sealed class DeckService : IDeckService
         _unitOfWork.Repository<Deck>().Update(deck);
         await _unitOfWork.Complete();
 
-        return new ImportDeckDto(MapToDto(deck), createdCards.ToList(), parseResult.Errors, skippedLines);
+        return new ImportDeckDto(MapToDto(deck), createdCards.ToList(), allErrors, skippedLines);
     }
 
     private static DeckDto MapToDto(Deck deck)

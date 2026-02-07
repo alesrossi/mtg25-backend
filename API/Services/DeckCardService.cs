@@ -1,6 +1,7 @@
 using System.Globalization;
 using API.Dtos.Cards;
 using API.Dtos.Decks;
+using API.Helpers;
 using API.Logging;
 using Core.Interfaces;
 using Core.Models;
@@ -267,6 +268,12 @@ public class DeckCardService
             artCrop = imageUris.ArtCrop!;
             rarity = namedCardData.Rarity;
             collectorNumber = namedCardData.CollectorNumber;
+        }
+
+        if (!DeckLegalityHelper.IsLegal(deck.Format, scryfallCard!))
+        {
+            _logger.LogOperationWarning(CreateDeckCardOperation, "Card not legal for deck format", new { deckId, deck.Format, Name = trimmedName });
+            throw new InvalidOperationException($"Card '{trimmedName}' is not legal in {deck.Format}.");
         }
 
         var effectiveTypeLine = string.IsNullOrWhiteSpace(typeLine)
