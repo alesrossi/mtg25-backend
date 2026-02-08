@@ -106,6 +106,8 @@ public class CardDataService
             throw;
         }
 
+        return;
+
         void AddOrUpdateWithCheapest(string key, ScryfallCardDto candidate)
         {
             if (string.IsNullOrWhiteSpace(key))
@@ -138,11 +140,6 @@ public class CardDataService
             if (candidatePrice is not null && existingPrice is null)
             {
                 return true;
-            }
-
-            if (candidatePrice is null)
-            {
-                return false;
             }
 
             return candidatePrice < existingPrice;

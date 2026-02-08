@@ -202,16 +202,14 @@ public class DeckValidationService : IDeckValidationService
             }
             
             // Count sideboard copies
-            if (deckCard.SideboardQuantity > 0)
+            if (deckCard.SideboardQuantity <= 0) continue;
+            if (sideboardCounts.ContainsKey(cardKey))
             {
-                if (sideboardCounts.ContainsKey(cardKey))
-                {
-                    sideboardCounts[cardKey] += deckCard.SideboardQuantity;
-                }
-                else
-                {
-                    sideboardCounts[cardKey] = deckCard.SideboardQuantity;
-                }
+                sideboardCounts[cardKey] += deckCard.SideboardQuantity;
+            }
+            else
+            {
+                sideboardCounts[cardKey] = deckCard.SideboardQuantity;
             }
         }
 
@@ -222,7 +220,7 @@ public class DeckValidationService : IDeckValidationService
         ValidateCardCountByLocation(sideboardCounts, formatRules, "sideboard", result);
         
         // For singleton formats, validate total across maindeck + sideboard
-        if (formatRules.IsSingleton)
+        if (!formatRules.IsSingleton) return;
         {
             var totalCounts = new Dictionary<string, int>();
             

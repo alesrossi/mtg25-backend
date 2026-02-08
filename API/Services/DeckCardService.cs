@@ -95,23 +95,21 @@ public class DeckCardService
                 var matchingCards = collectionCards?
                     .Where(c => !string.IsNullOrWhiteSpace(c.OracleId) && cardOracleIdSet.Contains(c.OracleId))
                     .ToList();
-                if (matchingCards?.Any() == true)
+                if (matchingCards?.Any() != true) continue;
+                foreach (var card in matchingCards)
                 {
-                    foreach (var card in matchingCards)
+                    var lookupKey = card.OracleId;
+                    if (string.IsNullOrWhiteSpace(lookupKey))
                     {
-                        var lookupKey = card.OracleId;
-                        if (string.IsNullOrWhiteSpace(lookupKey))
-                        {
-                            continue;
-                        }
-
-                        if (!ownedCardsLookup.TryGetValue(lookupKey, out var cards))
-                        {
-                            cards = [];
-                            ownedCardsLookup[lookupKey] = cards;
-                        }
-                        cards.Add(card);
+                        continue;
                     }
+
+                    if (!ownedCardsLookup.TryGetValue(lookupKey, out var cards))
+                    {
+                        cards = [];
+                        ownedCardsLookup[lookupKey] = cards;
+                    }
+                    cards.Add(card);
                 }
             }
         }
@@ -136,7 +134,7 @@ public class DeckCardService
         const string operation = "DeckCards.FetchByScryfallId";
         var scopeKey = deckId?.ToString() ?? userId ?? scryfallId;
         using var scope = _logger.BeginOperationScope(operation, scopeKey);
-        _logger.LogOperationStart(operation, new { scryfallId = scryfallId, deckId, userId });
+        _logger.LogOperationStart(operation, new { scryfallId, deckId, userId });
 
         ISpecification<DeckCard> spec = deckId.HasValue
             ? new DeckCardsWithScryfallIdSpecification(scryfallId, deckId.Value)
@@ -270,7 +268,7 @@ public class DeckCardService
             collectorNumber = namedCardData.CollectorNumber;
         }
 
-        if (!DeckLegalityHelper.IsLegal(deck.Format, scryfallCard!))
+        if (!DeckLegalityHelper.IsLegal(deck.Format, scryfallCard))
         {
             _logger.LogOperationWarning(CreateDeckCardOperation, "Card not legal for deck format", new { deckId, deck.Format, Name = trimmedName });
             throw new InvalidOperationException($"Card '{trimmedName}' is not legal in {deck.Format}.");

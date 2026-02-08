@@ -461,9 +461,9 @@ public sealed class DeckService : IDeckService
         var allErrors = parseResult.Errors.Concat(legalityErrors).ToList();
         var skippedLines = allErrors.Count;
 
-        if (!legalDeckCards.Any())
+        if (legalDeckCards.Count == 0)
         {
-            var errors = allErrors.Any()
+            var errors = allErrors.Count != 0
                 ? allErrors
                 : ["Decklist did not contain any valid cards."];
 
@@ -501,13 +501,7 @@ public sealed class DeckService : IDeckService
             marketProvider,
             ownedCardsLookup);
 
-        var totalPrice = 0.0;
-        foreach (var created in createdCards)
-        {
-            var cardPrice = ResolveCardMarketPrice(_cardDataService, created.ScryfallId, marketProvider);
-            var quantity = created.MaindeckQuantity + created.SideboardQuantity;
-            totalPrice += cardPrice * quantity;
-        }
+        var totalPrice = (from created in createdCards let cardPrice = ResolveCardMarketPrice(_cardDataService, created.ScryfallId, marketProvider) let quantity = created.MaindeckQuantity + created.SideboardQuantity select cardPrice * quantity).Sum();
 
         deck.NumberOfCards = createdCards.Sum(dc => dc.MaindeckQuantity + dc.SideboardQuantity);
         deck.NumberOfMainBoardCards = createdCards.Sum(dc => dc.MaindeckQuantity);
@@ -627,7 +621,7 @@ public sealed class DeckService : IDeckService
 
                 if (!lookup.TryGetValue(card.OracleId, out var cards))
                 {
-                    cards = new List<Card>();
+                    cards = [];
                     lookup[card.OracleId] = cards;
                 }
                 cards.Add(card);

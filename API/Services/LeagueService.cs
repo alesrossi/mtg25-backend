@@ -680,7 +680,7 @@ public sealed class LeagueService : ILeagueService
                     else
                     {
                         var positionsProvided = requestedPlayers.All(player =>
-                            player.Position.HasValue && player.Position.Value > 0);
+                            player.Position is > 0);
                         var positionsUnique = positionsProvided
                             && requestedPlayers.Select(player => player.Position!.Value).Distinct().Count() == requestedPlayers.Count;
                         useProvidedPositions = positionsProvided && positionsUnique;

@@ -271,13 +271,10 @@ public class NotificationService
 
     private string ResolveMessage(Notification notification, Language? language)
     {
-        if (!string.IsNullOrWhiteSpace(notification.MessageKey))
-        {
-            var args = DeserializeArgs(notification.MessageArgsJson);
-            // ReSharper disable once CoVariantArrayConversion
-            return _messageLocalizer.GetMessageForLanguage(language, notification.MessageKey, args);
-        }
+        if (string.IsNullOrWhiteSpace(notification.MessageKey)) return notification.Message;
+        var args = DeserializeArgs(notification.MessageArgsJson);
+        // ReSharper disable once CoVariantArrayConversion
+        return _messageLocalizer.GetMessageForLanguage(language, notification.MessageKey, args);
 
-        return notification.Message;
     }
 }
