@@ -24,7 +24,7 @@ public interface ILeagueService
     Task UpdateLeagueResultsAsync(int leagueId, string userId, List<UserWithScore> userList, CancellationToken cancellationToken = default);
     Task<string> GetInviteCodeAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
     Task RequestJoinLeagueAsync(string code, string userId, CancellationToken cancellationToken = default);
-    Task JoinLeagueAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
+    Task JoinLeagueAsync(int leagueId, string adminId, string userId, CancellationToken cancellationToken = default);
     Task LeaveLeagueAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
     Task<League> CreateLeagueAsync(string userId, NewLeagueDto leagueDto, CancellationToken cancellationToken = default);
     Task JoinAsPlayerAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
@@ -1061,9 +1061,13 @@ public sealed class LeagueService : ILeagueService
         }
     }
 
-    public async Task JoinLeagueAsync(int leagueId, string userId, CancellationToken cancellationToken = default)
+    public async Task JoinLeagueAsync(int leagueId, string adminId, string userId, CancellationToken cancellationToken = default)
     {
         var user = await EnsureUserAsync(userId);
+        if (!await IsLeagueAdminAsync(leagueId, adminId, cancellationToken))
+        {
+            throw LeagueServiceException.Unauthorized("Errors.Leagues.Unauthorized");
+        }
 
         var league = await _dbContext.Leagues.FindAsync([leagueId], cancellationToken);
         if (league is null)

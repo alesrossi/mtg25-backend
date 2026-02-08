@@ -6,7 +6,6 @@ using Core.Enums;
 using Core.Models.Identity;
 using Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace API.Services;
@@ -17,42 +16,29 @@ public class NotificationService
     private readonly ILogger<NotificationService> _logger;
     private readonly IUserSettingsService _userSettingsService;
     private readonly IMessageLocalizer _messageLocalizer;
-    private readonly IServiceScopeFactory? _serviceScopeFactory;
     
     private const string CreateNotificationOperation = "Notifications.Create";
     private const string DeleteNotificationOperation = "Notifications.Delete";
     private const string UpdateNotificationOperation = "Notifications.Update";
     
-    /// <summary>
-    /// Main constructor for dependency injection.
-    /// IServiceScopeFactory is optional to support test scenarios and avoid circular dependency issues
-    /// when NotificationService is used by LeagueService. It's used to lazily resolve ILeagueService
-    /// when needed, avoiding constructor-level circular dependencies.
-    /// </summary>
     public NotificationService(
         AppIdentityDbContext context,
         ILogger<NotificationService> logger,
         IUserSettingsService userSettingsService,
-        IMessageLocalizer messageLocalizer,
-        IServiceScopeFactory? serviceScopeFactory = null)
+        IMessageLocalizer messageLocalizer)
     {
         _context = context;
         _logger = logger;
         _userSettingsService = userSettingsService;
         _messageLocalizer = messageLocalizer;
-        _serviceScopeFactory = serviceScopeFactory;
     }
 
-    /// <summary>
-    /// Constructor for test scenarios that don't require all dependencies.
-    /// </summary>
     public NotificationService(AppIdentityDbContext context, ILogger<NotificationService> logger)
         : this(
             context,
             logger,
             new UserSettingsService(context),
-            new MessageLocalizationService(new UserSettingsService(context), NullLogger<MessageLocalizationService>.Instance),
-            null)
+            new MessageLocalizationService(new UserSettingsService(context), NullLogger<MessageLocalizationService>.Instance))
     {
     }
 
@@ -207,21 +193,9 @@ public class NotificationService
                 cancellationToken);
     }
     
-    /// <summary>
-    /// Updates notification status (read/approval) and performs side effects based on notification type.
-    /// When approving a league join request (<see cref="NotificationConstants.RequestJoinLeague"/>):
-    /// - Only the league owner or a league admin can approve; otherwise <see cref="UnauthorizedAccessException"/> is thrown (no approval is persisted).
-    /// - On success, the user is added to the league directly via the league service (no separate join step).
-    /// - The requester receives a notification that they were added; the league owner receives a player_joined_league notification.
-    /// General approach for league join approval:
-    /// - Avoids HTTP overhead (no need to call the join endpoint)
-    /// - Simplifies error handling (exceptions propagate directly)
-    /// - Ensures authorization is checked before any persistence
-    /// - Provides immediate feedback if the join operation fails
-    /// </summary>
     public async Task<bool> UpdateNotificationAsync(List<int> ids, bool? isRead, bool? approval, string? userToUpdate)
     {
-        var leagueJoinRequests = new List<(int leagueId, string userId)>();
+        
 
         await _context.Notifications.AsNoTracking().Where(n => ids.Contains(n.Id)).ForEachAsync(notification =>
         {
@@ -232,6 +206,7 @@ public class NotificationService
             {
                 notification.IsRead = isRead.Value;
                 _context.Notifications.Update(notification);
+                
             }
             
             if (approval is not null)
@@ -239,73 +214,31 @@ public class NotificationService
                 notification.Approval = approval.Value;
                 _context.Notifications.Update(notification);
                 
-                if (notification.Name == NotificationConstants.RequestJoinLeague && approval.Value)
+                if (notification.Name == NotificationConstants.RequestJoinLeague)
                 {
-                    if (int.TryParse(notification.ObjectId, out var leagueId) && 
-                        !string.IsNullOrEmpty(notification.Origin))
+                    var newNotification = new Notification
                     {
-                        var originParts = notification.Origin.Split('.');
-                        if (originParts.Length >= 2)
-                        {
-                            var userId = originParts[1];
-                            leagueJoinRequests.Add((leagueId, userId));
-                        }
-                    }
+                        Name = NotificationConstants.JoinedLeague,
+                        Message = "Notifications.JoinedLeagueApproved",
+                        MessageKey = "Notifications.JoinedLeagueApproved",
+                        MessageArgsJson = SerializeArgs([]),
+                        ObjectId = notification.ObjectId,
+                        Origin = notification.Origin,
+                        CreationDateTime = DateTime.UtcNow,
+                        AppUserId = notification.Origin.Split('.')[1],
+                        AppUser = null!
+                    };
+                    
+                    _context.Notifications.Add(newNotification);
                 }
             }
             
             _logger.LogOperationSuccess(UpdateNotificationOperation, new { notification.Id, notification.Name });
+            
         });
-
-        if (leagueJoinRequests.Count > 0 && userToUpdate is not null && _serviceScopeFactory is not null)
-        {
-            await using var scope = _serviceScopeFactory.CreateAsyncScope();
-            var leagueService = scope.ServiceProvider.GetRequiredService<ILeagueService>();
-            foreach (var (leagueId, _) in leagueJoinRequests)
-            {
-                var isAdmin = await leagueService.IsLeagueAdminAsync(leagueId, userToUpdate);
-                if (!isAdmin)
-                {
-                    _logger.LogWarning(
-                        "User {UserId} is not admin/owner of league {LeagueId}; cannot approve join request",
-                        userToUpdate, leagueId);
-                    throw new UnauthorizedAccessException();
-                }
-            }
-        }
         
         await _context.SaveChangesAsync();
 
-        if (leagueJoinRequests.Count > 0 && _serviceScopeFactory is not null)
-        {
-            await using var scope = _serviceScopeFactory.CreateAsyncScope();
-            var leagueService = scope.ServiceProvider.GetRequiredService<ILeagueService>();
-            
-            foreach (var (leagueId, userId) in leagueJoinRequests)
-            {
-                try
-                {
-                    await leagueService.JoinLeagueAsync(leagueId, userId);
-                    _logger.LogInformation(
-                        "User {UserId} successfully joined league {LeagueId} after approval",
-                        userId, leagueId);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(
-                        ex,
-                        "Failed to add user {UserId} to league {LeagueId} after approval",
-                        userId, leagueId);
-                    throw;
-                }
-            }
-        }
-        else if (leagueJoinRequests.Count > 0)
-        {
-            _logger.LogWarning(
-                "Cannot process {Count} league join requests: IServiceScopeFactory not available",
-                leagueJoinRequests.Count);
-        }
         
         return true;
     }

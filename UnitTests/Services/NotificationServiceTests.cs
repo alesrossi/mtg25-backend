@@ -1,4 +1,3 @@
-using API.Constants;
 using API.Dtos.Notifications;
 using API.Services;
 using Core.Models.Identity;
@@ -6,7 +5,6 @@ using FluentAssertions;
 using Core.Enums;
 using Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -224,153 +222,6 @@ public class NotificationServiceTests
         untouched.Approval.Should().BeFalse();
     }
 
-    [Fact]
-    public async Task UpdateNotificationAsync_WhenApproving_UpdatesApprovalField()
-    {
-        await using var context = CreateContext();
-        var notification = new Notification
-        {
-            Name = "test_notification",
-            Message = "Test message",
-            Origin = "test.origin",
-            AppUserId = "user-1",
-            Approval = false,
-            CreationDateTime = DateTime.UtcNow,
-            AppUser = null!
-        };
-        context.Notifications.Add(notification);
-        await context.SaveChangesAsync();
-        context.ChangeTracker.Clear();
-        var service = CreateService(context);
-
-        var result = await service.UpdateNotificationAsync([notification.Id], isRead: null, approval: true, userToUpdate: "user-1");
-
-        result.Should().BeTrue();
-        var updated = await context.Notifications.SingleAsync(n => n.Id == notification.Id);
-        updated.Approval.Should().BeTrue();
-    }
-
-    [Fact]
-    public async Task UpdateNotificationAsync_WhenApproving_DoesNotCreateUnexpectedNotifications()
-    {
-        await using var context = CreateContext();
-        var notifications = new List<Notification>
-        {
-            new()
-            {
-                Name = NotificationConstants.FriendRequest,
-                Message = "Friend request",
-                Origin = "user1.user2",
-                AppUserId = "user2",
-                Approval = false,
-                CreationDateTime = DateTime.UtcNow,
-                AppUser = null!
-            },
-            new()
-            {
-                Name = NotificationConstants.TradeCommitRequest,
-                Message = "Trade commit request",
-                Origin = "trade.origin",
-                AppUserId = "user3",
-                Approval = false,
-                CreationDateTime = DateTime.UtcNow,
-                AppUser = null!
-            },
-            new()
-            {
-                Name = "generic_notification",
-                Message = "Generic notification",
-                Origin = "generic.origin",
-                AppUserId = "user4",
-                Approval = false,
-                CreationDateTime = DateTime.UtcNow,
-                AppUser = null!
-            }
-        };
-        context.Notifications.AddRange(notifications);
-        await context.SaveChangesAsync();
-        context.ChangeTracker.Clear();
-        var service = CreateService(context);
-        var initialCount = await context.Notifications.CountAsync();
-
-        var result = await service.UpdateNotificationAsync(
-            notifications.Select(n => n.Id).ToList(),
-            isRead: null,
-            approval: true,
-            userToUpdate: "approver");
-
-        result.Should().BeTrue();
-        var finalCount = await context.Notifications.CountAsync();
-        finalCount.Should().Be(initialCount, "because approving non-league notifications should not create additional notifications");
-        
-        var updated = await context.Notifications.Where(n => notifications.Select(nt => nt.Id).Contains(n.Id)).ToListAsync();
-        updated.Should().OnlyContain(n => n.Approval == true);
-    }
-
-    [Fact]
-    public async Task UpdateNotificationAsync_WhenApprovingRequestJoinLeague_CallsLeagueService()
-    {
-        await using var context = CreateContext();
-        const string leagueId = "123";
-        const string userId = "user-requester";
-        var notification = new Notification
-        {
-            Name = NotificationConstants.RequestJoinLeague,
-            Message = "Notifications.RequestJoinLeague",
-            MessageKey = "Notifications.RequestJoinLeague",
-            Origin = $"{leagueId}.{userId}",
-            ObjectId = leagueId,
-            AppUserId = "user-admin",
-            Approval = false,
-            CreationDateTime = DateTime.UtcNow,
-            AppUser = null!
-        };
-        context.Notifications.Add(notification);
-        await context.SaveChangesAsync();
-        context.ChangeTracker.Clear();
-        
-        // Mock ILeagueService to verify it's called
-        var leagueServiceMock = new Mock<ILeagueService>();
-        leagueServiceMock
-            .Setup(s => s.IsLeagueAdminAsync(123, "user-admin", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-        leagueServiceMock
-            .Setup(s => s.JoinLeagueAsync(123, userId, It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-        
-        // Mock IServiceScopeFactory: use CreateScope() (interface method); CreateAsyncScope() is an extension that calls it
-        var serviceProviderMock = new Mock<IServiceProvider>();
-        serviceProviderMock
-            .Setup(sp => sp.GetService(typeof(ILeagueService)))
-            .Returns(leagueServiceMock.Object);
-        var serviceScopeMock = new Mock<IServiceScope>();
-        serviceScopeMock.Setup(s => s.ServiceProvider).Returns(serviceProviderMock.Object);
-        
-        var serviceScopeFactoryMock = new Mock<IServiceScopeFactory>();
-        serviceScopeFactoryMock
-            .Setup(f => f.CreateScope())
-            .Returns(serviceScopeMock.Object);
-        
-        var service = CreateService(context, serviceScopeFactoryMock.Object);
-        var initialCount = await context.Notifications.CountAsync();
-
-        var result = await service.UpdateNotificationAsync([notification.Id], isRead: null, approval: true, userToUpdate: "user-admin");
-
-        result.Should().BeTrue();
-        var finalCount = await context.Notifications.CountAsync();
-        // No additional notification should be created - user is added directly to league
-        finalCount.Should().Be(initialCount, "because approving request_join_league should not create additional notification, user is added directly to league");
-        
-        var updated = await context.Notifications.SingleAsync(n => n.Id == notification.Id);
-        updated.Approval.Should().BeTrue();
-        
-        // Verify that JoinLeagueAsync was called with correct parameters
-        leagueServiceMock.Verify(
-            s => s.JoinLeagueAsync(123, userId, It.IsAny<CancellationToken>()),
-            Times.Once,
-            "JoinLeagueAsync should be called once when approving a league join request");
-    }
-
     private static AppIdentityDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<AppIdentityDbContext>()
@@ -381,7 +232,7 @@ public class NotificationServiceTests
         return context;
     }
 
-    private static NotificationService CreateService(AppIdentityDbContext context, IServiceScopeFactory? serviceScopeFactory = null)
+    private static NotificationService CreateService(AppIdentityDbContext context)
     {
         var settingsService = new Mock<IUserSettingsService>();
         settingsService.Setup(s => s.GetSettingsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -396,6 +247,6 @@ public class NotificationServiceTests
         localizer.Setup(l => l.GetMessageForLanguage(It.IsAny<Language?>(), It.IsAny<string>(), It.IsAny<object[]>()))
             .Returns("localized");
 
-        return new NotificationService(context, NullLogger<NotificationService>.Instance, settingsService.Object, localizer.Object, serviceScopeFactory);
+        return new NotificationService(context, NullLogger<NotificationService>.Instance, settingsService.Object, localizer.Object);
     }
 }

@@ -180,23 +180,24 @@ public static partial class LeaguesEndpoint
     
     private static async Task<IResult> JoinLeagueAsync(
         int id,
+        string userId,
         HttpContext context,
         [FromServices] ILeagueService leagueService,
         [FromServices] ILogger<LeaguesEndpointLogCategory> logger,
         [FromServices] IMessageLocalizer messageLocalizer,
         CancellationToken cancellationToken)
     {
-        const string operation = "Leagues.ApprovedUserJoin";
-        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null)
+        const string operation = "Leagues.ApprovedUserJoins";
+        var adminId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (adminId is null)
         {
-            logger.LogOperationWarning(operation, "Missing user id", new { id });
+            logger.LogOperationWarning(operation, "Missing admin id", new { id });
             return Results.Unauthorized();
         }
 
         try
         {
-            await leagueService.JoinLeagueAsync(id, userId, cancellationToken);
+            await leagueService.JoinLeagueAsync(id, adminId, userId, cancellationToken);
             logger.LogOperationSuccess(operation, new { id, userId });
             return Results.Ok();
         }

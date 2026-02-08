@@ -122,10 +122,10 @@ public static partial class LeaguesEndpoint
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
         
-        group.MapPatch("/{id:int}/join", JoinLeagueAsync)
+        group.MapPatch("/{id:int}/join/{userId}", JoinLeagueAsync)
             .RequireAuthorization()
-            .WithSummary("Joins league")
-            .WithDescription("User joins league, requires previous approval")
+            .WithSummary("Admit User")
+            .WithDescription("Admin admits user into league, requires previous approval")
             .Produces(StatusCodes.Status200OK)
             .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")

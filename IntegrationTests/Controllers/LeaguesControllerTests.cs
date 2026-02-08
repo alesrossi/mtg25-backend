@@ -849,13 +849,13 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var owner = await CreateTestUserAsync("leagueowner@example.com", "leagueowner");
         var joiner = await CreateTestUserAsync("joiner@example.com", "joiner");
         var league = await CreateTestLeagueAsync("Joinable League", owner.Id);
-        await CreateNotificationForUserAsync(joiner.Id, $"{league.Id}.{joiner.Id}", true);
-        using var client = _factory.CreateClientWithUser(joiner.Id, joiner.UserName!, joiner.Email!);
+        await CreateNotificationForUserAsync(owner.Id, $"{league.Id}.{joiner.Id}", true);
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
         
         var content = new StringContent("", Encoding.UTF8, "application/json");
 
         // Act
-        var response = await client.PatchAsync($"/api/leagues/{league.Id}/join", content);
+        var response = await client.PatchAsync($"/api/leagues/{league.Id}/join/{joiner.Id}", content);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK,
@@ -874,7 +874,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var league = await CreateTestLeagueAsync("Join NoAuth League", owner.Id);
         using var client = _factory.CreateClient();
 
-        var response = await client.PatchAsync($"/api/leagues/{league.Id}/join",
+        var response = await client.PatchAsync($"/api/leagues/{league.Id}/join/123123",
             new StringContent(string.Empty, Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -907,16 +907,16 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var joiner = await CreateTestUserAsync("joiner@example.com", "joiner");
         var league = await CreateTestLeagueAsync("Joinable League", owner.Id);
         await AssociateUserWithLeagueAsync(joiner.Id, league.Id);
-        using var client = _factory.CreateClientWithUser(joiner.Id, joiner.UserName!, joiner.Email!);
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
         
         var content = new StringContent("", Encoding.UTF8, "application/json");
 
         // Act
-        var response = await client.PatchAsync($"/api/leagues/{league.Id}/join", content);
+        var response = await client.PatchAsync($"/api/leagues/{league.Id}/join/{joiner.Id}", content);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest,
-            "because suer already joined league");
+            "because user already joined league");
     }
 
     [Fact]

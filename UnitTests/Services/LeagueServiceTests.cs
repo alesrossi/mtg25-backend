@@ -444,7 +444,7 @@ public class LeagueServiceTests
 
         var service = CreateService(context, owner, player);
 
-        var act = () => service.JoinLeagueAsync(league.Id, player.Id);
+        var act = () => service.JoinLeagueAsync(league.Id, owner.Id, player.Id);
 
         var exception = await act.Should().ThrowAsync<LeagueServiceException>();
         exception.Which.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
