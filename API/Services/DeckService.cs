@@ -153,7 +153,7 @@ public sealed class DeckService : IDeckService
 
         var allDeckCards = await _deckCardService.GetDeckCardsAsync(deckId);
         var missingCards = allDeckCards
-            .Where(card => !IsBasicLand(card) && card.OwnedQuantity < card.TotalQuantity)
+            .Where(card => !DeckLegalityHelper.IsAlwaysOwned(card.Name) && card.OwnedQuantity < card.TotalQuantity)
             .ToList();
         return missingCards;
     }
@@ -650,18 +650,6 @@ public sealed class DeckService : IDeckService
         return double.TryParse(priceText, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
             ? parsed
             : 0;
-    }
-
-    private static bool IsBasicLand(DeckCardDto card)
-    {
-        var basicLandNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "Island", "Forest", "Mountain", "Swamp", "Plains", "Wastes"
-        };
-        
-        return basicLandNames.Contains(card.Name) ||
-               (!string.IsNullOrWhiteSpace(card.TypeLine) && 
-                card.TypeLine.Contains("Basic Land", StringComparison.OrdinalIgnoreCase));
     }
 }
 

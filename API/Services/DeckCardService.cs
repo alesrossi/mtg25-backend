@@ -23,15 +23,6 @@ public class DeckCardService
     private const string UpdateDeckCardOperation = "DeckCards.Update";
     private const string DeleteDeckCardOperation = "DeckCards.Delete";
 
-    private static readonly HashSet<string> BasicLandNames = new HashSet<string>(new[]
-    {
-        "Island",
-        "Forest",
-        "Mountain",
-        "Swamp",
-        "Plains"
-    }, StringComparer.OrdinalIgnoreCase);
-
     public DeckCardService(IUnitOfWork unitOfWork, ILogger<DeckCardService> logger, CardDataService cardDataService, IUserSettingsService userSettingsService)
     {
         _unitOfWork = unitOfWork;
@@ -67,7 +58,7 @@ public class DeckCardService
 
         // Build a lookup of deck card Oracle IDs so ownership can be matched across printings
         var cardOracleIds = (deckCards ?? [])
-            .Where(dc => !IsBasicLandName(dc.Name))
+            .Where(dc => !DeckLegalityHelper.IsAlwaysOwned(dc.Name))
             .Select(dc => dc.OracleId)
             .Where(oracleId => !string.IsNullOrWhiteSpace(oracleId))
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -614,7 +605,7 @@ public class DeckCardService
 
     private DeckCardDto MapToDto(DeckCard deckCard, MarketProvider marketProvider)
     {
-        if (IsBasicLandName(deckCard.Name))
+        if (DeckLegalityHelper.IsAlwaysOwned(deckCard.Name))
         {
             return CreateDeckCardDto(deckCard, marketProvider, ResolveBasicLandOwnedQuantity(deckCard));
         }
@@ -625,7 +616,7 @@ public class DeckCardService
 
     private async Task<DeckCardDto> MapToDtoAsync(DeckCard deckCard, string ownerId, MarketProvider marketProvider)
     {
-        if (IsBasicLandName(deckCard.Name))
+        if (DeckLegalityHelper.IsAlwaysOwned(deckCard.Name))
         {
             return CreateDeckCardDto(deckCard, marketProvider, ResolveBasicLandOwnedQuantity(deckCard));
         }
@@ -637,33 +628,32 @@ public class DeckCardService
         // Find all cards in those collections that match the ScryfallId
         var totalOwnedQuantity = 0;
         Card? firstOwnedCard = null;
-        
-        if (userCollections != null)
+
+        if (userCollections == null)
+            return CreateDeckCardDto(deckCard, marketProvider, totalOwnedQuantity, firstOwnedCard?.Id);
+        foreach (var collection in userCollections)
         {
-            foreach (var collection in userCollections)
-            {
-                var cardsSpec = new CardsWithParamsSpecification(
-                    new EntitySpecParams(),
-                    collection.Id,
-                    applySorting: false,
-                    applyPaging: false);
-                var collectionCards = await _unitOfWork.Repository<Card>().ListAsync(cardsSpec, tracking: false);
+            var cardsSpec = new CardsWithParamsSpecification(
+                new EntitySpecParams(),
+                collection.Id,
+                applySorting: false,
+                applyPaging: false);
+            var collectionCards = await _unitOfWork.Repository<Card>().ListAsync(cardsSpec, tracking: false);
                 
-                var matchingCards = collectionCards?.Where(c => c.OracleId == deckCard.OracleId).ToList();
-                if (matchingCards?.Any() == true)
-                {
-                    totalOwnedQuantity += matchingCards.Sum(c => c.Quantity);
-                    firstOwnedCard ??= matchingCards.First();
-                }
+            var matchingCards = collectionCards?.Where(c => c.OracleId == deckCard.OracleId).ToList();
+            if (matchingCards?.Any() == true)
+            {
+                totalOwnedQuantity += matchingCards.Sum(c => c.Quantity);
+                firstOwnedCard ??= matchingCards.First();
             }
         }
-        
+
         return CreateDeckCardDto(deckCard, marketProvider, totalOwnedQuantity, firstOwnedCard?.Id);
     }
 
     private DeckCardDto MapToDtoWithLookup(DeckCard deckCard, IReadOnlyDictionary<string, List<Card>> ownedCardsLookup, MarketProvider marketProvider)
     {
-        if (IsBasicLandName(deckCard.Name))
+        if (DeckLegalityHelper.IsAlwaysOwned(deckCard.Name))
         {
             return CreateDeckCardDto(deckCard, marketProvider, ResolveBasicLandOwnedQuantity(deckCard));
         }
@@ -671,7 +661,7 @@ public class DeckCardService
         var lookupKey = deckCard.OracleId;
         var ownedCards = !string.IsNullOrWhiteSpace(lookupKey) && ownedCardsLookup.TryGetValue(lookupKey, out var cards)
             ? cards
-            : new List<Card>();
+            : [];
         var totalOwnedQuantity = ownedCards.Sum(c => c.Quantity);
         var firstOwnedCard = ownedCards.FirstOrDefault();
         
@@ -706,10 +696,7 @@ public class DeckCardService
         };
     }
 
-    private static bool IsBasicLandName(string? cardName)
-    {
-        return !string.IsNullOrWhiteSpace(cardName) && BasicLandNames.Contains(cardName.Trim());
-    }
+    
 
     private static bool IsBasicLandTypeLine(string? typeLine)
     {
@@ -776,7 +763,7 @@ public class DeckCardService
             return;
         }
 
-        deck.ColorIdentity ??= new List<string>();
+        deck.ColorIdentity ??= [];
         var added = false;
         foreach (var color in colorIdentity.Where(ci => !string.IsNullOrWhiteSpace(ci)))
         {

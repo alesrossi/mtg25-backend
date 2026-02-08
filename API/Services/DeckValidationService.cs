@@ -1,3 +1,4 @@
+using API.Helpers;
 using API.Logging;
 using Core.Enums;
 using Core.Interfaces;
@@ -243,7 +244,7 @@ public class DeckValidationService : IDeckValidationService
                 var cardName = cardKey.Split('|')[0];
                 
                 // Basic lands are exempt from copy restrictions
-                if (IsBasicLand(cardName))
+                if (DeckLegalityHelper.IsAnyAmount(cardName))
                 {
                     continue;
                 }
@@ -263,7 +264,7 @@ public class DeckValidationService : IDeckValidationService
             var cardName = cardKey.Split('|')[0];
             
             // Basic lands are exempt from copy restrictions
-            if (IsBasicLand(cardName))
+            if (DeckLegalityHelper.IsAnyAmount(cardName))
             {
                 continue;
             }
@@ -274,22 +275,6 @@ public class DeckValidationService : IDeckValidationService
             }
         }
     }
-
-    private static bool IsBasicLand(string cardName)
-    {
-        var basicLandNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "Island",
-            "Mountain", 
-            "Plains",
-            "Forest",
-            "Swamp",
-            "Wastes"
-        };
-        
-        return basicLandNames.Contains(cardName);
-    }
-
 
     private class FormatRules
     {
