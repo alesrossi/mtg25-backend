@@ -136,7 +136,7 @@ public class DecklistParserService : IDecklistParserService
             return false;
         }
 
-        var oracleId = cardData.OracleId;
+        var oracleId = CardDataService.ResolveOracleId(cardData) ?? string.Empty;
         if (!deckCards.TryGetValue(oracleId, out var existingDto))
         {
             existingDto = new CreateDeckCardDto

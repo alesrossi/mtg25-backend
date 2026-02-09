@@ -193,6 +193,18 @@ public class CardDataService
             ?? backImageUris.Small;
     }
 
+    public static string? ResolveOracleId(ScryfallCardDto card)
+    {
+        if (!string.IsNullOrWhiteSpace(card.OracleId))
+        {
+            return card.OracleId;
+        }
+
+        return card.CardFaces?
+            .Select(face => face.OracleId)
+            .FirstOrDefault(id => !string.IsNullOrWhiteSpace(id));
+    }
+
     /// <summary>
     /// Returns Oracle card mana cost in Scryfall format (e.g. "{2}{U}{U}").
     /// For multi-face cards uses the main (first) face cost. Null or empty for lands.

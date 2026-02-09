@@ -73,6 +73,7 @@ public record ImageUris(string? Small,
 
 public record CardFace(
     string Object,
+    string? OracleId,
     string Name,
     string ManaCost,
     string TypeLine,

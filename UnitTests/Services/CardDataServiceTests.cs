@@ -35,7 +35,7 @@ public class CardDataServiceTests
     public void ResolveMainFaceManaCost_WithMultiFaceCard_ReturnsFirstFaceManaCost()
     {
         var imageUris = new ImageUris("s", "n", "l", "p", "a", "b");
-        var cardFace = new CardFace("card_face", "Front", "{1}{R}", "Sorcery", "", [], "", "", "", "", imageUris);
+        var cardFace = new CardFace("card_face", "oracle-front", "Front", "{1}{R}", "Sorcery", "", [], "", "", "", "", imageUris);
         var card = _builder.CreateOracleCard(name: "Split Card") with
         {
             ManaCost = (string?)null,
