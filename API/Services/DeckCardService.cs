@@ -409,7 +409,7 @@ public class DeckCardService
                 ? scryfallCard?.TypeLine ?? string.Empty
                 : typeLine;
 
-            if (!IsBasicLandTypeLine(effectiveTypeLine))
+            if (!DeckLegalityHelper.IsAnyAmount(resolvedName))
             {
                 copyCounts.TryGetValue(oracleId, out var existingTotal);
                 var updatedTotal = existingTotal + requestedQuantity;
@@ -839,7 +839,7 @@ public class DeckCardService
 
     private async Task EnsureCopyLimitAsync(int deckId, string oracleId, string cardName, string? typeLine, int requestedTotalQuantity, int? existingDeckCardId, string operation)
     {
-        if (IsBasicLandTypeLine(typeLine))
+        if (DeckLegalityHelper.IsAnyAmount(cardName))
         {
             return;
         }
