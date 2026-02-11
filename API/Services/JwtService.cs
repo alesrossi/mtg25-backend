@@ -1,7 +1,9 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using Core.Models.Identity;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -12,6 +14,8 @@ public class JwtService(IOptions<JwtSettings> jwtSettings, IDistributedCache cac
     : IJwtService
 {
     private readonly JwtSettings _jwtSettings = jwtSettings.Value;
+    private const string RefreshTokenPrefix = "refresh_token:";
+    private const string RefreshTokenUserPrefix = "refresh_user:";
 
     public Task<string> GenerateTokenAsync(AppUser user)
     {
@@ -96,4 +100,64 @@ public class JwtService(IOptions<JwtSettings> jwtSettings, IDistributedCache cac
     {
         return await ValidateTokenAsync(token);
     }
+
+    public async Task<string> GenerateRefreshTokenAsync(string userId)
+    {
+        var token = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(64));
+        var options = new DistributedCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(_jwtSettings.RefreshTokenExpiryDays)
+        };
+
+        var previousToken = await cache.GetStringAsync(GetRefreshUserKey(userId));
+        if (!string.IsNullOrWhiteSpace(previousToken))
+        {
+            await cache.RemoveAsync(GetRefreshTokenKey(previousToken));
+        }
+
+        await cache.SetStringAsync(GetRefreshTokenKey(token), userId, options);
+        await cache.SetStringAsync(GetRefreshUserKey(userId), token, options);
+
+        return token;
+    }
+
+    public async Task<string?> ValidateRefreshTokenAsync(string refreshToken)
+    {
+        if (string.IsNullOrWhiteSpace(refreshToken))
+        {
+            return null;
+        }
+
+        var userId = await cache.GetStringAsync(GetRefreshTokenKey(refreshToken));
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return null;
+        }
+
+        var currentToken = await cache.GetStringAsync(GetRefreshUserKey(userId));
+        return string.Equals(currentToken, refreshToken, StringComparison.Ordinal) ? userId : null;
+    }
+
+    public async Task RevokeRefreshTokenAsync(string refreshToken, string? userId = null)
+    {
+        if (string.IsNullOrWhiteSpace(refreshToken))
+        {
+            return;
+        }
+
+        await cache.RemoveAsync(GetRefreshTokenKey(refreshToken));
+
+        if (!string.IsNullOrWhiteSpace(userId))
+        {
+            var currentToken = await cache.GetStringAsync(GetRefreshUserKey(userId));
+            if (string.Equals(currentToken, refreshToken, StringComparison.Ordinal))
+            {
+                await cache.RemoveAsync(GetRefreshUserKey(userId));
+            }
+        }
+    }
+
+    private static string GetRefreshTokenKey(string token) => $"{RefreshTokenPrefix}{token}";
+
+    private static string GetRefreshUserKey(string userId) => $"{RefreshTokenUserPrefix}{userId}";
 }

@@ -160,7 +160,8 @@ public static class ServiceCollectionExtensions
                     {
                         policy.WithOrigins(allowedOrigins)
                             .AllowAnyMethod()
-                            .AllowAnyHeader();
+                            .AllowAnyHeader()
+                            .AllowCredentials();
                     }
                 });
             });
