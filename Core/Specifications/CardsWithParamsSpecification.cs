@@ -57,10 +57,22 @@ public class CardsWithParamsSpecification : BaseSpecification<Card>
                 AddOrderByDescending(s => s.SetName);
                 break;
             case "rarityAsc":
-                AddOrderBy(r => r.Rarity);
+                AddOrderBy(r =>
+                    r.Rarity.ToLower() == "common" ? 0 :
+                    r.Rarity.ToLower() == "uncommon" ? 1 :
+                    r.Rarity.ToLower() == "rare" ? 2 :
+                    r.Rarity.ToLower() == "mythic" ? 3 :
+                    r.Rarity.ToLower() == "special" ? 4 :
+                    5);
                 break;
             case "rarityDesc":
-                AddOrderByDescending(r => r.Rarity);
+                AddOrderByDescending(r =>
+                    r.Rarity.ToLower() == "common" ? 0 :
+                    r.Rarity.ToLower() == "uncommon" ? 1 :
+                    r.Rarity.ToLower() == "rare" ? 2 :
+                    r.Rarity.ToLower() == "mythic" ? 3 :
+                    r.Rarity.ToLower() == "special" ? 4 :
+                    -1);
                 break;
             case "typeAsc":
                 AddOrderBy(t => t.TypeLine);
