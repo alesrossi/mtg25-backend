@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using API.Constants;
 using API.Dtos.Leagues;
+using API.Helpers;
 using API.Dtos.Notifications;
 using Core.Enums;
 using Core.Models.Identity;
@@ -31,6 +32,7 @@ public interface ILeagueService
     Task PromoteLeagueAdminAsync(int leagueId, string userId, string targetUserId, CancellationToken cancellationToken = default);
     Task TerminateLeagueAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
     Task<bool> IsLeagueAdminAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
+    Task<EventLinkParseResultDto> ParseEventLinkResultsAsync(int leagueId, string userId, IFormFile file, CancellationToken cancellationToken = default);
 }
 
 public sealed class LeagueService : ILeagueService
@@ -1363,6 +1365,81 @@ public sealed class LeagueService : ILeagueService
 
         _dbContext.Update(league);
         await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<EventLinkParseResultDto> ParseEventLinkResultsAsync(
+        int leagueId, string userId, IFormFile file, CancellationToken cancellationToken = default)
+    {
+        var user = await EnsureUserAsync(userId);
+
+        var league = await _dbContext.Leagues
+            .AsNoTracking()
+            .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
+        if (league is null)
+        {
+            throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
+        }
+
+        if (!await IsLeagueAdminAsync(league, user.Id, cancellationToken))
+        {
+            throw LeagueServiceException.Unauthorized("Errors.Leagues.Unauthorized");
+        }
+
+        await using var stream = file.OpenReadStream();
+        var parseOutput = EventLinkPdfHelper.ParseEventLinkPdf(stream);
+
+        var members = await _dbContext.UserLeagues
+            .Where(ul => ul.LeagueId == leagueId && ul.IsPlaying)
+            .Include(ul => ul.User)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        var companionLookup = members
+            .Where(m => m.User is not null && !string.IsNullOrWhiteSpace(m.User.CompanionName))
+            .GroupBy(m => m.User!.CompanionName!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() == 1)
+            .ToDictionary(
+                g => g.Key,
+                g => g.First().UserId,
+                StringComparer.OrdinalIgnoreCase);
+
+        var duplicateNames = members
+            .Where(m => m.User is not null && !string.IsNullOrWhiteSpace(m.User.CompanionName))
+            .GroupBy(m => m.User!.CompanionName!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var players = parseOutput.Rows.Select(row =>
+        {
+            var trimmedName = row.Name.Trim();
+            if (duplicateNames.Contains(trimmedName))
+            {
+                parseOutput.Errors.Add($"Duplicate companion name in league: '{trimmedName}'");
+                return new EventLinkParsedPlayer(
+                    UserId: $"DUPLICATE:{row.Name}",
+                    PdfName: row.Name,
+                    Matched: false,
+                    Position: row.Position,
+                    Score: row.Score,
+                    Omw: row.Omw,
+                    Gw: row.Gw,
+                    Ogw: row.Ogw);
+            }
+
+            var matched = companionLookup.TryGetValue(trimmedName, out var resolvedUserId);
+            return new EventLinkParsedPlayer(
+                UserId: matched ? resolvedUserId! : $"UNMATCHED:{row.Name}",
+                PdfName: row.Name,
+                Matched: matched,
+                Position: row.Position,
+                Score: row.Score,
+                Omw: row.Omw,
+                Gw: row.Gw,
+                Ogw: row.Ogw);
+        }).ToList();
+
+        return new EventLinkParseResultDto(players, parseOutput.Errors, parseOutput.SkippedLines);
     }
 
     public async Task<bool> IsLeagueAdminAsync(int leagueId, string userId, CancellationToken cancellationToken = default)
