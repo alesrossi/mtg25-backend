@@ -363,7 +363,8 @@ public sealed class DeckService : IDeckService
             throw DeckServiceException.BadRequest("Errors.Decks.InvalidScryfallId", new { errors = new[] { "Invalid Scryfall ID provided." } }, includeBody: true);
         }
 
-        if (!string.Equals(scryfallCard.OracleId, deckCard.OracleId, StringComparison.OrdinalIgnoreCase))
+        var resolvedOracleId = CardDataService.ResolveOracleId(scryfallCard) ?? string.Empty;
+        if (!string.Equals(resolvedOracleId, deckCard.OracleId, StringComparison.OrdinalIgnoreCase))
         {
             throw DeckServiceException.BadRequest("Errors.Decks.ScryfallNameMismatch", new { errors = new[] { $"'{updateDto.ScryfallId}' is not a valid version for '{deckCard.Name}'." } }, includeBody: true);
         }
@@ -579,10 +580,13 @@ public sealed class DeckService : IDeckService
                 continue;
             }
 
-            if (_cardDataService.CardDataByName.TryGetValue(name.Trim(), out var cardData)
-                && !string.IsNullOrWhiteSpace(cardData.OracleId))
+            if (_cardDataService.CardDataByName.TryGetValue(name.Trim(), out var cardData))
             {
-                oracleIdSet.Add(cardData.OracleId);
+                var oracleId = CardDataService.ResolveOracleId(cardData);
+                if (!string.IsNullOrWhiteSpace(oracleId))
+                {
+                    oracleIdSet.Add(oracleId);
+                }
             }
         }
 

@@ -200,7 +200,7 @@ public class DeckCardService
             throw new InvalidOperationException($"Card '{trimmedName}' was not found in the card database.");
         }
 
-        var oracleId = namedCardData.OracleId;
+        var oracleId = CardDataService.ResolveOracleId(namedCardData) ?? string.Empty;
         var ownedCard = await FindOwnedCardByOracleIdAsync(deck.OwnerId, oracleId);
 
         ScryfallCardDto? scryfallCard = namedCardData;
@@ -248,7 +248,7 @@ public class DeckCardService
 
             resolvedName = namedCardData.Name;
             resolvedScryfallId = namedCardData.Id;
-            oracleId = namedCardData.OracleId;
+            oracleId = CardDataService.ResolveOracleId(namedCardData) ?? string.Empty;
             setCode = namedCardData.Set;
             setName = namedCardData.SetName;
             typeLine = namedCardData.TypeLine ?? string.Empty;
@@ -345,7 +345,7 @@ public class DeckCardService
                 throw new InvalidOperationException($"Card '{trimmedName}' was not found in the card database.");
             }
 
-            var oracleId = namedCardData.OracleId;
+            var oracleId = CardDataService.ResolveOracleId(namedCardData) ?? string.Empty;
             ownedCardsLookup.TryGetValue(oracleId, out var ownedCards);
             var ownedCard = ownedCards?.FirstOrDefault();
 
@@ -394,7 +394,7 @@ public class DeckCardService
 
                 resolvedName = namedCardData.Name;
                 resolvedScryfallId = namedCardData.Id;
-                oracleId = namedCardData.OracleId;
+                oracleId = CardDataService.ResolveOracleId(namedCardData) ?? string.Empty;
                 setCode = namedCardData.Set;
                 setName = namedCardData.SetName;
                 typeLine = namedCardData.TypeLine ?? string.Empty;
@@ -409,7 +409,7 @@ public class DeckCardService
                 ? scryfallCard?.TypeLine ?? string.Empty
                 : typeLine;
 
-            if (!IsBasicLandTypeLine(effectiveTypeLine))
+            if (!DeckLegalityHelper.IsAnyAmount(resolvedName))
             {
                 copyCounts.TryGetValue(oracleId, out var existingTotal);
                 var updatedTotal = existingTotal + requestedQuantity;
@@ -522,7 +522,8 @@ public class DeckCardService
 
         var requestedQuantity = updateDto.MaindeckQuantity + updateDto.SideboardQuantity;
         var resolvedTypeLine = scryfallCard.TypeLine ?? deckCard.TypeLine;
-        await EnsureCopyLimitAsync(deckCard.DeckId, scryfallCard.OracleId, deckCard.Name, resolvedTypeLine, requestedQuantity, deckCard.Id, UpdateDeckCardOperation);
+        var resolvedOracleId = CardDataService.ResolveOracleId(scryfallCard) ?? string.Empty;
+        await EnsureCopyLimitAsync(deckCard.DeckId, resolvedOracleId, deckCard.Name, resolvedTypeLine, requestedQuantity, deckCard.Id, UpdateDeckCardOperation);
 
         var previousMaindeck = deckCard.MaindeckQuantity;
         var previousSideboard = deckCard.SideboardQuantity;
@@ -530,7 +531,7 @@ public class DeckCardService
         deckCard.SideboardQuantity = updateDto.SideboardQuantity;
         deckCard.OwnedCardId = updateDto.OwnedCardId;
         deckCard.ScryfallId = scryfallCard.Id;
-        deckCard.OracleId = scryfallCard.OracleId;
+        deckCard.OracleId = resolvedOracleId;
         deckCard.SetName = scryfallCard.SetName;
         deckCard.SetCode = scryfallCard.SetId!;
         deckCard.ArtCrop = imageUris!.ArtCrop!;
@@ -839,7 +840,7 @@ public class DeckCardService
 
     private async Task EnsureCopyLimitAsync(int deckId, string oracleId, string cardName, string? typeLine, int requestedTotalQuantity, int? existingDeckCardId, string operation)
     {
-        if (IsBasicLandTypeLine(typeLine))
+        if (DeckLegalityHelper.IsAnyAmount(cardName))
         {
             return;
         }

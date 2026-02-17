@@ -52,6 +52,13 @@ public static partial class AccountsEndpoints
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
+        group.MapPost("/refresh", RefreshTokenAsync)
+            .WithSummary("Refresh access token")
+            .WithDescription("Issues a new access token using a valid refresh token cookie")
+            .Produces<AuthDto>()
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
+
         group.MapPut("/settings", UpdateSettingsAsync)
             .RequireAuthorization()
             .WithSummary("Update user settings")

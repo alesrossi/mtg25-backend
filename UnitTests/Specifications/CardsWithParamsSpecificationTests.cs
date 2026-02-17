@@ -52,6 +52,44 @@ public class CardsWithParamsSpecificationTests
         spec.OrderByDescending.Body.ToString().Should().Contain("TypeLine");
     }
 
+    [Fact]
+    public void SortByRarityAscending_UsesMtgRarityOrder()
+    {
+        var entityParams = new EntitySpecParams { Sort = "rarityAsc" };
+        var spec = new CardsWithParamsSpecification(entityParams, collectionId: 1);
+
+        var cards = new[]
+        {
+            CreateCardWithRarity(1, "special"),
+            CreateCardWithRarity(1, "mythic"),
+            CreateCardWithRarity(1, "rare"),
+            CreateCardWithRarity(1, "common"),
+            CreateCardWithRarity(1, "uncommon")
+        };
+
+        var sorted = cards.OrderBy(spec.OrderBy.Compile()).Select(c => c.Rarity).ToArray();
+        sorted.Should().Equal("common", "uncommon", "rare", "mythic", "special");
+    }
+
+    [Fact]
+    public void SortByRarityDescending_UsesMtgRarityOrder()
+    {
+        var entityParams = new EntitySpecParams { Sort = "rarityDesc" };
+        var spec = new CardsWithParamsSpecification(entityParams, collectionId: 1);
+
+        var cards = new[]
+        {
+            CreateCardWithRarity(1, "special"),
+            CreateCardWithRarity(1, "mythic"),
+            CreateCardWithRarity(1, "rare"),
+            CreateCardWithRarity(1, "common"),
+            CreateCardWithRarity(1, "uncommon")
+        };
+
+        var sorted = cards.OrderByDescending(spec.OrderByDescending.Compile()).Select(c => c.Rarity).ToArray();
+        sorted.Should().Equal("special", "mythic", "rare", "uncommon", "common");
+    }
+
     private static Card CreateCard(int collectionId, string typeLine)
     {
         return new Card
@@ -77,5 +115,12 @@ public class CardsWithParamsSpecificationTests
             IsAltered = false,
             TypeLine = typeLine
         };
+    }
+
+    private static Card CreateCardWithRarity(int collectionId, string rarity)
+    {
+        var card = CreateCard(collectionId, "Sorcery");
+        card.Rarity = rarity;
+        return card;
     }
 }

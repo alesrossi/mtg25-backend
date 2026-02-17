@@ -95,11 +95,12 @@ public sealed class CardsService : ICardsService
             var imageUrl = imageUris?.Normal ?? imageUris?.Large ?? imageUris?.Png;
             var backImageUrl = CardDataService.ResolveBackImageUrl(card.Value);
 
+            var oracleId = CardDataService.ResolveOracleId(card.Value) ?? string.Empty;
             return new MinimalCardDto
             {
                 Name = card.Value.Name,
                 ScryfallId = card.Key,
-                OracleId = card.Value.OracleId,
+                OracleId = oracleId,
                 ImageUrl = imageUrl,
                 BackImageUrl = backImageUrl
             };
@@ -328,7 +329,8 @@ public sealed class CardsService : ICardsService
                     "card-invalid-sf-id");
             }
 
-            if (!string.Equals(scryfallCardDto.OracleId, card.OracleId, StringComparison.OrdinalIgnoreCase))
+            var oracleId = CardDataService.ResolveOracleId(scryfallCardDto) ?? string.Empty;
+            if (!string.Equals(oracleId, card.OracleId, StringComparison.OrdinalIgnoreCase))
             {
                 throw CardsServiceException.Problem(
                     StatusCodes.Status400BadRequest,
@@ -351,7 +353,7 @@ public sealed class CardsService : ICardsService
             card.IsMisprint = updateDto.IsMisprint;
             card.IsAltered = updateDto.IsAltered;
             card.ScryfallId = updateDto.ScryfallId;
-            card.OracleId = scryfallCardDto.OracleId;
+            card.OracleId = oracleId;
             card.ArtCrop = scryfallCardDto.ImageUris!.ArtCrop!;
             card.ImageUrl = scryfallCardDto.ImageUris!.Large!;
             card.SetCode = scryfallCardDto.SetId!;
@@ -491,7 +493,7 @@ public sealed class CardsService : ICardsService
         var card = new Card
         {
             ScryfallId = scryfallCardDto.Id,
-            OracleId = scryfallCardDto.OracleId,
+            OracleId = CardDataService.ResolveOracleId(scryfallCardDto) ?? string.Empty,
             Name = scryfallCardDto.Name,
             Collection = collection,
             Quantity = cardDto.Quantity,

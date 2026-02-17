@@ -448,13 +448,13 @@ public sealed class TradeConnectionService : ITradeConnectionService
         if (!string.IsNullOrWhiteSpace(binderCard.Card?.ScryfallId)
             && _cardDataService.CardDataById.TryGetValue(binderCard.Card.ScryfallId, out var byId))
         {
-            return byId.OracleId;
+            return CardDataService.ResolveOracleId(byId);
         }
 
         if (!string.IsNullOrWhiteSpace(binderCard.Name)
             && _cardDataService.CardDataByName.TryGetValue(binderCard.Name, out var byName))
         {
-            return byName.OracleId;
+            return CardDataService.ResolveOracleId(byName);
         }
 
         return null;
