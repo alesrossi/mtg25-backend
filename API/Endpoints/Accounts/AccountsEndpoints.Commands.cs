@@ -316,6 +316,12 @@ public static partial class AccountsEndpoints
             settings.EnabledLocation = updateDto.EnabledLocation.Value;
         }
 
+        if (updateDto.CompanionName is not null)
+        {
+            user.CompanionName = updateDto.CompanionName;
+            await userManager.UpdateAsync(user);
+        }
+
         await dbContext.SaveChangesAsync();
 
         logger.LogOperationSuccess(operation, new { userId, settings.Id });
