@@ -11,4 +11,5 @@ public class UpdateSettingsDto
     public Language? LanguageUi { get; set; }
     public Language? LanguageCards { get; set; }
     public bool? EnabledLocation { get; set; }
+    public string? CompanionName { get; set; }
 }
