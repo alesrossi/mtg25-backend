@@ -1297,6 +1297,112 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         updatedLeague.IsActive.Should().BeFalse();
     }
 
+    [Fact]
+    public async Task ParseEventLinkPdf_WithValidPdf_ReturnsParsedPlayers()
+    {
+        var owner = await CreateTestUserAsync("pdf-owner@example.com", "pdf_owner");
+        var player = await CreateTestUserAsync("pdf-player@example.com", "pdf_player");
+        var league = await CreateTestLeagueAsync("PDF Parse League", owner.Id);
+        await AssociateUserWithLeagueAsync(player.Id, league.Id);
+        await SetCompanionNameAsync(player.Id, "Fabio Paglieri");
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        using var content = new MultipartFormDataContent();
+        var pdfBytes = await File.ReadAllBytesAsync("TestData/finale.pdf");
+        var fileContent = new ByteArrayContent(pdfBytes);
+        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/pdf");
+        content.Add(fileContent, "file", "finale.pdf");
+
+        var response = await client.PostAsync($"/api/leagues/{league.Id}/parse-results", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadAsStringAsync();
+        var result = JsonSerializer.Deserialize<EventLinkParseResultDto>(payload, JsonContentHelper.DefaultOptions);
+
+        result.Should().NotBeNull();
+        result!.Players.Should().HaveCount(38);
+        result.SkippedLines.Should().Be(0);
+
+        var matched = result.Players.First(p => p.PdfName == "Fabio Paglieri");
+        matched.Matched.Should().BeTrue();
+        matched.UserId.Should().Be(player.Id);
+        matched.Score.Should().Be(21);
+        matched.Omw.Should().Be(54);
+    }
+
+    [Fact]
+    public async Task ParseEventLinkPdf_WithNonAdmin_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("pdf-owner2@example.com", "pdf_owner2");
+        var outsider = await CreateTestUserAsync("pdf-outsider@example.com", "pdf_outsider");
+        var league = await CreateTestLeagueAsync("PDF Auth League", owner.Id);
+
+        using var client = _factory.CreateClientWithUser(outsider.Id, outsider.UserName!, outsider.Email!);
+
+        using var content = new MultipartFormDataContent();
+        var pdfBytes = await File.ReadAllBytesAsync("TestData/finale.pdf");
+        var fileContent = new ByteArrayContent(pdfBytes);
+        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/pdf");
+        content.Add(fileContent, "file", "finale.pdf");
+
+        var response = await client.PostAsync($"/api/leagues/{league.Id}/parse-results", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task ParseEventLinkPdf_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("pdf-noauth@example.com", "pdf_noauth");
+        var league = await CreateTestLeagueAsync("PDF NoAuth League", owner.Id);
+        using var client = _factory.CreateClient();
+
+        using var content = new MultipartFormDataContent();
+        var pdfBytes = await File.ReadAllBytesAsync("TestData/finale.pdf");
+        var fileContent = new ByteArrayContent(pdfBytes);
+        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/pdf");
+        content.Add(fileContent, "file", "finale.pdf");
+
+        var response = await client.PostAsync($"/api/leagues/{league.Id}/parse-results", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task ParseEventLinkPdf_WithNonExistentLeague_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("pdf-missing@example.com", "pdf_missing");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        using var content = new MultipartFormDataContent();
+        var pdfBytes = await File.ReadAllBytesAsync("TestData/finale.pdf");
+        var fileContent = new ByteArrayContent(pdfBytes);
+        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/pdf");
+        content.Add(fileContent, "file", "finale.pdf");
+
+        var response = await client.PostAsync($"/api/leagues/{int.MaxValue}/parse-results", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task ParseEventLinkPdf_WithNonPdfFile_ReturnsBadRequest()
+    {
+        var owner = await CreateTestUserAsync("pdf-badfile@example.com", "pdf_badfile");
+        var league = await CreateTestLeagueAsync("PDF BadFile League", owner.Id);
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        using var content = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent("not a pdf"u8.ToArray());
+        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/plain");
+        content.Add(fileContent, "file", "test.txt");
+
+        var response = await client.PostAsync($"/api/leagues/{league.Id}/parse-results", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
     #region Helper Methods
 
     private Task<AppUser> CreateTestUserAsync(string baseEmail, string baseUserName) =>
@@ -1524,6 +1630,16 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             .ToListAsync();
     }
 
+
+    private async Task SetCompanionNameAsync(string userId, string companionName)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var user = await dbContext.Users.FirstAsync(u => u.Id == userId);
+        user.CompanionName = companionName;
+        dbContext.Users.Update(user);
+        await dbContext.SaveChangesAsync();
+    }
 
     #endregion
 }

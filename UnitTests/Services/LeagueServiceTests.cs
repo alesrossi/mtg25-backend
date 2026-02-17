@@ -1287,6 +1287,205 @@ public class LeagueServiceTests
         return manager;
     }
 
+    [Fact]
+    public async Task ParseEventLinkResultsAsync_WithMatchingCompanionNames_MatchesUsers()
+    {
+        await using var context = CreateContext();
+        var owner = CreateUser("owner");
+        var player = CreateUser("player");
+        player.CompanionName = "Fabio Paglieri";
+        context.Users.AddRange(owner, player);
+
+        var league = CreateLeague(owner.Id, "PDF01");
+        context.Leagues.Add(league);
+        await context.SaveChangesAsync();
+
+        context.UserLeagues.Add(new AppUserLeague
+        {
+            UserId = player.Id, User = player, League = league, LeagueId = league.Id,
+            Score = 0, IsPlaying = true
+        });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var service = CreateService(context, owner, player);
+        var file = CreateMockPdfFile("TestData/finale.pdf");
+
+        var result = await service.ParseEventLinkResultsAsync(league.Id, owner.Id, file);
+
+        result.Players.Should().HaveCount(38);
+        var matched = result.Players.First(p => p.PdfName == "Fabio Paglieri");
+        matched.Matched.Should().BeTrue();
+        matched.UserId.Should().Be(player.Id);
+        matched.Score.Should().Be(21);
+        matched.Omw.Should().Be(54);
+        matched.Gw.Should().Be(73);
+        matched.Ogw.Should().Be(57);
+    }
+
+    [Fact]
+    public async Task ParseEventLinkResultsAsync_WithNoMatchingCompanionName_ReturnsUnmatched()
+    {
+        await using var context = CreateContext();
+        var owner = CreateUser("owner");
+        var player = CreateUser("player");
+        player.CompanionName = "NonExistent Name";
+        context.Users.AddRange(owner, player);
+
+        var league = CreateLeague(owner.Id, "UNM01");
+        context.Leagues.Add(league);
+        await context.SaveChangesAsync();
+
+        context.UserLeagues.Add(new AppUserLeague
+        {
+            UserId = player.Id, User = player, League = league, LeagueId = league.Id,
+            Score = 0, IsPlaying = true
+        });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var service = CreateService(context, owner, player);
+        var file = CreateMockPdfFile("TestData/finale.pdf");
+
+        var result = await service.ParseEventLinkResultsAsync(league.Id, owner.Id, file);
+
+        result.Players.Should().OnlyContain(p => !p.Matched);
+        result.Players.Should().OnlyContain(p => p.UserId.StartsWith("UNMATCHED:"));
+    }
+
+    [Fact]
+    public async Task ParseEventLinkResultsAsync_WithDuplicateCompanionNames_FlagsDuplicates()
+    {
+        await using var context = CreateContext();
+        var owner = CreateUser("owner");
+        var player1 = CreateUser("player-1");
+        var player2 = CreateUser("player-2");
+        player1.CompanionName = "Fabio Paglieri";
+        player2.CompanionName = "Fabio Paglieri";
+        context.Users.AddRange(owner, player1, player2);
+
+        var league = CreateLeague(owner.Id, "DUP01");
+        context.Leagues.Add(league);
+        await context.SaveChangesAsync();
+
+        context.UserLeagues.AddRange(
+            new AppUserLeague { UserId = player1.Id, User = player1, League = league, LeagueId = league.Id, Score = 0, IsPlaying = true },
+            new AppUserLeague { UserId = player2.Id, User = player2, League = league, LeagueId = league.Id, Score = 0, IsPlaying = true });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var service = CreateService(context, owner, player1, player2);
+        var file = CreateMockPdfFile("TestData/finale.pdf");
+
+        var result = await service.ParseEventLinkResultsAsync(league.Id, owner.Id, file);
+
+        var fabio = result.Players.First(p => p.PdfName == "Fabio Paglieri");
+        fabio.Matched.Should().BeFalse();
+        fabio.UserId.Should().StartWith("DUPLICATE:");
+        result.Errors.Should().Contain(e => e.Contains("Duplicate companion name"));
+    }
+
+    [Fact]
+    public async Task ParseEventLinkResultsAsync_WithNonPlayingMember_DoesNotMatch()
+    {
+        await using var context = CreateContext();
+        var owner = CreateUser("owner");
+        var inactivePlayer = CreateUser("inactive");
+        inactivePlayer.CompanionName = "Fabio Paglieri";
+        context.Users.AddRange(owner, inactivePlayer);
+
+        var league = CreateLeague(owner.Id, "INA01");
+        context.Leagues.Add(league);
+        await context.SaveChangesAsync();
+
+        context.UserLeagues.Add(new AppUserLeague
+        {
+            UserId = inactivePlayer.Id, User = inactivePlayer, League = league, LeagueId = league.Id,
+            Score = 0, IsPlaying = false
+        });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var service = CreateService(context, owner, inactivePlayer);
+        var file = CreateMockPdfFile("TestData/finale.pdf");
+
+        var result = await service.ParseEventLinkResultsAsync(league.Id, owner.Id, file);
+
+        var fabio = result.Players.First(p => p.PdfName == "Fabio Paglieri");
+        fabio.Matched.Should().BeFalse();
+        fabio.UserId.Should().StartWith("UNMATCHED:");
+    }
+
+    [Fact]
+    public async Task ParseEventLinkResultsAsync_WithNonAdmin_ThrowsUnauthorized()
+    {
+        await using var context = CreateContext();
+        var owner = CreateUser("owner");
+        var nonAdmin = CreateUser("nonadmin");
+        context.Users.AddRange(owner, nonAdmin);
+
+        var league = CreateLeague(owner.Id, "AUTH01");
+        context.Leagues.Add(league);
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var service = CreateService(context, owner, nonAdmin);
+        var file = CreateMockPdfFile("TestData/finale.pdf");
+
+        var act = () => service.ParseEventLinkResultsAsync(league.Id, nonAdmin.Id, file);
+
+        var exception = await act.Should().ThrowAsync<LeagueServiceException>();
+        exception.Which.StatusCode.Should().Be(StatusCodes.Status401Unauthorized);
+    }
+
+    [Fact]
+    public async Task ParseEventLinkResultsAsync_WithNonExistentLeague_ThrowsNotFound()
+    {
+        await using var context = CreateContext();
+        var owner = CreateUser("owner");
+        context.Users.Add(owner);
+        context.ChangeTracker.Clear();
+
+        var service = CreateService(context, owner);
+        var file = CreateMockPdfFile("TestData/finale.pdf");
+
+        var act = () => service.ParseEventLinkResultsAsync(999, owner.Id, file);
+
+        var exception = await act.Should().ThrowAsync<LeagueServiceException>();
+        exception.Which.StatusCode.Should().Be(StatusCodes.Status404NotFound);
+    }
+
+    [Fact]
+    public async Task ParseEventLinkResultsAsync_MatchesCaseInsensitively()
+    {
+        await using var context = CreateContext();
+        var owner = CreateUser("owner");
+        var player = CreateUser("player");
+        player.CompanionName = "fabio paglieri";
+        context.Users.AddRange(owner, player);
+
+        var league = CreateLeague(owner.Id, "CASE01");
+        context.Leagues.Add(league);
+        await context.SaveChangesAsync();
+
+        context.UserLeagues.Add(new AppUserLeague
+        {
+            UserId = player.Id, User = player, League = league, LeagueId = league.Id,
+            Score = 0, IsPlaying = true
+        });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var service = CreateService(context, owner, player);
+        var file = CreateMockPdfFile("TestData/finale.pdf");
+
+        var result = await service.ParseEventLinkResultsAsync(league.Id, owner.Id, file);
+
+        var matched = result.Players.First(p => p.PdfName == "Fabio Paglieri");
+        matched.Matched.Should().BeTrue();
+        matched.UserId.Should().Be(player.Id);
+    }
+
     private static AppUser CreateUser(string id)
         => new()
         {
@@ -1297,4 +1496,33 @@ public class LeagueServiceTests
             UserName = id,
             Email = $"{id}@example.com"
         };
+
+    private static League CreateLeague(string ownerId, string code) => new()
+    {
+        Name = "Test League",
+        OwnerId = ownerId,
+        Code = code,
+        Format = DeckFormat.Modern,
+        TotalRounds = 1,
+        CurrentRound = 0,
+        RoundsToConsider = 1,
+        MinimumRounds = 1,
+        TotalPrize = 0,
+        PrizePerPerson = 0,
+        TotalPlayers = 0,
+        ScoringSystem = ScoringSystem.Positional,
+        IsActive = true,
+        IsPublic = true
+    };
+
+    private static IFormFile CreateMockPdfFile(string path)
+    {
+        var bytes = File.ReadAllBytes(path);
+        var stream = new MemoryStream(bytes);
+        var mock = new Mock<IFormFile>();
+        mock.Setup(f => f.OpenReadStream()).Returns(stream);
+        mock.Setup(f => f.FileName).Returns("test.pdf");
+        mock.Setup(f => f.Length).Returns(bytes.Length);
+        return mock.Object;
+    }
 }

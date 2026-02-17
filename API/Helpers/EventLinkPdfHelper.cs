@@ -9,8 +9,10 @@ public record EventLinkParseOutput(List<EventLinkPlayerRow> Rows, List<string> E
 
 public static partial class EventLinkPdfHelper
 {
-    [GeneratedRegex(@"^\d+\s+.+\s+\d+\s+\d+\s+\d+\s+\d+$")]
-    private static partial Regex PlayerLinePattern();
+    // Matches: position(int) + spaces + name(text) + spaces + score(int) + spaces + omw(int) + spaces + gw(int) + spaces + ogw(int)
+    // Name is captured as a non-greedy group that ends before the last 4 numeric columns
+    [GeneratedRegex(@"(\d{1,3})\s{2,}(.+?)\s{2,}(\d{1,3})\s{2,}(\d{1,3})\s{2,}(\d{1,3})\s{2,}(\d{1,3})")]
+    private static partial Regex PlayerPattern();
 
     public static EventLinkParseOutput ParseEventLinkPdf(Stream pdfStream)
     {
@@ -23,49 +25,29 @@ public static partial class EventLinkPdfHelper
         foreach (var page in document.GetPages())
         {
             var text = page.Text;
-            var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            var matches = PlayerPattern().Matches(text);
 
-            foreach (var rawLine in lines)
+            foreach (Match match in matches)
             {
-                var line = rawLine.Trim();
-
-                if (!PlayerLinePattern().IsMatch(line))
-                    continue;
-
                 try
                 {
-                    var row = ParsePlayerLine(line);
-                    rows.Add(row);
+                    var position = int.Parse(match.Groups[1].Value);
+                    var name = match.Groups[2].Value.Trim();
+                    var score = int.Parse(match.Groups[3].Value);
+                    var omw = int.Parse(match.Groups[4].Value);
+                    var gw = int.Parse(match.Groups[5].Value);
+                    var ogw = int.Parse(match.Groups[6].Value);
+
+                    rows.Add(new EventLinkPlayerRow(position, name, score, omw, gw, ogw));
                 }
                 catch (Exception ex)
                 {
-                    errors.Add($"Failed to parse line: '{line}' - {ex.Message}");
+                    errors.Add($"Failed to parse match: '{match.Value}' - {ex.Message}");
                     skippedLines++;
                 }
             }
         }
 
         return new EventLinkParseOutput(rows, errors, skippedLines);
-    }
-
-    private static EventLinkPlayerRow ParsePlayerLine(string line)
-    {
-        // Lines look like: "1 Fabio Paglieri 21 54 73 57"
-        // Split from the end to extract numeric columns, remainder is position + name
-        var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-        if (parts.Length < 6)
-            throw new FormatException("Line has fewer than 6 space-separated tokens");
-
-        var ogw = int.Parse(parts[^1]);
-        var gw = int.Parse(parts[^2]);
-        var omw = int.Parse(parts[^3]);
-        var score = int.Parse(parts[^4]);
-        var position = int.Parse(parts[0]);
-
-        // Name is everything between position and the 4 numeric columns at the end
-        var name = string.Join(' ', parts[1..^4]);
-
-        return new EventLinkPlayerRow(position, name, score, omw, gw, ogw);
     }
 }
