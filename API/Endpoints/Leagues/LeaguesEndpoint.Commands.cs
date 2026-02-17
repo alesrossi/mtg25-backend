@@ -38,6 +38,51 @@ public static partial class LeaguesEndpoint
         }
     }
 
+    private static async Task<IResult> ParseEventLinkPdfAsync(
+        int id,
+        IFormFile file,
+        HttpContext context,
+        [FromServices] ILeagueService leagueService,
+        [FromServices] ILogger<LeaguesEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
+        CancellationToken cancellationToken)
+    {
+        const string operation = "Leagues.ParseEventLinkPdf";
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { id });
+            return Results.Unauthorized();
+        }
+
+        if (file.Length <= 0)
+        {
+            return Results.BadRequest("No file uploaded");
+        }
+
+        if (!file.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.BadRequest("File must be a PDF");
+        }
+
+        if (file.Length > 10 * 1024 * 1024)
+        {
+            return Results.BadRequest("File too large (max 10MB)");
+        }
+
+        try
+        {
+            var result = await leagueService.ParseEventLinkResultsAsync(id, userId, file, cancellationToken);
+            logger.LogOperationSuccess(operation, new { id, playerCount = result.Players.Count });
+            return Results.Ok(result);
+        }
+        catch (LeagueServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { id, userId });
+            return await MapLeagueServiceException(ex, context, messageLocalizer, userId);
+        }
+    }
+
     private static async Task<IResult> UpdateLeagueFromResultsAsync(
         int id,
         [FromBody] List<UserWithScore> userList,

@@ -93,6 +93,17 @@ public static partial class LeaguesEndpoint
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
+        group.MapPost("/{id:int}/parse-results", ParseEventLinkPdfAsync)
+            .RequireAuthorization()
+            .WithSummary("Parse EventLink PDF")
+            .WithDescription("Parses an EventLink tournament results PDF and returns a list of players with scores, matched to league members by companion name")
+            .Produces<EventLinkParseResultDto>()
+            .Produces<ProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json")
+            .DisableAntiforgery();
+
         group.MapPatch("/{id:int}/results", UpdateLeagueFromResultsAsync)
             .RequireAuthorization()
             .WithSummary("Update league results")
