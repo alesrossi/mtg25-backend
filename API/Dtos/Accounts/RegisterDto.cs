@@ -18,4 +18,6 @@ public class RegisterDto
     [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$",
         ErrorMessage = "Password must have 1 Uppercase, 1 Lowercase, 1 number, 1 non alphanumeric and at least 8 characters")]
     public required string Password { get; set; }
+    [StringLength(100, ErrorMessage = "Companion name must be at most 100 characters")]
+    public string? CompanionName { get; set; }
 }
