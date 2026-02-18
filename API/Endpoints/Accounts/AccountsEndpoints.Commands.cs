@@ -53,6 +53,7 @@ public static partial class AccountsEndpoints
             UserName = registerDto.Email,
             FirstName = registerDto.FirstName,
             LastName = registerDto.LastName,
+            CompanionName = registerDto.CompanionName,
             Settings = null
         };
 
