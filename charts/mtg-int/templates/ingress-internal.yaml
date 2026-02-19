@@ -1,0 +1,39 @@
+{{- if .Values.ingressInternal.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.ingressInternal.name | default "mtg-int-internal" }}
+{{- if .Values.ingressInternal.annotations }}
+  annotations:
+{{ toYaml .Values.ingressInternal.annotations | indent 4 }}
+{{- end }}
+spec:
+{{- if .Values.ingressInternal.className }}
+  ingressClassName: {{ .Values.ingressInternal.className }}
+{{- end }}
+  rules:
+{{- range .Values.ingressInternal.hosts }}
+    - host: {{ .host }}
+      http:
+        paths:
+{{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType | default "Prefix" }}
+            backend:
+              service:
+                name: {{ .serviceName }}
+                port:
+                  number: {{ .servicePort }}
+{{- end }}
+{{- end }}
+{{- if .Values.ingressInternal.tls }}
+  tls:
+{{- range .Values.ingressInternal.tls }}
+    - hosts:
+{{- range .hosts }}
+        - {{ . }}
+{{- end }}
+      secretName: {{ .secretName }}
+{{- end }}
+{{- end }}
+{{- end }}

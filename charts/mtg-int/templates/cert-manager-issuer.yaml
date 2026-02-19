@@ -12,7 +12,9 @@ spec:
     solvers:
       - http01:
           ingress:
-{{- if .Values.ingress.className }}
+{{- if .Values.ingressPublic.className }}
+            class: {{ .Values.ingressPublic.className }}
+{{- else if .Values.ingress.className }}
             class: {{ .Values.ingress.className }}
 {{- end }}
 {{- end }}
