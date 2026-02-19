@@ -353,7 +353,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task UpdateTradeSession_WhenQuantityTooHigh_ReturnsBadRequest()
     {
-        var (initiator, _, trade) = await PrepareTradeSessionAsync();
+        var (initiator, _, trade) = await PrepareTradeSessionAsync(collectionQuantity: 2);
         using var initiatorClient = CreateClientWithUser(_factory, initiator);
 
         var matchId = trade.InitiatorMatches[0].MatchId;
@@ -708,7 +708,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         await context.SaveChangesAsync();
     }
 
-    private async Task CreatePublicBinderCardAsync(string ownerId, string cardName, IServiceProvider? services = null)
+    private async Task CreatePublicBinderCardAsync(string ownerId, string cardName, IServiceProvider? services = null, int? collectionQuantity = null)
     {
         services ??= _factory.Services;
         await using var scope = services.CreateAsyncScope();
@@ -727,6 +727,10 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         ownedCard.ScryfallId = marketCard.Id;
         ownedCard.OracleId = marketCard.OracleId;
         ownedCard.IsFoil = false;
+        if (collectionQuantity.HasValue)
+        {
+            ownedCard.Quantity = collectionQuantity.Value;
+        }
         context.Cards.Add(ownedCard);
         await context.SaveChangesAsync();
 
@@ -791,7 +795,8 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         bool includePartnerOffer = false,
         bool liveTrading = true,
         bool requireApproval = false,
-        WebApplicationFactory<Program>? targetFactory = null)
+        WebApplicationFactory<Program>? targetFactory = null,
+        int? collectionQuantity = null)
     {
         targetFactory ??= _factory;
         var services = targetFactory.Services;
@@ -799,7 +804,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var initiator = await CreateTestUserAsync("trade-initiator@test.com", "trade_initiator", services);
         var partner = await CreateTestUserAsync("trade-partner@test.com", "trade_partner", services);
 
-        await CreatePublicBinderCardAsync(initiator.Id, "Lightning Bolt", services);
+        await CreatePublicBinderCardAsync(initiator.Id, "Lightning Bolt", services, collectionQuantity);
         await CreatePublicWishlistCardAsync(partner.Id, "Lightning Bolt", services);
 
         if (requireApproval)
