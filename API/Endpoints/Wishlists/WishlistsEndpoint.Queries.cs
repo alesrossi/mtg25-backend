@@ -44,17 +44,12 @@ public static partial class WishlistsEndpoint
         CancellationToken cancellationToken)
     {
         const string operation = "Wishlists.Get";
-        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userId))
-        {
-            logger.LogOperationWarning(operation, "Missing user id", new { id });
-            return Results.Unauthorized();
-        }
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
 
         try
         {
             var wishlist = await wishlistService.GetWishlistByIdAsync(id, userId, cancellationToken);
-            logger.LogOperationSuccess(operation, new { id });
+            logger.LogOperationSuccess(operation, new { id, IsAnonymous = string.IsNullOrEmpty(userId) });
             return Results.Ok(wishlist);
         }
         catch (WishlistServiceException ex)
@@ -73,17 +68,12 @@ public static partial class WishlistsEndpoint
         CancellationToken cancellationToken)
     {
         const string operation = "Wishlists.Cards.Query";
-        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userId))
-        {
-            logger.LogOperationWarning(operation, "Missing user id", new { wishlistId });
-            return Results.Unauthorized();
-        }
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
 
         try
         {
             var cards = await wishlistService.GetWishlistCardsAsync(wishlistId, userId, cancellationToken);
-            logger.LogOperationSuccess(operation, new { wishlistId, cards.Count });
+            logger.LogOperationSuccess(operation, new { wishlistId, cards.Count, IsAnonymous = string.IsNullOrEmpty(userId) });
             return Results.Ok(cards);
         }
         catch (WishlistServiceException ex)

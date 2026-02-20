@@ -54,16 +54,17 @@ public sealed class WishlistService : IWishlistService
 
     public async Task<WishlistDto> GetWishlistByIdAsync(int id, string userId, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(userId))
-        {
-            throw WishlistServiceException.Unauthorized("Errors.Wishlists.MissingUserId");
-        }
-
-        var spec = new WishlistWithCardsSpecification(id, userId);
+        var spec = new WishlistByIdWithCardsSpecification(id);
         var wishlist = await _unitOfWork.Repository<Wishlist>().GetEntityWithSpec(spec, tracking: false);
         if (wishlist == null)
         {
             throw WishlistServiceException.NotFound("Errors.Wishlists.NotFound");
+        }
+
+        var isOwner = !string.IsNullOrEmpty(userId) && wishlist.OwnerId == userId;
+        if (!isOwner && !wishlist.IsPublic)
+        {
+            throw WishlistServiceException.Unauthorized("Errors.Wishlists.Unauthorized");
         }
 
         return MapToDto(wishlist);
@@ -71,7 +72,17 @@ public sealed class WishlistService : IWishlistService
 
     public async Task<IReadOnlyList<WishlistCardDto>> GetWishlistCardsAsync(int wishlistId, string userId, CancellationToken cancellationToken = default)
     {
-        await EnsureWishlistOwnershipAsync(wishlistId, userId, tracking: false);
+        var wishlist = await _unitOfWork.Repository<Wishlist>().GetByIdAsync(wishlistId, tracking: false);
+        if (wishlist == null)
+        {
+            throw WishlistServiceException.NotFound("Errors.Wishlists.NotFound");
+        }
+
+        var isOwner = !string.IsNullOrEmpty(userId) && wishlist.OwnerId == userId;
+        if (!isOwner && !wishlist.IsPublic)
+        {
+            throw WishlistServiceException.Unauthorized("Errors.Wishlists.Unauthorized");
+        }
 
         var spec = new WishlistCardsWithWishlistIdSpecification(wishlistId);
         var cards = await _unitOfWork.Repository<WishlistCard>().ListAsync(spec, tracking: false) ?? Array.Empty<WishlistCard>();

@@ -97,6 +97,13 @@ namespace IntegrationTests
                     o.DefaultPolicy = new AuthorizationPolicyBuilder("Test")
                                         .RequireAuthenticatedUser()
                                         .Build();
+                    // Policy that allows both authenticated and anonymous users
+                    // but still triggers authentication middleware
+                    o.AddPolicy("OptionalAuth", policy =>
+                    {
+                        policy.AddAuthenticationSchemes("Test");
+                        policy.RequireAssertion(_ => true);
+                    });
                 });
             });
         }

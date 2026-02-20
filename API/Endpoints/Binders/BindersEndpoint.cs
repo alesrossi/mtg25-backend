@@ -26,16 +26,16 @@ public static partial class BindersEndpoint
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/{id:int}", GetBinderByIdAsync)
-            .RequireAuthorization()
-            .WithSummary("Get binder by ID")
+            .RequireAuthorization("OptionalAuth")
+            .WithSummary("Get binder by ID (public binders accessible to all)")
             .Produces<BinderDto>()
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/{binderId:int}/cards", GetBinderCardsAsync)
-            .RequireAuthorization()
-            .WithSummary("Get binder cards")
+            .RequireAuthorization("OptionalAuth")
+            .WithSummary("Get binder cards (public binders accessible to all)")
             .Produces<IEnumerable<BinderCardDto>>()
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
