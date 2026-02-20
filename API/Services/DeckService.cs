@@ -16,9 +16,9 @@ public interface IDeckService
     Task<IReadOnlyList<DeckCardDto>> GetDeckCardsAsync(int deckId, string userId, bool maindeckOnly, bool sideboardOnly, bool? ownedOnly, CancellationToken cancellationToken = default);
     Task<DeckCardDto> GetDeckCardByIdAsync(int deckId, int id, string userId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<DeckCardDto>> GetMissingDeckCardsAsync(int deckId, string userId, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<string>> ExportDeckAsync(int deckId, string userId, CancellationToken cancellationToken = default);
+    Task<string> ExportDeckAsync(int deckId, string userId, CancellationToken cancellationToken = default);
     Task<DeckDto> CreateDeckAsync(CreateDeckDto createDto, string userId, CancellationToken cancellationToken = default);
-    Task<DeckDto> UpdateDeckAsync(int id, UpdateDeckDto updateDto, string userId, CancellationToken cancellationToken = default);
+    Task<UpdateDeckResultDto> UpdateDeckAsync(int id, UpdateDeckDto updateDto, string userId, CancellationToken cancellationToken = default);
     Task DeleteDeckAsync(int id, string userId, CancellationToken cancellationToken = default);
     Task<DeckCardDto> CreateDeckCardAsync(int deckId, CreateDeckCardDto createDto, string userId, CancellationToken cancellationToken = default);
     Task<DeckCardDto> UpdateDeckCardAsync(int deckId, int id, UpdateDeckCardDto updateDto, string userId, CancellationToken cancellationToken = default);
@@ -36,6 +36,7 @@ public sealed class DeckService : IDeckService
     private readonly IDecklistParserService _decklistParserService;
     private readonly CardDataService _cardDataService;
     private readonly IUserSettingsService _userSettingsService;
+    private readonly IDeckHistoryService _deckHistoryService;
 
     public DeckService(
         IUnitOfWork unitOfWork,
@@ -44,7 +45,8 @@ public sealed class DeckService : IDeckService
         IValidationService validationService,
         IDecklistParserService decklistParserService,
         CardDataService cardDataService,
-        IUserSettingsService userSettingsService)
+        IUserSettingsService userSettingsService,
+        IDeckHistoryService deckHistoryService)
     {
         _unitOfWork = unitOfWork;
         _userManager = userManager;
@@ -53,6 +55,7 @@ public sealed class DeckService : IDeckService
         _decklistParserService = decklistParserService;
         _cardDataService = cardDataService;
         _userSettingsService = userSettingsService;
+        _deckHistoryService = deckHistoryService;
     }
 
     public async Task<IReadOnlyList<DeckDto>> GetDecksForUserAsync(string userId, CancellationToken cancellationToken = default)
@@ -158,7 +161,7 @@ public sealed class DeckService : IDeckService
         return missingCards;
     }
 
-    public async Task<IReadOnlyList<string>> ExportDeckAsync(int deckId, string userId, CancellationToken cancellationToken = default)
+    public async Task<string> ExportDeckAsync(int deckId, string userId, CancellationToken cancellationToken = default)
     {
         if (userId is null)
         {
@@ -171,37 +174,7 @@ public sealed class DeckService : IDeckService
             throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
         }
 
-        var deckCards = (await _deckCardService.GetDeckCardsAsync(deckId)).ToList();
-
-        if (deckCards.Count == 0)
-        {
-            return Array.Empty<string>();
-        }
-
-        var maindeckLines = deckCards
-            .Where(card => card.MaindeckQuantity > 0)
-            .OrderBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(card => $"{card.MaindeckQuantity} {card.Name}")
-            .ToList();
-
-        var sideboardLines = deckCards
-            .Where(card => card.SideboardQuantity > 0)
-            .OrderBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(card => $"{card.SideboardQuantity} {card.Name}")
-            .ToList();
-
-        var exportedLines = new List<string>(maindeckLines);
-
-        if (sideboardLines.Count <= 0) return exportedLines;
-        
-        if (exportedLines.Count > 0)
-        {
-            exportedLines.Add(string.Empty);
-        }
-
-        exportedLines.AddRange(sideboardLines);
-
-        return exportedLines;
+        return deck.DeckList ?? string.Empty;
     }
 
     public async Task<DeckDto> CreateDeckAsync(CreateDeckDto createDto, string userId, CancellationToken cancellationToken = default)
@@ -217,16 +190,19 @@ public sealed class DeckService : IDeckService
             Format = createDto.Format,
             OwnerId = userId,
             NumberOfCards = 0,
-            TotalPrice = 0.0
+            TotalPrice = 0.0,
+            DeckList = string.Empty
         };
 
         _unitOfWork.Repository<Deck>().Add(deck);
         await _unitOfWork.Complete();
 
+        await _deckHistoryService.InitializeDeckHistoryAsync(deck.Id, userId, cancellationToken: cancellationToken);
+
         return MapToDto(deck);
     }
 
-    public async Task<DeckDto> UpdateDeckAsync(int id, UpdateDeckDto updateDto, string userId, CancellationToken cancellationToken = default)
+    public async Task<UpdateDeckResultDto> UpdateDeckAsync(int id, UpdateDeckDto updateDto, string userId, CancellationToken cancellationToken = default)
     {
         if (userId == null)
         {
@@ -240,13 +216,23 @@ public sealed class DeckService : IDeckService
         }
 
         if (updateDto.Name != null) deck.Name = updateDto.Name;
-        if (updateDto.Format.HasValue) deck.Format = updateDto.Format.Value;
+        if (updateDto.Format != null) deck.Format = updateDto.Format.Value;
         deck.Image = updateDto.Image;
+
+        IReadOnlyList<string> errors = [];
+        var skippedLines = 0;
+
+        if (updateDto.DeckList != null)
+        {
+            var result = await ReplaceDeckCardsFromDecklistAsync(deck, updateDto.DeckList, userId, allowPartial: true);
+            errors = result.Errors;
+            skippedLines = result.SkippedLines;
+        }
 
         _unitOfWork.Repository<Deck>().Update(deck);
         await _unitOfWork.Complete();
 
-        return MapToDto(deck);
+        return new UpdateDeckResultDto(MapToDto(deck), errors, skippedLines);
     }
 
     public async Task DeleteDeckAsync(int id, string userId, CancellationToken cancellationToken = default)
@@ -483,11 +469,14 @@ public sealed class DeckService : IDeckService
             OwnerId = userId,
             NumberOfCards = 0,
             TotalPrice = 0,
-            TotalPriceCurrency = null
+            TotalPriceCurrency = null,
+            DeckList = string.Empty
         };
 
         _unitOfWork.Repository<Deck>().Add(deck);
         await _unitOfWork.Complete();
+
+        await _deckHistoryService.InitializeDeckHistoryAsync(deck.Id, userId, cancellationToken: cancellationToken);
 
         var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId, cancellationToken);
         deck.TotalPriceCurrency = _userSettingsService.ResolveCurrency(marketProvider);
@@ -514,10 +503,135 @@ public sealed class DeckService : IDeckService
             .Select(ci => ci.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+        deck.DeckList = BuildDeckList(createdCards);
         _unitOfWork.Repository<Deck>().Update(deck);
         await _unitOfWork.Complete();
 
         return new ImportDeckDto(MapToDto(deck), createdCards.ToList(), allErrors, skippedLines);
+    }
+
+    private async Task<(List<DeckCardDto> CreatedCards, IReadOnlyList<string> Errors, int SkippedLines)> ReplaceDeckCardsFromDecklistAsync(
+        Deck deck,
+        string decklist,
+        string userId,
+        bool allowPartial)
+    {
+        var parseResult = await ParseDecklistAsync(decklist, allowPartial);
+
+        var existingCards = await _unitOfWork.Repository<DeckCard>()
+            .ListAsync(new DeckCardsWithDeckIdSpecification(deck.Id));
+        if (existingCards != null)
+        {
+            foreach (var existing in existingCards)
+            {
+                _unitOfWork.Repository<DeckCard>().Delete(existing);
+            }
+            await _unitOfWork.Complete();
+        }
+
+        deck.NumberOfCards = 0;
+        deck.NumberOfMainBoardCards = 0;
+        deck.NumberOfSideBoardCards = 0;
+        deck.TotalPrice = 0;
+        deck.TotalPriceCurrency = null;
+        deck.DeckList = string.Empty;
+        deck.ColorIdentity = [];
+        _unitOfWork.Repository<Deck>().Update(deck);
+        await _unitOfWork.Complete();
+
+        var createdCards = new List<DeckCardDto>();
+        var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId);
+        deck.TotalPriceCurrency = _userSettingsService.ResolveCurrency(marketProvider);
+        var totalPrice = 0.0;
+
+        foreach (var deckCardDto in parseResult.DeckCards)
+        {
+            var created = await _deckCardService.CreateDeckCardAsync(deck.Id, deckCardDto);
+            deck.ColorIdentity.AddRange(created.ColorIdentity.Except(deck.ColorIdentity));
+            createdCards.Add(created);
+
+            var cardPrice = ResolveCardMarketPrice(_cardDataService, created.ScryfallId, marketProvider);
+            var quantity = created.MaindeckQuantity + created.SideboardQuantity;
+            totalPrice += cardPrice * quantity;
+        }
+
+        deck.NumberOfCards = createdCards.Sum(dc => dc.MaindeckQuantity + dc.SideboardQuantity);
+        deck.NumberOfMainBoardCards = createdCards.Sum(dc => dc.MaindeckQuantity);
+        deck.NumberOfSideBoardCards = createdCards.Sum(dc => dc.SideboardQuantity);
+        deck.TotalPrice = Math.Round(totalPrice, 2, MidpointRounding.AwayFromZero);
+        deck.DeckList = BuildDeckList(createdCards);
+        _unitOfWork.Repository<Deck>().Update(deck);
+        await _unitOfWork.Complete();
+
+        return (createdCards, parseResult.Errors, parseResult.SkippedLines);
+    }
+
+    private async Task<(IReadOnlyList<CreateDeckCardDto> DeckCards, IReadOnlyList<string> Errors, int SkippedLines)> ParseDecklistAsync(
+        string decklist,
+        bool allowPartial)
+    {
+        var decklistLines = FilterDecklistLines(decklist);
+        var parseResult = await _decklistParserService.ParseAsync(decklistLines);
+        var skippedLines = parseResult.Errors.Count;
+
+        if (parseResult.DeckCards.Count == 0)
+        {
+            var errors = parseResult.Errors.Count != 0
+                ? parseResult.Errors
+                : (IReadOnlyList<string>)["Decklist did not contain any valid cards."];
+
+            throw DeckServiceException.BadRequest("Errors.Decks.NoCardsParsed", new
+            {
+                errors,
+                deckCards = parseResult.DeckCards,
+                skippedLines
+            }, includeBody: true);
+        }
+
+        if (!allowPartial && parseResult.Errors.Any())
+        {
+            throw DeckServiceException.BadRequest("Errors.Decks.ImportInvalidPayload", new
+            {
+                errors = parseResult.Errors,
+                deckCards = parseResult.DeckCards,
+                skippedLines
+            }, includeBody: true);
+        }
+
+        return (parseResult.DeckCards, parseResult.Errors, skippedLines);
+    }
+
+    private static string BuildDeckList(IEnumerable<DeckCardDto> deckCards)
+    {
+        var maindeckLines = deckCards
+            .Where(card => card.MaindeckQuantity > 0)
+            .OrderBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(card => $"{card.MaindeckQuantity} {card.Name}")
+            .ToList();
+
+        var sideboardLines = deckCards
+            .Where(card => card.SideboardQuantity > 0)
+            .OrderBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(card => $"{card.SideboardQuantity} {card.Name}")
+            .ToList();
+
+        if (maindeckLines.Count == 0 && sideboardLines.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var lines = new List<string>(maindeckLines);
+        if (sideboardLines.Count > 0)
+        {
+            if (lines.Count > 0)
+            {
+                lines.Add(string.Empty);
+            }
+
+            lines.AddRange(sideboardLines);
+        }
+
+        return string.Join('\n', lines);
     }
 
     private static DeckDto MapToDto(Deck deck)
