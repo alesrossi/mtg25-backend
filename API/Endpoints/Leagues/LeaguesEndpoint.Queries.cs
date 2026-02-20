@@ -15,17 +15,12 @@ public static partial class LeaguesEndpoint
         CancellationToken cancellationToken)
     {
         const string operation = "Leagues.QueryAll";
-        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null)
-        {
-            logger.LogOperationWarning(operation, "Missing user id");
-            return Results.Unauthorized();
-        }
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
 
         try
         {
             var leagues = await leagueService.GetPublicLeaguesAsync(userId, cancellationToken);
-            logger.LogOperationSuccess(operation, new { leagues.Count });
+            logger.LogOperationSuccess(operation, new { leagues.Count, IsAnonymous = string.IsNullOrEmpty(userId) });
             return Results.Ok(leagues);
         }
         catch (LeagueServiceException ex)
@@ -72,17 +67,12 @@ public static partial class LeaguesEndpoint
         CancellationToken cancellationToken)
     {
         const string operation = "Leagues.GetById";
-        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null)
-        {
-            logger.LogOperationWarning(operation, "Missing user id", new { id });
-            return Results.Unauthorized();
-        }
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
 
         try
         {
             var leagueDto = await leagueService.GetLeagueByIdAsync(id, userId, cancellationToken);
-            logger.LogOperationSuccess(operation, new { id });
+            logger.LogOperationSuccess(operation, new { id, IsAnonymous = string.IsNullOrEmpty(userId) });
             return Results.Ok(leagueDto);
         }
         catch (LeagueServiceException ex)
@@ -102,17 +92,12 @@ public static partial class LeaguesEndpoint
         CancellationToken cancellationToken)
     {
         const string operation = "Leagues.GetRound";
-        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null)
-        {
-            logger.LogOperationWarning(operation, "Missing user id", new { leagueId, roundId });
-            return Results.Unauthorized();
-        }
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
 
         try
         {
             var round = await leagueService.GetRoundByIdAsync(leagueId, roundId, userId, cancellationToken);
-            logger.LogOperationSuccess(operation, new { leagueId, roundId });
+            logger.LogOperationSuccess(operation, new { leagueId, roundId, IsAnonymous = string.IsNullOrEmpty(userId) });
             return Results.Ok(round);
         }
         catch (LeagueServiceException ex)
@@ -131,17 +116,12 @@ public static partial class LeaguesEndpoint
         CancellationToken cancellationToken)
     {
         const string operation = "Leagues.GetRounds";
-        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null)
-        {
-            logger.LogOperationWarning(operation, "Missing user id", new { leagueId });
-            return Results.Unauthorized();
-        }
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
 
         try
         {
             var rounds = await leagueService.GetRoundsByLeagueIdAsync(leagueId, userId, cancellationToken);
-            logger.LogOperationSuccess(operation, new { leagueId, rounds.Count });
+            logger.LogOperationSuccess(operation, new { leagueId, rounds.Count, IsAnonymous = string.IsNullOrEmpty(userId) });
             return Results.Ok(rounds);
         }
         catch (LeagueServiceException ex)
@@ -160,13 +140,12 @@ public static partial class LeaguesEndpoint
         CancellationToken cancellationToken)
     {
         const string operation = "Leagues.ListScores";
-        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null) return Results.Unauthorized();
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
 
         try
         {
             var leagueWithScores = await leagueService.GetLeagueScoresAsync(id, userId, cancellationToken);
-            logger.LogOperationSuccess(operation, new { id, userId, leagueWithScores.Scores.Count });
+            logger.LogOperationSuccess(operation, new { id, userId, leagueWithScores.Scores.Count, IsAnonymous = string.IsNullOrEmpty(userId) });
             return Results.Ok(leagueWithScores);
         }
         catch (LeagueServiceException ex)

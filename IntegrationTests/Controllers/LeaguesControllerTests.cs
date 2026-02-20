@@ -190,13 +190,13 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task GetLeagues_WithoutAuthentication_ReturnsUnauthorized()
+    public async Task GetLeagues_WithoutAuthentication_ReturnsOk()
     {
         using var client = _factory.CreateClient();
 
         var response = await client.GetAsync("/api/leagues");
 
-        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -331,7 +331,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task GetLeagueFromId_WithoutAuthentication_ReturnsUnauthorized()
     {
         var owner = await CreateTestUserAsync("getleague-noauth@example.com", "getleague_noauth");
-        var league = await CreateTestLeagueAsync("NoAuth League", owner.Id);
+        var league = await CreateTestLeagueAsync("NoAuth League", owner.Id, isPublic: false);
         await AssociateUserWithLeagueAsync(owner.Id, league.Id);
         using var client = _factory.CreateClient();
 
@@ -1020,7 +1020,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     public async Task ListLeagueWithScores_WithoutAuthentication_ReturnsUnauthorized()
     {
         var owner = await CreateTestUserAsync("scores-noauth@example.com", "scores_noauth");
-        var league = await CreateTestLeagueAsync("NoAuth Scores", owner.Id);
+        var league = await CreateTestLeagueAsync("NoAuth Scores", owner.Id, isPublic: false);
         using var client = _factory.CreateClient();
 
         var response = await client.GetAsync($"/api/leagues/{league.Id}/scores");

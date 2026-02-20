@@ -59,8 +59,6 @@ public sealed class LeagueService : ILeagueService
 
     public async Task<IReadOnlyList<League>> GetPublicLeaguesAsync(string userId, CancellationToken cancellationToken = default)
     {
-        await EnsureUserAsync(userId);
-
         return await _dbContext.Leagues
             .AsNoTracking()
             .Where(l => l.IsPublic)
@@ -215,8 +213,6 @@ public sealed class LeagueService : ILeagueService
 
     public async Task<LeagueDto> GetLeagueByIdAsync(int leagueId, string userId, CancellationToken cancellationToken = default)
     {
-        await EnsureUserAsync(userId);
-
         var league = await _dbContext.Leagues
             .AsNoTracking()
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
@@ -225,16 +221,19 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
         }
 
-        var res = await _dbContext.UserLeagues
+        var isMember = !string.IsNullOrEmpty(userId) && (userId == league.OwnerId || await _dbContext.UserLeagues
+            .AnyAsync(ul => ul.LeagueId == league.Id && ul.UserId == userId, cancellationToken));
+
+        if (!isMember && !league.IsPublic)
+        {
+            throw LeagueServiceException.Unauthorized("Errors.Leagues.Unauthorized");
+        }
+
+        var res = isMember ? await _dbContext.UserLeagues
             .Where(ul => ul.LeagueId == league.Id && ul.UserId == userId)
             .Include(ul => ul.League)
             .AsNoTracking()
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (userId != league.OwnerId && res is null)
-        {
-            throw LeagueServiceException.Unauthorized("Errors.Leagues.UserNotInLeague");
-        }
+            .FirstOrDefaultAsync(cancellationToken) : null;
 
         var adminAssignmentsRaw = await _dbContext.LeagueRoleAssignments
             .AsNoTracking()
@@ -260,7 +259,7 @@ public sealed class LeagueService : ILeagueService
             TotalPrize = league.TotalPrize,
             PrizePerPerson = league.PrizePerPerson,
             TotalPlayers = league.TotalPlayers,
-            Score = res!.Score,
+            Score = res?.Score ?? 0,
             ScoringSystem = league.ScoringSystem,
             PointsToGive = league.PointsToGive,
             PointsPerWin = league.PointsPerWin,
@@ -268,7 +267,7 @@ public sealed class LeagueService : ILeagueService
             PointsPerLoss = league.PointsPerLoss,
             OwnerId = league.OwnerId,
             IsActive = league.IsActive,
-            IsPlaying = res.IsPlaying,
+            IsPlaying = res?.IsPlaying ?? false,
             IsPublic = league.IsPublic,
             AdminIds = adminIdsList
         };
@@ -276,14 +275,20 @@ public sealed class LeagueService : ILeagueService
 
     public async Task<LeagueWithScoresDto> GetLeagueScoresAsync(int leagueId, string userId, CancellationToken cancellationToken = default)
     {
-        await EnsureUserAsync(userId);
-
         var league = await _dbContext.Leagues
             .AsNoTracking()
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
         {
             throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
+        }
+
+        var isMember = !string.IsNullOrEmpty(userId) && (userId == league.OwnerId || await _dbContext.UserLeagues
+            .AnyAsync(ul => ul.LeagueId == league.Id && ul.UserId == userId, cancellationToken));
+
+        if (!isMember && !league.IsPublic)
+        {
+            throw LeagueServiceException.Unauthorized("Errors.Leagues.Unauthorized");
         }
 
         var res = await _dbContext.UserLeagues
@@ -328,8 +333,6 @@ public sealed class LeagueService : ILeagueService
 
     public async Task<RoundInfoDto> GetRoundByIdAsync(int leagueId, int roundId, string userId, CancellationToken cancellationToken = default)
     {
-        await EnsureUserAsync(userId);
-
         var league = await _dbContext.Leagues
             .AsNoTracking()
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
@@ -338,12 +341,12 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
         }
 
-        var membership = await _dbContext.UserLeagues
-            .AsNoTracking()
-            .FirstOrDefaultAsync(ul => ul.LeagueId == leagueId && ul.UserId == userId, cancellationToken);
-        if (userId != league.OwnerId && membership is null)
+        var isMember = !string.IsNullOrEmpty(userId) && (userId == league.OwnerId || await _dbContext.UserLeagues
+            .AnyAsync(ul => ul.LeagueId == league.Id && ul.UserId == userId, cancellationToken));
+
+        if (!isMember && !league.IsPublic)
         {
-            throw LeagueServiceException.Unauthorized("Errors.Leagues.UserNotInLeague");
+            throw LeagueServiceException.Unauthorized("Errors.Leagues.Unauthorized");
         }
 
         var round = await _dbContext.Rounds
@@ -386,8 +389,6 @@ public sealed class LeagueService : ILeagueService
 
     public async Task<IReadOnlyList<RoundInfoDto>> GetRoundsByLeagueIdAsync(int leagueId, string userId, CancellationToken cancellationToken = default)
     {
-        await EnsureUserAsync(userId);
-
         var league = await _dbContext.Leagues
             .AsNoTracking()
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
@@ -396,12 +397,12 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
         }
 
-        var membership = await _dbContext.UserLeagues
-            .AsNoTracking()
-            .FirstOrDefaultAsync(ul => ul.LeagueId == leagueId && ul.UserId == userId, cancellationToken);
-        if (userId != league.OwnerId && membership is null)
+        var isMember = !string.IsNullOrEmpty(userId) && (userId == league.OwnerId || await _dbContext.UserLeagues
+            .AnyAsync(ul => ul.LeagueId == league.Id && ul.UserId == userId, cancellationToken));
+
+        if (!isMember && !league.IsPublic)
         {
-            throw LeagueServiceException.Unauthorized("Errors.Leagues.UserNotInLeague");
+            throw LeagueServiceException.Unauthorized("Errors.Leagues.Unauthorized");
         }
 
         // Se TotalRounds è 0, restituire lista vuota

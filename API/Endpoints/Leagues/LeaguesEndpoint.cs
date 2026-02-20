@@ -28,16 +28,16 @@ public static partial class LeaguesEndpoint
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/", GetLeaguesAsync)
-            .RequireAuthorization()
-            .WithSummary("Get all leagues")
+            .RequireAuthorization("OptionalAuth")
+            .WithSummary("Get all leagues (public leagues accessible to all)")
             .WithDescription("Returns all available leagues with pagination")
             .Produces<Helpers.Pagination<LeagueDto>>()
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/{id:int}", GetLeagueFromIdAsync)
-            .RequireAuthorization()
-            .WithSummary("Get league by ID")
+            .RequireAuthorization("OptionalAuth")
+            .WithSummary("Get league by ID (public leagues accessible to all)")
             .WithDescription("Returns specific league details by ID")
             .Produces<LeagueDto>()
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
@@ -54,8 +54,8 @@ public static partial class LeaguesEndpoint
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/{id:int}/scores", ListLeagueWithScores)
-            .RequireAuthorization()
-            .WithSummary("List Leagues and Users scores")
+            .RequireAuthorization("OptionalAuth")
+            .WithSummary("List Leagues and Users scores (public leagues accessible to all)")
             .WithDescription("List leagues and user scores ranked from first to last")
             .Produces<LeagueWithScoresDto>()
             .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
@@ -63,8 +63,8 @@ public static partial class LeaguesEndpoint
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/{leagueId:int}/rounds/{roundId:int}", GetRoundByIdAsync)
-            .RequireAuthorization()
-            .WithSummary("Get round by id")
+            .RequireAuthorization("OptionalAuth")
+            .WithSummary("Get round by id (public leagues accessible to all)")
             .WithDescription("Returns round information with ordered player results")
             .Produces<RoundInfoDto>()
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
@@ -72,8 +72,8 @@ public static partial class LeaguesEndpoint
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/{leagueId:int}/rounds", GetRoundsByLeagueIdAsync)
-            .RequireAuthorization()
-            .WithSummary("Get all rounds for a league")
+            .RequireAuthorization("OptionalAuth")
+            .WithSummary("Get all rounds for a league (public leagues accessible to all)")
             .WithDescription("Returns all rounds information for a specific league, including virtual rounds not yet created")
             .Produces<IReadOnlyList<RoundInfoDto>>()
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
