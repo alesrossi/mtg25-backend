@@ -33,6 +33,7 @@ public interface ILeagueService
     Task TerminateLeagueAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
     Task<bool> IsLeagueAdminAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
     Task<EventLinkParseResultDto> ParseEventLinkResultsAsync(int leagueId, string userId, IFormFile file, CancellationToken cancellationToken = default);
+    Task<byte[]> ExportLeagueToExcelAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
 }
 
 public sealed class LeagueService : ILeagueService
@@ -1454,6 +1455,80 @@ public sealed class LeagueService : ILeagueService
         }
 
         return await IsLeagueAdminAsync(league, userId, cancellationToken);
+    }
+
+    public async Task<byte[]> ExportLeagueToExcelAsync(int leagueId, string userId, CancellationToken cancellationToken = default)
+    {
+        var league = await _dbContext.Leagues
+            .AsNoTracking()
+            .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
+        if (league is null)
+        {
+            throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
+        }
+
+        var isAdmin = await IsLeagueAdminAsync(league, userId, cancellationToken);
+        if (!isAdmin)
+        {
+            throw LeagueServiceException.Unauthorized("Errors.Leagues.AdminOnly");
+        }
+
+        var rounds = await GetRoundsByLeagueIdAsync(leagueId, userId, cancellationToken);
+        var scores = await GetLeagueScoresAsync(leagueId, userId, cancellationToken);
+
+        using var workbook = new ClosedXML.Excel.XLWorkbook();
+        var worksheet = workbook.Worksheets.Add(league.Name);
+
+        var currentRow = 1;
+        var currentCol = 1;
+
+        worksheet.Cell(currentRow, currentCol).Value = "Player Name";
+        worksheet.Cell(currentRow, currentCol).Style.Font.Bold = true;
+        currentCol++;
+
+        var orderedRounds = rounds.OrderBy(r => r.Order).ToList();
+        foreach (var round in orderedRounds)
+        {
+            worksheet.Cell(currentRow, currentCol).Value = $"Round {round.Order}";
+            worksheet.Cell(currentRow, currentCol).Style.Font.Bold = true;
+            currentCol++;
+        }
+
+        worksheet.Cell(currentRow, currentCol).Value = "Total Points";
+        worksheet.Cell(currentRow, currentCol).Style.Font.Bold = true;
+
+        var orderedScores = scores.Scores.OrderByDescending(s => s.Points).ToList();
+        currentRow = 2;
+
+        foreach (var score in orderedScores)
+        {
+            currentCol = 1;
+            worksheet.Cell(currentRow, currentCol).Value = $"{score.FirstName} {score.LastName}";
+
+            currentCol++;
+            foreach (var round in orderedRounds)
+            {
+                var playerRoundScore = round.Players.FirstOrDefault(p => p.UserId == score.UserId);
+                if (playerRoundScore != null)
+                {
+                    worksheet.Cell(currentRow, currentCol).Value = playerRoundScore.Score;
+                }
+                else
+                {
+                    worksheet.Cell(currentRow, currentCol).Value = string.Empty;
+                }
+                currentCol++;
+            }
+
+            worksheet.Cell(currentRow, currentCol).Value = score.Points;
+            currentRow++;
+        }
+
+        worksheet.Columns().AdjustToContents();
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
     }
 
     private async Task<AppUser> EnsureUserAsync(string userId)

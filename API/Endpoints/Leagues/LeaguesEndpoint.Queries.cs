@@ -154,4 +154,37 @@ public static partial class LeaguesEndpoint
             return await MapLeagueServiceException(ex, context, messageLocalizer, userId);
         }
     }
+
+    private static async Task<IResult> ExportLeagueToExcelAsync(
+        int id,
+        HttpContext context,
+        [FromServices] ILeagueService leagueService,
+        [FromServices] ILogger<LeaguesEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
+        CancellationToken cancellationToken)
+    {
+        const string operation = "Leagues.ExportToExcel";
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id");
+            return Results.Unauthorized();
+        }
+
+        try
+        {
+            var excelBytes = await leagueService.ExportLeagueToExcelAsync(id, userId, cancellationToken);
+            logger.LogOperationSuccess(operation, new { leagueId = id, userId, FileSize = excelBytes.Length });
+
+            return Results.File(
+                excelBytes,
+                contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                fileDownloadName: $"league_{id}_export.xlsx");
+        }
+        catch (LeagueServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { id, userId });
+            return await MapLeagueServiceException(ex, context, messageLocalizer, userId);
+        }
+    }
 }

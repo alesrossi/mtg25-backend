@@ -1258,6 +1258,173 @@ public class LeagueServiceTests
         result[2].Id.Should().Be(0);
     }
 
+    [Fact]
+    public async Task ExportLeagueToExcelAsync_GeneratesValidExcelFile()
+    {
+        // Arrange
+        await using var context = CreateContext();
+        var owner = CreateUser("owner");
+        var player1 = CreateUser("player1");
+        player1.FirstName = "Alice";
+        player1.LastName = "Johnson";
+        var player2 = CreateUser("player2");
+        player2.FirstName = "Bob";
+        player2.LastName = "Smith";
+        var player3 = CreateUser("player3");
+        player3.FirstName = "Charlie";
+        player3.LastName = "Brown";
+
+        context.Users.AddRange(owner, player1, player2, player3);
+
+        var league = new League
+        {
+            Name = "Test League Export",
+            OwnerId = owner.Id,
+            Code = "EXP01",
+            Format = DeckFormat.Modern,
+            TotalRounds = 3,
+            CurrentRound = 0,
+            RoundsToConsider = 3,
+            MinimumRounds = 1,
+            TotalPrize = 0,
+            PrizePerPerson = 0,
+            TotalPlayers = 3,
+            ScoringSystem = ScoringSystem.Positional,
+            IsActive = true,
+            IsPublic = true
+        };
+
+        context.Leagues.Add(league);
+        await context.SaveChangesAsync();
+
+        var round1 = new Round { League = league, LeagueId = league.Id, Order = 1, Status = Status.Played };
+        var round2 = new Round { League = league, LeagueId = league.Id, Order = 2, Status = Status.Played };
+        var round3 = new Round { League = league, LeagueId = league.Id, Order = 3, Status = Status.NotPlayed };
+        context.Rounds.AddRange(round1, round2, round3);
+        await context.SaveChangesAsync();
+
+        context.LeagueRoleAssignments.Add(new LeagueRoleAssignment
+        {
+            LeagueId = league.Id,
+            UserId = owner.Id,
+            Roles = LeagueRole.Admin
+        });
+
+        context.UserLeagues.AddRange(
+            new AppUserLeague { UserId = player1.Id, User = player1, LeagueId = league.Id, Score = 8, IsPlaying = true },
+            new AppUserLeague { UserId = player2.Id, User = player2, LeagueId = league.Id, Score = 5, IsPlaying = true },
+            new AppUserLeague { UserId = player3.Id, User = player3, LeagueId = league.Id, Score = 3, IsPlaying = true }
+        );
+        await context.SaveChangesAsync();
+
+        context.UserRounds.AddRange(
+            new AppUserRound { UserId = player1.Id, User = player1, RoundId = round1.Id, Round = round1, Position = 1, Score = 3 },
+            new AppUserRound { UserId = player2.Id, User = player2, RoundId = round1.Id, Round = round1, Position = 2, Score = 2 },
+            new AppUserRound { UserId = player3.Id, User = player3, RoundId = round1.Id, Round = round1, Position = 3, Score = 1 },
+            new AppUserRound { UserId = player1.Id, User = player1, RoundId = round2.Id, Round = round2, Position = 1, Score = 5 },
+            new AppUserRound { UserId = player2.Id, User = player2, RoundId = round2.Id, Round = round2, Position = 2, Score = 3 }
+        );
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var service = CreateService(context, owner, player1, player2, player3);
+
+        // Act
+        var excelBytes = await service.ExportLeagueToExcelAsync(league.Id, owner.Id);
+
+        // Assert
+        excelBytes.Should().NotBeNull();
+        excelBytes.Length.Should().BeGreaterThan(0);
+
+        using var stream = new MemoryStream(excelBytes);
+        using var workbook = new ClosedXML.Excel.XLWorkbook(stream);
+
+        var worksheet = workbook.Worksheets.First();
+        worksheet.Name.Should().Be("Test League Export");
+
+        worksheet.Cell(1, 1).Value.ToString().Should().Be("Player Name");
+        worksheet.Cell(1, 2).Value.ToString().Should().Be("Round 1");
+        worksheet.Cell(1, 3).Value.ToString().Should().Be("Round 2");
+        worksheet.Cell(1, 4).Value.ToString().Should().Be("Round 3");
+        worksheet.Cell(1, 5).Value.ToString().Should().Be("Total Points");
+
+        worksheet.Cell(1, 1).Style.Font.Bold.Should().BeTrue();
+        worksheet.Cell(1, 2).Style.Font.Bold.Should().BeTrue();
+        worksheet.Cell(1, 5).Style.Font.Bold.Should().BeTrue();
+
+        worksheet.Cell(2, 1).Value.ToString().Should().Be("Alice Johnson");
+        worksheet.Cell(2, 2).Value.ToString().Should().Be("3");
+        worksheet.Cell(2, 3).Value.ToString().Should().Be("5");
+        worksheet.Cell(2, 4).Value.ToString().Should().BeEmpty();
+        worksheet.Cell(2, 5).Value.ToString().Should().Be("8");
+
+        worksheet.Cell(3, 1).Value.ToString().Should().Be("Bob Smith");
+        worksheet.Cell(3, 2).Value.ToString().Should().Be("2");
+        worksheet.Cell(3, 3).Value.ToString().Should().Be("3");
+        worksheet.Cell(3, 4).Value.ToString().Should().BeEmpty();
+        worksheet.Cell(3, 5).Value.ToString().Should().Be("5");
+
+        worksheet.Cell(4, 1).Value.ToString().Should().Be("Charlie Brown");
+        worksheet.Cell(4, 2).Value.ToString().Should().Be("1");
+        worksheet.Cell(4, 3).Value.ToString().Should().BeEmpty();
+        worksheet.Cell(4, 4).Value.ToString().Should().BeEmpty();
+        worksheet.Cell(4, 5).Value.ToString().Should().Be("3");
+    }
+
+    [Fact]
+    public async Task ExportLeagueToExcelAsync_RequiresAdminPermissions()
+    {
+        // Arrange
+        await using var context = CreateContext();
+        var owner = CreateUser("owner");
+        var nonAdmin = CreateUser("nonadmin");
+        context.Users.AddRange(owner, nonAdmin);
+
+        var league = CreateLeague(owner.Id, "PERM01");
+        context.Leagues.Add(league);
+        await context.SaveChangesAsync();
+
+        context.LeagueRoleAssignments.Add(new LeagueRoleAssignment
+        {
+            LeagueId = league.Id,
+            UserId = owner.Id,
+            Roles = LeagueRole.Admin
+        });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var service = CreateService(context, owner, nonAdmin);
+
+        // Act
+        var act = () => service.ExportLeagueToExcelAsync(league.Id, nonAdmin.Id);
+
+        // Assert
+        var exception = await act.Should().ThrowAsync<LeagueServiceException>();
+        exception.Which.StatusCode.Should().Be(StatusCodes.Status401Unauthorized);
+        exception.Which.Message.Should().Be("Errors.Leagues.AdminOnly");
+    }
+
+    [Fact]
+    public async Task ExportLeagueToExcelAsync_WithNonExistentLeague_ThrowsNotFoundException()
+    {
+        // Arrange
+        await using var context = CreateContext();
+        var owner = CreateUser("owner");
+        context.Users.Add(owner);
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var service = CreateService(context, owner);
+
+        // Act
+        var act = () => service.ExportLeagueToExcelAsync(999, owner.Id);
+
+        // Assert
+        var exception = await act.Should().ThrowAsync<LeagueServiceException>();
+        exception.Which.StatusCode.Should().Be(StatusCodes.Status404NotFound);
+        exception.Which.Message.Should().Be("Errors.Leagues.NotFound");
+    }
+
     private static AppIdentityDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<AppIdentityDbContext>()

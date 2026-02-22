@@ -79,6 +79,15 @@ public static partial class LeaguesEndpoint
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
+
+        group.MapGet("/{id:int}/export", ExportLeagueToExcelAsync)
+            .RequireAuthorization()
+            .WithSummary("Export league to Excel")
+            .WithDescription("Exports league standings with all rounds to an Excel file. Only admins can call this route")
+            .Produces<FileResult>(StatusCodes.Status200OK)
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
     }
     
     private static void MapLeagueCommands(RouteGroupBuilder group)

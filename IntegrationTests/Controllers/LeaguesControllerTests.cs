@@ -1403,6 +1403,148 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
+    [Fact]
+    public async Task ExportLeagueToExcel_WithAdmin_ReturnsValidExcelFile()
+    {
+        // Arrange
+        var owner = await CreateTestUserAsync("exportowner@example.com", "exportowner");
+        var player1 = await CreateTestUserAsync("exportplayer1@example.com", "exportplayer1");
+        var player2 = await CreateTestUserAsync("exportplayer2@example.com", "exportplayer2");
+
+        var league = await CreateTestLeagueAsync("Export Test League", owner.Id);
+        await AssociateUserWithLeagueAsync(player1.Id, league.Id);
+        await AssociateUserWithLeagueAsync(player2.Id, league.Id);
+
+        await AddRoundScoresAsync(league.Id, player1.Id, 1, 3.0);
+        await AddRoundScoresAsync(league.Id, player2.Id, 1, 2.0);
+        await AddRoundScoresAsync(league.Id, player1.Id, 2, 5.0);
+
+        await UpdatePlayerTotalScoreAsync(player1.Id, league.Id, 8);
+        await UpdatePlayerTotalScoreAsync(player2.Id, league.Id, 2);
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        // Act
+        var response = await client.GetAsync($"/api/leagues/{league.Id}/export");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Content.Headers.ContentType!.MediaType.Should().Be("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+        var excelBytes = await response.Content.ReadAsByteArrayAsync();
+        excelBytes.Should().NotBeEmpty();
+
+        using var stream = new MemoryStream(excelBytes);
+        using var workbook = new ClosedXML.Excel.XLWorkbook(stream);
+
+        var worksheet = workbook.Worksheets.First();
+        worksheet.Name.Should().Be("Export Test League");
+
+        worksheet.Cell(1, 1).Value.ToString().Should().Be("Player Name");
+        worksheet.Cell(1, 2).Value.ToString().Should().Be("Round 1");
+        worksheet.Cell(1, 3).Value.ToString().Should().Be("Round 2");
+
+        var lastColumn = worksheet.LastColumnUsed().ColumnNumber();
+        worksheet.Cell(1, lastColumn).Value.ToString().Should().Be("Total Points");
+
+        var row2PlayerName = worksheet.Cell(2, 1).Value.ToString();
+        var row2TotalPoints = double.Parse(worksheet.Cell(2, lastColumn).Value.ToString());
+        var row3TotalPoints = double.Parse(worksheet.Cell(3, lastColumn).Value.ToString());
+
+        row2TotalPoints.Should().BeGreaterThan(row3TotalPoints, "players should be ordered by total points descending");
+    }
+
+    [Fact]
+    public async Task ExportLeagueToExcel_WithNonAdmin_ReturnsUnauthorized()
+    {
+        // Arrange
+        var owner = await CreateTestUserAsync("exportowner2@example.com", "exportowner2");
+        var nonAdmin = await CreateTestUserAsync("nonadmin@example.com", "nonadmin");
+
+        var league = await CreateTestLeagueAsync("Private Export League", owner.Id);
+        await AssociateUserWithLeagueAsync(nonAdmin.Id, league.Id);
+
+        using var client = _factory.CreateClientWithUser(nonAdmin.Id, nonAdmin.UserName!, nonAdmin.Email!);
+
+        // Act
+        var response = await client.GetAsync($"/api/leagues/{league.Id}/export");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task ExportLeagueToExcel_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        // Arrange
+        var owner = await CreateTestUserAsync("exportowner3@example.com", "exportowner3");
+        var league = await CreateTestLeagueAsync("Public Export League", owner.Id);
+
+        using var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.GetAsync($"/api/leagues/{league.Id}/export");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task ExportLeagueToExcel_WithNonExistentLeague_ReturnsNotFound()
+    {
+        // Arrange
+        var owner = await CreateTestUserAsync("exportowner4@example.com", "exportowner4");
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        // Act
+        var response = await client.GetAsync("/api/leagues/99999/export");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task ExportLeagueToExcel_WithMissingScores_LeavesBlankCells()
+    {
+        // Arrange
+        var owner = await CreateTestUserAsync("exportowner5@example.com", "exportowner5");
+        var player1 = await CreateTestUserAsync("exportplayer3@example.com", "exportplayer3");
+        var player2 = await CreateTestUserAsync("exportplayer4@example.com", "exportplayer4");
+
+        var league = await CreateTestLeagueAsync("Blank Scores League", owner.Id);
+        await AssociateUserWithLeagueAsync(player1.Id, league.Id);
+        await AssociateUserWithLeagueAsync(player2.Id, league.Id);
+
+        await AddRoundScoresAsync(league.Id, player1.Id, 1, 3.0);
+        await AddRoundScoresAsync(league.Id, player1.Id, 3, 2.0);
+
+        await UpdatePlayerTotalScoreAsync(player1.Id, league.Id, 5);
+        await UpdatePlayerTotalScoreAsync(player2.Id, league.Id, 0);
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        // Act
+        var response = await client.GetAsync($"/api/leagues/{league.Id}/export");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var excelBytes = await response.Content.ReadAsByteArrayAsync();
+        using var stream = new MemoryStream(excelBytes);
+        using var workbook = new ClosedXML.Excel.XLWorkbook(stream);
+        var worksheet = workbook.Worksheets.First();
+
+        var player1Row = 2;
+        worksheet.Cell(player1Row, 2).Value.ToString().Should().Be("3");
+        worksheet.Cell(player1Row, 3).Value.ToString().Should().BeEmpty("player 1 did not play round 2");
+        worksheet.Cell(player1Row, 4).Value.ToString().Should().Be("2");
+
+        var player2Row = 3;
+        worksheet.Cell(player2Row, 2).Value.ToString().Should().BeEmpty("player 2 did not play any rounds");
+        worksheet.Cell(player2Row, 3).Value.ToString().Should().BeEmpty();
+        worksheet.Cell(player2Row, 4).Value.ToString().Should().BeEmpty();
+    }
+
     #region Helper Methods
 
     private Task<AppUser> CreateTestUserAsync(string baseEmail, string baseUserName) =>
@@ -1639,6 +1781,60 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         user.CompanionName = companionName;
         dbContext.Users.Update(user);
         await dbContext.SaveChangesAsync();
+    }
+
+    private async Task AddRoundScoresAsync(int leagueId, string userId, int roundOrder, double score)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+
+        var round = await dbContext.Rounds
+            .FirstOrDefaultAsync(r => r.LeagueId == leagueId && r.Order == roundOrder);
+
+        if (round == null)
+        {
+            return;
+        }
+
+        var existingUserRound = await dbContext.UserRounds
+            .FirstOrDefaultAsync(ur => ur.UserId == userId && ur.RoundId == round.Id);
+
+        if (existingUserRound == null)
+        {
+            var user = await dbContext.Users.FindAsync(userId);
+            dbContext.UserRounds.Add(new AppUserRound
+            {
+                UserId = userId,
+                User = user!,
+                RoundId = round.Id,
+                Round = round,
+                Position = 0,
+                Score = score,
+                Wins = 0,
+                Losses = 0,
+                Draws = 0,
+                Omw = 0,
+                Gw = 0,
+                Ogw = 0
+            });
+            await dbContext.SaveChangesAsync();
+        }
+    }
+
+    private async Task UpdatePlayerTotalScoreAsync(string userId, int leagueId, int totalScore)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+
+        var userLeague = await dbContext.UserLeagues
+            .FirstOrDefaultAsync(ul => ul.UserId == userId && ul.LeagueId == leagueId);
+
+        if (userLeague != null)
+        {
+            userLeague.Score = totalScore;
+            dbContext.UserLeagues.Update(userLeague);
+            await dbContext.SaveChangesAsync();
+        }
     }
 
     #endregion
