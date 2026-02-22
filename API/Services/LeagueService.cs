@@ -1473,54 +1473,44 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.Unauthorized("Errors.Leagues.AdminOnly");
         }
 
-        var rounds = await GetRoundsByLeagueIdAsync(leagueId, userId, cancellationToken);
         var scores = await GetLeagueScoresAsync(leagueId, userId, cancellationToken);
 
         using var workbook = new ClosedXML.Excel.XLWorkbook();
         var worksheet = workbook.Worksheets.Add(league.Name);
 
-        var currentRow = 1;
-        var currentCol = 1;
+        var totalRounds = league.TotalRounds;
 
-        worksheet.Cell(currentRow, currentCol).Value = "Player Name";
-        worksheet.Cell(currentRow, currentCol).Style.Font.Bold = true;
-        currentCol++;
+        // Header row
+        worksheet.Cell(1, 1).Value = "Player Name";
+        worksheet.Cell(1, 1).Style.Font.Bold = true;
 
-        var orderedRounds = rounds.OrderBy(r => r.Order).ToList();
-        foreach (var round in orderedRounds)
+        for (var i = 1; i <= totalRounds; i++)
         {
-            worksheet.Cell(currentRow, currentCol).Value = $"Round {round.Order}";
-            worksheet.Cell(currentRow, currentCol).Style.Font.Bold = true;
-            currentCol++;
+            worksheet.Cell(1, i + 1).Value = $"Round {i}";
+            worksheet.Cell(1, i + 1).Style.Font.Bold = true;
         }
 
-        worksheet.Cell(currentRow, currentCol).Value = "Total Points";
-        worksheet.Cell(currentRow, currentCol).Style.Font.Bold = true;
+        var totalPointsCol = totalRounds + 2;
+        worksheet.Cell(1, totalPointsCol).Value = "Total Points";
+        worksheet.Cell(1, totalPointsCol).Style.Font.Bold = true;
 
+        // Data rows
         var orderedScores = scores.Scores.OrderByDescending(s => s.Points).ToList();
-        currentRow = 2;
+        var currentRow = 2;
 
         foreach (var score in orderedScores)
         {
-            currentCol = 1;
-            worksheet.Cell(currentRow, currentCol).Value = $"{score.FirstName} {score.LastName}";
+            worksheet.Cell(currentRow, 1).Value = $"{score.FirstName} {score.LastName}";
 
-            currentCol++;
-            foreach (var round in orderedRounds)
+            for (var i = 0; i < totalRounds; i++)
             {
-                var playerRoundScore = round.Players.FirstOrDefault(p => p.UserId == score.UserId);
-                if (playerRoundScore != null)
+                if (i < score.Rounds.Count && score.Rounds[i] > 0)
                 {
-                    worksheet.Cell(currentRow, currentCol).Value = playerRoundScore.Score;
+                    worksheet.Cell(currentRow, i + 2).Value = score.Rounds[i];
                 }
-                else
-                {
-                    worksheet.Cell(currentRow, currentCol).Value = string.Empty;
-                }
-                currentCol++;
             }
 
-            worksheet.Cell(currentRow, currentCol).Value = score.Points;
+            worksheet.Cell(currentRow, totalPointsCol).Value = score.Points;
             currentRow++;
         }
 

@@ -1297,12 +1297,6 @@ public class LeagueServiceTests
         context.Leagues.Add(league);
         await context.SaveChangesAsync();
 
-        var round1 = new Round { League = league, LeagueId = league.Id, Order = 1, Status = Status.Played };
-        var round2 = new Round { League = league, LeagueId = league.Id, Order = 2, Status = Status.Played };
-        var round3 = new Round { League = league, LeagueId = league.Id, Order = 3, Status = Status.NotPlayed };
-        context.Rounds.AddRange(round1, round2, round3);
-        await context.SaveChangesAsync();
-
         context.LeagueRoleAssignments.Add(new LeagueRoleAssignment
         {
             LeagueId = league.Id,
@@ -1311,18 +1305,9 @@ public class LeagueServiceTests
         });
 
         context.UserLeagues.AddRange(
-            new AppUserLeague { UserId = player1.Id, User = player1, LeagueId = league.Id, Score = 8, IsPlaying = true },
-            new AppUserLeague { UserId = player2.Id, User = player2, LeagueId = league.Id, Score = 5, IsPlaying = true },
-            new AppUserLeague { UserId = player3.Id, User = player3, LeagueId = league.Id, Score = 3, IsPlaying = true }
-        );
-        await context.SaveChangesAsync();
-
-        context.UserRounds.AddRange(
-            new AppUserRound { UserId = player1.Id, User = player1, RoundId = round1.Id, Round = round1, Position = 1, Score = 3 },
-            new AppUserRound { UserId = player2.Id, User = player2, RoundId = round1.Id, Round = round1, Position = 2, Score = 2 },
-            new AppUserRound { UserId = player3.Id, User = player3, RoundId = round1.Id, Round = round1, Position = 3, Score = 1 },
-            new AppUserRound { UserId = player1.Id, User = player1, RoundId = round2.Id, Round = round2, Position = 1, Score = 5 },
-            new AppUserRound { UserId = player2.Id, User = player2, RoundId = round2.Id, Round = round2, Position = 2, Score = 3 }
+            new AppUserLeague { UserId = player1.Id, User = player1, LeagueId = league.Id, Score = 8, IsPlaying = true, Rounds = [3, 5, 0] },
+            new AppUserLeague { UserId = player2.Id, User = player2, LeagueId = league.Id, Score = 5, IsPlaying = true, Rounds = [2, 3, 0] },
+            new AppUserLeague { UserId = player3.Id, User = player3, LeagueId = league.Id, Score = 3, IsPlaying = true, Rounds = [1, 0, 0] }
         );
         await context.SaveChangesAsync();
         context.ChangeTracker.Clear();
@@ -1352,18 +1337,21 @@ public class LeagueServiceTests
         worksheet.Cell(1, 2).Style.Font.Bold.Should().BeTrue();
         worksheet.Cell(1, 5).Style.Font.Bold.Should().BeTrue();
 
+        // Alice: Rounds [3, 5, 0] -> Round 1=3, Round 2=5, Round 3=blank, Total=8
         worksheet.Cell(2, 1).Value.ToString().Should().Be("Alice Johnson");
         worksheet.Cell(2, 2).Value.ToString().Should().Be("3");
         worksheet.Cell(2, 3).Value.ToString().Should().Be("5");
         worksheet.Cell(2, 4).Value.ToString().Should().BeEmpty();
         worksheet.Cell(2, 5).Value.ToString().Should().Be("8");
 
+        // Bob: Rounds [2, 3, 0] -> Round 1=2, Round 2=3, Round 3=blank, Total=5
         worksheet.Cell(3, 1).Value.ToString().Should().Be("Bob Smith");
         worksheet.Cell(3, 2).Value.ToString().Should().Be("2");
         worksheet.Cell(3, 3).Value.ToString().Should().Be("3");
         worksheet.Cell(3, 4).Value.ToString().Should().BeEmpty();
         worksheet.Cell(3, 5).Value.ToString().Should().Be("5");
 
+        // Charlie: Rounds [1, 0, 0] -> Round 1=1, Round 2=blank, Round 3=blank, Total=3
         worksheet.Cell(4, 1).Value.ToString().Should().Be("Charlie Brown");
         worksheet.Cell(4, 2).Value.ToString().Should().Be("1");
         worksheet.Cell(4, 3).Value.ToString().Should().BeEmpty();

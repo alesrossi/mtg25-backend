@@ -1415,12 +1415,8 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         await AssociateUserWithLeagueAsync(player1.Id, league.Id);
         await AssociateUserWithLeagueAsync(player2.Id, league.Id);
 
-        await AddRoundScoresAsync(league.Id, player1.Id, 1, 3.0);
-        await AddRoundScoresAsync(league.Id, player2.Id, 1, 2.0);
-        await AddRoundScoresAsync(league.Id, player1.Id, 2, 5.0);
-
-        await UpdatePlayerTotalScoreAsync(player1.Id, league.Id, 8);
-        await UpdatePlayerTotalScoreAsync(player2.Id, league.Id, 2);
+        await UpdatePlayerTotalScoreAsync(player1.Id, league.Id, 8, [3, 5, 0, 0, 0]);
+        await UpdatePlayerTotalScoreAsync(player2.Id, league.Id, 2, [2, 0, 0, 0, 0]);
 
         using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
 
@@ -1447,7 +1443,6 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         var lastColumn = worksheet.LastColumnUsed().ColumnNumber();
         worksheet.Cell(1, lastColumn).Value.ToString().Should().Be("Total Points");
 
-        var row2PlayerName = worksheet.Cell(2, 1).Value.ToString();
         var row2TotalPoints = double.Parse(worksheet.Cell(2, lastColumn).Value.ToString());
         var row3TotalPoints = double.Parse(worksheet.Cell(3, lastColumn).Value.ToString());
 
@@ -1515,11 +1510,8 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         await AssociateUserWithLeagueAsync(player1.Id, league.Id);
         await AssociateUserWithLeagueAsync(player2.Id, league.Id);
 
-        await AddRoundScoresAsync(league.Id, player1.Id, 1, 3.0);
-        await AddRoundScoresAsync(league.Id, player1.Id, 3, 2.0);
-
-        await UpdatePlayerTotalScoreAsync(player1.Id, league.Id, 5);
-        await UpdatePlayerTotalScoreAsync(player2.Id, league.Id, 0);
+        await UpdatePlayerTotalScoreAsync(player1.Id, league.Id, 5, [3, 0, 2, 0, 0]);
+        await UpdatePlayerTotalScoreAsync(player2.Id, league.Id, 0, [0, 0, 0, 0, 0]);
 
         using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
 
@@ -1783,45 +1775,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         await dbContext.SaveChangesAsync();
     }
 
-    private async Task AddRoundScoresAsync(int leagueId, string userId, int roundOrder, double score)
-    {
-        using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
-
-        var round = await dbContext.Rounds
-            .FirstOrDefaultAsync(r => r.LeagueId == leagueId && r.Order == roundOrder);
-
-        if (round == null)
-        {
-            return;
-        }
-
-        var existingUserRound = await dbContext.UserRounds
-            .FirstOrDefaultAsync(ur => ur.UserId == userId && ur.RoundId == round.Id);
-
-        if (existingUserRound == null)
-        {
-            var user = await dbContext.Users.FindAsync(userId);
-            dbContext.UserRounds.Add(new AppUserRound
-            {
-                UserId = userId,
-                User = user!,
-                RoundId = round.Id,
-                Round = round,
-                Position = 0,
-                Score = score,
-                Wins = 0,
-                Losses = 0,
-                Draws = 0,
-                Omw = 0,
-                Gw = 0,
-                Ogw = 0
-            });
-            await dbContext.SaveChangesAsync();
-        }
-    }
-
-    private async Task UpdatePlayerTotalScoreAsync(string userId, int leagueId, int totalScore)
+    private async Task UpdatePlayerTotalScoreAsync(string userId, int leagueId, int totalScore, List<int>? rounds = null)
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
@@ -1832,6 +1786,10 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         if (userLeague != null)
         {
             userLeague.Score = totalScore;
+            if (rounds != null)
+            {
+                userLeague.Rounds = rounds;
+            }
             dbContext.UserLeagues.Update(userLeague);
             await dbContext.SaveChangesAsync();
         }
