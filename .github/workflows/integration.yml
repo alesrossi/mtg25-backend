@@ -252,6 +252,7 @@ jobs:
             --set api.config.manageAppsettingsConfigMap=false \
             --set api.image.tag="$IMAGE_TAG" \
             --set kibana.enabled=true \
+            --set nginx.certs.enabled=false \
             --debug
 
       - name: Install kubectl

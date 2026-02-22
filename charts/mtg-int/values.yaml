@@ -197,7 +197,7 @@ nginx:
     nginxConfigMap: nginx-int-config
     certsSecret: nginx-int-certs
   certs:
-    enabled: true
+    enabled: false
 
 ingress:
   enabled: false
