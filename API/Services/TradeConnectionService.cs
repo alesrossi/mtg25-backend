@@ -313,7 +313,7 @@ public sealed class TradeConnectionService : ITradeConnectionService
             Card = card.Card!,
             Name = card.Name,
             QuantityToTrade = card.QuantityToTrade,
-            MaxQuantityToTrade = card.QuantityToTrade,
+            MaxQuantityToTrade = card.Card?.Quantity ?? card.QuantityToTrade,
             Notes = card.Notes,
             ImageUrl = card.Card?.ImageUrl,
             SetCode = card.Card?.SetCode,

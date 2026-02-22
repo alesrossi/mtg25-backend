@@ -7,4 +7,5 @@ public class UpdateDeckDto
     public string? Name { get; set; }
     public DeckFormat? Format { get; set; }
     public string? Image { get; set; }
+    public string? DeckList { get; set; }
 }

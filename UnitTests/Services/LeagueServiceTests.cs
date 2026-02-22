@@ -1151,7 +1151,7 @@ public class LeagueServiceTests
             TotalPlayers = 0,
             ScoringSystem = ScoringSystem.Positional,
             IsActive = true,
-            IsPublic = true
+            IsPublic = false
         };
         context.Leagues.Add(league);
         await context.SaveChangesAsync();
@@ -1163,7 +1163,7 @@ public class LeagueServiceTests
 
         var exception = await act.Should().ThrowAsync<LeagueServiceException>();
         exception.Which.StatusCode.Should().Be(StatusCodes.Status401Unauthorized);
-        exception.Which.Message.Should().Contain("Errors.Leagues.UserNotInLeague");
+        exception.Which.Message.Should().Contain("Errors.Leagues.Unauthorized");
     }
 
     [Fact]

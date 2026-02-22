@@ -50,7 +50,8 @@ public class DeckServiceTests
             Format = DeckFormat.Modern,
             OwnerId = user.Id,
             NumberOfCards = 0,
-            TotalPrice = 0
+            TotalPrice = 0,
+            DeckList = string.Empty
         };
         context.Decks.Add(deck);
         await context.SaveChangesAsync();
@@ -75,7 +76,8 @@ public class DeckServiceTests
             Format = DeckFormat.Modern,
             OwnerId = user.Id,
             NumberOfCards = 0,
-            TotalPrice = 0
+            TotalPrice = 0,
+            DeckList = string.Empty
         };
         context.Decks.Add(deck);
         await context.SaveChangesAsync();
@@ -150,7 +152,8 @@ public class DeckServiceTests
             Format = DeckFormat.Modern,
             OwnerId = user.Id,
             NumberOfCards = 0,
-            TotalPrice = 0
+            TotalPrice = 0,
+            DeckList = string.Empty
         };
         context.Decks.Add(deck);
         await context.SaveChangesAsync();
@@ -251,7 +254,8 @@ public class DeckServiceTests
             new ValidationService(),
             new Mock<IDecklistParserService>().Object,
             cardDataService,
-            settingsServiceMock.Object);
+            settingsServiceMock.Object,
+            new Mock<IDeckHistoryService>().Object);
 
         // Act
         var result = await deckService.GetMissingDeckCardsAsync(deck.Id, user.Id);
@@ -278,6 +282,16 @@ public class DeckServiceTests
             cardDataService,
             settingsServiceMock.Object);
 
+        var historyServiceMock = new Mock<IDeckHistoryService>();
+        historyServiceMock.Setup(h => h.InitializeDeckHistoryAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DeckCommit
+            {
+                DeckId = 0,
+                TreeId = 0,
+                AuthorId = "user",
+                Message = "Initial commit"
+            });
+
         return new DeckService(
             unitOfWork,
             userManager,
@@ -285,7 +299,8 @@ public class DeckServiceTests
             new ValidationService(),
             parserService ?? new Mock<IDecklistParserService>().Object,
             cardDataService,
-            settingsServiceMock.Object);
+            settingsServiceMock.Object,
+            historyServiceMock.Object);
     }
 
     private static MainContext CreateContext()

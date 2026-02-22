@@ -1,6 +1,8 @@
 using System.Security.Claims;
+using API.Dtos.Decks;
 using API.Logging;
 using API.Services;
+using Core.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Endpoints.Decks;
@@ -191,13 +193,16 @@ public static partial class DecksEndpoint
 
         try
         {
-            var exportedLines = await deckService.ExportDeckAsync(deckId, userId, cancellationToken);
-            if (exportedLines.Count == 0)
+            var deckList = await deckService.ExportDeckAsync(deckId, userId, cancellationToken);
+            if (string.IsNullOrWhiteSpace(deckList))
             {
                 logger.LogOperationWarning(operation, "Deck has no cards", new { deckId });
             }
-            logger.LogOperationSuccess(operation, new { deckId, Lines = exportedLines.Count });
-            return Results.Ok(exportedLines);
+            var lineCount = string.IsNullOrWhiteSpace(deckList)
+                ? 0
+                : deckList.Split('\n').Length;
+            logger.LogOperationSuccess(operation, new { deckId, Lines = lineCount });
+            return Results.Ok(deckList);
         }
         catch (DeckServiceException ex)
         {
@@ -205,4 +210,145 @@ public static partial class DecksEndpoint
             return await MapDeckServiceException(ex, context, messageLocalizer, userId);
         }
     }
+
+    private static async Task<IResult> GetDeckBranchesAsync(
+        int deckId,
+        HttpContext context,
+        [FromServices] IDeckHistoryService deckHistoryService,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
+        CancellationToken cancellationToken)
+    {
+        const string operation = "Decks.Branches";
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null)
+        {
+            logger.LogOperationWarning(operation, "Missing user identifier", new { deckId });
+            return Results.Unauthorized();
+        }
+
+        using var scope = logger.BeginOperationScope(operation, deckId);
+        logger.LogOperationStart(operation, new { deckId });
+
+        try
+        {
+            var branches = await deckHistoryService.GetBranchesAsync(deckId, userId, cancellationToken);
+            var dtos = branches.Select(MapBranchDto).ToList();
+            logger.LogOperationSuccess(operation, new { deckId, Count = dtos.Count });
+            return Results.Ok(dtos);
+        }
+        catch (DeckHistoryServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { deckId, userId });
+            return await MapDeckHistoryServiceException(ex, context, messageLocalizer, userId);
+        }
+    }
+
+    private static async Task<IResult> GetDeckCommitsAsync(
+        int deckId,
+        HttpContext context,
+        [FromServices] IDeckHistoryService deckHistoryService,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
+        CancellationToken cancellationToken)
+    {
+        const string operation = "Decks.Commits";
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null)
+        {
+            logger.LogOperationWarning(operation, "Missing user identifier", new { deckId });
+            return Results.Unauthorized();
+        }
+
+        using var scope = logger.BeginOperationScope(operation, deckId);
+        logger.LogOperationStart(operation, new { deckId });
+
+        try
+        {
+            var commits = await deckHistoryService.GetCommitsAsync(deckId, userId, cancellationToken);
+            var dtos = commits.Select(MapCommitDto).ToList();
+            logger.LogOperationSuccess(operation, new { deckId, Count = dtos.Count });
+            return Results.Ok(dtos);
+        }
+        catch (DeckHistoryServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { deckId, userId });
+            return await MapDeckHistoryServiceException(ex, context, messageLocalizer, userId);
+        }
+    }
+
+    private static async Task<IResult> GetDeckDiffAsync(
+        int deckId,
+        [FromQuery] int fromCommitId,
+        [FromQuery] int toCommitId,
+        HttpContext context,
+        [FromServices] IDeckHistoryService deckHistoryService,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
+        CancellationToken cancellationToken)
+    {
+        const string operation = "Decks.Diff";
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null)
+        {
+            logger.LogOperationWarning(operation, "Missing user identifier", new { deckId });
+            return Results.Unauthorized();
+        }
+
+        using var scope = logger.BeginOperationScope(operation, deckId);
+        logger.LogOperationStart(operation, new { deckId, fromCommitId, toCommitId });
+
+        try
+        {
+            var diff = await deckHistoryService.DiffAsync(deckId, userId, fromCommitId, toCommitId, cancellationToken);
+            var dto = MapDiffDto(diff);
+            logger.LogOperationSuccess(operation, new { deckId, Added = dto.Added.Count, Removed = dto.Removed.Count, Modified = dto.Modified.Count });
+            return Results.Ok(dto);
+        }
+        catch (DeckHistoryServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { deckId, userId });
+            return await MapDeckHistoryServiceException(ex, context, messageLocalizer, userId);
+        }
+    }
+
+    private static DeckBranchDto MapBranchDto(DeckBranch branch)
+        => new()
+        {
+            Id = branch.Id,
+            DeckId = branch.DeckId,
+            Name = branch.Name,
+            HeadCommitId = branch.HeadCommitId,
+            CreatedByUserId = branch.CreatedByUserId,
+            CreatedAt = branch.CreatedAt
+        };
+
+    private static DeckCommitDto MapCommitDto(DeckCommit commit)
+        => new()
+        {
+            Id = commit.Id,
+            DeckId = commit.DeckId,
+            TreeId = commit.TreeId,
+            AuthorId = commit.AuthorId,
+            Message = commit.Message,
+            CommittedAt = commit.CommittedAt
+        };
+
+    private static DeckDiffDto MapDiffDto(DeckDiffResult diff)
+        => new()
+        {
+            Added = diff.Added.Select(MapDiffEntryDto).ToList(),
+            Removed = diff.Removed.Select(MapDiffEntryDto).ToList(),
+            Modified = diff.Modified.Select(MapDiffEntryDto).ToList()
+        };
+
+    private static DeckDiffEntryDto MapDiffEntryDto(DeckDiffChange change)
+        => new()
+        {
+            ScryfallId = change.ScryfallId,
+            OldMaindeckQuantity = change.OldMaindeckQuantity,
+            OldSideboardQuantity = change.OldSideboardQuantity,
+            NewMaindeckQuantity = change.NewMaindeckQuantity,
+            NewSideboardQuantity = change.NewSideboardQuantity
+        };
 }

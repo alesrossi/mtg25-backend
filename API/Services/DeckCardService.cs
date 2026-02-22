@@ -301,6 +301,7 @@ public class DeckCardService
         await UpdateDeckAggregatesAsync(deck, deckCard, marketProvider, previousMaindeck: 0, previousSideboard: 0);
         await UpdateDeckColorIdentityAsync(deck, deckCard.ColorIdentity);
         await RecalculateDeckColorIdentityAsync(deck.Id);
+        await UpdateDeckListAsync(deck);
         var dto = await MapToDtoAsync(deckCard, deck.OwnerId, marketProvider);
         _logger.LogOperationSuccess(CreateDeckCardOperation, new { deckCard.Id, deckId });
         return dto;
@@ -499,6 +500,10 @@ public class DeckCardService
         await UpdateDeckAggregatesAsync(deck, updatedDeckCard, marketProvider, previousMaindeck, previousSideboard);
         await UpdateDeckColorIdentityAsync(deck, updatedDeckCard.ColorIdentity);
         await RecalculateDeckColorIdentityAsync(deck.Id);
+        if (previousMaindeck != updatedDeckCard.MaindeckQuantity || previousSideboard != updatedDeckCard.SideboardQuantity)
+        {
+            await UpdateDeckListAsync(deck);
+        }
         var dto = await MapToDtoAsync(updatedDeckCard, deck.OwnerId, marketProvider);
         _logger.LogOperationSuccess(UpdateDeckCardOperation, new { id, updatedDeckCard.DeckId });
         return dto;
@@ -565,6 +570,10 @@ public class DeckCardService
         await UpdateDeckAggregatesAsync(deck, updatedDeckCard, marketProvider, previousMaindeck, previousSideboard);
         await UpdateDeckColorIdentityAsync(deck, updatedDeckCard.ColorIdentity);
         await RecalculateDeckColorIdentityAsync(deck.Id);
+        if (previousMaindeck != updatedDeckCard.MaindeckQuantity || previousSideboard != updatedDeckCard.SideboardQuantity)
+        {
+            await UpdateDeckListAsync(deck);
+        }
         var dto = await MapToDtoAsync(updatedDeckCard, deck.OwnerId, marketProvider);
         _logger.LogOperationSuccess(UpdateDeckCardOperation, new { id, updatedDeckCard.DeckId });
         return dto;
@@ -599,6 +608,7 @@ public class DeckCardService
         _unitOfWork.Repository<DeckCard>().Delete(deckCard);
         await _unitOfWork.Complete();
         await RecalculateDeckColorIdentityAsync(deck.Id);
+        await UpdateDeckListAsync(deck);
 
         _logger.LogOperationSuccess(DeleteDeckCardOperation, new { id, deckCard.DeckId });
         return true;
@@ -780,6 +790,55 @@ public class DeckCardService
             _unitOfWork.Repository<Deck>().Update(deck);
             await _unitOfWork.Complete();
         }
+    }
+
+    private async Task UpdateDeckListAsync(Deck deck)
+    {
+        var deckCards = await _unitOfWork.Repository<DeckCard>()
+            .ListAsync(new DeckCardsWithDeckIdSpecification(deck.Id), tracking: false);
+
+        var deckList = BuildDeckList(deckCards ?? []);
+        if (deck.DeckList == deckList)
+        {
+            return;
+        }
+
+        deck.DeckList = deckList;
+        _unitOfWork.Repository<Deck>().Update(deck);
+        await _unitOfWork.Complete();
+    }
+
+    private static string BuildDeckList(IEnumerable<DeckCard> deckCards)
+    {
+        var maindeckLines = deckCards
+            .Where(card => card.MaindeckQuantity > 0)
+            .OrderBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(card => $"{card.MaindeckQuantity} {card.Name}")
+            .ToList();
+
+        var sideboardLines = deckCards
+            .Where(card => card.SideboardQuantity > 0)
+            .OrderBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(card => $"{card.SideboardQuantity} {card.Name}")
+            .ToList();
+
+        if (maindeckLines.Count == 0 && sideboardLines.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var lines = new List<string>(maindeckLines);
+        if (sideboardLines.Count > 0)
+        {
+            if (lines.Count > 0)
+            {
+                lines.Add(string.Empty);
+            }
+
+            lines.AddRange(sideboardLines);
+        }
+
+        return string.Join('\n', lines);
     }
 
     private async Task<Card?> FindOwnedCardByOracleIdAsync(string ownerId, string oracleId)

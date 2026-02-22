@@ -92,7 +92,7 @@ api:
     allowedOrigins:
       - "https://surveyl.top"
       - "https://www.surveyl.top"
-      - "https://app.167.235.109.6.nip.io"
+      - "https://app.surveyl.top"
   env:
     ASPNETCORE_ENVIRONMENT: Integration
     ConnectionStrings__Redis: "redis-int:6379"
@@ -103,7 +103,7 @@ api:
     Paths__Bulk: /tmp/mtg25-bulk
     Cors__AllowedOrigins__0: "https://surveyl.top"
     Cors__AllowedOrigins__1: "https://www.surveyl.top"
-    Cors__AllowedOrigins__2: "https://app.167.235.109.6.nip.io"
+    Cors__AllowedOrigins__2: "https://app.surveyl.top"
   extraEnv:
     - name: DOTNET_SYSTEM_NET_DISABLEIPV6
       value: "true"
@@ -197,11 +197,27 @@ nginx:
     nginxConfigMap: nginx-int-config
     certsSecret: nginx-int-certs
   certs:
-    enabled: false
+    enabled: true
 
 ingress:
   enabled: false
   className: ""
+  hosts: []
+  tls: []
+
+ingressPublic:
+  enabled: false
+  name: mtg-int-public
+  className: ""
+  annotations: {}
+  hosts: []
+  tls: []
+
+ingressInternal:
+  enabled: false
+  name: mtg-int-internal
+  className: ""
+  annotations: {}
   hosts: []
   tls: []
 
@@ -216,10 +232,21 @@ certManager:
     secretName: mtg-int-public-tls
     issuerName: mtg-int-letsencrypt-prod
     dnsNames:
-      - info.surveyl.top
-      - www.info.surveyl.top
       - surveyl.top
       - www.surveyl.top
+      - info.surveyl.top
+      - www.info.surveyl.top
+      - api.surveyl.top
+      - app.surveyl.top
+  internalCertificate:
+    enabled: true
+    name: mtg-int-internal-tls
+    secretName: mtg-int-internal-tls
+    issuerName: mtg-int-letsencrypt-prod
+    dnsNames:
+      - kibana.surveyl.top
+      - adminer.surveyl.top
+      - netdata.surveyl.top
 
 maintenance:
   restartCron:

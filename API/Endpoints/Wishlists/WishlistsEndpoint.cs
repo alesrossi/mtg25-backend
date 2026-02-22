@@ -27,16 +27,16 @@ public static partial class WishlistsEndpoint
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/{id:int}", GetWishlistByIdAsync)
-            .RequireAuthorization()
-            .WithSummary("Get wishlist by ID")
+            .RequireAuthorization("OptionalAuth")
+            .WithSummary("Get wishlist by ID (public wishlists accessible to all)")
             .Produces<WishlistDto>()
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/{wishlistId:int}/cards", GetWishlistCardsAsync)
-            .RequireAuthorization()
-            .WithSummary("Get wishlist cards")
+            .RequireAuthorization("OptionalAuth")
+            .WithSummary("Get wishlist cards (public wishlists accessible to all)")
             .Produces<IEnumerable<WishlistCardDto>>()
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")

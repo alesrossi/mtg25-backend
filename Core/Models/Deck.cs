@@ -18,7 +18,16 @@ public class Deck : BaseModel
     [MaxLength(300)]
     public string? Image { get; set; }
     public List<string> ColorIdentity { get; set; } = [];
+    public required string DeckList { get; set; } = string.Empty;
+
+    public int? CurrentBranchId { get; set; }
+    public DeckBranch? CurrentBranch { get; set; }
+    public int? CurrentCommitId { get; set; }
+    public DeckCommit? CurrentCommit { get; set; }
     
     // Navigation property to deck cards
     public ICollection<DeckCard> DeckCards { get; set; } = new List<DeckCard>();
+
+    public ICollection<DeckCommit> Commits { get; set; } = new List<DeckCommit>();
+    public ICollection<DeckBranch> Branches { get; set; } = new List<DeckBranch>();
 }

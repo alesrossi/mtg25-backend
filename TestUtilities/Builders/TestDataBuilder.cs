@@ -24,6 +24,11 @@ public class TestDataBuilder
         _fixture.Behaviors.OfType<ThrowingRecursionBehavior>()
             .ToList().ForEach(b => _fixture.Behaviors.Remove(b));
         _fixture.Behaviors.Add(new OmitOnRecursionBehavior());
+
+        _fixture.Customize<DateTime>(composer =>
+            composer.FromFactory(() => DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc)));
+        _fixture.Customize<DateTime?>(composer =>
+            composer.FromFactory(() => (DateTime?)DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc)));
     }
 
     /// <summary>
@@ -117,8 +122,14 @@ public class TestDataBuilder
             .With(d => d.OwnerId, userId)
             .With(d => d.Format, format ?? validFormats[_random.Next(validFormats.Length)])
             .With(d => d.TotalPriceCurrency, Currency.Eur)
+            .With(d => d.CurrentBranchId, (int?)null)
+            .With(d => d.CurrentCommitId, (int?)null)
             .Without(d => d.Id)
             .Without(d => d.DeckCards) // Initialize as empty collection
+            .Without(d => d.Commits)
+            .Without(d => d.Branches)
+            .Without(d => d.CurrentBranch)
+            .Without(d => d.CurrentCommit)
             .Create();
     }
 

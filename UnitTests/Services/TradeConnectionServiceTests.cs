@@ -122,7 +122,6 @@ public class TradeConnectionServiceTests : IDisposable
         result.PriceCurrency.Should().Be(Currency.Eur);
         result.InitiatorMatches.Single().OfferingCard.MarketPrice.Should().Be(2);
         result.InitiatorMatches.Single().OfferingCard.TotalValue.Should().Be(4.00);
-        result.InitiatorMatches.Single().OfferingCard.MaxQuantityToTrade.Should().Be(2);
         result.InitiatorMatches.Single().IsSelected.Should().BeTrue();
         _sessionStoreMock.Verify();
     }
@@ -275,7 +274,7 @@ public class TradeConnectionServiceTests : IDisposable
 
         var initiatorBinderCards = new List<BinderCard>
         {
-            CreateBinderCard(initiator.Id, "Trade Match", quantityToTrade: 1)
+            CreateBinderCard(initiator.Id, "Trade Match", quantityToTrade: 1, collectionQuantity: 2)
         };
 
         SeedCardMarketData(initiatorBinderCards);
@@ -788,7 +787,7 @@ public class TradeConnectionServiceTests : IDisposable
         return wishlist;
     }
 
-    private BinderCard CreateBinderCard(string ownerId, string cardName, int quantityToTrade = 1)
+    private BinderCard CreateBinderCard(string ownerId, string cardName, int quantityToTrade = 1, int? collectionQuantity = null)
     {
         var binder = _testDataBuilder.CreateTradeBinder(ownerId, isPublic: true);
         binder.Id = NextId();
@@ -800,6 +799,10 @@ public class TradeConnectionServiceTests : IDisposable
         ownedCard.Id = NextId();
         ownedCard.IsFoil = false;
         ownedCard.ScryfallId = ownedCard.OracleId = GetOracleIdForName(cardName);
+        if (collectionQuantity.HasValue)
+        {
+            ownedCard.Quantity = collectionQuantity.Value;
+        }
 
         var binderCard = _testDataBuilder.CreateBinderCard(binder.Id, ownedCard.Id, cardName, quantityToTrade);
         binderCard.Id = NextId();

@@ -42,12 +42,12 @@ public static partial class BindersEndpoint
         [FromServices] IMessageLocalizer messageLocalizer)
     {
         const string operation = "Binders.Get";
-        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
 
         try
         {
-            var dto = await bindersService.GetBinderByIdAsync(id, userId ?? string.Empty);
-            logger.LogOperationSuccess(operation, new { id, Cards = dto.CardsCount });
+            var dto = await bindersService.GetBinderByIdAsync(id, userId);
+            logger.LogOperationSuccess(operation, new { id, Cards = dto.CardsCount, IsAnonymous = string.IsNullOrEmpty(userId) });
             return Results.Ok(dto);
         }
         catch (BindersServiceException ex)
@@ -65,12 +65,12 @@ public static partial class BindersEndpoint
         [FromServices] IMessageLocalizer messageLocalizer)
     {
         const string operation = "Binders.Cards.List";
-        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
 
         try
         {
-            var dto = await bindersService.GetBinderCardsAsync(binderId, userId ?? string.Empty);
-            logger.LogOperationSuccess(operation, new { binderId, dto.Count });
+            var dto = await bindersService.GetBinderCardsAsync(binderId, userId);
+            logger.LogOperationSuccess(operation, new { binderId, dto.Count, IsAnonymous = string.IsNullOrEmpty(userId) });
             return Results.Ok(dto);
         }
         catch (BindersServiceException ex)

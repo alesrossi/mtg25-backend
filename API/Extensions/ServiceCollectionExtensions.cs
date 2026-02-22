@@ -191,6 +191,7 @@ public static class ServiceCollectionExtensions
             services.AddScoped<IDeckValidationService, DeckValidationService>();
             services.AddScoped<IDecklistParserService, DecklistParserService>();
             services.AddScoped<IDeckService, DeckService>();
+            services.AddScoped<IDeckHistoryService, DeckHistoryService>();
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddIdentityServices(configuration);
 

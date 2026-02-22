@@ -39,7 +39,16 @@ public class Program
                 .AddApiResponseCompression()
                 .AddForwardedHeadersSupport();
 
-            builder.Services.AddAuthorization();
+            builder.Services.AddAuthorization(options =>
+            {
+                // Policy that allows both authenticated and anonymous users
+                // but still triggers authentication middleware
+                options.AddPolicy("OptionalAuth", policy =>
+                {
+                    policy.AddAuthenticationSchemes("Bearer", "Test");
+                    policy.RequireAssertion(_ => true);
+                });
+            });
             builder.Services.AddJwtAuthentication(builder.Configuration, builder.Environment);
         
             var app = builder.Build();

@@ -250,7 +250,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     [Fact]
-    public async Task GetWishlistById_WithDifferentUser_ReturnsNotFound()
+    public async Task GetWishlistById_WithDifferentUser_ReturnsNotUnauthorized()
     {
         var owner = await CreateTestUserAsync("wishlist-get-owner2@test.com", "wishlist_get_owner2");
         var intruder = await CreateTestUserAsync("wishlist-get-intruder@test.com", "wishlist_get_intruder");
@@ -259,7 +259,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         using var client = _factory.CreateClientWithUser(intruder.Id, intruder.UserName!, intruder.Email!);
         var response = await client.GetAsync($"/api/wishlists/{wishlist.Id}");
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]

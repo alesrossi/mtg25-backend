@@ -83,18 +83,15 @@ public sealed class BindersService : IBindersService
             throw BindersServiceException.NotFound("Errors.Binders.NotFound");
         }
 
-        if (string.IsNullOrEmpty(userId))
-        {
-            throw BindersServiceException.Unauthorized("Errors.Binders.MissingUserId");
-        }
-
-        var isOwner = binder.OwnerId == userId;
+        var isOwner = !string.IsNullOrEmpty(userId) && binder.OwnerId == userId;
         if (!isOwner && !binder.IsPublic)
         {
             throw BindersServiceException.Unauthorized("Errors.Binders.Unauthorized");
         }
 
-        var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId, cancellationToken);
+        var marketProvider = !string.IsNullOrEmpty(userId)
+            ? await _userSettingsService.GetMarketProviderAsync(userId, cancellationToken)
+            : MarketProvider.Mkm;
         var cards = await _unitOfWork.Repository<BinderCard>()
             .ListAsync(new BinderCardsWithBinderIdSpecification(binder.Id), tracking: false) ?? [];
         var pricedCards = MapBinderCardsWithMarketData(cards, marketProvider, _userSettingsService, _cardDataService);
@@ -113,18 +110,15 @@ public sealed class BindersService : IBindersService
             throw BindersServiceException.NotFound("Errors.Binders.NotFound");
         }
 
-        if (string.IsNullOrEmpty(userId))
-        {
-            throw BindersServiceException.Unauthorized("Errors.Binders.MissingUserId");
-        }
-
-        var isOwner = binder.OwnerId == userId;
+        var isOwner = !string.IsNullOrEmpty(userId) && binder.OwnerId == userId;
         if (!isOwner && !binder.IsPublic)
         {
             throw BindersServiceException.Unauthorized("Errors.Binders.Unauthorized");
         }
 
-        var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId, cancellationToken);
+        var marketProvider = !string.IsNullOrEmpty(userId)
+            ? await _userSettingsService.GetMarketProviderAsync(userId, cancellationToken)
+            : MarketProvider.Mkm;
         var cards = await _unitOfWork.Repository<BinderCard>()
             .ListAsync(new BinderCardsWithBinderIdSpecification(binder.Id), tracking: false) ?? [];
 
@@ -440,7 +434,7 @@ public sealed class BindersService : IBindersService
             Card = card.Card!,
             Name = card.Name,
             QuantityToTrade = card.QuantityToTrade,
-            MaxQuantityToTrade = card.QuantityToTrade,
+            MaxQuantityToTrade = card.Card?.Quantity ?? card.QuantityToTrade,
             Notes = card.Notes,
             ImageUrl = card.Card?.ImageUrl,
             SetCode = card.Card?.SetCode,
