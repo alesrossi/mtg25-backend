@@ -45,7 +45,7 @@ public class Program
                 // but still triggers authentication middleware
                 options.AddPolicy("OptionalAuth", policy =>
                 {
-                    policy.AddAuthenticationSchemes("Bearer", "Test");
+                    policy.AddAuthenticationSchemes("Bearer");
                     policy.RequireAssertion(_ => true);
                 });
             });
