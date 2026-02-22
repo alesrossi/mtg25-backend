@@ -199,11 +199,11 @@ public static partial class DecksEndpoint
             .Produces<ProblemDetails>(StatusCodes.Status409Conflict, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
-        group.MapPost("/{deckId:int}/checkout", CheckoutDeckAsync)
+        group.MapPatch("/{deckId:int}/checkout", CheckoutDeckAsync)
             .RequireAuthorization()
             .WithSummary("Checkout deck commit")
             .WithDescription("Rebuilds the working copy from a commit")
-            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status200OK)
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");

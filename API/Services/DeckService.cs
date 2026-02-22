@@ -526,7 +526,6 @@ public sealed class DeckService : IDeckService
             {
                 _unitOfWork.Repository<DeckCard>().Delete(existing);
             }
-            await _unitOfWork.Complete();
         }
 
         deck.NumberOfCards = 0;
@@ -539,31 +538,36 @@ public sealed class DeckService : IDeckService
         _unitOfWork.Repository<Deck>().Update(deck);
         await _unitOfWork.Complete();
 
-        var createdCards = new List<DeckCardDto>();
         var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId);
         deck.TotalPriceCurrency = _userSettingsService.ResolveCurrency(marketProvider);
-        var totalPrice = 0.0;
 
-        foreach (var deckCardDto in parseResult.DeckCards)
-        {
-            var created = await _deckCardService.CreateDeckCardAsync(deck.Id, deckCardDto);
-            deck.ColorIdentity.AddRange(created.ColorIdentity.Except(deck.ColorIdentity));
-            createdCards.Add(created);
+        var ownedCardsLookup = await BuildOwnedCardsLookupAsync(
+            userId,
+            parseResult.DeckCards.Select(dc => dc.Name));
 
-            var cardPrice = ResolveCardMarketPrice(_cardDataService, created.ScryfallId, marketProvider);
-            var quantity = created.MaindeckQuantity + created.SideboardQuantity;
-            totalPrice += cardPrice * quantity;
-        }
+        var createdCards = await _deckCardService.CreateDeckCardsForImportAsync(
+            deck,
+            parseResult.DeckCards,
+            marketProvider,
+            ownedCardsLookup);
+
+        var totalPrice = (from created in createdCards let cardPrice = ResolveCardMarketPrice(_cardDataService, created.ScryfallId, marketProvider) let quantity = created.MaindeckQuantity + created.SideboardQuantity select cardPrice * quantity).Sum();
 
         deck.NumberOfCards = createdCards.Sum(dc => dc.MaindeckQuantity + dc.SideboardQuantity);
         deck.NumberOfMainBoardCards = createdCards.Sum(dc => dc.MaindeckQuantity);
         deck.NumberOfSideBoardCards = createdCards.Sum(dc => dc.SideboardQuantity);
         deck.TotalPrice = Math.Round(totalPrice, 2, MidpointRounding.AwayFromZero);
+        deck.ColorIdentity = createdCards
+            .SelectMany(dc => dc.ColorIdentity ?? [])
+            .Where(ci => !string.IsNullOrWhiteSpace(ci))
+            .Select(ci => ci.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
         deck.DeckList = BuildDeckList(createdCards);
         _unitOfWork.Repository<Deck>().Update(deck);
         await _unitOfWork.Complete();
 
-        return (createdCards, parseResult.Errors, parseResult.SkippedLines);
+        return (createdCards.ToList(), parseResult.Errors, parseResult.SkippedLines);
     }
 
     private async Task<(IReadOnlyList<CreateDeckCardDto> DeckCards, IReadOnlyList<string> Errors, int SkippedLines)> ParseDecklistAsync(
