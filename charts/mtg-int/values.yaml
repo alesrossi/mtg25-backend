@@ -93,6 +93,7 @@ api:
       - "https://surveyl.top"
       - "https://www.surveyl.top"
       - "https://app.surveyl.top"
+      - "https://localhost:8081"
   env:
     ASPNETCORE_ENVIRONMENT: Integration
     ConnectionStrings__Redis: "redis-int:6379"
@@ -104,6 +105,8 @@ api:
     Cors__AllowedOrigins__0: "https://surveyl.top"
     Cors__AllowedOrigins__1: "https://www.surveyl.top"
     Cors__AllowedOrigins__2: "https://app.surveyl.top"
+    Cors__AllowedOrigins__3: "https://localhost:8081"
+    Cors__AllowedOrigins__4: "http://localhost:8081"
   extraEnv:
     - name: DOTNET_SYSTEM_NET_DISABLEIPV6
       value: "true"

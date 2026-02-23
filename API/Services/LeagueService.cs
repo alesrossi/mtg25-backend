@@ -325,7 +325,7 @@ public sealed class LeagueService : ILeagueService
                 RoundsPlayed = player.RoundsPlayed,
                 BestRound = player.BestRound,
                 AvgPosition = player.AvgPosition,
-                Rounds = player.Rounds
+                Rounds = player.Rounds ?? []
             });
         }
 
@@ -1502,11 +1502,14 @@ public sealed class LeagueService : ILeagueService
         {
             worksheet.Cell(currentRow, 1).Value = $"{score.FirstName} {score.LastName}";
 
-            for (var i = 0; i < totalRounds; i++)
+            if (score.Rounds != null)
             {
-                if (i < score.Rounds.Count && score.Rounds[i] > 0)
+                for (var i = 0; i < totalRounds; i++)
                 {
-                    worksheet.Cell(currentRow, i + 2).Value = score.Rounds[i];
+                    if (i < score.Rounds.Count && score.Rounds[i] > 0)
+                    {
+                        worksheet.Cell(currentRow, i + 2).Value = score.Rounds[i];
+                    }
                 }
             }
 
