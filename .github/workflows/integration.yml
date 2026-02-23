@@ -270,7 +270,7 @@ jobs:
       - name: Health check
         run: |
           set -euo pipefail
-          curl -fsS https://api.167.235.109.6.nip.io/api/health
+          curl -fsS https://api.surveyl.top/api/health
 
       - name: Debug on failure
         if: ${{ failure() }}
