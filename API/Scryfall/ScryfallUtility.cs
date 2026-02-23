@@ -171,7 +171,7 @@ public static class ScryfallUtility
         try
         {
             var sfClient = GetClient(endpoint);
-            var response = await sfClient.GetAsync("bulk-data/default_cards", cancellationToken);
+            var response = await sfClient.GetAsync("bulk-data/all_cards", cancellationToken);
             response.EnsureSuccessStatusCode();
 
             var bulkDto = await response.Content.ReadFromJsonAsync<BulkDto>(cancellationToken: cancellationToken);

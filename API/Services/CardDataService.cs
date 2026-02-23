@@ -39,6 +39,7 @@ public class CardDataService
         var cardsByName = new Dictionary<string, ScryfallCardDto>(StringComparer.OrdinalIgnoreCase);
         var processed = 0;
         var skipped = 0;
+        var languageFiltered = 0;
 
         try
         {
@@ -59,24 +60,38 @@ public class CardDataService
                     continue;
                 }
 
-                cardsById[card.Id] = card;
+                var lang = card.Lang?.ToLowerInvariant();
 
-                var splitNames = card.Name.Split(" // ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-                if (splitNames.Length <= 1)
+                // CardDataById: only include English and Italian cards
+                if (lang is "en" or "it")
                 {
-                    AddOrUpdateWithCheapest(splitNames.FirstOrDefault() ?? card.Name, card);
-                    continue;
+                    cardsById[card.Id] = card;
+                }
+                else
+                {
+                    languageFiltered++;
                 }
 
-                foreach (var faceName in splitNames)
+                // CardDataByName: only index English cards for name lookups
+                if (lang == "en")
                 {
-                    if (string.IsNullOrWhiteSpace(faceName))
+                    var splitNames = card.Name.Split(" // ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+                    if (splitNames.Length <= 1)
                     {
+                        AddOrUpdateWithCheapest(splitNames.FirstOrDefault() ?? card.Name, card);
                         continue;
                     }
 
-                    AddOrUpdateWithCheapest(faceName, card with { Name = faceName });
+                    foreach (var faceName in splitNames)
+                    {
+                        if (string.IsNullOrWhiteSpace(faceName))
+                        {
+                            continue;
+                        }
+
+                        AddOrUpdateWithCheapest(faceName, card with { Name = faceName });
+                    }
                 }
             }
 
@@ -88,6 +103,7 @@ public class CardDataService
             {
                 Processed = processed,
                 Skipped = skipped,
+                LanguageFiltered = languageFiltered,
                 IndexedById = cardsById.Count,
                 IndexedByName = cardsByName.Count,
                 DurationMs = stopwatch.Elapsed.TotalMilliseconds
