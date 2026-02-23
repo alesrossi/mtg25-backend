@@ -94,6 +94,7 @@ api:
       - "https://www.surveyl.top"
       - "https://app.surveyl.top"
       - "https://localhost:8081"
+      - "http://localhost:8081"
   env:
     ASPNETCORE_ENVIRONMENT: Integration
     ConnectionStrings__Redis: "redis-int:6379"
