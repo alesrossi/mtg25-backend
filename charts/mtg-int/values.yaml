@@ -164,7 +164,7 @@ frontend:
     port: 80
 
 staticSite:
-  enabled: false
+  enabled: true
   replicas: 1
   image:
     repository: nginx
@@ -176,6 +176,16 @@ staticSite:
     title: "SurveyL Info"
     heading: "SurveyL"
     text: "This page shares quick updates and reference information."
+
+privacySite:
+  enabled: true
+  replicas: 1
+  image:
+    repository: nginx
+    tag: 1.27-alpine
+    pullPolicy: IfNotPresent
+  service:
+    port: 80
 
 adminer:
   image:
@@ -240,6 +250,8 @@ certManager:
       - www.surveyl.top
       - info.surveyl.top
       - www.info.surveyl.top
+      - privacy.surveyl.top
+      - www.privacy.surveyl.top
       - api.surveyl.top
       - app.surveyl.top
   internalCertificate:

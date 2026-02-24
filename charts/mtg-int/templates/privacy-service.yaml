@@ -1,0 +1,16 @@
+{{- $privacy := default dict .Values.privacySite -}}
+{{- $service := default dict (get $privacy "service") -}}
+{{- if (default false (get $privacy "enabled")) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: privacy-int
+spec:
+  selector:
+    app: privacy-int
+  ports:
+    - name: http
+      port: {{ default 80 (get $service "port") }}
+      targetPort: {{ default 80 (get $service "port") }}
+  type: ClusterIP
+{{- end }}

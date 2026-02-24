@@ -1,0 +1,33 @@
+{{- $privacy := default dict .Values.privacySite -}}
+{{- $image := default dict (get $privacy "image") -}}
+{{- $service := default dict (get $privacy "service") -}}
+{{- if (default false (get $privacy "enabled")) }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: privacy-int
+spec:
+  replicas: {{ default 1 (get $privacy "replicas") }}
+  selector:
+    matchLabels:
+      app: privacy-int
+  template:
+    metadata:
+      labels:
+        app: privacy-int
+    spec:
+      containers:
+        - name: privacy-int
+          image: "{{ default "nginx" (get $image "repository") }}:{{ default "1.27-alpine" (get $image "tag") }}"
+          imagePullPolicy: {{ default "IfNotPresent" (get $image "pullPolicy") }}
+          ports:
+            - containerPort: {{ default 80 (get $service "port") }}
+          volumeMounts:
+            - name: privacy-content
+              mountPath: /usr/share/nginx/html
+              readOnly: true
+      volumes:
+        - name: privacy-content
+          configMap:
+            name: privacy-int-content
+{{- end }}
