@@ -735,6 +735,17 @@ public sealed class LeagueService : ILeagueService
                     round.Players = userRounds;
                     round.Status = Status.Played;
 
+                    var nextRound = await _dbContext.Rounds
+                        .AsTracking()
+                        .Where(r => r.LeagueId == leagueId && r.Order > round.Order)
+                        .OrderBy(r => r.Order)
+                        .FirstOrDefaultAsync(cancellationToken);
+                    if (nextRound != null)
+                    {
+                        nextRound.Status = Status.Playing;
+                        _dbContext.Update(nextRound);
+                    }
+
                     await _dbContext.UserRounds.AddRangeAsync(userRounds, cancellationToken);
                     _dbContext.Update(league);
                 }
@@ -1226,6 +1237,8 @@ public sealed class LeagueService : ILeagueService
                     Order = order
                 })
                 .ToList();
+
+            rounds[0].Status = Status.Playing;
 
             await _dbContext.AddRangeAsync(rounds, cancellationToken);
             await _dbContext.SaveChangesAsync(cancellationToken);

@@ -768,6 +768,65 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task UpdateRound_WithResultData_SetsNextRoundToPlaying()
+    {
+        // Arrange
+        var owner = await CreateTestUserAsync("round-next-owner@example.com", "round_next_owner");
+        var player = await CreateTestUserAsync("round-next-player@example.com", "round_next_player");
+        var league = await CreateTestLeagueAsync("Next Round League", owner.Id);
+        await AssociateUserWithLeagueAsync(owner.Id, league.Id);
+        await AssociateUserWithLeagueAsync(player.Id, league.Id);
+
+        int round1Id;
+        int round2Id;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var rounds = await dbContext.Rounds
+                .Where(r => r.LeagueId == league.Id)
+                .OrderBy(r => r.Order)
+                .ToListAsync();
+            round1Id = rounds[0].Id;
+            round2Id = rounds[1].Id;
+        }
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+        var updateRequest = new UpdateRoundDto
+        {
+            Players =
+            [
+                new() { UserId = owner.Id, Wins = 2, Draws = 0, Losses = 0 },
+                new() { UserId = player.Id, Wins = 0, Draws = 0, Losses = 2 }
+            ]
+        };
+
+        // Act
+        var response = await client.PutAsync(
+            $"/api/leagues/{league.Id}/rounds/{round1Id}",
+            new StringContent(JsonSerializer.Serialize(updateRequest, JsonContentHelper.DefaultOptions), Encoding.UTF8, "application/json"));
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+
+            var completedRound = await dbContext.Rounds
+                .AsNoTracking()
+                .FirstAsync(r => r.Id == round1Id);
+            completedRound.Status.Should().Be(Status.Played,
+                "because the round with results should be marked as Played");
+
+            var nextRound = await dbContext.Rounds
+                .AsNoTracking()
+                .FirstAsync(r => r.Id == round2Id);
+            nextRound.Status.Should().Be(Status.Playing,
+                "because the next round should be set to Playing when the previous round is completed");
+        }
+    }
+
+    [Fact]
     public async Task RequestJoinLeague_WithValidLeagueCode_AddsUserToLeague()
     {
         // Arrange
