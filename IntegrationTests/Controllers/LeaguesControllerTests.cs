@@ -827,6 +827,261 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task JoinRound_WithLeagueMember_ReturnsOk()
+    {
+        var owner = await CreateTestUserAsync("joinround-owner@example.com", "joinround_owner");
+        var player = await CreateTestUserAsync("joinround-player@example.com", "joinround_player");
+        var league = await CreateTestLeagueAsync("JoinRound League", owner.Id);
+        await AssociateUserWithLeagueAsync(owner.Id, league.Id);
+        await AssociateUserWithLeagueAsync(player.Id, league.Id);
+
+        int round1Id;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var round = await dbContext.Rounds
+                .Where(r => r.LeagueId == league.Id)
+                .OrderBy(r => r.Order)
+                .FirstAsync();
+            round1Id = round.Id;
+            round.Status = Status.Playing;
+            await dbContext.SaveChangesAsync();
+        }
+
+        using var client = _factory.CreateClientWithUser(player.Id, player.UserName!, player.Email!);
+
+        var response = await client.PatchAsync(
+            $"/api/leagues/{league.Id}/rounds/{round1Id}/join",
+            new StringContent("", Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var participant = await dbContext.RoundParticipants
+                .FirstOrDefaultAsync(rp => rp.RoundId == round1Id && rp.UserId == player.Id);
+            participant.Should().NotBeNull("because the player should be a round participant");
+        }
+    }
+
+    [Fact]
+    public async Task JoinRound_WithNonMember_ReturnsBadRequest()
+    {
+        var owner = await CreateTestUserAsync("joinround-nonmem-owner@example.com", "joinround_nonmem_owner");
+        var outsider = await CreateTestUserAsync("joinround-outsider@example.com", "joinround_outsider");
+        var league = await CreateTestLeagueAsync("JoinRound NonMember", owner.Id);
+
+        int round1Id;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var round = await dbContext.Rounds
+                .Where(r => r.LeagueId == league.Id)
+                .OrderBy(r => r.Order)
+                .FirstAsync();
+            round1Id = round.Id;
+            round.Status = Status.Playing;
+            await dbContext.SaveChangesAsync();
+        }
+
+        using var client = _factory.CreateClientWithUser(outsider.Id, outsider.UserName!, outsider.Email!);
+
+        var response = await client.PatchAsync(
+            $"/api/leagues/{league.Id}/rounds/{round1Id}/join",
+            new StringContent("", Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task JoinRound_WithNonPlayingRound_ReturnsBadRequest()
+    {
+        var owner = await CreateTestUserAsync("joinround-notplaying-owner@example.com", "joinround_notplaying_owner");
+        var league = await CreateTestLeagueAsync("JoinRound NotPlaying", owner.Id);
+        await AssociateUserWithLeagueAsync(owner.Id, league.Id);
+
+        int round1Id;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var round = await dbContext.Rounds
+                .Where(r => r.LeagueId == league.Id)
+                .OrderBy(r => r.Order)
+                .FirstAsync();
+            round1Id = round.Id;
+            // Round stays at NotPlayed status
+        }
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var response = await client.PatchAsync(
+            $"/api/leagues/{league.Id}/rounds/{round1Id}/join",
+            new StringContent("", Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task JoinRound_AlreadyJoined_ReturnsBadRequest()
+    {
+        var owner = await CreateTestUserAsync("joinround-dup-owner@example.com", "joinround_dup_owner");
+        var league = await CreateTestLeagueAsync("JoinRound Duplicate", owner.Id);
+        await AssociateUserWithLeagueAsync(owner.Id, league.Id);
+
+        int round1Id;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var round = await dbContext.Rounds
+                .Where(r => r.LeagueId == league.Id)
+                .OrderBy(r => r.Order)
+                .FirstAsync();
+            round1Id = round.Id;
+            round.Status = Status.Playing;
+            await dbContext.SaveChangesAsync();
+        }
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        // First join
+        await client.PatchAsync(
+            $"/api/leagues/{league.Id}/rounds/{round1Id}/join",
+            new StringContent("", Encoding.UTF8, "application/json"));
+
+        // Second join should fail
+        var response = await client.PatchAsync(
+            $"/api/leagues/{league.Id}/rounds/{round1Id}/join",
+            new StringContent("", Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task JoinRound_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("joinround-noauth-owner@example.com", "joinround_noauth_owner");
+        var league = await CreateTestLeagueAsync("JoinRound NoAuth", owner.Id);
+
+        int round1Id;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var round = await dbContext.Rounds
+                .Where(r => r.LeagueId == league.Id)
+                .OrderBy(r => r.Order)
+                .FirstAsync();
+            round1Id = round.Id;
+        }
+
+        using var client = _factory.CreateClient();
+
+        var response = await client.PatchAsync(
+            $"/api/leagues/{league.Id}/rounds/{round1Id}/join",
+            new StringContent("", Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task LeaveRound_WithParticipant_ReturnsOk()
+    {
+        var owner = await CreateTestUserAsync("leaveround-owner@example.com", "leaveround_owner");
+        var league = await CreateTestLeagueAsync("LeaveRound League", owner.Id);
+        await AssociateUserWithLeagueAsync(owner.Id, league.Id);
+
+        int round1Id;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var round = await dbContext.Rounds
+                .Where(r => r.LeagueId == league.Id)
+                .OrderBy(r => r.Order)
+                .FirstAsync();
+            round1Id = round.Id;
+            round.Status = Status.Playing;
+            await dbContext.SaveChangesAsync();
+        }
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        // Join first
+        await client.PatchAsync(
+            $"/api/leagues/{league.Id}/rounds/{round1Id}/join",
+            new StringContent("", Encoding.UTF8, "application/json"));
+
+        // Then leave
+        var response = await client.PatchAsync(
+            $"/api/leagues/{league.Id}/rounds/{round1Id}/leave",
+            new StringContent("", Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var participant = await dbContext.RoundParticipants
+                .FirstOrDefaultAsync(rp => rp.RoundId == round1Id && rp.UserId == owner.Id);
+            participant.Should().BeNull("because the participant should have been removed");
+        }
+    }
+
+    [Fact]
+    public async Task LeaveRound_WithNonParticipant_ReturnsNotFound()
+    {
+        var owner = await CreateTestUserAsync("leaveround-nopart-owner@example.com", "leaveround_nopart_owner");
+        var league = await CreateTestLeagueAsync("LeaveRound NonPart", owner.Id);
+        await AssociateUserWithLeagueAsync(owner.Id, league.Id);
+
+        int round1Id;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var round = await dbContext.Rounds
+                .Where(r => r.LeagueId == league.Id)
+                .OrderBy(r => r.Order)
+                .FirstAsync();
+            round1Id = round.Id;
+            round.Status = Status.Playing;
+            await dbContext.SaveChangesAsync();
+        }
+
+        using var client = _factory.CreateClientWithUser(owner.Id, owner.UserName!, owner.Email!);
+
+        var response = await client.PatchAsync(
+            $"/api/leagues/{league.Id}/rounds/{round1Id}/leave",
+            new StringContent("", Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task LeaveRound_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        var owner = await CreateTestUserAsync("leaveround-noauth-owner@example.com", "leaveround_noauth_owner");
+        var league = await CreateTestLeagueAsync("LeaveRound NoAuth", owner.Id);
+
+        int round1Id;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var round = await dbContext.Rounds
+                .Where(r => r.LeagueId == league.Id)
+                .OrderBy(r => r.Order)
+                .FirstAsync();
+            round1Id = round.Id;
+        }
+
+        using var client = _factory.CreateClient();
+
+        var response = await client.PatchAsync(
+            $"/api/leagues/{league.Id}/rounds/{round1Id}/leave",
+            new StringContent("", Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task RequestJoinLeague_WithValidLeagueCode_AddsUserToLeague()
     {
         // Arrange

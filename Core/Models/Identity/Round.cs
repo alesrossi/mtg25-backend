@@ -13,6 +13,7 @@ public class Round : BaseModel
     public int LeagueId { get; set; }
     public required League League { get; set; }
     public List<AppUserRound> Players { get; set; } = [];
+    public List<RoundParticipant> Participants { get; set; } = [];
 }
 
 public enum Status

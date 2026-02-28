@@ -135,7 +135,7 @@ public static partial class LeaguesEndpoint
         {
             var round = await leagueService.UpdateRoundAsync(leagueId, roundId, userId, updateRound, cancellationToken);
             logger.LogOperationSuccess(operation, new { leagueId, roundId });
-            var result = new RoundDto
+            var result = new RoundInfoDto
             {
                 Id = round.Id,
                 Status = round.Status,
@@ -144,7 +144,7 @@ public static partial class LeaguesEndpoint
                 Order = round.Order,
                 LeagueId = round.LeagueId,
                 Players = round.Players
-                    .Select(player => new AppUserRoundDto
+                    .Select(player => new UserRoundInfoDto
                     {
                         UserId = player.UserId,
                         Position = player.Position,
@@ -153,6 +153,8 @@ public static partial class LeaguesEndpoint
                         Gw = player.Gw,
                         Ogw = player.Ogw
                     })
+                    .ToList(),
+                Participants = round.Participants
                     .ToList()
             };
 
@@ -395,6 +397,66 @@ public static partial class LeaguesEndpoint
         {
             logger.LogOperationWarning(operation, ex.Message, new { leagueId, callerId, targetUser = callerId });
             return await MapLeagueServiceException(ex, context, messageLocalizer, callerId);
+        }
+    }
+
+    private static async Task<IResult> JoinRoundAsync(
+        int leagueId,
+        int roundId,
+        HttpContext context,
+        [FromServices] ILeagueService leagueService,
+        [FromServices] ILogger<LeaguesEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
+        CancellationToken cancellationToken)
+    {
+        const string operation = "Leagues.JoinRound";
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { leagueId, roundId });
+            return Results.Unauthorized();
+        }
+
+        try
+        {
+            await leagueService.JoinRoundAsync(leagueId, roundId, userId, cancellationToken);
+            logger.LogOperationSuccess(operation, new { leagueId, roundId, userId });
+            return Results.Ok();
+        }
+        catch (LeagueServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { leagueId, roundId, userId });
+            return await MapLeagueServiceException(ex, context, messageLocalizer, userId);
+        }
+    }
+
+    private static async Task<IResult> LeaveRoundAsync(
+        int leagueId,
+        int roundId,
+        HttpContext context,
+        [FromServices] ILeagueService leagueService,
+        [FromServices] ILogger<LeaguesEndpointLogCategory> logger,
+        [FromServices] IMessageLocalizer messageLocalizer,
+        CancellationToken cancellationToken)
+    {
+        const string operation = "Leagues.LeaveRound";
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { leagueId, roundId });
+            return Results.Unauthorized();
+        }
+
+        try
+        {
+            await leagueService.LeaveRoundAsync(leagueId, roundId, userId, cancellationToken);
+            logger.LogOperationSuccess(operation, new { leagueId, roundId, userId });
+            return Results.Ok();
+        }
+        catch (LeagueServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { leagueId, roundId, userId });
+            return await MapLeagueServiceException(ex, context, messageLocalizer, userId);
         }
     }
 }

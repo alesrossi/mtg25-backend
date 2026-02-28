@@ -34,6 +34,8 @@ public interface ILeagueService
     Task<bool> IsLeagueAdminAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
     Task<EventLinkParseResultDto> ParseEventLinkResultsAsync(int leagueId, string userId, IFormFile file, CancellationToken cancellationToken = default);
     Task<byte[]> ExportLeagueToExcelAsync(int leagueId, string userId, CancellationToken cancellationToken = default);
+    Task JoinRoundAsync(int leagueId, int roundId, string userId, CancellationToken cancellationToken = default);
+    Task LeaveRoundAsync(int leagueId, int roundId, string userId, CancellationToken cancellationToken = default);
 }
 
 public sealed class LeagueService : ILeagueService
@@ -376,6 +378,11 @@ public sealed class LeagueService : ILeagueService
             })
             .ToListAsync(cancellationToken);
 
+        var participants = await _dbContext.RoundParticipants
+            .AsNoTracking()
+            .Where(rp => rp.RoundId == roundId)
+            .ToListAsync(cancellationToken);
+
         return new RoundInfoDto
         {
             Id = round.Id,
@@ -384,7 +391,8 @@ public sealed class LeagueService : ILeagueService
             Description = round.Description,
             Order = round.Order,
             LeagueId = round.LeagueId,
-            Players = userRounds
+            Players = userRounds,
+            Participants = participants
         };
     }
 
@@ -427,7 +435,7 @@ public sealed class LeagueService : ILeagueService
                 .Where(ur => roundIds.Contains(ur.RoundId))
                 .OrderBy(ur => ur.Position)
                 .ToListAsync(cancellationToken)
-            : new List<AppUserRound>();
+            : [];
 
         // Raggruppare i giocatori per RoundId
         var userRoundsByRoundId = allUserRounds
@@ -448,15 +456,27 @@ public sealed class LeagueService : ILeagueService
                 }).ToList()
             );
 
+        var allParticipants = roundIds.Count > 0
+            ? await _dbContext.RoundParticipants
+                .AsNoTracking()
+                .Where(rp => roundIds.Contains(rp.RoundId))
+                .ToListAsync(cancellationToken)
+            : [];
+
+        var participantsByRoundId = allParticipants
+            .GroupBy(rp => rp.RoundId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
         // Creare round virtuali per gli order mancanti
         var result = new List<RoundInfoDto>();
-        for (int order = 1; order <= league.TotalRounds; order++)
+        for (var order = 1; order <= league.TotalRounds; order++)
         {
             var existingRound = existingRounds.FirstOrDefault(r => r.Order == order);
             if (existingRound != null)
             {
                 // Round esistente
-                var userRounds = userRoundsByRoundId.GetValueOrDefault(existingRound.Id, new List<UserRoundInfoDto>());
+                var userRounds = userRoundsByRoundId.GetValueOrDefault(existingRound.Id, []);
+                var roundParticipants = participantsByRoundId.GetValueOrDefault(existingRound.Id, []);
                 result.Add(new RoundInfoDto
                 {
                     Id = existingRound.Id,
@@ -465,7 +485,8 @@ public sealed class LeagueService : ILeagueService
                     Description = existingRound.Description,
                     Order = existingRound.Order,
                     LeagueId = existingRound.LeagueId,
-                    Players = userRounds
+                    Players = userRounds,
+                    Participants = roundParticipants
                 });
             }
             else
@@ -1602,6 +1623,92 @@ public sealed class LeagueService : ILeagueService
             .FirstOrDefaultAsync(x => x.LeagueId == league.Id && x.UserId == userId, cancellationToken);
 
         return assignment?.Roles.HasFlag(LeagueRole.Admin) == true;
+    }
+
+    public async Task JoinRoundAsync(int leagueId, int roundId, string userId, CancellationToken cancellationToken = default)
+    {
+        var user = await EnsureUserAsync(userId);
+
+        var league = await _dbContext.Leagues
+            .AsNoTracking()
+            .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
+        if (league is null)
+        {
+            throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
+        }
+
+        var round = await _dbContext.Rounds
+            .FirstOrDefaultAsync(r => r.Id == roundId && r.LeagueId == leagueId, cancellationToken);
+        if (round is null)
+        {
+            throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
+        }
+
+        if (round.Status != Status.Playing)
+        {
+            throw LeagueServiceException.BadRequest("Errors.Leagues.RoundNotPlaying");
+        }
+
+        var membership = await _dbContext.UserLeagues
+            .AsNoTracking()
+            .FirstOrDefaultAsync(ul => ul.LeagueId == leagueId && ul.UserId == user.Id && ul.IsPlaying, cancellationToken);
+        if (membership is null)
+        {
+            throw LeagueServiceException.BadRequest("Errors.Leagues.UserMustBeMember", includeBody: true);
+        }
+
+        var alreadyJoined = await _dbContext.RoundParticipants
+            .AnyAsync(rp => rp.RoundId == roundId && rp.UserId == user.Id, cancellationToken);
+        if (alreadyJoined)
+        {
+            throw LeagueServiceException.BadRequest("Errors.Leagues.AlreadyJoinedRound");
+        }
+
+        _dbContext.RoundParticipants.Add(new RoundParticipant
+        {
+            UserId = user.Id,
+            User = user,
+            RoundId = round.Id,
+            Round = round
+        });
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task LeaveRoundAsync(int leagueId, int roundId, string userId, CancellationToken cancellationToken = default)
+    {
+        var user = await EnsureUserAsync(userId);
+
+        var league = await _dbContext.Leagues
+            .AsNoTracking()
+            .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
+        if (league is null)
+        {
+            throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
+        }
+
+        var round = await _dbContext.Rounds
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == roundId && r.LeagueId == leagueId, cancellationToken);
+        if (round is null)
+        {
+            throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
+        }
+
+        if (round.Status != Status.Playing)
+        {
+            throw LeagueServiceException.BadRequest("Errors.Leagues.RoundNotPlaying");
+        }
+
+        var participant = await _dbContext.RoundParticipants
+            .FirstOrDefaultAsync(rp => rp.RoundId == roundId && rp.UserId == user.Id, cancellationToken);
+        if (participant is null)
+        {
+            throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
+        }
+
+        _dbContext.RoundParticipants.Remove(participant);
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private static class SecureCodeGenerator

@@ -84,7 +84,7 @@ public static partial class LeaguesEndpoint
             .RequireAuthorization()
             .WithSummary("Export league to Excel")
             .WithDescription("Exports league standings with all rounds to an Excel file. Only admins can call this route")
-            .Produces<FileResult>(StatusCodes.Status200OK)
+            .Produces<FileResult>()
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
@@ -126,7 +126,7 @@ public static partial class LeaguesEndpoint
             .RequireAuthorization()
             .WithSummary("Update round")
             .WithDescription("Updates round details and players for a league. Only admins can call this route")
-            .Produces<RoundDto>()
+            .Produces<RoundInfoDto>()
             .Produces<ValidationProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
@@ -196,6 +196,26 @@ public static partial class LeaguesEndpoint
             .WithSummary("Terminates league")
             .WithDescription("Terminates an active league setting the flag to false")
             .Produces(StatusCodes.Status200OK)
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
+
+        group.MapPatch("/{leagueId:int}/rounds/{roundId:int}/join", JoinRoundAsync)
+            .RequireAuthorization()
+            .WithSummary("Join round")
+            .WithDescription("Authenticated league member joins a round that is in Playing state")
+            .Produces(StatusCodes.Status200OK)
+            .Produces<ProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
+
+        group.MapPatch("/{leagueId:int}/rounds/{roundId:int}/leave", LeaveRoundAsync)
+            .RequireAuthorization()
+            .WithSummary("Leave round")
+            .WithDescription("Authenticated participant leaves a round that is in Playing state")
+            .Produces(StatusCodes.Status200OK)
+            .Produces<ProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");

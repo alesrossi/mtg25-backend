@@ -1641,6 +1641,192 @@ public class LeagueServiceTests
         matched.UserId.Should().Be(player.Id);
     }
 
+    [Fact]
+    public async Task JoinRoundAsync_WithValidPlayer_AddsParticipant()
+    {
+        await using var context = CreateContext();
+        var owner = CreateUser("owner");
+        var player = CreateUser("player");
+        context.Users.AddRange(owner, player);
+
+        var league = CreateLeague(owner.Id, "JOIN01");
+        context.Leagues.Add(league);
+        await context.SaveChangesAsync();
+
+        var round = new Round { League = league, LeagueId = league.Id, Order = 1, Status = Status.Playing };
+        context.Rounds.Add(round);
+        await context.SaveChangesAsync();
+
+        context.UserLeagues.Add(new AppUserLeague
+        {
+            UserId = player.Id, User = player, League = league, LeagueId = league.Id,
+            Score = 0, IsPlaying = true
+        });
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context, owner, player);
+
+        await service.JoinRoundAsync(league.Id, round.Id, player.Id);
+
+        var participants = await context.RoundParticipants.ToListAsync();
+        participants.Should().HaveCount(1);
+        participants[0].UserId.Should().Be(player.Id);
+        participants[0].RoundId.Should().Be(round.Id);
+    }
+
+    [Fact]
+    public async Task JoinRoundAsync_WithNonMember_ThrowsBadRequest()
+    {
+        await using var context = CreateContext();
+        var owner = CreateUser("owner");
+        var outsider = CreateUser("outsider");
+        context.Users.AddRange(owner, outsider);
+
+        var league = CreateLeague(owner.Id, "JOIN02");
+        context.Leagues.Add(league);
+        await context.SaveChangesAsync();
+
+        var round = new Round { League = league, LeagueId = league.Id, Order = 1, Status = Status.Playing };
+        context.Rounds.Add(round);
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var service = CreateService(context, owner, outsider);
+
+        var act = () => service.JoinRoundAsync(league.Id, round.Id, outsider.Id);
+
+        var exception = await act.Should().ThrowAsync<LeagueServiceException>();
+        exception.Which.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
+        exception.Which.Message.Should().Contain("Errors.Leagues.UserMustBeMember");
+    }
+
+    [Fact]
+    public async Task JoinRoundAsync_WithNonPlayingRound_ThrowsBadRequest()
+    {
+        await using var context = CreateContext();
+        var owner = CreateUser("owner");
+        var player = CreateUser("player");
+        context.Users.AddRange(owner, player);
+
+        var league = CreateLeague(owner.Id, "JOIN03");
+        context.Leagues.Add(league);
+        await context.SaveChangesAsync();
+
+        var round = new Round { League = league, LeagueId = league.Id, Order = 1, Status = Status.NotPlayed };
+        context.Rounds.Add(round);
+        await context.SaveChangesAsync();
+
+        context.UserLeagues.Add(new AppUserLeague
+        {
+            UserId = player.Id, User = player, League = league, LeagueId = league.Id,
+            Score = 0, IsPlaying = true
+        });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var service = CreateService(context, owner, player);
+
+        var act = () => service.JoinRoundAsync(league.Id, round.Id, player.Id);
+
+        var exception = await act.Should().ThrowAsync<LeagueServiceException>();
+        exception.Which.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
+        exception.Which.Message.Should().Contain("Errors.Leagues.RoundNotPlaying");
+    }
+
+    [Fact]
+    public async Task JoinRoundAsync_AlreadyJoined_ThrowsBadRequest()
+    {
+        await using var context = CreateContext();
+        var owner = CreateUser("owner");
+        var player = CreateUser("player");
+        context.Users.AddRange(owner, player);
+
+        var league = CreateLeague(owner.Id, "JOIN04");
+        context.Leagues.Add(league);
+        await context.SaveChangesAsync();
+
+        var round = new Round { League = league, LeagueId = league.Id, Order = 1, Status = Status.Playing };
+        context.Rounds.Add(round);
+        await context.SaveChangesAsync();
+
+        context.UserLeagues.Add(new AppUserLeague
+        {
+            UserId = player.Id, User = player, League = league, LeagueId = league.Id,
+            Score = 0, IsPlaying = true
+        });
+        context.RoundParticipants.Add(new RoundParticipant
+        {
+            UserId = player.Id, User = player, RoundId = round.Id, Round = round
+        });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var service = CreateService(context, owner, player);
+
+        var act = () => service.JoinRoundAsync(league.Id, round.Id, player.Id);
+
+        var exception = await act.Should().ThrowAsync<LeagueServiceException>();
+        exception.Which.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
+        exception.Which.Message.Should().Contain("Errors.Leagues.AlreadyJoinedRound");
+    }
+
+    [Fact]
+    public async Task LeaveRoundAsync_WithParticipant_RemovesParticipant()
+    {
+        await using var context = CreateContext();
+        var owner = CreateUser("owner");
+        var player = CreateUser("player");
+        context.Users.AddRange(owner, player);
+
+        var league = CreateLeague(owner.Id, "LEAVE01");
+        context.Leagues.Add(league);
+        await context.SaveChangesAsync();
+
+        var round = new Round { League = league, LeagueId = league.Id, Order = 1, Status = Status.Playing };
+        context.Rounds.Add(round);
+        await context.SaveChangesAsync();
+
+        context.RoundParticipants.Add(new RoundParticipant
+        {
+            UserId = player.Id, User = player, RoundId = round.Id, Round = round
+        });
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var service = CreateService(context, owner, player);
+
+        await service.LeaveRoundAsync(league.Id, round.Id, player.Id);
+
+        var participants = await context.RoundParticipants.ToListAsync();
+        participants.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task LeaveRoundAsync_WithNonParticipant_ThrowsNotFound()
+    {
+        await using var context = CreateContext();
+        var owner = CreateUser("owner");
+        var player = CreateUser("player");
+        context.Users.AddRange(owner, player);
+
+        var league = CreateLeague(owner.Id, "LEAVE02");
+        context.Leagues.Add(league);
+        await context.SaveChangesAsync();
+
+        var round = new Round { League = league, LeagueId = league.Id, Order = 1, Status = Status.Playing };
+        context.Rounds.Add(round);
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var service = CreateService(context, owner, player);
+
+        var act = () => service.LeaveRoundAsync(league.Id, round.Id, player.Id);
+
+        var exception = await act.Should().ThrowAsync<LeagueServiceException>();
+        exception.Which.StatusCode.Should().Be(StatusCodes.Status404NotFound);
+        exception.Which.Message.Should().Contain("Errors.Leagues.NotFound");
+    }
+
     private static AppUser CreateUser(string id)
         => new()
         {

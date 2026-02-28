@@ -11,4 +11,5 @@ public class RoundInfoDto
     public int Order { get; set; }
     public int LeagueId { get; set; }
     public List<UserRoundInfoDto> Players { get; set; } = [];
+    public List<RoundParticipant> Participants { get; set; } = [];
 }

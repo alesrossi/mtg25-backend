@@ -19,6 +19,7 @@ namespace Infrastructure.Identity
         public DbSet<AppUserFriend> AppUserFriends { get; set; }
         public DbSet<Round> Rounds { get; set; }
         public DbSet<AppUserRound> UserRounds { get; set; }
+        public DbSet<RoundParticipant> RoundParticipants { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -169,6 +170,20 @@ namespace Infrastructure.Identity
                 .HasOne(ur => ur.Round)
                 .WithMany(r => r.Players)
                 .HasForeignKey(ur => ur.RoundId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<RoundParticipant>()
+                .HasKey(rp => new { rp.UserId, rp.RoundId });
+
+            builder.Entity<RoundParticipant>()
+                .HasOne(rp => rp.User)
+                .WithMany()
+                .HasForeignKey(rp => rp.UserId);
+
+            builder.Entity<RoundParticipant>()
+                .HasOne(rp => rp.Round)
+                .WithMany(r => r.Participants)
+                .HasForeignKey(rp => rp.RoundId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }
