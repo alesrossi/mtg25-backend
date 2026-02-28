@@ -51,7 +51,8 @@ public class DeckServiceTests
             OwnerId = user.Id,
             NumberOfCards = 0,
             TotalPrice = 0,
-            DeckList = string.Empty
+            DeckList = string.Empty,
+            IsPublic = true
         };
         context.Decks.Add(deck);
         await context.SaveChangesAsync();
@@ -77,7 +78,8 @@ public class DeckServiceTests
             OwnerId = user.Id,
             NumberOfCards = 0,
             TotalPrice = 0,
-            DeckList = string.Empty
+            DeckList = string.Empty,
+            IsPublic = true
         };
         context.Decks.Add(deck);
         await context.SaveChangesAsync();
@@ -153,7 +155,8 @@ public class DeckServiceTests
             OwnerId = user.Id,
             NumberOfCards = 0,
             TotalPrice = 0,
-            DeckList = string.Empty
+            DeckList = string.Empty,
+            IsPublic = true
         };
         context.Decks.Add(deck);
         await context.SaveChangesAsync();

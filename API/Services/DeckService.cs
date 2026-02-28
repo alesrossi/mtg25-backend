@@ -191,7 +191,8 @@ public sealed class DeckService : IDeckService
             OwnerId = userId,
             NumberOfCards = 0,
             TotalPrice = 0.0,
-            DeckList = string.Empty
+            DeckList = string.Empty,
+            IsPublic = true
         };
 
         _unitOfWork.Repository<Deck>().Add(deck);
@@ -217,6 +218,7 @@ public sealed class DeckService : IDeckService
 
         if (updateDto.Name != null) deck.Name = updateDto.Name;
         if (updateDto.Format != null) deck.Format = updateDto.Format.Value;
+        if (updateDto.IsPublic != null) deck.IsPublic = updateDto.IsPublic.Value;
         deck.Image = updateDto.Image;
 
         IReadOnlyList<string> errors = [];
@@ -470,7 +472,8 @@ public sealed class DeckService : IDeckService
             NumberOfCards = 0,
             TotalPrice = 0,
             TotalPriceCurrency = null,
-            DeckList = string.Empty
+            DeckList = string.Empty,
+            IsPublic = true
         };
 
         _unitOfWork.Repository<Deck>().Add(deck);
@@ -652,6 +655,7 @@ public sealed class DeckService : IDeckService
             TotalPrice = deck.TotalPrice,
             TotalPriceCurrency = deck.TotalPriceCurrency,
             ColorIdentity = deck.ColorIdentity.ToList(),
+            IsPublic = deck.IsPublic,
             OwnerId = deck.OwnerId
         };
     }

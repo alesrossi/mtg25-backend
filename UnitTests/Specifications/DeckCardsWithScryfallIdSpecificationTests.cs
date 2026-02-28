@@ -129,7 +129,7 @@ public class DeckCardsWithScryfallIdSpecificationTests
             TypeLine = "Instant",
             MaindeckQuantity = 4,
             SideboardQuantity = 0,
-            Deck = new Deck { OwnerId = userId, Name = "User Deck", Format = DeckFormat.Standard, DeckList = string.Empty }
+            Deck = new Deck { OwnerId = userId, Name = "User Deck", Format = DeckFormat.Standard, DeckList = string.Empty, IsPublic = true }
         };
 
         var otherUserDeckCard = new DeckCard
@@ -142,7 +142,7 @@ public class DeckCardsWithScryfallIdSpecificationTests
             TypeLine = "Instant",
             MaindeckQuantity = 3,
             SideboardQuantity = 0,
-            Deck = new Deck { OwnerId = "other-user", Name = "Other Deck", Format = DeckFormat.Modern, DeckList = string.Empty }
+            Deck = new Deck { OwnerId = "other-user", Name = "Other Deck", Format = DeckFormat.Modern, DeckList = string.Empty, IsPublic = true }
         };
 
         var deckCards = new List<DeckCard> { userDeckCard, otherUserDeckCard };

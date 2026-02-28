@@ -14,5 +14,6 @@ public class DeckDto
     public Currency? TotalPriceCurrency { get; set; }
     public string? Image { get; set; }
     public List<string> ColorIdentity { get; set; } = [];
+    public bool IsPublic { get; set; }
     public required string OwnerId { get; set; }
 }

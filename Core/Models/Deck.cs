@@ -19,7 +19,7 @@ public class Deck : BaseModel
     public string? Image { get; set; }
     public List<string> ColorIdentity { get; set; } = [];
     public required string DeckList { get; set; } = string.Empty;
-
+    public required bool IsPublic { get; set; } = true;
     public int? CurrentBranchId { get; set; }
     public DeckBranch? CurrentBranch { get; set; }
     public int? CurrentCommitId { get; set; }

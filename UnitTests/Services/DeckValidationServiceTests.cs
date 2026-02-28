@@ -90,7 +90,8 @@ public class DeckValidationServiceTests
             Format = (DeckFormat)999,
             OwnerId = "user1",
             NumberOfCards = 60,
-            DeckList = string.Empty
+            DeckList = string.Empty,
+            IsPublic = true
         };
 
         // Act
@@ -113,7 +114,8 @@ public class DeckValidationServiceTests
             Format = DeckFormat.Standard,
             OwnerId = "user1",
             NumberOfCards = 45,
-            DeckList = string.Empty
+            DeckList = string.Empty,
+            IsPublic = true
         };
 
         // Act
@@ -136,7 +138,8 @@ public class DeckValidationServiceTests
             Format = DeckFormat.Commander,
             OwnerId = "user1",
             NumberOfCards = 105,
-            DeckList = string.Empty
+            DeckList = string.Empty,
+            IsPublic = true
         };
 
         // Act
@@ -159,7 +162,8 @@ public class DeckValidationServiceTests
             Format = DeckFormat.Standard,
             OwnerId = "user1",
             NumberOfCards = 60,
-            DeckList = string.Empty
+            DeckList = string.Empty,
+            IsPublic = true
         };
 
         // Act
@@ -180,7 +184,8 @@ public class DeckValidationServiceTests
             Format = DeckFormat.Standard,
             OwnerId = "user1",
             NumberOfCards = 0,
-            DeckList = string.Empty
+            DeckList = string.Empty,
+            IsPublic = true
         };
         // ReSharper disable once CollectionNeverUpdated.Local
         var deckCards = new List<DeckCard>();
@@ -203,7 +208,8 @@ public class DeckValidationServiceTests
             Format = DeckFormat.Standard,
             OwnerId = "user1",
             NumberOfCards = 65,
-            DeckList = string.Empty
+            DeckList = string.Empty,
+            IsPublic = true
         };
 
         var deckCards = new List<DeckCard>
@@ -242,7 +248,8 @@ public class DeckValidationServiceTests
             Format = DeckFormat.Commander,
             OwnerId = "user1",
             NumberOfCards = 100,
-            DeckList = string.Empty
+            DeckList = string.Empty,
+            IsPublic = true
         };
 
         var deckCards = new List<DeckCard>
@@ -282,7 +289,8 @@ public class DeckValidationServiceTests
             Format = DeckFormat.Commander,
             OwnerId = "user1",
             NumberOfCards = 100,
-            DeckList = string.Empty
+            DeckList = string.Empty,
+            IsPublic = true
         };
 
         var deckCards = new List<DeckCard>
@@ -320,7 +328,8 @@ public class DeckValidationServiceTests
             Format = DeckFormat.Standard,
             OwnerId = "user1",
             NumberOfCards = 75,
-            DeckList = string.Empty
+            DeckList = string.Empty,
+            IsPublic = true
         };
 
         var deckCards = new List<DeckCard>
@@ -358,7 +367,8 @@ public class DeckValidationServiceTests
             Format = DeckFormat.Standard,
             OwnerId = "user1",
             NumberOfCards = 62,// Total: 4 + 4 + 52 + 2 = 62 cards
-            DeckList = string.Empty 
+            DeckList = string.Empty,
+            IsPublic = true
         };
 
         var deckCards = new List<DeckCard>
@@ -416,7 +426,8 @@ public class DeckValidationServiceTests
             Format = DeckFormat.Limited,
             OwnerId = "user1",
             NumberOfCards = 40,
-            DeckList = string.Empty
+            DeckList = string.Empty,
+            IsPublic = true
         };
 
         var deckCards = new List<DeckCard>
@@ -464,7 +475,8 @@ public class DeckValidationServiceTests
             Format = DeckFormat.Standard,
             OwnerId = "user1",
             NumberOfCards = 60,
-            DeckList = string.Empty
+            DeckList = string.Empty,
+            IsPublic = true
         };
 
         var deckCards = new List<DeckCard>
