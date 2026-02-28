@@ -28,7 +28,7 @@ public static partial class DecksEndpoint
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/{id:int}", GetDeckByIdAsync)
-            .RequireAuthorization()
+            .RequireAuthorization("OptionalAuth")
             .WithSummary("Get deck by ID")
             .WithDescription("Retrieves a specific deck by ID")
             .Produces<DeckDto>()
@@ -37,7 +37,7 @@ public static partial class DecksEndpoint
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/{deckId:int}/cards", GetDeckCardsAsync)
-            .RequireAuthorization()
+            .RequireAuthorization("OptionalAuth")
             .WithSummary("Get deck cards")
             .WithDescription("Retrieves all cards in a deck with optional filtering for maindeck, sideboard, and ownership status")
             .Produces<IEnumerable<DeckCardDto>>()
@@ -55,7 +55,7 @@ public static partial class DecksEndpoint
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/{deckId:int}/export", ExportDeckAsync)
-            .RequireAuthorization()
+            .RequireAuthorization("OptionalAuth")
             .WithSummary("Export deck")
             .WithDescription("Returns the decklist as a list of strings with maindeck and sideboard sections")
             .Produces<string>()

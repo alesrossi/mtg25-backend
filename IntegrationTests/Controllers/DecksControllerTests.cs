@@ -235,19 +235,21 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task GetDeckById_WithOtherUsersDeck_ReturnsNotFound()
+    public async Task GetDeckById_WithOtherUsersDeck_ReturnsUnauthorized()
     {
         // Arrange
         var owner = await CreateTestUserAsync("owner@example.com", "owner");
         var otherUser = await CreateTestUserAsync("other@example.com", "other");
         var deck = await CreateTestDeckAsync(owner.Id, "Owner's Deck", DeckFormat.Standard);
+        deck.IsPublic = false;
+        await UpdateDeckAsync(deck);
         using var client = _factory.CreateClientWithUser(otherUser.Id, otherUser.UserName!, otherUser.Email!);
 
         // Act
         var response = await client.GetAsync($"/api/decks/{deck.Id}");
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
@@ -262,10 +264,12 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task GetDeckById_WithoutAuthentication_ReturnsUnauthorized()
+    public async Task GetDeckById_WithoutAuthentication_ForPrivateDeck_ReturnsUnauthorized()
     {
         var owner = await CreateTestUserAsync("deckid-owner@example.com", "deckid_owner");
         var deck = await CreateTestDeckAsync(owner.Id, "Unauthorized Deck", DeckFormat.Standard);
+        deck.IsPublic = false;
+        await UpdateDeckAsync(deck);
         using var client = _factory.CreateClient();
 
         var response = await client.GetAsync($"/api/decks/{deck.Id}");
@@ -745,11 +749,13 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task ExportDeck_ForOtherUsersDeck_ReturnsNotFound()
+    public async Task ExportDeck_ForOtherUsersDeck_ReturnsUnauthorized()
     {
         var owner = await CreateTestUserAsync("export-owner@example.com", "export_owner");
         var otherUser = await CreateTestUserAsync("export-nonowner@example.com", "export_nonowner");
         var deck = await CreateTestDeckAsync(owner.Id, "Owner Export Deck", DeckFormat.Pioneer);
+        deck.IsPublic = false;
+        await UpdateDeckAsync(deck);
 
         await SeedDeckCardsAsync(deck.Id,
             new DeckCardSeed("oracle-10", "Lightning Strike", "THS", 4, 0));
@@ -758,14 +764,16 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var response = await client.GetAsync($"/api/decks/{deck.Id}/export");
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
-    public async Task ExportDeck_WithoutAuthentication_ReturnsUnauthorized()
+    public async Task ExportDeck_WithoutAuthentication_ForPrivateDeck_ReturnsUnauthorized()
     {
         var owner = await CreateTestUserAsync("export-noauth@example.com", "export_noauth");
         var deck = await CreateTestDeckAsync(owner.Id, "NoAuth Export", DeckFormat.Standard);
+        deck.IsPublic = false;
+        await UpdateDeckAsync(deck);
         await SeedDeckCardsAsync(deck.Id, new DeckCardSeed("oracle-20", "Shock", "M10", 4, 0));
 
         using var client = _factory.CreateClient();
@@ -814,6 +822,14 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         await dbContext.SaveChangesAsync();
         
         return deck;
+    }
+
+    private async Task UpdateDeckAsync(Deck deck)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
+        dbContext.Decks.Update(deck);
+        await dbContext.SaveChangesAsync();
     }
 
     private Task SeedCardDataAsync(IEnumerable<ScryfallCardDto> cards)
