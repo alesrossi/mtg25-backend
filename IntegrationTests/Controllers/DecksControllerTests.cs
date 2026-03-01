@@ -782,6 +782,138 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
+    [Fact]
+    public async Task GetDeckHistory_WithLinearHistory_ReturnsBranchesAndCommitsInOrder()
+    {
+        var user = await CreateTestUserAsync("hist-linear@example.com", "hist_linear");
+        var deck = await CreateTestDeckAsync(user.Id, "History Deck", DeckFormat.Modern);
+        await SeedDeckHistoryAsync(deck.Id, user.Id, "main",
+            ("Root commit", DateTime.UtcNow.AddMinutes(-10)),
+            ("Second commit", DateTime.UtcNow.AddMinutes(-5)),
+            ("Head commit", DateTime.UtcNow));
+
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+        var response = await client.GetAsync($"/api/decks/{deck.Id}/history");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var content = await response.Content.ReadAsStringAsync();
+        var result = JsonSerializer.Deserialize<DeckHistoryVisualizationDto>(content, JsonContentHelper.DefaultOptions);
+
+        result.Should().NotBeNull();
+        result!.DeckId.Should().Be(deck.Id);
+        result.Branches.Should().HaveCount(1);
+        result.Branches[0].BranchName.Should().Be("main");
+        result.Branches[0].Commits.Should().HaveCount(3);
+        result.Branches[0].Commits[0].Message.Should().Be("Root commit");
+        result.Branches[0].Commits[2].Message.Should().Be("Head commit");
+        result.Metadata.TotalCommits.Should().Be(3);
+        result.Metadata.TotalBranches.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetDeckHistory_WithNoBranches_ReturnsEmptyResult()
+    {
+        var user = await CreateTestUserAsync("hist-empty@example.com", "hist_empty");
+        var deck = await CreateTestDeckAsync(user.Id, "Empty History Deck", DeckFormat.Standard);
+
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+        var response = await client.GetAsync($"/api/decks/{deck.Id}/history");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var content = await response.Content.ReadAsStringAsync();
+        var result = JsonSerializer.Deserialize<DeckHistoryVisualizationDto>(content, JsonContentHelper.DefaultOptions);
+
+        result.Should().NotBeNull();
+        result!.Branches.Should().BeEmpty();
+        result.Metadata.TotalCommits.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task GetDeckHistory_ForPrivateDeck_ReturnsNotFoundForNonOwner()
+    {
+        var owner = await CreateTestUserAsync("hist-owner@example.com", "hist_owner");
+        var other = await CreateTestUserAsync("hist-other@example.com", "hist_other");
+        var deck = await CreateTestDeckAsync(owner.Id, "Private History Deck", DeckFormat.Modern);
+        deck.IsPublic = false;
+        await UpdateDeckAsync(deck);
+
+        using var client = _factory.CreateClientWithUser(other.Id, other.UserName!, other.Email!);
+        var response = await client.GetAsync($"/api/decks/{deck.Id}/history");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetDeckHistory_ForPublicDeck_ReturnsOkForAnonymous()
+    {
+        var owner = await CreateTestUserAsync("hist-pub@example.com", "hist_pub");
+        var deck = await CreateTestDeckAsync(owner.Id, "Public History Deck", DeckFormat.Standard);
+        deck.IsPublic = true;
+        await UpdateDeckAsync(deck);
+
+        using var client = _factory.CreateClient();
+        var response = await client.GetAsync($"/api/decks/{deck.Id}/history");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task GetDeckHistory_WithNonExistentDeck_ReturnsNotFound()
+    {
+        var user = await CreateTestUserAsync("hist-404@example.com", "hist_404");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var response = await client.GetAsync("/api/decks/999999/history");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    private async Task SeedDeckHistoryAsync(int deckId, string userId, string branchName, params (string Message, DateTime CommittedAt)[] commits)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
+
+        var tree = new DeckTree();
+        dbContext.DeckTrees.Add(tree);
+        await dbContext.SaveChangesAsync();
+
+        DeckCommit? previous = null;
+        foreach (var (message, committedAt) in commits)
+        {
+            var commit = new DeckCommit
+            {
+                DeckId = deckId,
+                TreeId = tree.Id,
+                AuthorId = userId,
+                Message = message,
+                CommittedAt = committedAt
+            };
+            dbContext.DeckCommits.Add(commit);
+            await dbContext.SaveChangesAsync();
+
+            if (previous != null)
+            {
+                dbContext.DeckCommitParents.Add(new DeckCommitParent { CommitId = commit.Id, ParentCommitId = previous.Id });
+                await dbContext.SaveChangesAsync();
+            }
+
+            previous = commit;
+        }
+
+        if (previous != null)
+        {
+            dbContext.DeckBranches.Add(new DeckBranch
+            {
+                DeckId = deckId,
+                Name = branchName,
+                HeadCommitId = previous.Id,
+                CreatedByUserId = userId,
+                CreatedAt = DateTime.UtcNow
+            });
+            await dbContext.SaveChangesAsync();
+        }
+    }
+
     #region Helper Methods
 
     private Task<AppUser> CreateTestUserAsync(string baseEmail, string baseUserName) =>

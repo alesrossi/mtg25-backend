@@ -98,6 +98,14 @@ public static partial class DecksEndpoint
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
+
+        group.MapGet("/{deckId:int}/history", GetDeckHistoryVisualizationAsync)
+            .RequireAuthorization("OptionalAuth")
+            .WithSummary("Get deck history visualization")
+            .WithDescription("Returns all branches with commits ordered from root to head, including parent relationships and shared ancestry annotations")
+            .Produces<DeckHistoryVisualizationDto>()
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
     }
     
     private static void MapDeckCommands(RouteGroupBuilder group)

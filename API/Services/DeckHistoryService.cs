@@ -15,6 +15,7 @@ public interface IDeckHistoryService
     Task<DeckDiffResult> DiffAsync(int deckId, string userId, int fromCommitId, int toCommitId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<DeckBranch>> GetBranchesAsync(int deckId, string userId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<DeckCommit>> GetCommitsAsync(int deckId, string userId, CancellationToken cancellationToken = default);
+    Task<DeckHistoryVisualizationResult> GetHistoryVisualizationAsync(int deckId, string userId, bool includeOrphans = false, CancellationToken cancellationToken = default);
 }
 
 public sealed class DeckHistoryService : IDeckHistoryService
@@ -307,6 +308,120 @@ public sealed class DeckHistoryService : IDeckHistoryService
         return commits ?? [];
     }
 
+    public async Task<DeckHistoryVisualizationResult> GetHistoryVisualizationAsync(int deckId, string userId, bool includeOrphans = false, CancellationToken cancellationToken = default)
+    {
+        var deck = await _unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
+        if (deck == null)
+        {
+            throw DeckHistoryServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
+        }
+
+        var isOwner = !string.IsNullOrEmpty(userId) && deck.OwnerId == userId;
+        if (!isOwner && !deck.IsPublic)
+        {
+            throw DeckHistoryServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
+        }
+
+        var branches = await _unitOfWork.Repository<DeckBranch>()
+            .ListAsync(new DeckBranchesByDeckIdSpecification(deckId), tracking: false) ?? [];
+
+        var commits = await _unitOfWork.Repository<DeckCommit>()
+            .ListAsync(new DeckCommitsByDeckIdSpecification(deckId), tracking: false) ?? [];
+
+        var commitIds = commits.Select(c => c.Id).ToHashSet();
+        var parentLinks = commitIds.Count > 0
+            ? await _unitOfWork.Repository<DeckCommitParent>()
+                .ListAsync(new BaseSpecification<DeckCommitParent>(link => commitIds.Contains(link.CommitId)), tracking: false) ?? []
+            : [];
+
+        var commitLookup = commits.ToDictionary(c => c.Id);
+        var parentLookup = parentLinks
+            .GroupBy(link => link.CommitId)
+            .ToDictionary(g => g.Key, g => g.Select(l => l.ParentCommitId).ToList());
+
+        var branchHistories = new List<BranchHistoryResult>();
+        var reachableCommits = new HashSet<int>();
+
+        foreach (var branch in branches)
+        {
+            if (!branch.HeadCommitId.HasValue)
+            {
+                branchHistories.Add(new BranchHistoryResult { Branch = branch, Commits = [] });
+                continue;
+            }
+
+            var branchCommits = TraverseCommitsFromHead(branch.HeadCommitId.Value, commitLookup, parentLookup, reachableCommits);
+            branchHistories.Add(new BranchHistoryResult { Branch = branch, Commits = branchCommits });
+        }
+
+        var orphanedCommits = includeOrphans
+            ? commits.Where(c => !reachableCommits.Contains(c.Id)).OrderBy(c => c.CommittedAt).ToList()
+            : [];
+
+        var commitToBranches = new Dictionary<int, List<string>>();
+        foreach (var bh in branchHistories)
+        {
+            foreach (var commit in bh.Commits)
+            {
+                if (!commitToBranches.ContainsKey(commit.Id))
+                    commitToBranches[commit.Id] = [];
+                commitToBranches[commit.Id].Add(bh.Branch.Name);
+            }
+        }
+
+        return new DeckHistoryVisualizationResult
+        {
+            DeckId = deckId,
+            BranchHistories = branchHistories,
+            OrphanedCommits = orphanedCommits,
+            ParentLookup = parentLookup,
+            CommitToBranches = commitToBranches,
+            Metadata = new CommitGraphMetadata
+            {
+                TotalCommits = commits.Count,
+                TotalBranches = branches.Count,
+                OrphanedCommits = orphanedCommits.Count,
+                EarliestCommit = commits.Any() ? commits.Min(c => c.CommittedAt) : null,
+                LatestCommit = commits.Any() ? commits.Max(c => c.CommittedAt) : null
+            }
+        };
+    }
+
+    private static List<DeckCommit> TraverseCommitsFromHead(
+        int headCommitId,
+        Dictionary<int, DeckCommit> commitLookup,
+        Dictionary<int, List<int>> parentLookup,
+        HashSet<int> reachableCommits)
+    {
+        var visited = new HashSet<int>();
+        var result = new List<DeckCommit>();
+        var queue = new Queue<int>();
+        queue.Enqueue(headCommitId);
+
+        while (queue.Count > 0)
+        {
+            var commitId = queue.Dequeue();
+
+            if (!visited.Add(commitId))
+                continue;
+
+            reachableCommits.Add(commitId);
+
+            if (!commitLookup.TryGetValue(commitId, out var commit))
+                continue;
+
+            result.Add(commit);
+
+            if (parentLookup.TryGetValue(commitId, out var parents))
+            {
+                foreach (var parentId in parents)
+                    queue.Enqueue(parentId);
+            }
+        }
+
+        return result.OrderBy(c => c.CommittedAt).ToList();
+    }
+
     private async Task<Deck> RequireDeckAsync(int deckId, string userId)
     {
         if (string.IsNullOrWhiteSpace(userId))
@@ -451,6 +566,31 @@ public sealed class DeckHistoryService : IDeckHistoryService
 
         return string.Join('\n', lines);
     }
+}
+
+public sealed class DeckHistoryVisualizationResult
+{
+    public required int DeckId { get; init; }
+    public required IReadOnlyList<BranchHistoryResult> BranchHistories { get; init; }
+    public required IReadOnlyList<DeckCommit> OrphanedCommits { get; init; }
+    public required Dictionary<int, List<int>> ParentLookup { get; init; }
+    public required Dictionary<int, List<string>> CommitToBranches { get; init; }
+    public required CommitGraphMetadata Metadata { get; init; }
+}
+
+public sealed class BranchHistoryResult
+{
+    public required DeckBranch Branch { get; init; }
+    public required IReadOnlyList<DeckCommit> Commits { get; init; }
+}
+
+public sealed class CommitGraphMetadata
+{
+    public required int TotalCommits { get; init; }
+    public required int TotalBranches { get; init; }
+    public required int OrphanedCommits { get; init; }
+    public DateTime? EarliestCommit { get; init; }
+    public DateTime? LatestCommit { get; init; }
 }
 
 public sealed record DeckDiffResult(

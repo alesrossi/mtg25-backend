@@ -297,6 +297,79 @@ public static partial class DecksEndpoint
         }
     }
 
+    private static async Task<IResult> GetDeckHistoryVisualizationAsync(
+        int deckId,
+        [FromQuery] bool includeOrphans = false,
+        HttpContext context = null!,
+        [FromServices] IDeckHistoryService deckHistoryService = null!,
+        [FromServices] ILogger<DecksEndpointLogCategory> logger = null!,
+        [FromServices] IMessageLocalizer messageLocalizer = null!,
+        CancellationToken cancellationToken = default)
+    {
+        const string operation = "Decks.History";
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+
+        using var scope = logger.BeginOperationScope(operation, deckId);
+        logger.LogOperationStart(operation, new { deckId, includeOrphans, IsAnonymous = string.IsNullOrEmpty(userId) });
+
+        try
+        {
+            var result = await deckHistoryService.GetHistoryVisualizationAsync(deckId, userId, includeOrphans, cancellationToken);
+            var dto = MapHistoryVisualizationDto(result);
+            logger.LogOperationSuccess(operation, new { deckId, dto.Metadata.TotalBranches, dto.Metadata.TotalCommits });
+            return Results.Ok(dto);
+        }
+        catch (DeckHistoryServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { deckId, userId });
+            return await MapDeckHistoryServiceException(ex, context, messageLocalizer, userId);
+        }
+    }
+
+    private static DeckHistoryVisualizationDto MapHistoryVisualizationDto(DeckHistoryVisualizationResult result)
+        => new()
+        {
+            DeckId = result.DeckId,
+            Branches = result.BranchHistories.Select(bh => new BranchHistoryDto
+            {
+                BranchId = bh.Branch.Id,
+                BranchName = bh.Branch.Name,
+                HeadCommitId = bh.Branch.HeadCommitId,
+                CreatedAt = bh.Branch.CreatedAt,
+                CreatedByUserId = bh.Branch.CreatedByUserId,
+                Commits = bh.Commits.Select(c => new CommitNodeDto
+                {
+                    Id = c.Id,
+                    DeckId = c.DeckId,
+                    TreeId = c.TreeId,
+                    AuthorId = c.AuthorId,
+                    Message = c.Message,
+                    CommittedAt = c.CommittedAt,
+                    ParentIds = result.ParentLookup.GetValueOrDefault(c.Id, []),
+                    ReferencingBranches = result.CommitToBranches.GetValueOrDefault(c.Id, [])
+                }).ToList()
+            }).ToList(),
+            OrphanedCommits = result.OrphanedCommits.Select(c => new CommitNodeDto
+            {
+                Id = c.Id,
+                DeckId = c.DeckId,
+                TreeId = c.TreeId,
+                AuthorId = c.AuthorId,
+                Message = c.Message,
+                CommittedAt = c.CommittedAt,
+                ParentIds = result.ParentLookup.GetValueOrDefault(c.Id, []),
+                ReferencingBranches = []
+            }).ToList(),
+            Metadata = new CommitGraphMetadataDto
+            {
+                TotalCommits = result.Metadata.TotalCommits,
+                TotalBranches = result.Metadata.TotalBranches,
+                OrphanedCommits = result.Metadata.OrphanedCommits,
+                EarliestCommit = result.Metadata.EarliestCommit,
+                LatestCommit = result.Metadata.LatestCommit
+            }
+        };
+
     private static DeckBranchDto MapBranchDto(DeckBranch branch)
         => new()
         {
