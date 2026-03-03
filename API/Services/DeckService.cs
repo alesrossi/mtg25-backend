@@ -482,7 +482,7 @@ public sealed class DeckService : IDeckService
         _unitOfWork.Repository<Deck>().Add(deck);
         await _unitOfWork.Complete();
 
-        await _deckHistoryService.InitializeDeckHistoryAsync(deck.Id, userId, cancellationToken: cancellationToken);
+        
 
         var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId, cancellationToken);
         deck.TotalPriceCurrency = _userSettingsService.ResolveCurrency(marketProvider);
@@ -511,6 +511,9 @@ public sealed class DeckService : IDeckService
             .ToList();
         deck.DeckList = BuildDeckList(createdCards);
         _unitOfWork.Repository<Deck>().Update(deck);
+        
+        await _deckHistoryService.InitializeDeckHistoryAsync(deck.Id, userId, cancellationToken: cancellationToken);
+        
         await _unitOfWork.Complete();
 
         return new ImportDeckDto(MapToDto(deck), createdCards.ToList(), allErrors, skippedLines);
