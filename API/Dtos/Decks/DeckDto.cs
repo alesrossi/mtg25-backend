@@ -16,4 +16,6 @@ public class DeckDto
     public List<string> ColorIdentity { get; set; } = [];
     public bool IsPublic { get; set; }
     public required string OwnerId { get; set; }
+    public int? CurrentBranchId { get; set; }
+    public int? CurrentCommitId { get; set; }
 }

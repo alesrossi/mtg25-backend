@@ -659,7 +659,10 @@ public sealed class DeckService : IDeckService
             TotalPriceCurrency = deck.TotalPriceCurrency,
             ColorIdentity = deck.ColorIdentity.ToList(),
             IsPublic = deck.IsPublic,
-            OwnerId = deck.OwnerId
+            OwnerId = deck.OwnerId,
+            CurrentBranchId = deck.CurrentBranchId,
+            CurrentCommitId = deck.CurrentCommitId
+            
         };
     }
 
