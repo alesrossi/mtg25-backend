@@ -2,8 +2,8 @@ using System.Security.Claims;
 using API.Helpers;
 using API.Logging;
 using API.Services;
+using Core.Interfaces;
 using Core.Models.Identity;
-using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +18,7 @@ public static partial class TradesEndpoints
         [FromServices] ITradeConnectionService tradeConnectionService,
         [FromServices] ILogger<TradesEndpointLogCategory> logger,
         [FromServices] UserManager<AppUser> userManager,
-        [FromServices] MainContext identityDbContext,
+        [FromServices] IUnitOfWork uow,
         [FromServices] IMessageLocalizer messageLocalizer,
         HttpContext context,
         CancellationToken cancellationToken,
@@ -59,7 +59,7 @@ public static partial class TradesEndpoints
 
         if (!liveTrading)
         {
-            var hasApproval = await identityDbContext.Notifications
+            var hasApproval = await uow.CompositeRepository<Notification>().Query
                 .AsNoTracking()
                 .AnyAsync(n =>
                     n.Name == "trade_request"

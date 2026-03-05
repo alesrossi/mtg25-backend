@@ -2,8 +2,8 @@ using System.Security.Claims;
 using API.Helpers;
 using API.Logging;
 using API.Services;
+using Core.Interfaces;
 using Core.Models.Identity;
-using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -28,7 +28,7 @@ public static partial class AccountsEndpoints
     private static async Task<IResult> GetSettingsAsync(
         HttpContext context,
         [FromServices] UserManager<AppUser> userManager,
-        [FromServices] MainContext dbContext,
+        [FromServices] IUnitOfWork uow,
         [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<AccountsEndpointLogCategory> logger)
     {
@@ -61,7 +61,7 @@ public static partial class AccountsEndpoints
                 "settings-get-auth-required");
         }
 
-        var res = await dbContext.Settings
+        var res = await uow.CompositeRepository<Settings>().Query
             .Where(ul => ul.AppUserId == userId)
             .AsNoTracking()
             .FirstOrDefaultAsync();

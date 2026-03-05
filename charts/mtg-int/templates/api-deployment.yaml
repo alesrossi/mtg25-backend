@@ -104,11 +104,6 @@ spec:
                 secretKeyRef:
                   name: api-int-secrets
                   key: connectionStringsDefault
-            - name: ConnectionStrings__IdentityConnection
-              valueFrom:
-                secretKeyRef:
-                  name: api-int-secrets
-                  key: connectionStringsIdentity
             - name: JWT__SecretKey
               valueFrom:
                 secretKeyRef:

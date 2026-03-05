@@ -2,8 +2,8 @@ using API.Constants;
 using API.Dtos.Friends;
 using API.Dtos.Notifications;
 using Core.Enums;
+using Core.Interfaces;
 using Core.Models.Identity;
-using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,16 +22,16 @@ public interface IFriendService
 public sealed class FriendService : IFriendService
 {
     private readonly UserManager<AppUser> _userManager;
-    private readonly MainContext _identityDbContext;
+    private readonly IUnitOfWork _uow;
     private readonly NotificationService _notificationService;
 
     public FriendService(
         UserManager<AppUser> userManager,
-        MainContext identityDbContext,
+        IUnitOfWork uow,
         NotificationService notificationService)
     {
         _userManager = userManager;
-        _identityDbContext = identityDbContext;
+        _uow = uow;
         _notificationService = notificationService;
     }
 
@@ -70,8 +70,8 @@ public sealed class FriendService : IFriendService
             RequestedAt = DateTime.UtcNow
         };
 
-        _identityDbContext.AppUserFriends.Add(friendship);
-        await _identityDbContext.SaveChangesAsync(cancellationToken);
+        _uow.CompositeRepository<AppUserFriend>().Add(friendship);
+        await _uow.Complete(cancellationToken);
 
         var notification = new NewNotificationDto
         {
@@ -141,7 +141,7 @@ public sealed class FriendService : IFriendService
 
         friendship.Status = FriendshipStatus.Accepted;
         friendship.RespondedAt = DateTime.UtcNow;
-        await _identityDbContext.SaveChangesAsync(cancellationToken);
+        await _uow.Complete(cancellationToken);
 
         await _notificationService.DeleteNotificationsAsync(
             NotificationConstants.FriendRequest,
@@ -156,10 +156,10 @@ public sealed class FriendService : IFriendService
             throw new KeyNotFoundException("Friendship not found.");
         }
 
-        _identityDbContext.AppUserFriends.Remove(friendship);
-        await _identityDbContext.SaveChangesAsync(cancellationToken);
+        _uow.CompositeRepository<AppUserFriend>().Remove(friendship);
+        await _uow.Complete(cancellationToken);
     }
-    
+
     public async Task RejectFriendRequestAsync(string otherUserId, string recipientUserId, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(otherUserId) || string.IsNullOrWhiteSpace(recipientUserId))
@@ -191,14 +191,14 @@ public sealed class FriendService : IFriendService
         var approvalKey = $"{initiatorId}:{invitedUserId}";
         friendship.Status = FriendshipStatus.Rejected;
         friendship.RespondedAt = DateTime.UtcNow;
-        await _identityDbContext.SaveChangesAsync(cancellationToken);
+        await _uow.Complete(cancellationToken);
 
         await _notificationService.DeleteNotificationsAsync(NotificationConstants.FriendRequest, approvalKey);
     }
 
     public async Task<IReadOnlyList<FriendDto>> GetFriendsAsync(string userId, CancellationToken cancellationToken = default)
     {
-        var friendships = await _identityDbContext.AppUserFriends
+        var friendships = await _uow.CompositeRepository<AppUserFriend>().Query
             .AsNoTracking()
             .Include(f => f.User)
             .Include(f => f.Friend)
@@ -225,7 +225,7 @@ public sealed class FriendService : IFriendService
 
     private Task<AppUserFriend?> FindFriendshipAsync(string firstUserId, string secondUserId, CancellationToken cancellationToken)
     {
-        return _identityDbContext.AppUserFriends
+        return _uow.CompositeRepository<AppUserFriend>().Query
             .FirstOrDefaultAsync(
                 f => (f.UserId == firstUserId && f.FriendId == secondUserId)
                      || (f.UserId == secondUserId && f.FriendId == firstUserId),

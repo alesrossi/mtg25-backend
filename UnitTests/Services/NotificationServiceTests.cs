@@ -1,8 +1,9 @@
 using API.Dtos.Notifications;
 using API.Services;
+using Core.Enums;
+using Core.Interfaces;
 using Core.Models.Identity;
 using FluentAssertions;
-using Core.Enums;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -232,8 +233,13 @@ public class NotificationServiceTests
         return context;
     }
 
+    private static IUnitOfWork CreateUow(MainContext context)
+        => new UnitOfWork(context, NullLogger<UnitOfWork>.Instance, NullLoggerFactory.Instance);
+
     private static NotificationService CreateService(MainContext context)
     {
+        var uow = CreateUow(context);
+
         var settingsService = new Mock<IUserSettingsService>();
         settingsService.Setup(s => s.GetSettingsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string userId, CancellationToken _) => new Settings
@@ -247,6 +253,6 @@ public class NotificationServiceTests
         localizer.Setup(l => l.GetMessageForLanguage(It.IsAny<Language?>(), It.IsAny<string>(), It.IsAny<object[]>()))
             .Returns("localized");
 
-        return new NotificationService(context, NullLogger<NotificationService>.Instance, settingsService.Object, localizer.Object);
+        return new NotificationService(uow, NullLogger<NotificationService>.Instance, settingsService.Object, localizer.Object);
     }
 }

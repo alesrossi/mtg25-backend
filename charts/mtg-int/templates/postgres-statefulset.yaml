@@ -45,13 +45,7 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
-            - name: initdb
-              mountPath: /docker-entrypoint-initdb.d/init-identity-db.sql
-              subPath: init-identity-db.sql
       volumes:
-        - name: initdb
-          configMap:
-            name: {{ .Values.postgresql.initdb.configMap }}
         {{- if not .Values.postgresql.persistence.enabled }}
         - name: data
           emptyDir: {}

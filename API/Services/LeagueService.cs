@@ -5,8 +5,8 @@ using API.Dtos.Leagues;
 using API.Helpers;
 using API.Dtos.Notifications;
 using Core.Enums;
+using Core.Interfaces;
 using Core.Models.Identity;
-using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -41,20 +41,20 @@ public interface ILeagueService
 public sealed class LeagueService : ILeagueService
 {
     private readonly UserManager<AppUser> _userManager;
-    private readonly MainContext _dbContext;
+    private readonly IUnitOfWork _uow;
     private readonly IValidationService _validationService;
     private readonly NotificationService _notificationService;
     private readonly ILogger<LeagueService> _logger;
 
     public LeagueService(
         UserManager<AppUser> userManager,
-        MainContext dbContext,
+        IUnitOfWork uow,
         IValidationService validationService,
         NotificationService notificationService,
         ILogger<LeagueService> logger)
     {
         _userManager = userManager;
-        _dbContext = dbContext;
+        _uow = uow;
         _validationService = validationService;
         _notificationService = notificationService;
         _logger = logger;
@@ -62,7 +62,7 @@ public sealed class LeagueService : ILeagueService
 
     public async Task<IReadOnlyList<League>> GetPublicLeaguesAsync(string userId, CancellationToken cancellationToken = default)
     {
-        return await _dbContext.Leagues
+        return await _uow.CompositeRepository<League>().Query
             .AsNoTracking()
             .Where(l => l.IsPublic)
             .ToListAsync(cancellationToken);
@@ -72,7 +72,7 @@ public sealed class LeagueService : ILeagueService
     {
         var user = await EnsureUserAsync(userId);
 
-        var res = await _dbContext.UserLeagues
+        var res = await _uow.CompositeRepository<AppUserLeague>().Query
             .Where(ul => ul.UserId == userId)
             .Include(ul => ul.League)
             .AsNoTracking()
@@ -105,7 +105,7 @@ public sealed class LeagueService : ILeagueService
             })
             .ToDictionary(league => league.Id);
 
-        var ownedLeagues = await _dbContext.Leagues
+        var ownedLeagues = await _uow.CompositeRepository<League>().Query
             .Where(l => l.OwnerId == userId)
             .Select(league => new LeagueDto
             {
@@ -148,7 +148,7 @@ public sealed class LeagueService : ILeagueService
 
         if (currentRoundIds.Count > 0)
         {
-            var roundOrders = await _dbContext.Rounds
+            var roundOrders = await _uow.CompositeRepository<Round>().Query
                 .Where(r => currentRoundIds.Contains(r.Id))
                 .Select(r => new { r.Id, r.Order })
                 .AsNoTracking()
@@ -181,7 +181,7 @@ public sealed class LeagueService : ILeagueService
         }
 
         var leagueIds = leaguesById.Keys.ToList();
-        var adminAssignmentsRaw = await _dbContext.LeagueRoleAssignments
+        var adminAssignmentsRaw = await _uow.CompositeRepository<LeagueRoleAssignment>().Query
             .AsNoTracking()
             .Where(lr => leagueIds.Contains(lr.LeagueId))
             .Select(lr => new { lr.LeagueId, lr.UserId, lr.Roles })
@@ -216,7 +216,7 @@ public sealed class LeagueService : ILeagueService
 
     public async Task<LeagueDto> GetLeagueByIdAsync(int leagueId, string userId, CancellationToken cancellationToken = default)
     {
-        var league = await _dbContext.Leagues
+        var league = await _uow.CompositeRepository<League>().Query
             .AsNoTracking()
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
@@ -224,7 +224,7 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
         }
 
-        var isMember = !string.IsNullOrEmpty(userId) && (userId == league.OwnerId || await _dbContext.UserLeagues
+        var isMember = !string.IsNullOrEmpty(userId) && (userId == league.OwnerId || await _uow.CompositeRepository<AppUserLeague>().Query
             .AnyAsync(ul => ul.LeagueId == league.Id && ul.UserId == userId, cancellationToken));
 
         if (!isMember && !league.IsPublic)
@@ -232,13 +232,13 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.Unauthorized("Errors.Leagues.Unauthorized");
         }
 
-        var res = isMember ? await _dbContext.UserLeagues
+        var res = isMember ? await _uow.CompositeRepository<AppUserLeague>().Query
             .Where(ul => ul.LeagueId == league.Id && ul.UserId == userId)
             .Include(ul => ul.League)
             .AsNoTracking()
             .FirstOrDefaultAsync(cancellationToken) : null;
 
-        var adminAssignmentsRaw = await _dbContext.LeagueRoleAssignments
+        var adminAssignmentsRaw = await _uow.CompositeRepository<LeagueRoleAssignment>().Query
             .AsNoTracking()
             .Where(lr => lr.LeagueId == league.Id)
             .Select(lr => new { lr.UserId, lr.Roles })
@@ -278,7 +278,7 @@ public sealed class LeagueService : ILeagueService
 
     public async Task<LeagueWithScoresDto> GetLeagueScoresAsync(int leagueId, string userId, CancellationToken cancellationToken = default)
     {
-        var league = await _dbContext.Leagues
+        var league = await _uow.CompositeRepository<League>().Query
             .AsNoTracking()
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
@@ -286,7 +286,7 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
         }
 
-        var isMember = !string.IsNullOrEmpty(userId) && (userId == league.OwnerId || await _dbContext.UserLeagues
+        var isMember = !string.IsNullOrEmpty(userId) && (userId == league.OwnerId || await _uow.CompositeRepository<AppUserLeague>().Query
             .AnyAsync(ul => ul.LeagueId == league.Id && ul.UserId == userId, cancellationToken));
 
         if (!isMember && !league.IsPublic)
@@ -294,7 +294,7 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.Unauthorized("Errors.Leagues.Unauthorized");
         }
 
-        var res = await _dbContext.UserLeagues
+        var res = await _uow.CompositeRepository<AppUserLeague>().Query
             .Where(ul => ul.LeagueId == league.Id)
             .Include(ul => ul.User)
             .AsNoTracking()
@@ -336,7 +336,7 @@ public sealed class LeagueService : ILeagueService
 
     public async Task<RoundInfoDto> GetRoundByIdAsync(int leagueId, int roundId, string userId, CancellationToken cancellationToken = default)
     {
-        var league = await _dbContext.Leagues
+        var league = await _uow.CompositeRepository<League>().Query
             .AsNoTracking()
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
@@ -344,7 +344,7 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
         }
 
-        var isMember = !string.IsNullOrEmpty(userId) && (userId == league.OwnerId || await _dbContext.UserLeagues
+        var isMember = !string.IsNullOrEmpty(userId) && (userId == league.OwnerId || await _uow.CompositeRepository<AppUserLeague>().Query
             .AnyAsync(ul => ul.LeagueId == league.Id && ul.UserId == userId, cancellationToken));
 
         if (!isMember && !league.IsPublic)
@@ -352,7 +352,7 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.Unauthorized("Errors.Leagues.Unauthorized");
         }
 
-        var round = await _dbContext.Rounds
+        var round = await _uow.CompositeRepository<Round>().Query
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Id == roundId && r.LeagueId == leagueId, cancellationToken);
         if (round is null)
@@ -360,7 +360,7 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
         }
 
-        var userRounds = await _dbContext.UserRounds
+        var userRounds = await _uow.CompositeRepository<AppUserRound>().Query
             .AsNoTracking()
             .Where(ur => ur.RoundId == roundId)
             .OrderBy(ur => ur.Position)
@@ -378,7 +378,7 @@ public sealed class LeagueService : ILeagueService
             })
             .ToListAsync(cancellationToken);
 
-        var participants = await _dbContext.RoundParticipants
+        var participants = await _uow.CompositeRepository<RoundParticipant>().Query
             .AsNoTracking()
             .Where(rp => rp.RoundId == roundId)
             .ToListAsync(cancellationToken);
@@ -398,7 +398,7 @@ public sealed class LeagueService : ILeagueService
 
     public async Task<IReadOnlyList<RoundInfoDto>> GetRoundsByLeagueIdAsync(int leagueId, string userId, CancellationToken cancellationToken = default)
     {
-        var league = await _dbContext.Leagues
+        var league = await _uow.CompositeRepository<League>().Query
             .AsNoTracking()
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
@@ -406,7 +406,7 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
         }
 
-        var isMember = !string.IsNullOrEmpty(userId) && (userId == league.OwnerId || await _dbContext.UserLeagues
+        var isMember = !string.IsNullOrEmpty(userId) && (userId == league.OwnerId || await _uow.CompositeRepository<AppUserLeague>().Query
             .AnyAsync(ul => ul.LeagueId == league.Id && ul.UserId == userId, cancellationToken));
 
         if (!isMember && !league.IsPublic)
@@ -421,7 +421,7 @@ public sealed class LeagueService : ILeagueService
         }
 
         // Recuperare tutti i round esistenti
-        var existingRounds = await _dbContext.Rounds
+        var existingRounds = await _uow.CompositeRepository<Round>().Query
             .AsNoTracking()
             .Where(r => r.LeagueId == leagueId)
             .OrderBy(r => r.Order)
@@ -430,7 +430,7 @@ public sealed class LeagueService : ILeagueService
         // Recuperare tutti i giocatori per i round esistenti in una singola query
         var roundIds = existingRounds.Select(r => r.Id).ToList();
         var allUserRounds = roundIds.Count > 0
-            ? await _dbContext.UserRounds
+            ? await _uow.CompositeRepository<AppUserRound>().Query
                 .AsNoTracking()
                 .Where(ur => roundIds.Contains(ur.RoundId))
                 .OrderBy(ur => ur.Position)
@@ -457,7 +457,7 @@ public sealed class LeagueService : ILeagueService
             );
 
         var allParticipants = roundIds.Count > 0
-            ? await _dbContext.RoundParticipants
+            ? await _uow.CompositeRepository<RoundParticipant>().Query
                 .AsNoTracking()
                 .Where(rp => roundIds.Contains(rp.RoundId))
                 .ToListAsync(cancellationToken)
@@ -512,8 +512,7 @@ public sealed class LeagueService : ILeagueService
     {
         var user = await EnsureUserAsync(userId);
 
-        var league = await _dbContext.Leagues
-            .AsTracking()
+        var league = await _uow.CompositeRepository<League>().Query
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
         {
@@ -543,7 +542,7 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.BadRequest("Errors.Leagues.InvalidCurrentRound");
         }
 
-        var currentRound = await _dbContext.Rounds
+        var currentRound = await _uow.CompositeRepository<Round>().Query
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Id == updateLeague.CurrentRound && r.LeagueId == league.Id, cancellationToken);
         if (currentRound is null)
@@ -553,8 +552,8 @@ public sealed class LeagueService : ILeagueService
 
         league.CurrentRound = currentRound.Id;
 
-        _dbContext.Update(league);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        _uow.CompositeRepository<League>().Update(league);
+        await _uow.Complete(cancellationToken);
 
         return league;
     }
@@ -568,8 +567,7 @@ public sealed class LeagueService : ILeagueService
     {
         var user = await EnsureUserAsync(userId);
 
-        var league = await _dbContext.Leagues
-            .AsTracking()
+        var league = await _uow.CompositeRepository<League>().Query
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
         {
@@ -581,8 +579,7 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.Unauthorized("Errors.Leagues.Unauthorized");
         }
 
-        var round = await _dbContext.Rounds
-            .AsTracking()
+        var round = await _uow.CompositeRepository<Round>().Query
             .FirstOrDefaultAsync(r => r.Id == roundId && r.LeagueId == leagueId, cancellationToken);
         if (round is null)
         {
@@ -625,7 +622,7 @@ public sealed class LeagueService : ILeagueService
                 throw LeagueServiceException.BadRequest("Errors.Leagues.ValidationFailed");
             }
 
-            var eligiblePlayerIds = await _dbContext.UserLeagues
+            var eligiblePlayerIds = await _uow.CompositeRepository<AppUserLeague>().Query
                 .Where(ul => ul.LeagueId == leagueId && ul.IsPlaying)
                 .Select(ul => ul.UserId)
                 .ToListAsync(cancellationToken);
@@ -639,14 +636,14 @@ public sealed class LeagueService : ILeagueService
                 throw LeagueServiceException.BadRequest("Errors.Leagues.UserMustBeMember", includeBody: true);
             }
 
-            var existingRounds = await _dbContext.UserRounds
+            var existingRounds = await _uow.CompositeRepository<AppUserRound>().Query
                 .Where(ur => ur.RoundId == round.Id)
                 .ToListAsync(cancellationToken);
-            _dbContext.UserRounds.RemoveRange(existingRounds);
+            _uow.CompositeRepository<AppUserRound>().RemoveRange(existingRounds);
 
             if (distinctPlayerIds.Count > 0)
             {
-                var users = await _dbContext.Users
+                var users = await _uow.CompositeRepository<AppUser>().Query
                     .Where(u => distinctPlayerIds.Contains(u.Id))
                     .ToListAsync(cancellationToken);
                 var userLookup = users.ToDictionary(user2 => user2.Id);
@@ -673,7 +670,7 @@ public sealed class LeagueService : ILeagueService
                         })
                         .ToList();
 
-                    await _dbContext.UserRounds.AddRangeAsync(userRounds, cancellationToken);
+                    _uow.CompositeRepository<AppUserRound>().AddRange(userRounds);
                     round.Players = userRounds;
                 }
                 else
@@ -756,19 +753,18 @@ public sealed class LeagueService : ILeagueService
                     round.Players = userRounds;
                     round.Status = Status.Played;
 
-                    var nextRound = await _dbContext.Rounds
-                        .AsTracking()
+                    var nextRound = await _uow.CompositeRepository<Round>().Query
                         .Where(r => r.LeagueId == leagueId && r.Order > round.Order)
                         .OrderBy(r => r.Order)
                         .FirstOrDefaultAsync(cancellationToken);
                     if (nextRound != null)
                     {
                         nextRound.Status = Status.Playing;
-                        _dbContext.Update(nextRound);
+                        _uow.CompositeRepository<Round>().Update(nextRound);
                     }
 
-                    await _dbContext.UserRounds.AddRangeAsync(userRounds, cancellationToken);
-                    _dbContext.Update(league);
+                    _uow.CompositeRepository<AppUserRound>().AddRange(userRounds);
+                    _uow.CompositeRepository<League>().Update(league);
                 }
             }
             else
@@ -777,8 +773,8 @@ public sealed class LeagueService : ILeagueService
             }
         }
 
-        _dbContext.Update(round);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        _uow.CompositeRepository<Round>().Update(round);
+        await _uow.Complete(cancellationToken);
 
         if (hasResultData)
         {
@@ -790,7 +786,7 @@ public sealed class LeagueService : ILeagueService
 
     private async Task RecalculateLeagueStandingsAsync(League league, CancellationToken cancellationToken)
     {
-        var userLeagues = await _dbContext.UserLeagues
+        var userLeagues = await _uow.CompositeRepository<AppUserLeague>().Query
             .Where(ul => ul.LeagueId == league.Id && ul.IsPlaying)
             .ToListAsync(cancellationToken);
 
@@ -805,7 +801,7 @@ public sealed class LeagueService : ILeagueService
 
         league.TotalPrize = 0;
 
-        var playedUserRounds = await _dbContext.UserRounds
+        var playedUserRounds = await _uow.CompositeRepository<AppUserRound>().Query
             .AsNoTracking()
             .Include(userRound => userRound.Round)
             .Where(userRound => userRound.Round.LeagueId == league.Id && userRound.Round.Status == Status.Played)
@@ -831,9 +827,9 @@ public sealed class LeagueService : ILeagueService
             league.TotalPrize += league.PrizePerPerson;
         }
 
-        _dbContext.Update(league);
-        _dbContext.UpdateRange(userLeagues);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        _uow.CompositeRepository<League>().Update(league);
+        _uow.CompositeRepository<AppUserLeague>().UpdateRange(userLeagues);
+        await _uow.Complete(cancellationToken);
     }
 
     private sealed class RoundResultEntry
@@ -853,8 +849,7 @@ public sealed class LeagueService : ILeagueService
             userId,
             userList.Count);
 
-        var league = await _dbContext.Leagues
-            .AsTracking()
+        var league = await _uow.CompositeRepository<League>().Query
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
         {
@@ -874,8 +869,7 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.BadRequest("Errors.Leagues.InvalidCurrentRound");
         }
 
-        var round = await _dbContext.Rounds
-            .AsTracking()
+        var round = await _uow.CompositeRepository<Round>().Query
             .FirstOrDefaultAsync(r => r.LeagueId == league.Id && r.Id == league.CurrentRound, cancellationToken);
         if (round is null)
         {
@@ -904,7 +898,7 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.BadRequest("Errors.Leagues.ValidationFailed");
         }
 
-        var userLeagues = await _dbContext.UserLeagues
+        var userLeagues = await _uow.CompositeRepository<AppUserLeague>().Query
             .Where(ul => ul.LeagueId == league.Id && ul.IsPlaying)
             .Include(ul => ul.User)
             .ToListAsync(cancellationToken);
@@ -918,10 +912,10 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.BadRequest("Errors.Leagues.UserMustBeMember", includeBody: true);
         }
 
-        var existingUserRounds = await _dbContext.UserRounds
+        var existingUserRounds = await _uow.CompositeRepository<AppUserRound>().Query
             .Where(ur => ur.RoundId == round.Id)
             .ToListAsync(cancellationToken);
-        _dbContext.UserRounds.RemoveRange(existingUserRounds);
+        _uow.CompositeRepository<AppUserRound>().RemoveRange(existingUserRounds);
 
         var orderedUsers = userList
             .Select((user, index) => new UserResultEntry
@@ -1002,7 +996,7 @@ public sealed class LeagueService : ILeagueService
         round.Players = userRounds;
         round.Status = Status.Played;
 
-        var nextRound = await _dbContext.Rounds
+        var nextRound = await _uow.CompositeRepository<Round>().Query
             .AsNoTracking()
             .Where(r => r.LeagueId == league.Id && r.Order > round.Order)
             .OrderBy(r => r.Order)
@@ -1012,11 +1006,11 @@ public sealed class LeagueService : ILeagueService
             league.CurrentRound = nextRound.Id;
         }
 
-        _dbContext.Update(league);
-        _dbContext.Update(round);
-        _dbContext.UpdateRange(userLeagues);
-        await _dbContext.UserRounds.AddRangeAsync(userRounds, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        _uow.CompositeRepository<League>().Update(league);
+        _uow.CompositeRepository<Round>().Update(round);
+        _uow.CompositeRepository<AppUserLeague>().UpdateRange(userLeagues);
+        _uow.CompositeRepository<AppUserRound>().AddRange(userRounds);
+        await _uow.Complete(cancellationToken);
     }
 
     private sealed class UserResultEntry
@@ -1030,8 +1024,7 @@ public sealed class LeagueService : ILeagueService
     {
         await EnsureUserAsync(userId);
 
-        var league = await _dbContext.Leagues
-            .AsTracking()
+        var league = await _uow.CompositeRepository<League>().Query
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
         {
@@ -1050,21 +1043,21 @@ public sealed class LeagueService : ILeagueService
     {
         var user = await EnsureUserAsync(userId);
 
-        var league = await _dbContext.Leagues
+        var league = await _uow.CompositeRepository<League>().Query
             .FirstOrDefaultAsync(l => l.Code == code, cancellationToken);
         if (league is null)
         {
             throw LeagueServiceException.NotFound("Errors.Leagues.NotFound", includeBody: true);
         }
 
-        var existingMember = await _dbContext.UserLeagues
+        var existingMember = await _uow.CompositeRepository<AppUserLeague>().Query
             .AnyAsync(ul => ul.LeagueId == league.Id && ul.UserId == user.Id, cancellationToken);
         if (existingMember)
         {
             throw LeagueServiceException.BadRequest("Errors.Leagues.UserAlreadyJoined", includeBody: true);
         }
 
-        var adminAssignments = await _dbContext.LeagueRoleAssignments
+        var adminAssignments = await _uow.CompositeRepository<LeagueRoleAssignment>().Query
             .AsNoTracking()
             .Where(lr => lr.LeagueId == league.Id)
             .Select(lr => new { lr.UserId, lr.Roles })
@@ -1105,13 +1098,14 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.Unauthorized("Errors.Leagues.Unauthorized");
         }
 
-        var league = await _dbContext.Leagues.FindAsync([leagueId], cancellationToken);
+        var league = await _uow.CompositeRepository<League>().Query
+            .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
         {
             throw LeagueServiceException.NotFound("Errors.Leagues.NotFound", includeBody: true);
         }
 
-        var existingMember = await _dbContext.UserLeagues
+        var existingMember = await _uow.CompositeRepository<AppUserLeague>().Query
             .AnyAsync(ul => ul.LeagueId == league.Id && ul.UserId == user.Id, cancellationToken);
         if (existingMember)
         {
@@ -1120,7 +1114,7 @@ public sealed class LeagueService : ILeagueService
 
         var exactMatch = $"{league.Id}.{userId}";
 
-        var approved = await _dbContext.Notifications
+        var approved = await _uow.CompositeRepository<Notification>().Query
             .AnyAsync(n =>
                 n.Origin == exactMatch
                 && n.Approval, cancellationToken);
@@ -1129,7 +1123,7 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.BadRequest("Errors.Leagues.UserNotApproved", includeBody: true);
         }
 
-        await _dbContext.AddAsync(new AppUserLeague
+        _uow.CompositeRepository<AppUserLeague>().Add(new AppUserLeague
         {
             UserId = user.Id,
             User = user,
@@ -1140,12 +1134,12 @@ public sealed class LeagueService : ILeagueService
             Rounds = [],
             BestRound = 0,
             AvgPosition = 0
-        }, cancellationToken);
+        });
 
         league.TotalPlayers++;
-        _dbContext.Update(league);
+        _uow.CompositeRepository<League>().Update(league);
         await AssignLeagueRoleAsync(user.Id, league.Id, LeagueRole.Player, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _uow.Complete(cancellationToken);
 
         var ownerNotification = new NewNotificationDto
         {
@@ -1176,7 +1170,7 @@ public sealed class LeagueService : ILeagueService
     {
         var user = await EnsureUserAsync(userId);
 
-        var league = await _dbContext.Leagues
+        var league = await _uow.CompositeRepository<League>().Query
             .AsNoTracking()
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
@@ -1189,16 +1183,17 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.BadRequest("Errors.Leagues.CannotLeaveOwner", includeBody: true);
         }
 
-        var res = _dbContext.UserLeagues.FirstOrDefault(ul => ul.LeagueId == league.Id && ul.UserId == userId);
+        var res = _uow.CompositeRepository<AppUserLeague>().Query
+            .FirstOrDefault(ul => ul.LeagueId == league.Id && ul.UserId == userId);
         if (res is null)
         {
             throw LeagueServiceException.BadRequest("Errors.Leagues.UserNotPlaying", includeBody: true);
         }
 
         res.IsPlaying = false;
-        _dbContext.Update(res);
+        _uow.CompositeRepository<AppUserLeague>().Update(res);
         await RemoveLeagueRoleAsync(userId, league.Id, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _uow.Complete(cancellationToken);
 
         var newNotification = new NewNotificationDto
         {
@@ -1245,8 +1240,8 @@ public sealed class LeagueService : ILeagueService
             PointsPerLoss = leagueDto.PointsPerLoss ?? null
         };
 
-        await _dbContext.AddAsync(league, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        _uow.CompositeRepository<League>().Add(league);
+        await _uow.Complete(cancellationToken);
 
         if (league.TotalRounds > 0)
         {
@@ -1261,16 +1256,16 @@ public sealed class LeagueService : ILeagueService
 
             rounds[0].Status = Status.Playing;
 
-            await _dbContext.AddRangeAsync(rounds, cancellationToken);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            _uow.CompositeRepository<Round>().AddRange(rounds);
+            await _uow.Complete(cancellationToken);
 
             league.CurrentRound = rounds[0].Id;
-            _dbContext.Update(league);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            _uow.CompositeRepository<League>().Update(league);
+            await _uow.Complete(cancellationToken);
         }
 
         await AssignLeagueRoleAsync(user.Id, league.Id, LeagueRole.Admin, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _uow.Complete(cancellationToken);
 
         var userLeague = new AppUserLeague
         {
@@ -1284,8 +1279,8 @@ public sealed class LeagueService : ILeagueService
             IsPlaying = false
         };
 
-        await _dbContext.AddAsync(userLeague, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        _uow.CompositeRepository<AppUserLeague>().Add(userLeague);
+        await _uow.Complete(cancellationToken);
 
         return league;
     }
@@ -1294,7 +1289,7 @@ public sealed class LeagueService : ILeagueService
     {
         var user = await EnsureUserAsync(userId);
 
-        var league = await _dbContext.Set<League>()
+        var league = await _uow.CompositeRepository<League>().Query
             .Where(x => x.Id == leagueId)
             .FirstOrDefaultAsync(cancellationToken);
         if (league is null)
@@ -1312,7 +1307,7 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.BadRequest("Errors.Leagues.LeagueInactive");
         }
 
-        var ownerMembership = await _dbContext.UserLeagues
+        var ownerMembership = await _uow.CompositeRepository<AppUserLeague>().Query
             .FirstOrDefaultAsync(ul => ul.LeagueId == league.Id && ul.UserId == user.Id, cancellationToken);
         if (ownerMembership is null)
         {
@@ -1325,20 +1320,19 @@ public sealed class LeagueService : ILeagueService
         }
 
         ownerMembership.IsPlaying = true;
-        _dbContext.UserLeagues.Update(ownerMembership);
+        _uow.CompositeRepository<AppUserLeague>().Update(ownerMembership);
 
         league.TotalPlayers++;
-        _dbContext.Update(league);
+        _uow.CompositeRepository<League>().Update(league);
         await AssignLeagueRoleAsync(user.Id, league.Id, LeagueRole.Player, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _uow.Complete(cancellationToken);
     }
 
     public async Task PromoteLeagueAdminAsync(int leagueId, string userId, string targetUserId, CancellationToken cancellationToken = default)
     {
         var caller = await EnsureUserAsync(userId);
 
-        var league = await _dbContext.Leagues
-            .AsTracking()
+        var league = await _uow.CompositeRepository<League>().Query
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
         {
@@ -1356,7 +1350,7 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.NotFound("Errors.Leagues.UserNotFound", includeBody: true);
         }
 
-        var isMember = await _dbContext.UserLeagues
+        var isMember = await _uow.CompositeRepository<AppUserLeague>().Query
             .AsNoTracking()
             .AnyAsync(ul => ul.LeagueId == league.Id && ul.UserId == targetUser.Id && ul.IsPlaying, cancellationToken);
         if (!isMember)
@@ -1365,7 +1359,7 @@ public sealed class LeagueService : ILeagueService
         }
 
         await AssignLeagueRoleAsync(targetUser.Id, league.Id, LeagueRole.Admin, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _uow.Complete(cancellationToken);
 
         var notification = new NewNotificationDto
         {
@@ -1379,13 +1373,12 @@ public sealed class LeagueService : ILeagueService
         };
         await _notificationService.CreateNotificationAsync(notification);
     }
-    
+
     public async Task TerminateLeagueAsync(int leagueId, string userId, CancellationToken cancellationToken = default)
     {
         var caller = await EnsureUserAsync(userId);
 
-        var league = await _dbContext.Leagues
-            .AsTracking()
+        var league = await _uow.CompositeRepository<League>().Query
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
         {
@@ -1399,8 +1392,8 @@ public sealed class LeagueService : ILeagueService
 
         league.IsActive = false;
 
-        _dbContext.Update(league);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        _uow.CompositeRepository<League>().Update(league);
+        await _uow.Complete(cancellationToken);
     }
 
     public async Task<EventLinkParseResultDto> ParseEventLinkResultsAsync(
@@ -1408,7 +1401,7 @@ public sealed class LeagueService : ILeagueService
     {
         var user = await EnsureUserAsync(userId);
 
-        var league = await _dbContext.Leagues
+        var league = await _uow.CompositeRepository<League>().Query
             .AsNoTracking()
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
@@ -1424,7 +1417,7 @@ public sealed class LeagueService : ILeagueService
         await using var stream = file.OpenReadStream();
         var parseOutput = EventLinkPdfHelper.ParseEventLinkPdf(stream);
 
-        var members = await _dbContext.UserLeagues
+        var members = await _uow.CompositeRepository<AppUserLeague>().Query
             .Where(ul => ul.LeagueId == leagueId && ul.IsPlaying)
             .Include(ul => ul.User)
             .AsNoTracking()
@@ -1480,7 +1473,7 @@ public sealed class LeagueService : ILeagueService
 
     public async Task<bool> IsLeagueAdminAsync(int leagueId, string userId, CancellationToken cancellationToken = default)
     {
-        var league = await _dbContext.Leagues
+        var league = await _uow.CompositeRepository<League>().Query
             .AsNoTracking()
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
@@ -1493,7 +1486,7 @@ public sealed class LeagueService : ILeagueService
 
     public async Task<byte[]> ExportLeagueToExcelAsync(int leagueId, string userId, CancellationToken cancellationToken = default)
     {
-        var league = await _dbContext.Leagues
+        var league = await _uow.CompositeRepository<League>().Query
             .AsNoTracking()
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
@@ -1576,41 +1569,42 @@ public sealed class LeagueService : ILeagueService
 
     private async Task AssignLeagueRoleAsync(string userId, int leagueId, LeagueRole role, CancellationToken cancellationToken)
     {
-        var userExists = await _dbContext.Users.AnyAsync(u => u.Id == userId, cancellationToken);
+        var userExists = await _uow.CompositeRepository<AppUser>().Query
+            .AnyAsync(u => u.Id == userId, cancellationToken);
         if (!userExists)
         {
             return;
         }
 
-        var assignment = await _dbContext.LeagueRoleAssignments
+        var assignment = await _uow.CompositeRepository<LeagueRoleAssignment>().Query
             .FirstOrDefaultAsync(x => x.LeagueId == leagueId && x.UserId == userId, cancellationToken);
 
         if (assignment is null)
         {
-            await _dbContext.LeagueRoleAssignments.AddAsync(new LeagueRoleAssignment
+            _uow.CompositeRepository<LeagueRoleAssignment>().Add(new LeagueRoleAssignment
             {
                 LeagueId = leagueId,
                 UserId = userId,
                 Roles = role
-            }, cancellationToken);
+            });
             return;
         }
 
         if (!assignment.Roles.HasFlag(role))
         {
             assignment.Roles |= role;
-            _dbContext.LeagueRoleAssignments.Update(assignment);
+            _uow.CompositeRepository<LeagueRoleAssignment>().Update(assignment);
         }
     }
 
     private async Task RemoveLeagueRoleAsync(string userId, int leagueId, CancellationToken cancellationToken)
     {
-        var assignment = await _dbContext.LeagueRoleAssignments
+        var assignment = await _uow.CompositeRepository<LeagueRoleAssignment>().Query
             .FirstOrDefaultAsync(x => x.LeagueId == leagueId && x.UserId == userId, cancellationToken);
 
         if (assignment != null)
         {
-            _dbContext.LeagueRoleAssignments.Remove(assignment);
+            _uow.CompositeRepository<LeagueRoleAssignment>().Remove(assignment);
         }
     }
 
@@ -1618,7 +1612,7 @@ public sealed class LeagueService : ILeagueService
     {
         if (league.OwnerId == userId) return true;
 
-        var assignment = await _dbContext.LeagueRoleAssignments
+        var assignment = await _uow.CompositeRepository<LeagueRoleAssignment>().Query
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.LeagueId == league.Id && x.UserId == userId, cancellationToken);
 
@@ -1629,7 +1623,7 @@ public sealed class LeagueService : ILeagueService
     {
         var user = await EnsureUserAsync(userId);
 
-        var league = await _dbContext.Leagues
+        var league = await _uow.CompositeRepository<League>().Query
             .AsNoTracking()
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
@@ -1637,7 +1631,7 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
         }
 
-        var round = await _dbContext.Rounds
+        var round = await _uow.CompositeRepository<Round>().Query
             .FirstOrDefaultAsync(r => r.Id == roundId && r.LeagueId == leagueId, cancellationToken);
         if (round is null)
         {
@@ -1649,7 +1643,7 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.BadRequest("Errors.Leagues.RoundNotPlaying");
         }
 
-        var membership = await _dbContext.UserLeagues
+        var membership = await _uow.CompositeRepository<AppUserLeague>().Query
             .AsNoTracking()
             .FirstOrDefaultAsync(ul => ul.LeagueId == leagueId && ul.UserId == user.Id && ul.IsPlaying, cancellationToken);
         if (membership is null)
@@ -1657,14 +1651,14 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.BadRequest("Errors.Leagues.UserMustBeMember", includeBody: true);
         }
 
-        var alreadyJoined = await _dbContext.RoundParticipants
+        var alreadyJoined = await _uow.CompositeRepository<RoundParticipant>().Query
             .AnyAsync(rp => rp.RoundId == roundId && rp.UserId == user.Id, cancellationToken);
         if (alreadyJoined)
         {
             throw LeagueServiceException.BadRequest("Errors.Leagues.AlreadyJoinedRound");
         }
 
-        _dbContext.RoundParticipants.Add(new RoundParticipant
+        _uow.CompositeRepository<RoundParticipant>().Add(new RoundParticipant
         {
             UserId = user.Id,
             User = user,
@@ -1672,14 +1666,14 @@ public sealed class LeagueService : ILeagueService
             Round = round
         });
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _uow.Complete(cancellationToken);
     }
 
     public async Task LeaveRoundAsync(int leagueId, int roundId, string userId, CancellationToken cancellationToken = default)
     {
         var user = await EnsureUserAsync(userId);
 
-        var league = await _dbContext.Leagues
+        var league = await _uow.CompositeRepository<League>().Query
             .AsNoTracking()
             .FirstOrDefaultAsync(l => l.Id == leagueId, cancellationToken);
         if (league is null)
@@ -1687,7 +1681,7 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
         }
 
-        var round = await _dbContext.Rounds
+        var round = await _uow.CompositeRepository<Round>().Query
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Id == roundId && r.LeagueId == leagueId, cancellationToken);
         if (round is null)
@@ -1700,15 +1694,15 @@ public sealed class LeagueService : ILeagueService
             throw LeagueServiceException.BadRequest("Errors.Leagues.RoundNotPlaying");
         }
 
-        var participant = await _dbContext.RoundParticipants
+        var participant = await _uow.CompositeRepository<RoundParticipant>().Query
             .FirstOrDefaultAsync(rp => rp.RoundId == roundId && rp.UserId == user.Id, cancellationToken);
         if (participant is null)
         {
             throw LeagueServiceException.NotFound("Errors.Leagues.NotFound");
         }
 
-        _dbContext.RoundParticipants.Remove(participant);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        _uow.CompositeRepository<RoundParticipant>().Remove(participant);
+        await _uow.Complete(cancellationToken);
     }
 
     private static class SecureCodeGenerator

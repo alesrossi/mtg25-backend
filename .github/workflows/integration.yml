@@ -70,11 +70,6 @@ jobs:
       - name: Build solution
         run: dotnet build --no-restore --configuration Release
 
-      - name: Create test database
-        run: |
-          PGPASSWORD=supersecretlongpassword psql -h localhost -p 5433 -U root -d test_main -c "CREATE DATABASE test_identity;"
-        continue-on-error: true
-
       - name: Wait for services
         run: |
           echo "Waiting for PostgreSQL..."
@@ -102,7 +97,6 @@ jobs:
         env:
           ASPNETCORE_ENVIRONMENT: Production
           ConnectionStrings__DefaultConnection: "Server=localhost;Port=5433;Database=test_main;User Id=root;Password=supersecretlongpassword;"
-          ConnectionStrings__IdentityConnection: "Server=localhost;Port=5433;Database=test_identity;User Id=root;Password=supersecretlongpassword;"
           ConnectionStrings__Redis: "localhost:6379"
 
       - name: Upload test results

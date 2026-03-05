@@ -30,7 +30,6 @@ services:
       - "5434:5432"
     volumes:
       - postgres-int-data:/var/lib/postgresql/data
-      - ./scripts/init-identity-db.sql:/docker-entrypoint-initdb.d/init-identity-db.sql
     networks:
       - mtg-int-network
     healthcheck:
@@ -48,7 +47,6 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Integration
       - ConnectionStrings__DefaultConnection=Server=postgres-int;Port=5432;Database=main_int;User Id=root;Password=${INT_POSTGRES_PASSWORD};
-      - ConnectionStrings__IdentityConnection=Server=postgres-int;Port=5432;Database=identity_int;User Id=root;Password=${INT_POSTGRES_PASSWORD};
       - ConnectionStrings__Redis=redis-int:6379
       - JWT__SecretKey=${INT_JWT_SECRET}
       - JWT__Issuer=MTG25API

@@ -1,6 +1,7 @@
 using API.Dtos.Leagues;
 using API.Services;
 using Core.Enums;
+using Core.Interfaces;
 using Core.Models.Identity;
 using FluentAssertions;
 using Infrastructure.Data;
@@ -1423,12 +1424,16 @@ public class LeagueServiceTests
         return context;
     }
 
+    private static IUnitOfWork CreateUow(MainContext context)
+        => new UnitOfWork(context, NullLogger<UnitOfWork>.Instance, NullLoggerFactory.Instance);
+
     private static LeagueService CreateService(MainContext context, params AppUser[] users)
     {
+        var uow = CreateUow(context);
         var manager = CreateUserManagerMock(users);
         var validationService = new ValidationService();
-        var notificationService = new NotificationService(context, NullLogger<NotificationService>.Instance);
-        return new LeagueService(manager.Object, context, validationService, notificationService, NullLogger<LeagueService>.Instance);
+        var notificationService = new NotificationService(uow, NullLogger<NotificationService>.Instance);
+        return new LeagueService(manager.Object, uow, validationService, notificationService, NullLogger<LeagueService>.Instance);
     }
 
     private static Mock<UserManager<AppUser>> CreateUserManagerMock(params AppUser[] users)

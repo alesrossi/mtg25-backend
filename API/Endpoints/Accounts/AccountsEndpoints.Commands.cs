@@ -3,8 +3,8 @@ using API.Dtos.Accounts;
 using API.Helpers;
 using API.Logging;
 using API.Services;
+using Core.Interfaces;
 using Core.Models.Identity;
-using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -233,7 +233,7 @@ public static partial class AccountsEndpoints
         HttpContext context,
         [FromBody] UpdateSettingsDto updateDto,
         [FromServices] UserManager<AppUser> userManager,
-        [FromServices] MainContext dbContext,
+        [FromServices] IUnitOfWork uow,
         [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<AccountsEndpointLogCategory> logger)
     {
@@ -268,7 +268,7 @@ public static partial class AccountsEndpoints
                 "settings-update-auth-required");
         }
 
-        var settings = await dbContext.Settings
+        var settings = await uow.CompositeRepository<Settings>().Query
             .FirstOrDefaultAsync(s => s.AppUserId == userId);
 
         if (settings is null)
@@ -323,7 +323,7 @@ public static partial class AccountsEndpoints
             await userManager.UpdateAsync(user);
         }
 
-        await dbContext.SaveChangesAsync();
+        await uow.Complete();
 
         logger.LogOperationSuccess(operation, new { userId, settings.Id });
         return Results.Ok(MapToDto(settings, user));

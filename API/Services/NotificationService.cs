@@ -3,8 +3,8 @@ using API.Constants;
 using API.Dtos.Notifications;
 using API.Logging;
 using Core.Enums;
+using Core.Interfaces;
 using Core.Models.Identity;
-using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -12,33 +12,33 @@ namespace API.Services;
 
 public class NotificationService
 {
-    private readonly MainContext _context;
+    private readonly IUnitOfWork _uow;
     private readonly ILogger<NotificationService> _logger;
     private readonly IUserSettingsService _userSettingsService;
     private readonly IMessageLocalizer _messageLocalizer;
-    
+
     private const string CreateNotificationOperation = "Notifications.Create";
     private const string DeleteNotificationOperation = "Notifications.Delete";
     private const string UpdateNotificationOperation = "Notifications.Update";
-    
+
     public NotificationService(
-        MainContext context,
+        IUnitOfWork uow,
         ILogger<NotificationService> logger,
         IUserSettingsService userSettingsService,
         IMessageLocalizer messageLocalizer)
     {
-        _context = context;
+        _uow = uow;
         _logger = logger;
         _userSettingsService = userSettingsService;
         _messageLocalizer = messageLocalizer;
     }
 
-    public NotificationService(MainContext context, ILogger<NotificationService> logger)
+    public NotificationService(IUnitOfWork uow, ILogger<NotificationService> logger)
         : this(
-            context,
+            uow,
             logger,
-            new UserSettingsService(context),
-            new MessageLocalizationService(new UserSettingsService(context), NullLogger<MessageLocalizationService>.Instance))
+            new UserSettingsService(uow),
+            new MessageLocalizationService(new UserSettingsService(uow), NullLogger<MessageLocalizationService>.Instance))
     {
     }
 
@@ -46,7 +46,7 @@ public class NotificationService
     {
         using var scope = _logger.BeginOperationScope(CreateNotificationOperation, newNotification.Name);
         _logger.LogOperationStart(CreateNotificationOperation, new { newNotification.Name });
-        
+
         var notification = new Notification
         {
             Name = newNotification.Name,
@@ -59,9 +59,9 @@ public class NotificationService
             AppUserId = newNotification.AppUserId,
             AppUser = null!,
         };
-        _context.Add(notification);
-        
-        await _context.SaveChangesAsync();
+        _uow.CompositeRepository<Notification>().Add(notification);
+
+        await _uow.Complete();
 
         _logger.LogOperationSuccess(CreateNotificationOperation, new { notification.Id, newNotification.Name });
         return notification;
@@ -69,7 +69,7 @@ public class NotificationService
 
     public async Task<NotificationDto?> GetNotificationAsync(int id, string appUserId)
     {
-        var notification = await _context.Notifications
+        var notification = await _uow.CompositeRepository<Notification>().Query
             .AsNoTracking()
             .FirstOrDefaultAsync(n => n.Id == id && n.AppUserId == appUserId);
 
@@ -95,7 +95,7 @@ public class NotificationService
 
     public async Task<IReadOnlyList<NotificationDto>> GetUserNotificationsAsync(string appUserId)
     {
-        var notifications = await _context.Notifications
+        var notifications = await _uow.CompositeRepository<Notification>().Query
             .AsNoTracking()
             .Where(n => n.AppUserId == appUserId)
             .OrderByDescending(n => n.CreationDateTime)
@@ -114,17 +114,19 @@ public class NotificationService
             CreationDateTime = notification.CreationDateTime
         }).ToList();
     }
-    
+
     public async Task<bool> DeleteNotificationAsync(int id)
     {
         using var scope = _logger.BeginOperationScope(DeleteNotificationOperation, id);
         _logger.LogOperationStart(DeleteNotificationOperation, new { id });
 
-        var notification = await _context.Notifications.AsNoTracking().FirstOrDefaultAsync(n => n.Id == id);
+        var notification = await _uow.CompositeRepository<Notification>().Query
+            .AsNoTracking()
+            .FirstOrDefaultAsync(n => n.Id == id);
         if (notification is not null)
         {
-            _context.Notifications.Remove(notification);
-            await _context.SaveChangesAsync();
+            _uow.CompositeRepository<Notification>().Remove(notification);
+            await _uow.Complete();
         }
         else
         {
@@ -134,42 +136,40 @@ public class NotificationService
         _logger.LogOperationSuccess(DeleteNotificationOperation, new { id, notification.Name });
         return true;
     }
-    
+
     public async Task<bool> UpdateNotificationAsync(List<int> ids, bool? isRead, bool? approval)
     {
-        
-
-        await _context.Notifications.AsNoTracking().Where(n => ids.Contains(n.Id)).ForEachAsync(notification =>
-        {
-            using var scope = _logger.BeginOperationScope(UpdateNotificationOperation, notification.Id);
-            _logger.LogOperationStart(UpdateNotificationOperation, new { notification.Id });
-            
-            if (isRead is not null)
+        await _uow.CompositeRepository<Notification>().Query
+            .AsNoTracking()
+            .Where(n => ids.Contains(n.Id))
+            .ForEachAsync(notification =>
             {
-                notification.IsRead = isRead.Value;
-                _context.Notifications.Update(notification);
-                
-            }
-            
-            if (approval is not null)
-            {
-                notification.Approval = approval.Value;
-                _context.Notifications.Update(notification);
-            }
-            
-            _logger.LogOperationSuccess(UpdateNotificationOperation, new { notification.Id, notification.Name });
-            
-        });
-        
-        await _context.SaveChangesAsync();
+                using var scope = _logger.BeginOperationScope(UpdateNotificationOperation, notification.Id);
+                _logger.LogOperationStart(UpdateNotificationOperation, new { notification.Id });
 
-        
+                if (isRead is not null)
+                {
+                    notification.IsRead = isRead.Value;
+                    _uow.CompositeRepository<Notification>().Update(notification);
+                }
+
+                if (approval is not null)
+                {
+                    notification.Approval = approval.Value;
+                    _uow.CompositeRepository<Notification>().Update(notification);
+                }
+
+                _logger.LogOperationSuccess(UpdateNotificationOperation, new { notification.Id, notification.Name });
+            });
+
+        await _uow.Complete();
+
         return true;
     }
-    
+
     public async Task DeleteNotificationsAsync(string name, string objectId)
     {
-        var notifications = await _context.Notifications
+        var notifications = await _uow.CompositeRepository<Notification>().Query
             .Where(n => n.Name == name && n.ObjectId == objectId)
             .ToListAsync();
 
@@ -178,13 +178,13 @@ public class NotificationService
             return;
         }
 
-        _context.Notifications.RemoveRange(notifications);
-        await _context.SaveChangesAsync();
+        _uow.CompositeRepository<Notification>().RemoveRange(notifications);
+        await _uow.Complete();
     }
-    
+
     public async Task<bool> HasApprovedNotificationAsync(string name, string key, CancellationToken cancellationToken = default)
     {
-        return await _context.Notifications
+        return await _uow.CompositeRepository<Notification>().Query
             .AsNoTracking()
             .AnyAsync(
                 n => n.Name == name
@@ -192,54 +192,52 @@ public class NotificationService
                      && (n.Origin.StartsWith(key) || n.ObjectId == key),
                 cancellationToken);
     }
-    
+
     public async Task<bool> UpdateNotificationAsync(List<int> ids, bool? isRead, bool? approval, string? userToUpdate)
     {
-        
+        await _uow.CompositeRepository<Notification>().Query
+            .AsNoTracking()
+            .Where(n => ids.Contains(n.Id))
+            .ForEachAsync(notification =>
+            {
+                using var scope = _logger.BeginOperationScope(UpdateNotificationOperation, notification.Id);
+                _logger.LogOperationStart(UpdateNotificationOperation, new { notification.Id });
 
-        await _context.Notifications.AsNoTracking().Where(n => ids.Contains(n.Id)).ForEachAsync(notification =>
-        {
-            using var scope = _logger.BeginOperationScope(UpdateNotificationOperation, notification.Id);
-            _logger.LogOperationStart(UpdateNotificationOperation, new { notification.Id });
-            
-            if (isRead is not null)
-            {
-                notification.IsRead = isRead.Value;
-                _context.Notifications.Update(notification);
-                
-            }
-            
-            if (approval is not null)
-            {
-                notification.Approval = approval.Value;
-                _context.Notifications.Update(notification);
-                
-                if (notification.Name == NotificationConstants.RequestJoinLeague)
+                if (isRead is not null)
                 {
-                    var newNotification = new Notification
-                    {
-                        Name = NotificationConstants.JoinedLeague,
-                        Message = "Notifications.JoinedLeagueApproved",
-                        MessageKey = "Notifications.JoinedLeagueApproved",
-                        MessageArgsJson = SerializeArgs([]),
-                        ObjectId = notification.ObjectId,
-                        Origin = notification.Origin,
-                        CreationDateTime = DateTime.UtcNow,
-                        AppUserId = notification.Origin.Split('.')[1],
-                        AppUser = null!
-                    };
-                    
-                    _context.Notifications.Add(newNotification);
+                    notification.IsRead = isRead.Value;
+                    _uow.CompositeRepository<Notification>().Update(notification);
                 }
-            }
-            
-            _logger.LogOperationSuccess(UpdateNotificationOperation, new { notification.Id, notification.Name });
-            
-        });
-        
-        await _context.SaveChangesAsync();
 
-        
+                if (approval is not null)
+                {
+                    notification.Approval = approval.Value;
+                    _uow.CompositeRepository<Notification>().Update(notification);
+
+                    if (notification.Name == NotificationConstants.RequestJoinLeague)
+                    {
+                        var newNotification = new Notification
+                        {
+                            Name = NotificationConstants.JoinedLeague,
+                            Message = "Notifications.JoinedLeagueApproved",
+                            MessageKey = "Notifications.JoinedLeagueApproved",
+                            MessageArgsJson = SerializeArgs([]),
+                            ObjectId = notification.ObjectId,
+                            Origin = notification.Origin,
+                            CreationDateTime = DateTime.UtcNow,
+                            AppUserId = notification.Origin.Split('.')[1],
+                            AppUser = null!
+                        };
+
+                        _uow.CompositeRepository<Notification>().Add(newNotification);
+                    }
+                }
+
+                _logger.LogOperationSuccess(UpdateNotificationOperation, new { notification.Id, notification.Name });
+            });
+
+        await _uow.Complete();
+
         return true;
     }
 
@@ -275,6 +273,5 @@ public class NotificationService
         var args = DeserializeArgs(notification.MessageArgsJson);
         // ReSharper disable once CoVariantArrayConversion
         return _messageLocalizer.GetMessageForLanguage(language, notification.MessageKey, args);
-
     }
 }

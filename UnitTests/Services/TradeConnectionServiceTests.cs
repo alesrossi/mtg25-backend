@@ -26,6 +26,7 @@ public class TradeConnectionServiceTests : IDisposable
     private readonly Mock<IGenericRepository<Collection>> _collectionRepositoryMock = new();
     private readonly Mock<ITradeSessionStore> _sessionStoreMock = new();
     private readonly MainContext _identityDbContext;
+    private readonly IUnitOfWork _notificationUow;
     private readonly NotificationService _notificationService;
     private readonly CardDataService _cardDataService;
     private readonly Mock<IUserSettingsService> _userSettingsServiceMock = new();
@@ -40,6 +41,7 @@ public class TradeConnectionServiceTests : IDisposable
         _identityDbContext = new MainContext(new DbContextOptionsBuilder<MainContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
+        _notificationUow = new UnitOfWork(_identityDbContext, NullLogger<UnitOfWork>.Instance, NullLoggerFactory.Instance);
 
         _notificationSettingsMock.Setup(s => s.GetSettingsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string userId, CancellationToken _) => new Settings
@@ -52,7 +54,7 @@ public class TradeConnectionServiceTests : IDisposable
             .Returns("localized");
 
         _notificationService = new NotificationService(
-            _identityDbContext,
+            _notificationUow,
             NullLogger<NotificationService>.Instance,
             _notificationSettingsMock.Object,
             _messageLocalizerMock.Object);

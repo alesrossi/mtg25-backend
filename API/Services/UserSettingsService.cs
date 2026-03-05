@@ -1,7 +1,7 @@
+using Core.Interfaces;
 using Core.Models.Identity;
-using Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
 using Core.Enums;
+using Microsoft.EntityFrameworkCore;
 
 namespace API.Services;
 
@@ -16,11 +16,11 @@ public interface IUserSettingsService
 
 public class UserSettingsService : IUserSettingsService
 {
-    private readonly MainContext _identityDbContext;
+    private readonly IUnitOfWork _uow;
 
-    public UserSettingsService(MainContext identityDbContext)
+    public UserSettingsService(IUnitOfWork uow)
     {
-        _identityDbContext = identityDbContext;
+        _uow = uow;
     }
 
     public async Task<Settings?> GetSettingsAsync(string userId, CancellationToken cancellationToken = default)
@@ -30,7 +30,7 @@ public class UserSettingsService : IUserSettingsService
             throw new ArgumentException(@"User identifier is required", nameof(userId));
         }
 
-        return await _identityDbContext.Settings
+        return await _uow.CompositeRepository<Settings>().Query
             .AsNoTracking()
             .FirstOrDefaultAsync(s => s.AppUserId == userId, cancellationToken);
     }

@@ -5,5 +5,6 @@ namespace Core.Interfaces;
 public interface IUnitOfWork : IDisposable
 {
     IGenericRepository<TEntity> Repository<TEntity>() where TEntity : BaseModel;
-    Task<int> Complete();
+    ICompositeRepository<TEntity> CompositeRepository<TEntity>() where TEntity : class;
+    Task<int> Complete(CancellationToken cancellationToken = default);
 }
