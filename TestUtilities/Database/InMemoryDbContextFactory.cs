@@ -1,6 +1,5 @@
 using Core.Enums;
 using Infrastructure.Data;
-using Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using TestUtilities.Builders;
 
@@ -28,18 +27,6 @@ public class InMemoryDbContextFactory
         return context;
     }
     
-    public static AppIdentityDbContext CreateIdentity()
-    {
-        var options = new DbContextOptionsBuilder<AppIdentityDbContext>().UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString()) // Unique DB per test
-            .EnableSensitiveDataLogging() // Helpful for debugging test failures
-            .Options;
-
-        var context = new AppIdentityDbContext(options);
-        context.Database.EnsureCreated(); // Create database schema
-
-        return context;
-    }
-
     /// <summary>
     /// Creates a database context pre-populated with common test data.
     /// Useful for tests that need existing data to work with.
@@ -47,8 +34,7 @@ public class InMemoryDbContextFactory
     public static MainContext CreateWithSeedData()
     {
         var mainContext = CreateMain();
-        var identityContext = CreateIdentity();
-        SeedTestData(mainContext, identityContext);
+        SeedTestData(mainContext);
         return mainContext;
     }
 
@@ -56,16 +42,16 @@ public class InMemoryDbContextFactory
     /// Seeds the test database with realistic, related data.
     /// Demonstrates proper entity relationship setup.
     /// </summary>
-    private static void SeedTestData(MainContext context, AppIdentityDbContext identityContext)
+    private static void SeedTestData(MainContext context)
     {
         var builder = new TestDataBuilder();
-        
+
         // Create test users - foundation for all other entities
         var user1 = builder.CreateUser("test1@example.com", "testuser1");
         var user2 = builder.CreateUser("test2@example.com", "testuser2");
-        
-        identityContext.Users.AddRange(user1, user2);
-        identityContext.SaveChanges(); // Save users first to get IDs
+
+        context.Users.AddRange(user1, user2);
+        context.SaveChanges(); // Save users first to get IDs
 
         // Create collections for each user
         var collection1 = builder.CreateCollection(user1.Id);

@@ -6,7 +6,7 @@ using API.Dtos.Leagues;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Core.Models.Identity;
-using Infrastructure.Identity;
+using Infrastructure.Data;
 using TestUtilities.Authentication;
 using TestUtilities.Builders;
 using Core.Enums;
@@ -121,7 +121,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         // Set CurrentRound to a non-existent round ID
         using (var scope = _factory.Services.CreateScope())
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
             var trackedLeague = await dbContext.Leagues.FirstAsync(l => l.Id == league.Id);
             trackedLeague.CurrentRound = int.MaxValue; // Non-existent round ID
             dbContext.Leagues.Update(trackedLeague);
@@ -149,7 +149,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         // Set CurrentRound to 0
         using (var scope = _factory.Services.CreateScope())
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
             var trackedLeague = await dbContext.Leagues.FirstAsync(l => l.Id == league.Id);
             trackedLeague.CurrentRound = 0;
             dbContext.Leagues.Update(trackedLeague);
@@ -255,7 +255,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         int roundId;
         using (var scope = _factory.Services.CreateScope())
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
             var round = await dbContext.Rounds.FirstAsync(r => r.LeagueId == league.Id && r.Order == 1);
             roundId = round.Id;
 
@@ -489,7 +489,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         using (var scope = _factory.Services.CreateScope())
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
             var trackedLeague = await dbContext.Leagues.FirstAsync(l => l.Id == league.Id);
             trackedLeague.ScoringSystem = ScoringSystem.Victories;
             trackedLeague.PointsPerWin = 3;
@@ -511,7 +511,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         using var scopeinner = _factory.Services.CreateScope();
-        var dbContext2 = scopeinner.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var dbContext2 = scopeinner.ServiceProvider.GetRequiredService<MainContext>();
         var round = await dbContext2.Rounds
             .AsNoTracking()
             .FirstAsync(r => r.LeagueId == league.Id && r.Order == 1);
@@ -622,7 +622,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             await VerifyRoleAssignmentAsync(user.Id, createdLeague.Id, LeagueRole.Admin);
 
             using var scope = _factory.Services.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
             var roundsCount = await dbContext.Rounds
                 .CountAsync(r => r.LeagueId == createdLeague.Id);
             roundsCount.Should().Be(createRequest.TotalRounds,
@@ -665,7 +665,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         int roundId;
         using (var scope = _factory.Services.CreateScope())
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
             dbContext.Leagues.Attach(league);
             var round = new Round
             {
@@ -697,7 +697,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         using (var scope = _factory.Services.CreateScope())
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
             var updatedRound = await dbContext.Rounds
                 .AsNoTracking()
                 .FirstAsync(r => r.Id == roundId);
@@ -720,7 +720,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         int roundId;
         using (var scope = _factory.Services.CreateScope())
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
             dbContext.Leagues.Attach(league);
             var round = new Round
             {
@@ -781,7 +781,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         int round2Id;
         using (var scope = _factory.Services.CreateScope())
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
             var rounds = await dbContext.Rounds
                 .Where(r => r.LeagueId == league.Id)
                 .OrderBy(r => r.Order)
@@ -810,7 +810,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         using (var scope = _factory.Services.CreateScope())
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
 
             var completedRound = await dbContext.Rounds
                 .AsNoTracking()
@@ -838,7 +838,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         int round1Id;
         using (var scope = _factory.Services.CreateScope())
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
             var round = await dbContext.Rounds
                 .Where(r => r.LeagueId == league.Id)
                 .OrderBy(r => r.Order)
@@ -858,7 +858,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         using (var scope = _factory.Services.CreateScope())
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
             var participant = await dbContext.RoundParticipants
                 .FirstOrDefaultAsync(rp => rp.RoundId == round1Id && rp.UserId == player.Id);
             participant.Should().NotBeNull("because the player should be a round participant");
@@ -875,7 +875,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         int round1Id;
         using (var scope = _factory.Services.CreateScope())
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
             var round = await dbContext.Rounds
                 .Where(r => r.LeagueId == league.Id)
                 .OrderBy(r => r.Order)
@@ -904,7 +904,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         int round1Id;
         using (var scope = _factory.Services.CreateScope())
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
             var round = await dbContext.Rounds
                 .Where(r => r.LeagueId == league.Id)
                 .OrderBy(r => r.Order)
@@ -932,7 +932,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         int round1Id;
         using (var scope = _factory.Services.CreateScope())
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
             var round = await dbContext.Rounds
                 .Where(r => r.LeagueId == league.Id)
                 .OrderBy(r => r.Order)
@@ -966,7 +966,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         int round1Id;
         using (var scope = _factory.Services.CreateScope())
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
             var round = await dbContext.Rounds
                 .Where(r => r.LeagueId == league.Id)
                 .OrderBy(r => r.Order)
@@ -993,7 +993,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         int round1Id;
         using (var scope = _factory.Services.CreateScope())
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
             var round = await dbContext.Rounds
                 .Where(r => r.LeagueId == league.Id)
                 .OrderBy(r => r.Order)
@@ -1019,7 +1019,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         using (var scope = _factory.Services.CreateScope())
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
             var participant = await dbContext.RoundParticipants
                 .FirstOrDefaultAsync(rp => rp.RoundId == round1Id && rp.UserId == owner.Id);
             participant.Should().BeNull("because the participant should have been removed");
@@ -1036,7 +1036,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         int round1Id;
         using (var scope = _factory.Services.CreateScope())
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
             var round = await dbContext.Rounds
                 .Where(r => r.LeagueId == league.Id)
                 .OrderBy(r => r.Order)
@@ -1064,7 +1064,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         int round1Id;
         using (var scope = _factory.Services.CreateScope())
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
             var round = await dbContext.Rounds
                 .Where(r => r.LeagueId == league.Id)
                 .OrderBy(r => r.Order)
@@ -1358,7 +1358,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
             await VerifyRoleAssignmentAsync(owner.Id, league.Id, LeagueRole.Player);
 
             await using var verificationScope = _factory.Services.CreateAsyncScope();
-            var verificationContext = verificationScope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var verificationContext = verificationScope.ServiceProvider.GetRequiredService<MainContext>();
             var membership = await verificationContext.UserLeagues
                 .FirstOrDefaultAsync(ul => ul.LeagueId == league.Id && ul.UserId == owner.Id);
             membership.Should().NotBeNull();
@@ -1604,7 +1604,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         await using var scope = _factory.Services.CreateAsyncScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
         var updatedLeague = await dbContext.Leagues
             .AsNoTracking()
             .FirstAsync(l => l.Id == league.Id);
@@ -1859,7 +1859,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     private async Task<League> CreateTestLeagueAsync(string name, string ownerId, bool isActive = true, bool isPublic = true)
     {
         using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
         
         var uniqueId = Guid.NewGuid().ToString("N")[..8];
         var league = new League
@@ -1927,7 +1927,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     private async Task AssociateUserWithLeagueAsync(string userId, int leagueId)
     {
         using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
         
         var existingUserLeague = await dbContext.UserLeagues.FindAsync(userId, leagueId);
         if (existingUserLeague == null)
@@ -1972,7 +1972,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     private async Task GrantAdminRoleAsync(string userId, int leagueId)
     {
         using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
 
         var assignment = await dbContext.LeagueRoleAssignments
             .FirstOrDefaultAsync(x => x.UserId == userId && x.LeagueId == leagueId);
@@ -1999,7 +1999,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     private async Task AssertNoRoleAssignmentAsync(string userId, int leagueId)
     {
         using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
 
         var assignment = await dbContext.LeagueRoleAssignments
             .AsNoTracking()
@@ -2011,7 +2011,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     private async Task VerifyRoleAssignmentAsync(string userId, int leagueId, LeagueRole expectedRole)
     {
         using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
 
         var assignment = await dbContext.LeagueRoleAssignments
             .AsNoTracking()
@@ -2024,7 +2024,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     private async Task CreateNotificationForUserAsync(string userId, string origin, bool approval)
     {
         using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
         
         var notification = new Notification
         {
@@ -2043,7 +2043,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     private async Task VerifyLeagueUpdatedInDatabase(int leagueId, string expectedName)
     {
         using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
         
         var league = await dbContext.Leagues.FindAsync(leagueId);
         league.Should().NotBeNull($"because league {leagueId} should exist in database");
@@ -2053,7 +2053,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     private Task VerifyNotificationAssociatedWithLeague(string userId, int leagueId)
     {
         using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
 
         var origin = $"{leagueId}.{userId}";
         
@@ -2065,14 +2065,14 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     private async Task<int> GetNotificationCountAsync()
     {
         using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
         return await dbContext.Notifications.CountAsync();
     }
 
     private async Task<List<Notification>> GetNotificationsByNameAsync(string name)
     {
         using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
         return await dbContext.Notifications
             .Where(n => n.Name == name)
             .ToListAsync();
@@ -2082,7 +2082,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     private async Task SetCompanionNameAsync(string userId, string companionName)
     {
         using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
         var user = await dbContext.Users.FirstAsync(u => u.Id == userId);
         user.CompanionName = companionName;
         dbContext.Users.Update(user);
@@ -2092,7 +2092,7 @@ public class LeaguesControllerTests : IClassFixture<CustomWebApplicationFactory>
     private async Task UpdatePlayerTotalScoreAsync(string userId, int leagueId, int totalScore, List<int>? rounds = null)
     {
         using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
 
         var userLeague = await dbContext.UserLeagues
             .FirstOrDefaultAsync(ul => ul.UserId == userId && ul.LeagueId == leagueId);

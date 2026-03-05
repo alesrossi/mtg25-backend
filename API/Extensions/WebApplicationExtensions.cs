@@ -12,7 +12,6 @@ using API.Endpoints.Wishlists;
 using API.Helpers;
 using API.Services;
 using Infrastructure.Data;
-using Infrastructure.Identity;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -32,9 +31,6 @@ public static class WebApplicationExtensions
             {
                 var context = services.GetRequiredService<MainContext>();
                 await context.Database.MigrateAsync();
-
-                var idContext = services.GetRequiredService<AppIdentityDbContext>();
-                await idContext.Database.MigrateAsync();
             }
             catch (Exception ex)
             {

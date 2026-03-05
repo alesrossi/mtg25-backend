@@ -4,7 +4,7 @@ using API.Dtos.Notifications;
 using API.Logging;
 using Core.Enums;
 using Core.Models.Identity;
-using Infrastructure.Identity;
+using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -12,7 +12,7 @@ namespace API.Services;
 
 public class NotificationService
 {
-    private readonly AppIdentityDbContext _context;
+    private readonly MainContext _context;
     private readonly ILogger<NotificationService> _logger;
     private readonly IUserSettingsService _userSettingsService;
     private readonly IMessageLocalizer _messageLocalizer;
@@ -22,7 +22,7 @@ public class NotificationService
     private const string UpdateNotificationOperation = "Notifications.Update";
     
     public NotificationService(
-        AppIdentityDbContext context,
+        MainContext context,
         ILogger<NotificationService> logger,
         IUserSettingsService userSettingsService,
         IMessageLocalizer messageLocalizer)
@@ -33,7 +33,7 @@ public class NotificationService
         _messageLocalizer = messageLocalizer;
     }
 
-    public NotificationService(AppIdentityDbContext context, ILogger<NotificationService> logger)
+    public NotificationService(MainContext context, ILogger<NotificationService> logger)
         : this(
             context,
             logger,

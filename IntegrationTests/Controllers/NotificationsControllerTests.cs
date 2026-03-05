@@ -4,8 +4,8 @@ using API.Constants;
 using API.Dtos.Notifications;
 using Core.Enums;
 using Core.Models.Identity;
+using Infrastructure.Data;
 using FluentAssertions;
-using Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TestUtilities.Authentication;
@@ -156,7 +156,7 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
         string? objectId = null)
     {
         using var scope = _factory.Services.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var context = scope.ServiceProvider.GetRequiredService<MainContext>();
         var user = await context.Users.FirstAsync(u => u.Id == userId);
 
         var notification = new Notification
@@ -180,7 +180,7 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
     private Task VerifyNotificationHasBeenRead(int id)
     {
         using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
         
         var notification = dbContext.Notifications.FirstOrDefault(n => n.Id == id);
         notification.Should().NotBeNull($"because notification {id} should be updated");
@@ -191,7 +191,7 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
     private async Task VerifyNotificationApproved(int id)
     {
         using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
         
         var notification = await dbContext.Notifications.FirstOrDefaultAsync(n => n.Id == id);
         notification.Should().NotBeNull($"because notification {id} should exist");
@@ -201,14 +201,14 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
     private async Task<int> GetNotificationCountAsync()
     {
         using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
         return await dbContext.Notifications.CountAsync();
     }
     
     private async Task<List<Notification>> GetNotificationsByNameAsync(string name)
     {
         using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
         return await dbContext.Notifications
             .Where(n => n.Name == name)
             .ToListAsync();
@@ -217,7 +217,7 @@ public class NotificationsControllerTests : IClassFixture<CustomWebApplicationFa
     private async Task<League> CreateTestLeagueAsync(string name, string ownerId, bool isActive = true, bool isPublic = true)
     {
         using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<MainContext>();
         
         var uniqueId = Guid.NewGuid().ToString("N")[..8];
         var league = new League

@@ -2,7 +2,6 @@ using Core.Models;
 using Core.Specifications;
 using FluentAssertions;
 using Infrastructure.Data;
-using Infrastructure.Identity;
 using Microsoft.Extensions.Logging.Abstractions;
 using TestUtilities.Builders;
 using TestUtilities.Database;
@@ -16,7 +15,6 @@ namespace UnitTests.Repositories;
 public class CollectionRepositoryTests : IDisposable
 {
     private readonly MainContext _context;
-    private readonly AppIdentityDbContext _identityContext;
     private readonly GenericRepository<Collection> _repository;
     private readonly TestDataBuilder _testDataBuilder;
 
@@ -24,7 +22,6 @@ public class CollectionRepositoryTests : IDisposable
     {
         // Each test gets a fresh database context
         _context = InMemoryDbContextFactory.CreateMain();
-        _identityContext = InMemoryDbContextFactory.CreateIdentity();
         _repository = new GenericRepository<Collection>(_context, NullLogger<GenericRepository<Collection>>.Instance);
         _testDataBuilder = new TestDataBuilder();
     }
@@ -34,7 +31,7 @@ public class CollectionRepositoryTests : IDisposable
     {
         // Arrange - Set up test data
         var user = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(user);
+        _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
         var collection = _testDataBuilder.CreateCollection(user.Id);
@@ -83,7 +80,7 @@ public class CollectionRepositoryTests : IDisposable
         // Arrange - Create multiple users with collections
         var user1 = _testDataBuilder.CreateUser("user1@test.com", "user1");
         var user2 = _testDataBuilder.CreateUser("user2@test.com", "user2");
-        _identityContext.Users.AddRange(user1, user2);
+        _context.Users.AddRange(user1, user2);
         await _context.SaveChangesAsync();
 
         // Create collections for user1
@@ -119,7 +116,7 @@ public class CollectionRepositoryTests : IDisposable
     {
         // Arrange - Create user with no collections
         var user = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(user);
+        _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
         // Act
@@ -162,7 +159,7 @@ public class CollectionRepositoryTests : IDisposable
     {
         // Arrange
         var user = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(user);
+        _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
         var collection = _testDataBuilder.CreateCollection(user.Id);
@@ -188,7 +185,7 @@ public class CollectionRepositoryTests : IDisposable
     {
         // Arrange - Create and save initial collection
         var user = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(user);
+        _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
         var collection = _testDataBuilder.CreateCollection(user.Id);
@@ -213,7 +210,7 @@ public class CollectionRepositoryTests : IDisposable
     {
         // Arrange
         var user = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(user);
+        _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
         var collection = _testDataBuilder.CreateCollection(user.Id);
@@ -239,7 +236,7 @@ public class CollectionRepositoryTests : IDisposable
         // Arrange - Create collections for multiple users
         var user1 = _testDataBuilder.CreateUser("user1@test.com", "user1");
         var user2 = _testDataBuilder.CreateUser("user2@test.com", "user2");
-        _identityContext.Users.AddRange(user1, user2);
+        _context.Users.AddRange(user1, user2);
         await _context.SaveChangesAsync();
 
         var collection1 = _testDataBuilder.CreateCollection(user1.Id);
@@ -264,7 +261,7 @@ public class CollectionRepositoryTests : IDisposable
     {
         // Arrange
         var user = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(user);
+        _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
         var collections = new[]
@@ -296,7 +293,7 @@ public class CollectionRepositoryTests : IDisposable
     {
         // Arrange
         var user = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(user);
+        _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
         var collection = _testDataBuilder.CreateCollection(user.Id);
@@ -325,7 +322,7 @@ public class CollectionRepositoryTests : IDisposable
     {
         // Arrange
         var user = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(user);
+        _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
         var collection = _testDataBuilder.CreateCollection(user.Id);
@@ -349,7 +346,7 @@ public class CollectionRepositoryTests : IDisposable
     {
         // Arrange
         var user = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(user);
+        _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
         var collections = Enumerable.Range(1, 10)
@@ -378,7 +375,7 @@ public class CollectionRepositoryTests : IDisposable
         var users = Enumerable.Range(1, 5)
             .Select(i => _testDataBuilder.CreateUser($"user{i}@test.com", $"user{i}"))
             .ToList();
-        _identityContext.Users.AddRange(users);
+        _context.Users.AddRange(users);
         await _context.SaveChangesAsync();
 
         var collections = new List<Collection>();
@@ -412,6 +409,5 @@ public class CollectionRepositoryTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
-        _identityContext.Dispose();
     }
 }

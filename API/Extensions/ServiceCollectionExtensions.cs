@@ -10,7 +10,6 @@ using API.Services;
 using Core.Interfaces;
 using Core.Models.Identity;
 using Infrastructure.Data;
-using Infrastructure.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
@@ -96,16 +95,6 @@ public static class ServiceCollectionExtensions
                 if (string.IsNullOrEmpty(connectionString))
                 {
                     throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-                }
-                options.UseNpgsql(connectionString);
-            });
-
-            services.AddDbContext<AppIdentityDbContext>(options =>
-            {
-                var connectionString = configuration.GetConnectionString("IdentityConnection");
-                if (string.IsNullOrEmpty(connectionString))
-                {
-                    throw new InvalidOperationException("Connection string 'IdentityConnection' not found.");
                 }
                 options.UseNpgsql(connectionString);
             });

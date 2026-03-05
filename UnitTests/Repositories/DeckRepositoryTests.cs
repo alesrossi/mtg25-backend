@@ -1,7 +1,6 @@
 using Core.Models;
 using FluentAssertions;
 using Infrastructure.Data;
-using Infrastructure.Identity;
 using Microsoft.Extensions.Logging.Abstractions;
 using TestUtilities.Builders;
 using TestUtilities.Database;
@@ -16,14 +15,12 @@ namespace UnitTests.Repositories;
 public class DeckRepositoryTests : IDisposable
 {
     private readonly MainContext _context;
-    private readonly AppIdentityDbContext _identityContext;
     private readonly GenericRepository<Deck> _repository;
     private readonly TestDataBuilder _testDataBuilder;
 
     public DeckRepositoryTests()
     {
         _context = InMemoryDbContextFactory.CreateMain();
-        _identityContext = InMemoryDbContextFactory.CreateIdentity();
         _repository = new GenericRepository<Deck>(_context, NullLogger<GenericRepository<Deck>>.Instance);
         _testDataBuilder = new TestDataBuilder();
     }
@@ -33,8 +30,8 @@ public class DeckRepositoryTests : IDisposable
     {
         // Arrange
         var user = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(user);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
 
         var deck = _testDataBuilder.CreateDeck(user.Id);
         deck.Name = "Test Deck";
@@ -82,8 +79,8 @@ public class DeckRepositoryTests : IDisposable
         // Arrange
         var user1 = _testDataBuilder.CreateUser("user1@test.com", "user1");
         var user2 = _testDataBuilder.CreateUser("user2@test.com", "user2");
-        _identityContext.Users.AddRange(user1, user2);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.AddRange(user1, user2);
+        await _context.SaveChangesAsync();
 
         var user1Decks = new[]
         {
@@ -117,8 +114,8 @@ public class DeckRepositoryTests : IDisposable
         // Arrange
         var user1 = _testDataBuilder.CreateUser("user1@test.com", "user1");
         var user2 = _testDataBuilder.CreateUser("user2@test.com", "user2");
-        _identityContext.Users.AddRange(user1, user2);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.AddRange(user1, user2);
+        await _context.SaveChangesAsync();
 
         var user1Decks = new[]
         {
@@ -150,8 +147,8 @@ public class DeckRepositoryTests : IDisposable
     {
         // Arrange
         var user = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(user);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
 
         var deck = _testDataBuilder.CreateDeck(user.Id);
         deck.Name = "New Combo Deck";
@@ -178,8 +175,8 @@ public class DeckRepositoryTests : IDisposable
     {
         // Arrange
         var user = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(user);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
 
         var deck = _testDataBuilder.CreateDeck(user.Id);
         deck.Name = "Original Name";
@@ -211,8 +208,8 @@ public class DeckRepositoryTests : IDisposable
     {
         // Arrange
         var user = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(user);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
 
         var deck = _testDataBuilder.CreateDeck(user.Id);
         _context.Decks.Add(deck);
@@ -235,8 +232,8 @@ public class DeckRepositoryTests : IDisposable
     {
         // Arrange
         var user = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(user);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
 
         var decks = new[]
         {
@@ -264,8 +261,8 @@ public class DeckRepositoryTests : IDisposable
     {
         // Arrange
         var user = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(user);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
 
         var decks = Enumerable.Range(1, 5)
             .Select(i => {
@@ -295,6 +292,5 @@ public class DeckRepositoryTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
-        _identityContext.Dispose();
     }
 }

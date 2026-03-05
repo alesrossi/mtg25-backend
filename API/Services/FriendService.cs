@@ -3,7 +3,7 @@ using API.Dtos.Friends;
 using API.Dtos.Notifications;
 using Core.Enums;
 using Core.Models.Identity;
-using Infrastructure.Identity;
+using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,12 +22,12 @@ public interface IFriendService
 public sealed class FriendService : IFriendService
 {
     private readonly UserManager<AppUser> _userManager;
-    private readonly AppIdentityDbContext _identityDbContext;
+    private readonly MainContext _identityDbContext;
     private readonly NotificationService _notificationService;
 
     public FriendService(
         UserManager<AppUser> userManager,
-        AppIdentityDbContext identityDbContext,
+        MainContext identityDbContext,
         NotificationService notificationService)
     {
         _userManager = userManager;

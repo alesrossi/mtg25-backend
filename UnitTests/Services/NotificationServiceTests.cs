@@ -3,7 +3,7 @@ using API.Services;
 using Core.Models.Identity;
 using FluentAssertions;
 using Core.Enums;
-using Infrastructure.Identity;
+using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -222,17 +222,17 @@ public class NotificationServiceTests
         untouched.Approval.Should().BeFalse();
     }
 
-    private static AppIdentityDbContext CreateContext()
+    private static MainContext CreateContext()
     {
-        var options = new DbContextOptionsBuilder<AppIdentityDbContext>()
+        var options = new DbContextOptionsBuilder<MainContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        var context = new AppIdentityDbContext(options);
+        var context = new MainContext(options);
         context.Database.EnsureCreated();
         return context;
     }
 
-    private static NotificationService CreateService(AppIdentityDbContext context)
+    private static NotificationService CreateService(MainContext context)
     {
         var settingsService = new Mock<IUserSettingsService>();
         settingsService.Setup(s => s.GetSettingsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))

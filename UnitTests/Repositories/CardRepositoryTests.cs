@@ -1,7 +1,6 @@
 using Core.Models;
 using FluentAssertions;
 using Infrastructure.Data;
-using Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using TestUtilities.Builders;
@@ -16,14 +15,12 @@ namespace UnitTests.Repositories;
 public class CardRepositoryTests : IDisposable
 {
     private readonly MainContext _context;
-    private readonly AppIdentityDbContext _identityContext;
     private readonly GenericRepository<Card> _repository;
     private readonly TestDataBuilder _testDataBuilder;
 
     public CardRepositoryTests()
     {
         _context = InMemoryDbContextFactory.CreateMain();
-        _identityContext = InMemoryDbContextFactory.CreateIdentity();
         _repository = new GenericRepository<Card>(_context, NullLogger<GenericRepository<Card>>.Instance);
         _testDataBuilder = new TestDataBuilder();
     }
@@ -33,8 +30,8 @@ public class CardRepositoryTests : IDisposable
     {
         // Arrange
         var user = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(user);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
 
         var collection = _testDataBuilder.CreateCollection(user.Id);
         _context.Collections.Add(collection);
@@ -93,8 +90,8 @@ public class CardRepositoryTests : IDisposable
         // Arrange
         var user1 = _testDataBuilder.CreateUser("user1@test.com", "user1");
         var user2 = _testDataBuilder.CreateUser("user2@test.com", "user2");
-        _identityContext.Users.AddRange(user1, user2);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.AddRange(user1, user2);
+        await _context.SaveChangesAsync();
 
         var collection1 = _testDataBuilder.CreateCollection(user1.Id);
         var collection2 = _testDataBuilder.CreateCollection(user2.Id);
@@ -124,8 +121,8 @@ public class CardRepositoryTests : IDisposable
     {
         // Arrange
         var user = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(user);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
 
         var collection = _testDataBuilder.CreateCollection(user.Id);
         _context.Collections.Add(collection);
@@ -160,8 +157,8 @@ public class CardRepositoryTests : IDisposable
     {
         // Arrange
         var user = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(user);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
 
         var collection = _testDataBuilder.CreateCollection(user.Id);
         _context.Collections.Add(collection);
@@ -191,8 +188,8 @@ public class CardRepositoryTests : IDisposable
     {
         // Arrange
         var user = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(user);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
 
         var collection = _testDataBuilder.CreateCollection(user.Id);
         _context.Collections.Add(collection);
@@ -219,8 +216,8 @@ public class CardRepositoryTests : IDisposable
     {
         // Arrange
         var user = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(user);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
 
         var collection1 = _testDataBuilder.CreateCollection(user.Id);
         var collection2 = _testDataBuilder.CreateCollection(user.Id);
@@ -263,8 +260,8 @@ public class CardRepositoryTests : IDisposable
     {
         // Arrange
         var user = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(user);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
 
         var collection = _testDataBuilder.CreateCollection(user.Id);
         _context.Collections.Add(collection);
@@ -300,6 +297,5 @@ public class CardRepositoryTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
-        _identityContext.Dispose();
     }
 }

@@ -9,7 +9,6 @@ using Core.Specifications;
 using FluentAssertions;
 using Core.Enums;
 using Infrastructure.Data;
-using Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -26,7 +25,7 @@ public class TradeConnectionServiceTests : IDisposable
     private readonly Mock<IGenericRepository<BinderCard>> _binderCardRepositoryMock = new();
     private readonly Mock<IGenericRepository<Collection>> _collectionRepositoryMock = new();
     private readonly Mock<ITradeSessionStore> _sessionStoreMock = new();
-    private readonly AppIdentityDbContext _identityDbContext;
+    private readonly MainContext _identityDbContext;
     private readonly NotificationService _notificationService;
     private readonly CardDataService _cardDataService;
     private readonly Mock<IUserSettingsService> _userSettingsServiceMock = new();
@@ -38,7 +37,7 @@ public class TradeConnectionServiceTests : IDisposable
 
     public TradeConnectionServiceTests()
     {
-        _identityDbContext = new AppIdentityDbContext(new DbContextOptionsBuilder<AppIdentityDbContext>()
+        _identityDbContext = new MainContext(new DbContextOptionsBuilder<MainContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
 

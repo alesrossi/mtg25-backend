@@ -9,7 +9,6 @@ using Core.Models;
 using Core.Models.Identity;
 using FluentAssertions;
 using Infrastructure.Data;
-using Infrastructure.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -114,7 +113,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.Accepted);
 
         await using var scope = _factory.Services.CreateAsyncScope();
-        var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var identityContext = scope.ServiceProvider.GetRequiredService<MainContext>();
         var notification = await identityContext.Notifications.SingleAsync(n => n.AppUserId == target.Id);
 
         notification.Name.Should().Be("trade_request");
@@ -168,7 +167,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.Accepted);
 
         await using var scope = _factory.Services.CreateAsyncScope();
-        var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var identityContext = scope.ServiceProvider.GetRequiredService<MainContext>();
         var notification = await identityContext.Notifications.SingleAsync(n =>
             n.AppUserId == partner.Id && n.ObjectId == trade.TradeId && n.Name == "trade_commit_request");
         notification.MessageKey.Should().Be("Notifications.TradeCommitRequest");
@@ -256,7 +255,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         await using var scope = _factory.Services.CreateAsyncScope();
-        var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var identityContext = scope.ServiceProvider.GetRequiredService<MainContext>();
         var pendingNotifications = await identityContext.Notifications
             .Where(n => n.Name == "trade_commit_request" && n.ObjectId == trade.TradeId)
             .ToListAsync();
@@ -754,7 +753,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     private async Task CreateApprovedTradeNotificationAsync(string requesterUserId, string requestedUserId)
     {
         await using var scope = _factory.Services.CreateAsyncScope();
-        var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var identityContext = scope.ServiceProvider.GetRequiredService<MainContext>();
 
         identityContext.Notifications.Add(new Notification
         {
@@ -774,7 +773,7 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
     private async Task CreateCommitNotificationAsync(string tradeId, string requesterUserId, string recipientUserId, bool approval = false)
     {
         await using var scope = _factory.Services.CreateAsyncScope();
-        var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var identityContext = scope.ServiceProvider.GetRequiredService<MainContext>();
 
         identityContext.Notifications.Add(new Notification
         {

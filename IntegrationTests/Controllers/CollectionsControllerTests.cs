@@ -10,7 +10,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Core.Models;
 using Core.Models.Identity;
 using Infrastructure.Data;
-using Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using TestUtilities.Authentication;
 using TestUtilities.Builders;
@@ -1035,7 +1034,7 @@ public class CollectionsControllerTests : IClassFixture<CustomWebApplicationFact
         // Remove settings to ensure default provider logic still resolves prices
         using (var scope = _factory.Services.CreateScope())
         {
-            var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+            var identityContext = scope.ServiceProvider.GetRequiredService<MainContext>();
             var settingsEntity = await identityContext.Settings
                 .FirstOrDefaultAsync(s => s.AppUserId == user.Id);
             if (settingsEntity is not null)

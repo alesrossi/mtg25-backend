@@ -3,7 +3,6 @@ using Core.Enums;
 using Core.Models.Identity;
 using FluentAssertions;
 using Infrastructure.Data;
-using Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using TestUtilities.Builders;
 using TestUtilities.Database;
@@ -18,13 +17,11 @@ namespace UnitTests.Repositories;
 public class LeagueRepositoryTests : IDisposable
 {
     private readonly MainContext _context;
-    private readonly AppIdentityDbContext _identityContext;
     private readonly TestDataBuilder _testDataBuilder;
 
     public LeagueRepositoryTests()
     {
         _context = InMemoryDbContextFactory.CreateMain();
-        _identityContext = InMemoryDbContextFactory.CreateIdentity();
         _testDataBuilder = new TestDataBuilder();
     }
 
@@ -33,19 +30,19 @@ public class LeagueRepositoryTests : IDisposable
     {
         // Arrange
         var owner = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(owner);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.Add(owner);
+        await _context.SaveChangesAsync();
 
         var league = _testDataBuilder.CreateLeague(owner.Id);
         league.Name = "Test Tournament";
         league.Code = "TEST2024";
         league.Format = DeckFormat.Standard;
         
-        _identityContext.Leagues.Add(league);
-        await _identityContext.SaveChangesAsync();
+        _context.Leagues.Add(league);
+        await _context.SaveChangesAsync();
 
         // Act - For this test, we'll simulate the lookup directly from identity context
-        var result = await _identityContext.Leagues.FindAsync(league.Id);
+        var result = await _context.Leagues.FindAsync(league.Id);
 
         // Assert
         result.Should().NotBeNull("because a league with this ID exists");
@@ -60,7 +57,7 @@ public class LeagueRepositoryTests : IDisposable
     public async Task GetByIdAsync_WithInvalidId_ReturnsNull()
     {
         // Act
-        var result = await _identityContext.Leagues.FindAsync(999999);
+        var result = await _context.Leagues.FindAsync(999999);
 
         // Assert
         result.Should().BeNull("because no league exists with this ID");
@@ -72,8 +69,8 @@ public class LeagueRepositoryTests : IDisposable
         // Arrange
         var owner1 = _testDataBuilder.CreateUser("owner1@test.com", "owner1");
         var owner2 = _testDataBuilder.CreateUser("owner2@test.com", "owner2");
-        _identityContext.Users.AddRange(owner1, owner2);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.AddRange(owner1, owner2);
+        await _context.SaveChangesAsync();
 
         var owner1Leagues = new[]
         {
@@ -92,12 +89,12 @@ public class LeagueRepositoryTests : IDisposable
         owner2League.Code = "O2LEG";
         owner2League.Format = DeckFormat.Legacy;
 
-        _identityContext.Leagues.AddRange(owner1Leagues);
-        _identityContext.Leagues.Add(owner2League);
-        await _identityContext.SaveChangesAsync();
+        _context.Leagues.AddRange(owner1Leagues);
+        _context.Leagues.Add(owner2League);
+        await _context.SaveChangesAsync();
 
         // Act
-        var result = _identityContext.Leagues.ToList();
+        var result = _context.Leagues.ToList();
 
         // Assert
         result.Should().HaveCount(3, "because we added 3 leagues total");
@@ -111,8 +108,8 @@ public class LeagueRepositoryTests : IDisposable
         // Arrange
         var owner1 = _testDataBuilder.CreateUser("owner1@test.com", "owner1");
         var owner2 = _testDataBuilder.CreateUser("owner2@test.com", "owner2");
-        _identityContext.Users.AddRange(owner1, owner2);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.AddRange(owner1, owner2);
+        await _context.SaveChangesAsync();
 
         var owner1Leagues = new[]
         {
@@ -128,12 +125,12 @@ public class LeagueRepositoryTests : IDisposable
         owner2League.Name = "Owner2 League";
         owner2League.Code = "O2L1";
 
-        _identityContext.Leagues.AddRange(owner1Leagues);
-        _identityContext.Leagues.Add(owner2League);
-        await _identityContext.SaveChangesAsync();
+        _context.Leagues.AddRange(owner1Leagues);
+        _context.Leagues.Add(owner2League);
+        await _context.SaveChangesAsync();
 
         // Act
-        var owner1LeaguesFiltered = _identityContext.Leagues.Where(l => l.OwnerId == owner1.Id).ToList();
+        var owner1LeaguesFiltered = _context.Leagues.Where(l => l.OwnerId == owner1.Id).ToList();
 
         // Assert
         owner1LeaguesFiltered.Should().HaveCount(2, "because owner1 has exactly 2 leagues");
@@ -146,8 +143,8 @@ public class LeagueRepositoryTests : IDisposable
     {
         // Arrange
         var owner = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(owner);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.Add(owner);
+        await _context.SaveChangesAsync();
 
         var league = _testDataBuilder.CreateLeague(owner.Id);
         league.Name = "New Championship";
@@ -161,11 +158,11 @@ public class LeagueRepositoryTests : IDisposable
         league.IsActive = true;
 
         // Act
-        _identityContext.Leagues.Add(league);
-        await _identityContext.SaveChangesAsync();
+        _context.Leagues.Add(league);
+        await _context.SaveChangesAsync();
 
         // Assert
-        var savedLeague = await _identityContext.Leagues.FindAsync(league.Id);
+        var savedLeague = await _context.Leagues.FindAsync(league.Id);
         savedLeague.Should().NotBeNull("because the league should be saved to the database");
         savedLeague.Name.Should().Be("New Championship");
         savedLeague.Code.Should().Be("CHAMP2024");
@@ -184,26 +181,26 @@ public class LeagueRepositoryTests : IDisposable
     {
         // Arrange
         var owner = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(owner);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.Add(owner);
+        await _context.SaveChangesAsync();
 
         var league = _testDataBuilder.CreateLeague(owner.Id);
         league.Name = "Original Tournament";
         league.Code = "ORIG";
         league.TotalPlayers = 16;
         league.IsActive = true;
-        _identityContext.Leagues.Add(league);
-        await _identityContext.SaveChangesAsync();
+        _context.Leagues.Add(league);
+        await _context.SaveChangesAsync();
 
         // Act
         league.Name = "Updated Tournament";
         league.Code = "UPDT";
         league.TotalPlayers = 24;
         league.IsActive = false;
-        await _identityContext.SaveChangesAsync();
+        await _context.SaveChangesAsync();
 
         // Assert
-        var updatedLeague = await _identityContext.Leagues.FindAsync(league.Id);
+        var updatedLeague = await _context.Leagues.FindAsync(league.Id);
         updatedLeague.Should().NotBeNull();
         updatedLeague.Name.Should().Be("Updated Tournament");
         updatedLeague.Code.Should().Be("UPDT");
@@ -216,22 +213,22 @@ public class LeagueRepositoryTests : IDisposable
     {
         // Arrange
         var owner = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(owner);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.Add(owner);
+        await _context.SaveChangesAsync();
 
         var league = _testDataBuilder.CreateLeague(owner.Id);
-        _identityContext.Leagues.Add(league);
-        await _identityContext.SaveChangesAsync();
+        _context.Leagues.Add(league);
+        await _context.SaveChangesAsync();
 
-        var existingLeague = await _identityContext.Leagues.FindAsync(league.Id);
+        var existingLeague = await _context.Leagues.FindAsync(league.Id);
         existingLeague.Should().NotBeNull();
 
         // Act
-        _identityContext.Leagues.Remove(league);
-        await _identityContext.SaveChangesAsync();
+        _context.Leagues.Remove(league);
+        await _context.SaveChangesAsync();
 
         // Assert
-        var deletedLeague = await _identityContext.Leagues.FindAsync(league.Id);
+        var deletedLeague = await _context.Leagues.FindAsync(league.Id);
         deletedLeague.Should().BeNull("because the league should be deleted");
     }
 
@@ -240,8 +237,8 @@ public class LeagueRepositoryTests : IDisposable
     {
         // Arrange
         var owner = _testDataBuilder.CreateUser();
-        _identityContext.Users.Add(owner);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.Add(owner);
+        await _context.SaveChangesAsync();
 
         var leagues = new[]
         {
@@ -256,11 +253,11 @@ public class LeagueRepositoryTests : IDisposable
         leagues[2].Format = DeckFormat.Legacy;
         leagues[2].Code = "LEG1";
 
-        _identityContext.Leagues.AddRange(leagues);
-        await _identityContext.SaveChangesAsync();
+        _context.Leagues.AddRange(leagues);
+        await _context.SaveChangesAsync();
 
         // Act
-        var result = _identityContext.Leagues.ToList();
+        var result = _context.Leagues.ToList();
 
         // Assert
         result.Should().HaveCount(3);
@@ -275,21 +272,21 @@ public class LeagueRepositoryTests : IDisposable
         var owner = _testDataBuilder.CreateUser("owner@test.com", "owner");
         var player1 = _testDataBuilder.CreateUser("player1@test.com", "player1");
         var player2 = _testDataBuilder.CreateUser("player2@test.com", "player2");
-        _identityContext.Users.AddRange(owner, player1, player2);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.AddRange(owner, player1, player2);
+        await _context.SaveChangesAsync();
 
         var league = _testDataBuilder.CreateLeague(owner.Id);
         league.Code = "MULTI";
-        _identityContext.Leagues.Add(league);
-        await _identityContext.SaveChangesAsync();
+        _context.Leagues.Add(league);
+        await _context.SaveChangesAsync();
 
         var userLeague1 = new AppUserLeague { UserId = player1.Id, LeagueId = league.Id };
         var userLeague2 = new AppUserLeague { UserId = player2.Id, LeagueId = league.Id };
-        _identityContext.UserLeagues.AddRange(userLeague1, userLeague2);
-        await _identityContext.SaveChangesAsync();
+        _context.UserLeagues.AddRange(userLeague1, userLeague2);
+        await _context.SaveChangesAsync();
 
         // Act
-        var leagueWithUsers = _identityContext.Leagues
+        var leagueWithUsers = _context.Leagues
             .FirstOrDefault(l => l.Id == league.Id);
 
         // Assert
@@ -297,7 +294,7 @@ public class LeagueRepositoryTests : IDisposable
         leagueWithUsers!.Code.Should().Be("MULTI");
         
         // Note: In a real test, you'd load the navigation properties
-        var userLeagueCount = _identityContext.UserLeagues.Count(ul => ul.LeagueId == league.Id);
+        var userLeagueCount = _context.UserLeagues.Count(ul => ul.LeagueId == league.Id);
         userLeagueCount.Should().Be(2, "because two users joined the league");
     }
 
@@ -306,13 +303,13 @@ public class LeagueRepositoryTests : IDisposable
     {
         var owner = _testDataBuilder.CreateUser("role-owner@test.com", "role_owner");
         var player = _testDataBuilder.CreateUser("role-player@test.com", "role_player");
-        _identityContext.Users.AddRange(owner, player);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.AddRange(owner, player);
+        await _context.SaveChangesAsync();
 
         var league = _testDataBuilder.CreateLeague(owner.Id);
         league.Code = "ROLEADD";
-        _identityContext.Leagues.Add(league);
-        await _identityContext.SaveChangesAsync();
+        _context.Leagues.Add(league);
+        await _context.SaveChangesAsync();
 
         var assignment = new LeagueRoleAssignment
         {
@@ -320,10 +317,10 @@ public class LeagueRepositoryTests : IDisposable
             UserId = player.Id,
             Roles = LeagueRole.Player
         };
-        _identityContext.LeagueRoleAssignments.Add(assignment);
-        await _identityContext.SaveChangesAsync();
+        _context.LeagueRoleAssignments.Add(assignment);
+        await _context.SaveChangesAsync();
 
-        var saved = await _identityContext.LeagueRoleAssignments
+        var saved = await _context.LeagueRoleAssignments
             .FirstOrDefaultAsync(x => x.LeagueId == league.Id && x.UserId == player.Id);
 
         saved.Should().NotBeNull();
@@ -335,13 +332,13 @@ public class LeagueRepositoryTests : IDisposable
     {
         var owner = _testDataBuilder.CreateUser("merge-owner@test.com", "merge_owner");
         var player = _testDataBuilder.CreateUser("merge-player@test.com", "merge_player");
-        _identityContext.Users.AddRange(owner, player);
-        await _identityContext.SaveChangesAsync();
+        _context.Users.AddRange(owner, player);
+        await _context.SaveChangesAsync();
 
         var league = _testDataBuilder.CreateLeague(owner.Id);
         league.Code = "ROLEMERGE";
-        _identityContext.Leagues.Add(league);
-        await _identityContext.SaveChangesAsync();
+        _context.Leagues.Add(league);
+        await _context.SaveChangesAsync();
 
         var assignment = new LeagueRoleAssignment
         {
@@ -349,14 +346,14 @@ public class LeagueRepositoryTests : IDisposable
             UserId = player.Id,
             Roles = LeagueRole.Player
         };
-        _identityContext.LeagueRoleAssignments.Add(assignment);
-        await _identityContext.SaveChangesAsync();
+        _context.LeagueRoleAssignments.Add(assignment);
+        await _context.SaveChangesAsync();
 
         assignment.Roles |= LeagueRole.Admin;
-        _identityContext.LeagueRoleAssignments.Update(assignment);
-        await _identityContext.SaveChangesAsync();
+        _context.LeagueRoleAssignments.Update(assignment);
+        await _context.SaveChangesAsync();
 
-        var saved = await _identityContext.LeagueRoleAssignments
+        var saved = await _context.LeagueRoleAssignments
             .FirstOrDefaultAsync(x => x.LeagueId == league.Id && x.UserId == player.Id);
 
         saved.Should().NotBeNull();
@@ -399,6 +396,5 @@ public class LeagueRepositoryTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
-        _identityContext.Dispose();
     }
 }

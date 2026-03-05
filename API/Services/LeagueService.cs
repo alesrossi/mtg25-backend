@@ -6,7 +6,7 @@ using API.Helpers;
 using API.Dtos.Notifications;
 using Core.Enums;
 using Core.Models.Identity;
-using Infrastructure.Identity;
+using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -41,14 +41,14 @@ public interface ILeagueService
 public sealed class LeagueService : ILeagueService
 {
     private readonly UserManager<AppUser> _userManager;
-    private readonly AppIdentityDbContext _dbContext;
+    private readonly MainContext _dbContext;
     private readonly IValidationService _validationService;
     private readonly NotificationService _notificationService;
     private readonly ILogger<LeagueService> _logger;
 
     public LeagueService(
         UserManager<AppUser> userManager,
-        AppIdentityDbContext dbContext,
+        MainContext dbContext,
         IValidationService validationService,
         NotificationService notificationService,
         ILogger<LeagueService> logger)

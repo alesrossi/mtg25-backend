@@ -3,7 +3,7 @@ using API.Services;
 using Core.Enums;
 using Core.Models.Identity;
 using FluentAssertions;
-using Infrastructure.Identity;
+using Infrastructure.Data;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -1413,17 +1413,17 @@ public class LeagueServiceTests
         exception.Which.Message.Should().Be("Errors.Leagues.NotFound");
     }
 
-    private static AppIdentityDbContext CreateContext()
+    private static MainContext CreateContext()
     {
-        var options = new DbContextOptionsBuilder<AppIdentityDbContext>()
+        var options = new DbContextOptionsBuilder<MainContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        var context = new AppIdentityDbContext(options);
+        var context = new MainContext(options);
         context.Database.EnsureCreated();
         return context;
     }
 
-    private static LeagueService CreateService(AppIdentityDbContext context, params AppUser[] users)
+    private static LeagueService CreateService(MainContext context, params AppUser[] users)
     {
         var manager = CreateUserManagerMock(users);
         var validationService = new ValidationService();

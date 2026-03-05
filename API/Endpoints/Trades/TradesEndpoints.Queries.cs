@@ -3,7 +3,7 @@ using API.Helpers;
 using API.Logging;
 using API.Services;
 using Core.Models.Identity;
-using Infrastructure.Identity;
+using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +18,7 @@ public static partial class TradesEndpoints
         [FromServices] ITradeConnectionService tradeConnectionService,
         [FromServices] ILogger<TradesEndpointLogCategory> logger,
         [FromServices] UserManager<AppUser> userManager,
-        [FromServices] AppIdentityDbContext identityDbContext,
+        [FromServices] MainContext identityDbContext,
         [FromServices] IMessageLocalizer messageLocalizer,
         HttpContext context,
         CancellationToken cancellationToken,

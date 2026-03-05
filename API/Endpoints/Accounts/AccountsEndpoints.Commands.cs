@@ -4,7 +4,7 @@ using API.Helpers;
 using API.Logging;
 using API.Services;
 using Core.Models.Identity;
-using Infrastructure.Identity;
+using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -233,7 +233,7 @@ public static partial class AccountsEndpoints
         HttpContext context,
         [FromBody] UpdateSettingsDto updateDto,
         [FromServices] UserManager<AppUser> userManager,
-        [FromServices] AppIdentityDbContext dbContext,
+        [FromServices] MainContext dbContext,
         [FromServices] IMessageLocalizer messageLocalizer,
         [FromServices] ILogger<AccountsEndpointLogCategory> logger)
     {

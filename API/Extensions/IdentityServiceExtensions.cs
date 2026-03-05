@@ -1,5 +1,5 @@
 using Core.Models.Identity;
-using Infrastructure.Identity;
+using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 
 namespace API.Extensions
@@ -11,7 +11,7 @@ namespace API.Extensions
             var builder = services.AddIdentityCore<AppUser>();
 
             builder = new IdentityBuilder(builder.UserType, builder.Services);
-            builder.AddEntityFrameworkStores<AppIdentityDbContext>();
+            builder.AddEntityFrameworkStores<MainContext>();
             builder.AddSignInManager<SignInManager<AppUser>>();
 
             return services;

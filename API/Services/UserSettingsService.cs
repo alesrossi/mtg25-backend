@@ -1,5 +1,5 @@
 using Core.Models.Identity;
-using Infrastructure.Identity;
+using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Core.Enums;
 
@@ -16,9 +16,9 @@ public interface IUserSettingsService
 
 public class UserSettingsService : IUserSettingsService
 {
-    private readonly AppIdentityDbContext _identityDbContext;
+    private readonly MainContext _identityDbContext;
 
-    public UserSettingsService(AppIdentityDbContext identityDbContext)
+    public UserSettingsService(MainContext identityDbContext)
     {
         _identityDbContext = identityDbContext;
     }

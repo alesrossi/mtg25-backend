@@ -3,8 +3,8 @@ using System.Net.Http.Json;
 using API.Dtos.Friends;
 using Core.Enums;
 using Core.Models.Identity;
+using Infrastructure.Data;
 using FluentAssertions;
-using Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TestUtilities.Authentication;
@@ -36,7 +36,7 @@ public class FriendsControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         await using var scope = _factory.Services.CreateAsyncScope();
-        var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var identityContext = scope.ServiceProvider.GetRequiredService<MainContext>();
 
         var friendship = await identityContext.AppUserFriends.FirstOrDefaultAsync(
             f => f.UserId == requester.Id && f.FriendId == target.Id);
@@ -74,7 +74,7 @@ public class FriendsControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         await using var scope = _factory.Services.CreateAsyncScope();
-        var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var identityContext = scope.ServiceProvider.GetRequiredService<MainContext>();
 
         var friendship = await identityContext.AppUserFriends.FirstOrDefaultAsync(
             f => f.UserId == requester.Id && f.FriendId == target.Id);
@@ -138,7 +138,7 @@ public class FriendsControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         await using var scope = _factory.Services.CreateAsyncScope();
-        var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var identityContext = scope.ServiceProvider.GetRequiredService<MainContext>();
         var friendship = await identityContext.AppUserFriends.FirstAsync();
         friendship.Status.Should().Be(FriendshipStatus.Accepted);
         friendship.RespondedAt.Should().NotBeNull();
@@ -202,7 +202,7 @@ public class FriendsControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         await using var scope = _factory.Services.CreateAsyncScope();
-        var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var identityContext = scope.ServiceProvider.GetRequiredService<MainContext>();
         var friendship = await identityContext.AppUserFriends.FirstOrDefaultAsync(
             f => (f.UserId == requester.Id && f.FriendId == target.Id)
                  || (f.UserId == target.Id && f.FriendId == requester.Id));
@@ -220,7 +220,7 @@ public class FriendsControllerTests : IClassFixture<CustomWebApplicationFactory>
         FriendshipStatus status = FriendshipStatus.Pending)
     {
         await using var scope = _factory.Services.CreateAsyncScope();
-        var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var identityContext = scope.ServiceProvider.GetRequiredService<MainContext>();
         var requester = await identityContext.Users.FindAsync(requesterId)
             ?? throw new InvalidOperationException("Requester not found.");
         var friend = await identityContext.Users.FindAsync(friendId)
@@ -246,7 +246,7 @@ public class FriendsControllerTests : IClassFixture<CustomWebApplicationFactory>
     private async Task ApproveFriendRequestAsync(string requesterId, string friendId, string approverId)
     {
         await using var scope = _factory.Services.CreateAsyncScope();
-        var identityContext = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+        var identityContext = scope.ServiceProvider.GetRequiredService<MainContext>();
 
         var notification = new Notification
         {
