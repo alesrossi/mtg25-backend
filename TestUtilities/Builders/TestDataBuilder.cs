@@ -257,7 +257,7 @@ public class TestDataBuilder
             .With(c => c.ScryfallId, _fixture.Create<Guid>().ToString())
             .With(c => c.OracleId, oracleId)
             .With(c => c.Quantity, _random.Next(1, 10))
-            .With(c => c.Language, Language.En)
+            .With(c => c.Language, CardLanguage.En)
             .With(c => c.Condition, Condition.NearMint)
             .With(c => c.IsFoil, _random.Next(10) == 0) // 10% chance of foil
             .With(c => c.PurchasePriceCurrency, Currency.Usd)

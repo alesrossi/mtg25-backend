@@ -13,7 +13,7 @@ public class CreateWishlistCardDto
     public int DesiredQuantity { get; set; } = 1;
     public bool ExactVersion { get; set; }
     public bool? IsFoil { get; set; }
-    public Language? Language { get; set; }
+    public CardLanguage? Language { get; set; }
     public Condition? MinimumCondition { get; set; }
     [StringLength(500)]
     public string? Notes { get; set; }

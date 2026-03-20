@@ -142,7 +142,7 @@ public class DeckCardTests
             TypeLine = "Instant",
             Quantity = 1,
             PurchasePrice = 2.50,
-            Language = Language.En,
+            Language = CardLanguage.En,
             Condition = Condition.NearMint,
             IsFoil = false,
             PurchasePriceCurrency = Currency.Usd,

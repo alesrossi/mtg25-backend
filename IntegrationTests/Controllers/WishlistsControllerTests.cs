@@ -372,7 +372,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
         {
             DesiredQuantity = 3,
             IsFoil = true,
-            Language = Language.It,
+            Language = CardLanguage.It,
             Notes = "Updated notes"
         };
 
@@ -444,7 +444,7 @@ public class WishlistsControllerTests : IClassFixture<CustomWebApplicationFactor
             ScryfallId = "89f612d6-7c59-4a7b-a87d-45f789e88ba5",
             DesiredQuantity = 2,
             IsFoil = false,
-            Language = Language.En,
+            Language = CardLanguage.En,
             Notes = ""
         };
         var list = new List<CreateWishlistCardDto> { createCardDto };

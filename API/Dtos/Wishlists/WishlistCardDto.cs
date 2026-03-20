@@ -15,7 +15,7 @@ public class WishlistCardDto
     public string? ArtCrop { get; set; }
     public int DesiredQuantity { get; set; }
     public bool? IsFoil { get; set; }
-    public Language? Language { get; set; }
+    public CardLanguage? Language { get; set; }
     public Condition? MinimumCondition { get; set; }
     public bool IsAny { get; set; }
     public string? Notes { get; set; }

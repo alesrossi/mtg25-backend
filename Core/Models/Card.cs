@@ -14,7 +14,7 @@ public class Card : BaseModel
     public int CollectionId { get; set; }
     public Collection? Collection { get; set; }
     public required int Quantity { get; set; }
-    public required Language Language { get; set; }
+    public required CardLanguage Language { get; set; }
     public Condition Condition  { get; set; }
     public required bool IsFoil { get; set; }
     public required double PurchasePrice { get; set; }

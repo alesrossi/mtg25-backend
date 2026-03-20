@@ -6,7 +6,7 @@ public class UpdateCollectionCardDto
 {
     public int CollectionId { get; set; }
     public int Quantity { get; set; }
-    public required Language Language { get; set; }
+    public required CardLanguage Language { get; set; }
     public required string Condition { get; set; } 
     public bool IsFoil { get; set; }
     public double PurchasePrice { get; set; }

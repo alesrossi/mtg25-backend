@@ -103,7 +103,7 @@ public static class CollectionHelpers
                 ScryfallId = ocd.Id,
                 OracleId = CardDataService.ResolveOracleId(ocd) ?? string.Empty,
                 Quantity = record.Quantity,
-                Language = LanguageExtensions.ParseOrDefault(record.Language),
+                Language = CardLanguageExtensions.ParseOrDefault(record.Language),
                 IsFoil = record.IsFoil,
                 PurchasePrice = purchasePrice,
                 PurchasePriceCurrency = purchaseCurrency,
@@ -200,7 +200,7 @@ public static class CollectionHelpers
                 userCurrency);
 
             var backImageUrl = CardDataService.ResolveBackImageUrl(ocd);
-            const Language language = Language.En;
+            const CardLanguage language = CardLanguage.En;
             const Condition defaultCondition = Condition.NearMint;
 
             importedCards.Add(new Card
@@ -322,7 +322,7 @@ public static class CollectionHelpers
                 userCurrency);
 
             var backImageUrl = CardDataService.ResolveBackImageUrl(ocd);
-            const Language language = Language.En;
+            const CardLanguage language = CardLanguage.En;
 
             importedCards.Add(new Card
             {
@@ -447,7 +447,7 @@ public static class CollectionHelpers
                 userCurrency);
 
             var backImageUrl = CardDataService.ResolveBackImageUrl(ocd);
-            var language = LanguageExtensions.ParseOrDefault(record.Language);
+            var language = CardLanguageExtensions.ParseOrDefault(record.Language);
 
             importedCards.Add(new Card
             {
@@ -570,7 +570,7 @@ public static class CollectionHelpers
                 userCurrency);
 
             var backImageUrl = CardDataService.ResolveBackImageUrl(ocd);
-            var language = LanguageExtensions.ParseOrDefault(record.Language);
+            var language = CardLanguageExtensions.ParseOrDefault(record.Language);
 
             importedCards.Add(new Card
             {
@@ -666,7 +666,7 @@ public static class CollectionHelpers
                 userCurrency);
 
             var backImageUrl = CardDataService.ResolveBackImageUrl(ocd);
-            var language = LanguageExtensions.ParseOrDefault(record.Language);
+            var language = CardLanguageExtensions.ParseOrDefault(record.Language);
             var cardCondition = ConvertCondition(record.Condition);
 
             importedCards.Add(new Card

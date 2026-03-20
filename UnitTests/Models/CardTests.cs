@@ -30,7 +30,7 @@ public class CardTests
         card.Name.Should().NotBeNullOrEmpty("because card name is required");
         card.ScryfallId.Should().NotBeNullOrEmpty("because oracle ID is required for card identification");
         card.Quantity.Should().BeGreaterThan(0, "because quantity must be positive");
-        card.Language.Should().Be(Language.En, "because language is required");
+        card.Language.Should().Be(CardLanguage.En, "because language is required");
         Enum.IsDefined(typeof(Currency), card.PurchasePriceCurrency).Should().BeTrue("because currency is required");
         card.ImageUrl.Should().NotBeNullOrEmpty("because image URL is required");
         card.SetCode.Should().NotBeNullOrEmpty("because set code is required");

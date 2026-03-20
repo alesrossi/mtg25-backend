@@ -77,7 +77,7 @@ public class WishlistCardTests
             Name = "Sol Ring",
             DesiredQuantity = 1,
             IsFoil = true,
-            Language = Language.En,
+            Language = CardLanguage.En,
             Notes = "Prefer etched foil"
         };
         

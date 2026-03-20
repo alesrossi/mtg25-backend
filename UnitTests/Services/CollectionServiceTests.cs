@@ -292,7 +292,7 @@ public class CollectionServiceTests
             OracleId = oracleId ?? Guid.NewGuid().ToString(),
             CollectionId = collectionId,
             Quantity = quantity,
-            Language = Language.En,
+            Language = CardLanguage.En,
             Condition = Condition.NearMint,
             IsFoil = false,
             PurchasePrice = purchasePrice,

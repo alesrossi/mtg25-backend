@@ -23,7 +23,7 @@ public class EntitySpecParams
     public bool? IsFoil { get; set; }
     public bool? IsMisprint { get; set; }
     public bool? IsAltered { get; set; }
-    public Language? Language { get; set; }
+    public CardLanguage? Language { get; set; }
     public double? MinPrice { get; set; }
     public double? MaxPrice { get; set; }
     public string? GroupBy { get; set; }

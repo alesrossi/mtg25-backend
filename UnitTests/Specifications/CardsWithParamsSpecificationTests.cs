@@ -99,7 +99,7 @@ public class CardsWithParamsSpecificationTests
             ScryfallId = Guid.NewGuid().ToString(),
             OracleId = Guid.NewGuid().ToString(),
             Quantity = 1,
-            Language = Language.En,
+            Language = CardLanguage.En,
             Condition = Condition.NearMint,
             IsFoil = false,
             PurchasePrice = 1,

@@ -99,7 +99,7 @@ public class MainContext : IdentityDbContext<AppUser>
             entity.Property(e => e.Language)
                 .HasConversion(
                     v => v.HasValue ? v.Value.ToCode() : null,
-                    v => LanguageExtensions.ParseNullable(v));
+                    v => CardLanguageExtensions.ParseNullable(v));
         });
 
         modelBuilder.Entity<Card>(entity =>
@@ -107,7 +107,7 @@ public class MainContext : IdentityDbContext<AppUser>
             entity.Property(e => e.Language)
                 .HasConversion(
                     v => v.ToCode(),
-                    v => LanguageExtensions.ParseOrDefault(v, Language.En));
+                    v => CardLanguageExtensions.ParseOrDefault(v, CardLanguage.En));
 
             entity.Property(e => e.PurchasePriceCurrency)
                 .HasConversion(
