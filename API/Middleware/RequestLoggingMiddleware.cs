@@ -17,6 +17,12 @@ public class RequestLoggingMiddleware
     private const string CorrelationIdItemKey = "CorrelationId";
     private const string ExceptionOccurredKey = "RequestLoggingMiddleware.ExceptionOccurred";
 
+    private static readonly HashSet<string> _sensitiveRoutes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "/api/accounts/login",
+        "/api/accounts/register",
+    };
+
     public RequestLoggingMiddleware(
         RequestDelegate next,
         ILogger<RequestLoggingMiddleware> logger,
@@ -53,11 +59,13 @@ public class RequestLoggingMiddleware
             var stopwatch = Stopwatch.StartNew();
             var request = context.Request;
             var requestPath = request.Path + request.QueryString;
-            var captureRequestBody = _options.IncludeRequestBody &&
+            var isSensitiveRoute = _sensitiveRoutes.Contains(request.Path.Value ?? string.Empty);
+            var captureRequestBody = !isSensitiveRoute &&
+                _options.IncludeRequestBody &&
                 (request.ContentLength ?? 0) > 0 &&
                 request.Body.CanRead &&
                 IsTextContentType(request.ContentType);
-            var captureResponseBody = _options.IncludeResponseBody;
+            var captureResponseBody = !isSensitiveRoute && _options.IncludeResponseBody;
             string? requestBody = null;
             string? responseBody = null;
             Stream? originalResponseBody = null;
