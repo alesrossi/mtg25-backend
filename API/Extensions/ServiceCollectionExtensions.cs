@@ -40,6 +40,8 @@ public static class ServiceCollectionExtensions
                     options.JsonSerializerOptions.WriteIndented = true;
                     options.JsonSerializerOptions.Converters.Add(new LanguageJsonConverter());
                     options.JsonSerializerOptions.Converters.Add(new NullableLanguageJsonConverter());
+                    options.JsonSerializerOptions.Converters.Add(new CardLanguageJsonConverter());
+                    options.JsonSerializerOptions.Converters.Add(new NullableCardLanguageJsonConverter());
                     options.JsonSerializerOptions.Converters.Add(new DeckFormatJsonConverter());
                     options.JsonSerializerOptions.Converters.Add(new NullableDeckFormatJsonConverter());
                     options.JsonSerializerOptions.Converters.Add(new CurrencyJsonConverter());
