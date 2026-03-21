@@ -54,6 +54,8 @@ public static class ServiceCollectionExtensions
                 options.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
                 options.SerializerOptions.Converters.Add(new LanguageJsonConverter());
                 options.SerializerOptions.Converters.Add(new NullableLanguageJsonConverter());
+                options.SerializerOptions.Converters.Add(new CardLanguageJsonConverter());
+                options.SerializerOptions.Converters.Add(new NullableCardLanguageJsonConverter());
                 options.SerializerOptions.Converters.Add(new DeckFormatJsonConverter());
                 options.SerializerOptions.Converters.Add(new NullableDeckFormatJsonConverter());
                 options.SerializerOptions.Converters.Add(new CurrencyJsonConverter());
