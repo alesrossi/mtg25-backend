@@ -14,6 +14,8 @@ public static class JsonContentHelper
         {
             new LanguageJsonConverter(),
             new NullableLanguageJsonConverter(),
+            new CardLanguageJsonConverter(),
+            new NullableCardLanguageJsonConverter(),
             new DeckFormatJsonConverter(),
             new NullableDeckFormatJsonConverter(),
             new CurrencyJsonConverter(),
