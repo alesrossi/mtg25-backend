@@ -147,6 +147,81 @@ public class DecklistParserServiceTests
         result.DeckCards.Single().MaindeckQuantity.Should().Be(4);
     }
 
+    [Fact]
+    public async Task ParseAsync_WithFlavorName_ReturnsCard()
+    {
+        // Arrange
+        var cards = new[]
+        {
+            _builder.CreateOracleCard("1", "oracle-1", "Garruk Wildspeaker", "MED", "Magic: The Gathering—Conspiracy",
+                flavorName: "Garruk, the Veil-Cursed")
+        };
+
+        var parser = CreateParser(cards);
+
+        var decklist = new[] { "2 Garruk, the Veil-Cursed" };
+
+        // Act
+        var result = await parser.ParseAsync(decklist);
+
+        // Assert
+        result.IsSuccessful.Should().BeTrue();
+        result.DeckCards.Should().HaveCount(1);
+        result.DeckCards.Single().MaindeckQuantity.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task ParseAsync_WithPrintedName_ReturnsCard()
+    {
+        // Arrange
+        var cards = new[]
+        {
+            _builder.CreateOracleCard("1", "oracle-1", "Lightning Bolt", "LEA", "Limited Edition Alpha",
+                printedName: "Saetta Fulminante")
+        };
+
+        var parser = CreateParser(cards);
+
+        var decklist = new[] { "4 Saetta Fulminante" };
+
+        // Act
+        var result = await parser.ParseAsync(decklist);
+
+        // Assert
+        result.IsSuccessful.Should().BeTrue();
+        result.DeckCards.Should().HaveCount(1);
+        result.DeckCards.Single().MaindeckQuantity.Should().Be(4);
+    }
+
+    [Fact]
+    public async Task ParseAsync_FlavorNameAndRegularNameResolveSameCard()
+    {
+        // Arrange
+        var cards = new[]
+        {
+            _builder.CreateOracleCard("1", "oracle-1", "Garruk Wildspeaker", "MED", "Magic: The Gathering—Conspiracy",
+                flavorName: "Garruk, the Veil-Cursed")
+        };
+
+        var parser = CreateParser(cards);
+
+        // Same card referenced by both names — should merge into one entry
+        var decklist = new[]
+        {
+            "1 Garruk Wildspeaker",
+            string.Empty,
+            "1 Garruk, the Veil-Cursed"
+        };
+
+        // Act
+        var result = await parser.ParseAsync(decklist);
+
+        // Assert
+        result.DeckCards.Should().HaveCount(1);
+        result.DeckCards.Single().MaindeckQuantity.Should().Be(1);
+        result.DeckCards.Single().SideboardQuantity.Should().Be(1);
+    }
+
     private static DecklistParserService CreateParser(IEnumerable<ScryfallCardDto> cards)
     {
         var cardDataService = CardDataServiceTestHelper.CreateWithCards(cards);

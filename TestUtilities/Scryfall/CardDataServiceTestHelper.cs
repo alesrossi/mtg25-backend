@@ -26,7 +26,16 @@ public static class CardDataServiceTestHelper
 
         var cardList = cards.ToList();
         var cardsById = cardList.ToDictionary(c => c.Id);
-        var cardsByName = cardList.ToDictionary(c => c.Name, c => c, StringComparer.OrdinalIgnoreCase);
+        var cardsByName = new Dictionary<string, ScryfallCardDto>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var card in cardList)
+        {
+            cardsByName[card.Name] = card;
+            if (!string.IsNullOrWhiteSpace(card.FlavorName))
+                cardsByName[card.FlavorName] = card;
+            if (!string.IsNullOrWhiteSpace(card.PrintedName))
+                cardsByName[card.PrintedName] = card;
+        }
 
         typeof(CardDataService).GetProperty(nameof(CardDataService.CardDataById))!
             .SetValue(service, cardsById);

@@ -55,6 +55,8 @@ public record ScryfallCardDto(
     string? Rarity,
     string? Watermark,
     string? FlavorText,
+    string? FlavorName,
+    string? PrintedName,
     string? Artist,
     string? ArtistId,
     string? IllustrationId,

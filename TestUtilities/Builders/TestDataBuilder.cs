@@ -292,7 +292,9 @@ public class TestDataBuilder
         string? oracleId = null,
         string? name = null,
         string? setCode = null,
-        string? setName = null)
+        string? setName = null,
+        string? flavorName = null,
+        string? printedName = null)
     {
         var cardId = id ?? Guid.NewGuid().ToString();
         var oracle = oracleId ?? Guid.NewGuid().ToString();
@@ -376,6 +378,8 @@ public class TestDataBuilder
             Rarity: GetRandomRarity(),
             Watermark: null,
             FlavorText: null,
+            FlavorName: flavorName,
+            PrintedName: printedName,
             Artist: "Test Artist",
             ArtistId: Guid.NewGuid().ToString(),
             IllustrationId: Guid.NewGuid().ToString(),

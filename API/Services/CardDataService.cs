@@ -66,17 +66,28 @@ public class CardDataService
                 if (splitNames.Length <= 1)
                 {
                     AddOrUpdateWithCheapest(splitNames.FirstOrDefault() ?? card.Name, card);
-                    continue;
+                }
+                else
+                {
+                    foreach (var faceName in splitNames)
+                    {
+                        if (string.IsNullOrWhiteSpace(faceName))
+                        {
+                            continue;
+                        }
+
+                        AddOrUpdateWithCheapest(faceName, card with { Name = faceName });
+                    }
                 }
 
-                foreach (var faceName in splitNames)
+                if (!string.IsNullOrWhiteSpace(card.FlavorName))
                 {
-                    if (string.IsNullOrWhiteSpace(faceName))
-                    {
-                        continue;
-                    }
+                    AddOrUpdateWithCheapest(card.FlavorName, card);
+                }
 
-                    AddOrUpdateWithCheapest(faceName, card with { Name = faceName });
+                if (!string.IsNullOrWhiteSpace(card.PrintedName))
+                {
+                    AddOrUpdateWithCheapest(card.PrintedName, card);
                 }
             }
 
