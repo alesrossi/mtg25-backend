@@ -21,6 +21,7 @@ public class RequestLoggingMiddleware
     {
         "/api/accounts/login",
         "/api/accounts/register",
+        "/api/accounts/google",
     };
 
     public RequestLoggingMiddleware(

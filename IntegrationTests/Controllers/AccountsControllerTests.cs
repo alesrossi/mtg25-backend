@@ -3,10 +3,14 @@ using System.Text;
 using System.Text.Json;
 using System.Net.Http.Headers;
 using API.Dtos.Accounts;
+using API.Services;
 using FluentAssertions;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Core.Models.Identity;
 using Microsoft.AspNetCore.Identity;
+using Moq;
 using TestUtilities.Authentication;
 using TestUtilities.Builders;
 using TestUtilities.Serialization;
@@ -356,6 +360,140 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
             "because names with special characters should be supported");
     }
 
+    // ── Google Login ─────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GoogleLogin_WithInvalidToken_Returns400()
+    {
+        var mockGoogleAuth = new Mock<IGoogleAuthService>();
+        mockGoogleAuth
+            .Setup(s => s.AuthenticateAsync(It.IsAny<string>()))
+            .ReturnsAsync(GoogleAuthResult.Fail("Invalid Google token."));
+
+        using var client = _factory.WithWebHostBuilder(b =>
+            b.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<IGoogleAuthService>();
+                services.AddSingleton(mockGoogleAuth.Object);
+            })).CreateClient();
+
+        var body = new StringContent(
+            JsonSerializer.Serialize(new GoogleLoginDto { IdToken = "bad-token" }),
+            Encoding.UTF8, "application/json");
+
+        var response = await client.PostAsync("/api/accounts/google", body);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task GoogleLogin_WithValidToken_ExistingGoogleUser_ReturnsAuthDto()
+    {
+        var user = await CreateTestUserAsync($"googleuser_{Guid.NewGuid():N}", "googleuser");
+
+        var mockGoogleAuth = new Mock<IGoogleAuthService>();
+        mockGoogleAuth
+            .Setup(s => s.AuthenticateAsync("valid-token"))
+            .ReturnsAsync(GoogleAuthResult.Ok(user));
+
+        using var client = _factory.WithWebHostBuilder(b =>
+            b.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<IGoogleAuthService>();
+                services.AddSingleton(mockGoogleAuth.Object);
+            })).CreateClient();
+
+        var body = new StringContent(
+            JsonSerializer.Serialize(new GoogleLoginDto { IdToken = "valid-token" }),
+            Encoding.UTF8, "application/json");
+
+        var response = await client.PostAsync("/api/accounts/google", body);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var authDto = JsonSerializer.Deserialize<AuthDto>(
+            await response.Content.ReadAsStringAsync(), JsonContentHelper.DefaultOptions);
+
+        authDto.Should().NotBeNull();
+        authDto!.Token.Should().NotBeNullOrEmpty();
+        authDto.UserId.Should().Be(user.Id);
+    }
+
+    [Fact]
+    public async Task GoogleLogin_WithValidToken_NewUser_ReturnsAuthDto()
+    {
+        var newUser = new AppUser
+        {
+            Id = Guid.NewGuid().ToString(),
+            Email = $"newgoogle_{Guid.NewGuid():N}@example.com",
+            UserName = $"newgoogle_{Guid.NewGuid():N}",
+            FirstName = "New",
+            LastName = "User",
+            DisplayName = "New",
+            IsGoogleAccount = true
+        };
+
+        // The user must exist in the DB for JwtService to generate a token
+        await CreateUserInDatabaseAsync(newUser);
+
+        var mockGoogleAuth = new Mock<IGoogleAuthService>();
+        mockGoogleAuth
+            .Setup(s => s.AuthenticateAsync("new-user-token"))
+            .ReturnsAsync(GoogleAuthResult.Ok(newUser));
+
+        using var client = _factory.WithWebHostBuilder(b =>
+            b.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<IGoogleAuthService>();
+                services.AddSingleton(mockGoogleAuth.Object);
+            })).CreateClient();
+
+        var body = new StringContent(
+            JsonSerializer.Serialize(new GoogleLoginDto { IdToken = "new-user-token" }),
+            Encoding.UTF8, "application/json");
+
+        var response = await client.PostAsync("/api/accounts/google", body);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var authDto = JsonSerializer.Deserialize<AuthDto>(
+            await response.Content.ReadAsStringAsync(), JsonContentHelper.DefaultOptions);
+
+        authDto.Should().NotBeNull();
+        authDto!.Token.Should().NotBeNullOrEmpty();
+        authDto.UserId.Should().Be(newUser.Id);
+        authDto.FirstName.Should().Be("New");
+    }
+
+    [Fact]
+    public async Task GoogleLogin_WithMissingIdToken_Returns400()
+    {
+        using var client = _factory.CreateClient();
+
+        var body = new StringContent(
+            JsonSerializer.Serialize(new { IncludeRefreshToken = false }),
+            Encoding.UTF8, "application/json");
+
+        var response = await client.PostAsync("/api/accounts/google", body);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task PasswordLogin_WithGoogleAccount_Returns400()
+    {
+        var email = $"googleonly_{Guid.NewGuid():N}@test.com";
+        await CreateGoogleUserInDatabaseAsync(email);
+        using var client = _factory.CreateClient();
+
+        var body = new StringContent(
+            JsonSerializer.Serialize(new LoginDto { Email = email, Password = "Password123!" }),
+            Encoding.UTF8, "application/json");
+
+        var response = await client.PostAsync("/api/accounts/login", body);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest,
+            "because Google accounts must use the /google endpoint, not password login");
+    }
+
     #region Helper Methods
     private Task<AppUser> CreateTestUserAsync(string baseEmail, string baseUserName) =>
         TestUserFactory.CreateAsync(_factory.Services, _testDataBuilder, baseEmail, baseUserName);
@@ -363,11 +501,38 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
     private Task<AppUser> CreateTestUserWithPasswordAsync(string email, string userName, string password) =>
         TestUserFactory.CreateAsync(_factory.Services, _testDataBuilder, email, userName, requirePassword: true, password: password);
 
+    private async Task CreateUserInDatabaseAsync(AppUser user)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+        var result = await userManager.CreateAsync(user);
+        if (!result.Succeeded)
+            throw new InvalidOperationException(string.Join(", ", result.Errors.Select(e => e.Description)));
+    }
+
+    private async Task CreateGoogleUserInDatabaseAsync(string email)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+        var user = new AppUser
+        {
+            Email = email,
+            UserName = email,
+            FirstName = "Google",
+            LastName = "User",
+            DisplayName = "Google",
+            IsGoogleAccount = true
+        };
+        var result = await userManager.CreateAsync(user);
+        if (!result.Succeeded)
+            throw new InvalidOperationException(string.Join(", ", result.Errors.Select(e => e.Description)));
+    }
+
     private async Task VerifyUserExistsInDatabase(string email)
     {
         using var scope = _factory.Services.CreateScope();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
-        
+
         var user = await userManager.FindByEmailAsync(email);
         user.Should().NotBeNull($"because user with email {email} should exist in database");
     }

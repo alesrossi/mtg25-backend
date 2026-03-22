@@ -166,6 +166,7 @@ public static class ServiceCollectionExtensions
         public IServiceCollection AddApiServices(IConfiguration configuration)
         {
             services.AddScoped<IValidationService, ValidationService>();
+            services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
             services.AddScoped<IGoogleAuthService, GoogleAuthService>();
             services.AddSingleton<CardDataService>();
             services.AddScoped<ProblemDetailsEndpointFilter>();

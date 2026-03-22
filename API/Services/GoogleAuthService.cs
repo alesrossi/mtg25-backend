@@ -7,6 +7,20 @@ using Microsoft.Extensions.Options;
 
 namespace API.Services;
 
+public interface IGoogleTokenValidator
+{
+    Task<GoogleJsonWebSignature.Payload> ValidateAsync(string idToken, string clientId);
+}
+
+public class GoogleTokenValidator : IGoogleTokenValidator
+{
+    public Task<GoogleJsonWebSignature.Payload> ValidateAsync(string idToken, string clientId)
+    {
+        var settings = new GoogleJsonWebSignature.ValidationSettings { Audience = [clientId] };
+        return GoogleJsonWebSignature.ValidateAsync(idToken, settings);
+    }
+}
+
 public interface IGoogleAuthService
 {
     Task<GoogleAuthResult> AuthenticateAsync(string idToken);
@@ -15,16 +29,19 @@ public interface IGoogleAuthService
 public class GoogleAuthService : IGoogleAuthService
 {
     private readonly UserManager<AppUser> _userManager;
+    private readonly IGoogleTokenValidator _tokenValidator;
     private readonly GoogleAuthConfig _config;
     private readonly ILogger<GoogleAuthService> _logger;
     private const string Operation = "Accounts.GoogleAuth";
 
     public GoogleAuthService(
         UserManager<AppUser> userManager,
+        IGoogleTokenValidator tokenValidator,
         IOptions<GoogleAuthConfig> config,
         ILogger<GoogleAuthService> logger)
     {
         _userManager = userManager;
+        _tokenValidator = tokenValidator;
         _config = config.Value;
         _logger = logger;
     }
@@ -36,11 +53,7 @@ public class GoogleAuthService : IGoogleAuthService
         GoogleJsonWebSignature.Payload payload;
         try
         {
-            var settings = new GoogleJsonWebSignature.ValidationSettings
-            {
-                Audience = [_config.ClientId]
-            };
-            payload = await GoogleJsonWebSignature.ValidateAsync(idToken, settings);
+            payload = await _tokenValidator.ValidateAsync(idToken, _config.ClientId);
         }
         catch (InvalidJwtException ex)
         {
@@ -60,15 +73,17 @@ public class GoogleAuthService : IGoogleAuthService
         {
             if (!user.IsGoogleAccount)
             {
-                _logger.LogOperationWarning(Operation, "Email belongs to password account", new { email });
+                _logger.LogOperationWarning(Operation, "Login failed — email belongs to password account", new { email });
                 return GoogleAuthResult.Fail("An account with this email already exists. Please sign in with your password.");
             }
 
-            _logger.LogOperationStep(Operation, "Existing Google user found", new { email, user.Id });
+            _logger.LogOperationSuccess(Operation, new { action = "login", email, user.Id });
             return GoogleAuthResult.Ok(user);
         }
 
         // Auto-register new Google user
+        _logger.LogOperationStep(Operation, "New Google user — starting registration", new { email, firstName, lastName });
+
         user = new AppUser
         {
             Email = email,
@@ -90,11 +105,11 @@ public class GoogleAuthService : IGoogleAuthService
         if (!result.Succeeded)
         {
             var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-            _logger.LogOperationWarning(Operation, "User creation failed", new { email, errors });
+            _logger.LogOperationWarning(Operation, "Registration failed — user creation error", new { email, errors });
             return GoogleAuthResult.Fail("Failed to create account.");
         }
 
-        _logger.LogOperationSuccess(Operation, new { email, user.Id });
+        _logger.LogOperationSuccess(Operation, new { action = "registration", email, user.Id });
         return GoogleAuthResult.Ok(user);
     }
 }
