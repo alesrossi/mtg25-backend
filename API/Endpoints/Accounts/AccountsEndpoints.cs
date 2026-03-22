@@ -41,7 +41,15 @@ public static partial class AccountsEndpoints
             .WithSummary("Authenticate user login")
             .WithDescription("Authenticates a user with email and password credentials, returning user information upon successful login")
             .Produces<AuthDto>()
+            .Produces<ProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
+
+        group.MapPost("/google", GoogleLoginAsync)
+            .WithSummary("Authenticate with Google")
+            .WithDescription("Validates a Google ID token and returns a JWT. Auto-registers the user if they don't exist yet.")
+            .Produces<AuthDto>()
+            .Produces<ProblemDetails>(StatusCodes.Status400BadRequest, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/logout", LogoutUserAsync)

@@ -28,6 +28,7 @@ public static class ServiceCollectionExtensions
         {
             services.Configure<ScryfallConfig>(configuration.GetSection("Scryfall"));
             services.Configure<PathsConfig>(configuration.GetSection("Paths"));
+            services.Configure<GoogleAuthConfig>(configuration.GetSection("Google"));
             services.Configure<RequestLoggingOptions>(configuration.GetSection("RequestLogging"));
             services.Configure<JwtSettings>(configuration.GetSection("JWT"));
 
@@ -165,6 +166,7 @@ public static class ServiceCollectionExtensions
         public IServiceCollection AddApiServices(IConfiguration configuration)
         {
             services.AddScoped<IValidationService, ValidationService>();
+            services.AddScoped<IGoogleAuthService, GoogleAuthService>();
             services.AddSingleton<CardDataService>();
             services.AddScoped<ProblemDetailsEndpointFilter>();
             services.AddScoped<IJwtService, JwtService>();

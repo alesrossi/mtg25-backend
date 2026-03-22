@@ -10,6 +10,11 @@ public class PathsConfig
     public string Bulk { get; init; } = string.Empty;
 }
 
+public class GoogleAuthConfig
+{
+    public string ClientId { get; init; } = string.Empty;
+}
+
 public class RequestLoggingOptions
 {
     public const string DefaultCorrelationHeaderName = "X-Correlation-ID";

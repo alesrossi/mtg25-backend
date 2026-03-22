@@ -85,6 +85,43 @@ public static partial class AccountsEndpoints
         });
     }
 
+    private static async Task<IResult> GoogleLoginAsync(
+        [FromServices] IGoogleAuthService googleAuthService,
+        [FromServices] IJwtService jwtService,
+        [FromServices] IOptions<JwtSettings> jwtOptions,
+        [FromBody] GoogleLoginDto dto,
+        HttpContext context,
+        [FromServices] ILogger<AccountsEndpointLogCategory> logger)
+    {
+        const string operation = "Accounts.GoogleLogin";
+        using var scope = logger.BeginOperationScope(operation);
+        logger.LogOperationStart(operation);
+
+        var authResult = await googleAuthService.AuthenticateAsync(dto.IdToken);
+        if (!authResult.Succeeded)
+        {
+            logger.LogOperationWarning(operation, "Google auth failed", new { authResult.Error });
+            return Results.Problem(authResult.Error, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var user = authResult.User!;
+        var token = await jwtService.GenerateTokenAsync(user);
+        var refreshToken = await jwtService.GenerateRefreshTokenAsync(user.Id);
+        SetRefreshTokenCookie(context, refreshToken, jwtOptions.Value.RefreshTokenExpiryDays);
+
+        logger.LogOperationSuccess(operation, new { user.Email, user.Id });
+        return Results.Ok(new AuthDto
+        {
+            Token = token,
+            ExpiryDate = DateTime.UtcNow.AddMinutes(jwtOptions.Value.ExpiryMinutes),
+            RefreshToken = dto.IncludeRefreshToken ? refreshToken : null,
+            UserId = user.Id,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            DisplayName = user.DisplayName
+        });
+    }
+
     private static async Task<IResult> LoginUserAsync(
         [FromServices] UserManager<AppUser> userManager,
         [FromServices] IJwtService jwtService,
@@ -103,6 +140,12 @@ public static partial class AccountsEndpoints
         {
             logger.LogOperationWarning(operation, "User not found", new { loginDto.Email });
             return Results.Unauthorized();
+        }
+
+        if (user.IsGoogleAccount)
+        {
+            logger.LogOperationWarning(operation, "Google account attempted password login", new { loginDto.Email });
+            return Results.Problem("This account uses Google sign-in. Please sign in with Google.", statusCode: StatusCodes.Status400BadRequest);
         }
 
         var result = await signInManager.CheckPasswordSignInAsync(user, loginDto.Password, false);

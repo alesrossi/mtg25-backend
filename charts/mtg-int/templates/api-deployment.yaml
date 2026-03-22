@@ -109,6 +109,11 @@ spec:
                 secretKeyRef:
                   name: api-int-secrets
                   key: jwtSecret
+            - name: Google__ClientId
+              valueFrom:
+                secretKeyRef:
+                  name: api-int-secrets
+                  key: googleClientId
             - name: ElasticsearchLogging__Username
               valueFrom:
                 secretKeyRef:
