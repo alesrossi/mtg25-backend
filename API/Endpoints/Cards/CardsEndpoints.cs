@@ -63,6 +63,14 @@ public static partial class CardsEndpoints
             .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json")
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
+
+        group.MapGet("/sf/images/{name}", GetCardImagesByName)
+            .RequireAuthorization()
+            .WithSummary("Returns card images by name")
+            .WithDescription("Returns list of ScryfallId and ArtCrop for all cards matching the given name, flavor name, or printed name")
+            .Produces<List<CardImageDto>>()
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
     }
     
     private static void MapCardCommands(RouteGroupBuilder group)

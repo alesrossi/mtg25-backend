@@ -184,6 +184,94 @@ public class CardsServiceTests
         dto.PriceCurrency.Should().Be(MarketProvider.Mkm);
     }
 
+    [Fact]
+    public async Task GetCardImagesByNameAsync_MatchByName_ReturnsMatchingImages()
+    {
+        await using var context = CreateContext();
+        var unitOfWork = CreateUnitOfWork(context);
+        var builder = new TestDataBuilder();
+        var match = builder.CreateOracleCard(id: "sf-1", name: "Lightning Bolt")
+            with { ImageUris = new ImageUris(null, null, null, null, "https://art.example.com/1.jpg", null) };
+        var other = builder.CreateOracleCard(id: "sf-2", name: "Counterspell");
+        var cardDataService = CardDataServiceTestHelper.CreateWithCards([match, other]);
+        var service = CreateService(unitOfWork, cardDataService);
+
+        var result = await service.GetCardImagesByNameAsync("Lightning Bolt", "user-1");
+
+        result.Should().HaveCount(1);
+        result[0].ScryfallId.Should().Be("sf-1");
+        result[0].ArtCrop.Should().Be("https://art.example.com/1.jpg");
+    }
+
+    [Fact]
+    public async Task GetCardImagesByNameAsync_MatchByFlavorName_ReturnsMatchingImages()
+    {
+        await using var context = CreateContext();
+        var unitOfWork = CreateUnitOfWork(context);
+        var builder = new TestDataBuilder();
+        var match = builder.CreateOracleCard(id: "sf-3", name: "Balduvian Bears", flavorName: "Bjornsson")
+            with { ImageUris = new ImageUris(null, null, null, null, "https://art.example.com/3.jpg", null) };
+        var cardDataService = CardDataServiceTestHelper.CreateWithCards([match]);
+        var service = CreateService(unitOfWork, cardDataService);
+
+        var result = await service.GetCardImagesByNameAsync("Bjornsson", "user-1");
+
+        result.Should().HaveCount(1);
+        result[0].ScryfallId.Should().Be("sf-3");
+    }
+
+    [Fact]
+    public async Task GetCardImagesByNameAsync_MatchByPrintedName_ReturnsMatchingImages()
+    {
+        await using var context = CreateContext();
+        var unitOfWork = CreateUnitOfWork(context);
+        var builder = new TestDataBuilder();
+        var match = builder.CreateOracleCard(id: "sf-4", name: "Lightning Bolt", printedName: "Fulmine")
+            with { ImageUris = new ImageUris(null, null, null, null, "https://art.example.com/4.jpg", null) };
+        var cardDataService = CardDataServiceTestHelper.CreateWithCards([match]);
+        var service = CreateService(unitOfWork, cardDataService);
+
+        var result = await service.GetCardImagesByNameAsync("Fulmine", "user-1");
+
+        result.Should().HaveCount(1);
+        result[0].ScryfallId.Should().Be("sf-4");
+    }
+
+    [Fact]
+    public async Task GetCardImagesByNameAsync_NoMatch_ReturnsEmptyList()
+    {
+        await using var context = CreateContext();
+        var unitOfWork = CreateUnitOfWork(context);
+        var builder = new TestDataBuilder();
+        var card = builder.CreateOracleCard(id: "sf-5", name: "Counterspell");
+        var cardDataService = CardDataServiceTestHelper.CreateWithCards([card]);
+        var service = CreateService(unitOfWork, cardDataService);
+
+        var result = await service.GetCardImagesByNameAsync("Unknown Card", "user-1");
+
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetCardImagesByNameAsync_MultipleVersions_ReturnsAllMatches()
+    {
+        await using var context = CreateContext();
+        var unitOfWork = CreateUnitOfWork(context);
+        var builder = new TestDataBuilder();
+        var v1 = builder.CreateOracleCard(id: "sf-6a", name: "Lightning Bolt")
+            with { ImageUris = new ImageUris(null, null, null, null, "https://art.example.com/6a.jpg", null) };
+        var v2 = builder.CreateOracleCard(id: "sf-6b", name: "Lightning Bolt")
+            with { ImageUris = new ImageUris(null, null, null, null, "https://art.example.com/6b.jpg", null) };
+        var other = builder.CreateOracleCard(id: "sf-6c", name: "Dark Ritual");
+        var cardDataService = CardDataServiceTestHelper.CreateWithCards([v1, v2, other]);
+        var service = CreateService(unitOfWork, cardDataService);
+
+        var result = await service.GetCardImagesByNameAsync("Lightning Bolt", "user-1");
+
+        result.Should().HaveCount(2);
+        result.Select(r => r.ScryfallId).Should().BeEquivalentTo(["sf-6a", "sf-6b"]);
+    }
+
     private static CardsService CreateService(
         IUnitOfWork unitOfWork,
         CardDataService? cardDataService = null,

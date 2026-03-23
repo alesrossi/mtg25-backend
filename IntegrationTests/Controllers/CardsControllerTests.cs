@@ -877,6 +877,47 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
+    [Fact]
+    public async Task GetCardImagesByName_WithKnownCard_ReturnsImages()
+    {
+        var user = await CreateTestUserAsync("images-user@example.com", "images_user");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var response = await client.GetAsync("/api/cards/sf/images/Counterspell");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadAsStringAsync();
+        var images = JsonSerializer.Deserialize<List<CardImageDto>>(payload, JsonContentHelper.DefaultOptions);
+        images.Should().NotBeNull();
+        images!.Should().NotBeEmpty("because Counterspell has multiple printings");
+        images.Should().AllSatisfy(img => img.ScryfallId.Should().NotBeNullOrEmpty());
+    }
+
+    [Fact]
+    public async Task GetCardImagesByName_WithUnknownCard_ReturnsEmptyList()
+    {
+        var user = await CreateTestUserAsync("images-missing@example.com", "images_missing");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var response = await client.GetAsync("/api/cards/sf/images/CompletelyUnknownCardXyz");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadAsStringAsync();
+        var images = JsonSerializer.Deserialize<List<CardImageDto>>(payload, JsonContentHelper.DefaultOptions);
+        images.Should().NotBeNull();
+        images!.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetCardImagesByName_WithoutAuthentication_ReturnsUnauthorized()
+    {
+        using var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/cards/sf/images/Counterspell");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
     #region Helper Methods
 
     private Task<AppUser> CreateTestUserAsync(string baseEmail, string baseUserName) =>

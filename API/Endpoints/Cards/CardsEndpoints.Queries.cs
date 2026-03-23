@@ -147,4 +147,32 @@ public static partial class CardsEndpoints
             return await MapCardsServiceException(ex, context, messageLocalizer, userId);
         }
     }
+
+    private static async Task<IResult> GetCardImagesByName(
+        string name,
+        HttpContext context,
+        [FromServices] ICardsService cardsService,
+        [FromServices] IMessageLocalizer messageLocalizer,
+        [FromServices] ILogger<CardsEndpointsLogCategory> logger)
+    {
+        const string operation = "Cards.ImagesByName";
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null)
+        {
+            logger.LogOperationWarning(operation, "Missing user id", new { name });
+            return Results.Unauthorized();
+        }
+
+        try
+        {
+            var images = await cardsService.GetCardImagesByNameAsync(name, userId);
+            logger.LogOperationSuccess(operation, new { name, images.Count });
+            return Results.Ok(images);
+        }
+        catch (CardsServiceException ex)
+        {
+            logger.LogOperationWarning(operation, ex.Message, new { name, userId });
+            return await MapCardsServiceException(ex, context, messageLocalizer, userId);
+        }
+    }
 }

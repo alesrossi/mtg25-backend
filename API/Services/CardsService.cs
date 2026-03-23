@@ -20,6 +20,7 @@ public interface ICardsService
     Task DeleteCardAsync(int id, string userId, CancellationToken cancellationToken = default);
     Task<Card> AddNewCardAsync(InternalCardDto cardDto, string userId, CancellationToken cancellationToken = default);
     Task<LinkedList<ScryfallCardDto>> AddCardListAsync(CardListDto cardListDto, string userId, CancellationToken cancellationToken = default);
+    Task<List<CardImageDto>> GetCardImagesByNameAsync(string name, string userId, CancellationToken cancellationToken = default);
 }
 
 public sealed class CardsService : ICardsService
@@ -161,6 +162,26 @@ public sealed class CardsService : ICardsService
         }
 
         throw CardsServiceException.NotFound("Errors.Cards.NotFound");
+    }
+
+    public Task<List<CardImageDto>> GetCardImagesByNameAsync(string name, string userId, CancellationToken cancellationToken = default)
+    {
+        if (userId is null)
+        {
+            throw CardsServiceException.Unauthorized("Errors.Cards.MissingUserId");
+        }
+
+        var results = _cardDataService.CardDataById.Values
+            .Where(c =>
+                c.Name.Contains(name, StringComparison.OrdinalIgnoreCase) ||
+                (!string.IsNullOrEmpty(c.FlavorName) && c.FlavorName.Contains(name, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(c.PrintedName) && c.PrintedName.Contains(name, StringComparison.OrdinalIgnoreCase)))
+            .Select(c => new CardImageDto(
+                c.Id,
+                c.ImageUris?.ArtCrop ?? c.CardFaces?.FirstOrDefault()?.ImageUris?.ArtCrop))
+            .ToList();
+
+        return Task.FromResult(results);
     }
 
     public async Task<Card> UpdateCardAsync(int id, UpdateCollectionCardDto updateDto, string userId, CancellationToken cancellationToken = default)
