@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using API.Dtos.Binders;
 using API.Dtos.Notifications;
 using API.Dtos.Trades;
@@ -195,8 +196,21 @@ public sealed class TradeConnectionService : ITradeConnectionService
 
     public async Task CancelConnectionAsync(string tradeId, string requesterUserId, CancellationToken cancellationToken = default)
     {
-        await GetConnectionAsync(tradeId, requesterUserId, cancellationToken);
+        var connection = await GetConnectionAsync(tradeId, requesterUserId, cancellationToken);
         await _sessionStore.DeleteAsync(tradeId, cancellationToken);
+
+        var userIds = new[] { connection.Initiator.UserId, connection.Partner.UserId };
+        var notificationIds = await _unitOfWork.CompositeRepository<Notification>().Query
+            .Where(n =>
+                (n.Name == NotificationConstants.TradeCommitRequest && n.ObjectId == tradeId) ||
+                (n.Name == NotificationConstants.TradeRequest && userIds.Contains(n.AppUserId) && userIds.Contains(n.ObjectId)))
+            .Select(n => n.Id)
+            .ToListAsync(cancellationToken);
+
+        if (notificationIds.Count > 0)
+        {
+            await _notificationService.UpdateNotificationAsync(notificationIds, isRead: null, approval: false);
+        }
     }
 
     public async Task CommitTradeAsync(string tradeId, string requesterUserId, CancellationToken cancellationToken = default)

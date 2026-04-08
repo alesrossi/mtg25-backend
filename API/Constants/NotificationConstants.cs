@@ -6,6 +6,7 @@ namespace API.Constants;
 /// </summary>
 public static class NotificationConstants
 {
+    public const string TradeRequest = "trade_request";
     public const string TradeCommitRequest = "trade_commit_request";
     public const string FriendRequest = "friend_request";
     public const string RequestJoinLeague = "request_join_league";

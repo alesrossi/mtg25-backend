@@ -70,7 +70,7 @@ public static partial class TradesEndpoints
 
         var notification = new NewNotificationDto
         {
-            Name = "trade_request",
+            Name = NotificationConstants.TradeRequest,
             Message = "Notifications.TradeRequest",
             MessageKey = "Notifications.TradeRequest",
             MessageArgs = [requester.DisplayName],
