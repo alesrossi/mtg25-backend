@@ -139,28 +139,30 @@ public class NotificationService
 
     public async Task<bool> UpdateNotificationAsync(List<int> ids, bool? isRead, bool? approval)
     {
-        await _uow.CompositeRepository<Notification>().Query
+        var notifications = await _uow.CompositeRepository<Notification>().Query
             .AsNoTracking()
             .Where(n => ids.Contains(n.Id))
-            .ForEachAsync(notification =>
+            .ToListAsync();
+
+        foreach (var notification in notifications)
+        {
+            using var scope = _logger.BeginOperationScope(UpdateNotificationOperation, notification.Id);
+            _logger.LogOperationStart(UpdateNotificationOperation, new { notification.Id });
+
+            if (isRead is not null)
             {
-                using var scope = _logger.BeginOperationScope(UpdateNotificationOperation, notification.Id);
-                _logger.LogOperationStart(UpdateNotificationOperation, new { notification.Id });
+                notification.IsRead = isRead.Value;
+                _uow.CompositeRepository<Notification>().Update(notification);
+            }
 
-                if (isRead is not null)
-                {
-                    notification.IsRead = isRead.Value;
-                    _uow.CompositeRepository<Notification>().Update(notification);
-                }
+            if (approval is not null)
+            {
+                notification.Approval = approval.Value;
+                _uow.CompositeRepository<Notification>().Update(notification);
+            }
 
-                if (approval is not null)
-                {
-                    notification.Approval = approval.Value;
-                    _uow.CompositeRepository<Notification>().Update(notification);
-                }
-
-                _logger.LogOperationSuccess(UpdateNotificationOperation, new { notification.Id, notification.Name });
-            });
+            _logger.LogOperationSuccess(UpdateNotificationOperation, new { notification.Id, notification.Name });
+        }
 
         await _uow.Complete();
 
@@ -195,46 +197,48 @@ public class NotificationService
 
     public async Task<bool> UpdateNotificationAsync(List<int> ids, bool? isRead, bool? approval, string? userToUpdate)
     {
-        await _uow.CompositeRepository<Notification>().Query
+        var notifications = await _uow.CompositeRepository<Notification>().Query
             .AsNoTracking()
             .Where(n => ids.Contains(n.Id))
-            .ForEachAsync(notification =>
+            .ToListAsync();
+
+        foreach (var notification in notifications)
+        {
+            using var scope = _logger.BeginOperationScope(UpdateNotificationOperation, notification.Id);
+            _logger.LogOperationStart(UpdateNotificationOperation, new { notification.Id });
+
+            if (isRead is not null)
             {
-                using var scope = _logger.BeginOperationScope(UpdateNotificationOperation, notification.Id);
-                _logger.LogOperationStart(UpdateNotificationOperation, new { notification.Id });
+                notification.IsRead = isRead.Value;
+                _uow.CompositeRepository<Notification>().Update(notification);
+            }
 
-                if (isRead is not null)
+            if (approval is not null)
+            {
+                notification.Approval = approval.Value;
+                _uow.CompositeRepository<Notification>().Update(notification);
+
+                if (notification.Name == NotificationConstants.RequestJoinLeague)
                 {
-                    notification.IsRead = isRead.Value;
-                    _uow.CompositeRepository<Notification>().Update(notification);
-                }
-
-                if (approval is not null)
-                {
-                    notification.Approval = approval.Value;
-                    _uow.CompositeRepository<Notification>().Update(notification);
-
-                    if (notification.Name == NotificationConstants.RequestJoinLeague)
+                    var newNotification = new Notification
                     {
-                        var newNotification = new Notification
-                        {
-                            Name = NotificationConstants.JoinedLeague,
-                            Message = "Notifications.JoinedLeagueApproved",
-                            MessageKey = "Notifications.JoinedLeagueApproved",
-                            MessageArgsJson = SerializeArgs([]),
-                            ObjectId = notification.ObjectId,
-                            Origin = notification.Origin,
-                            CreationDateTime = DateTime.UtcNow,
-                            AppUserId = notification.Origin.Split('.')[1],
-                            AppUser = null!
-                        };
+                        Name = NotificationConstants.JoinedLeague,
+                        Message = "Notifications.JoinedLeagueApproved",
+                        MessageKey = "Notifications.JoinedLeagueApproved",
+                        MessageArgsJson = SerializeArgs([]),
+                        ObjectId = notification.ObjectId,
+                        Origin = notification.Origin,
+                        CreationDateTime = DateTime.UtcNow,
+                        AppUserId = notification.Origin.Split('.')[1],
+                        AppUser = null!
+                    };
 
-                        _uow.CompositeRepository<Notification>().Add(newNotification);
-                    }
+                    _uow.CompositeRepository<Notification>().Add(newNotification);
                 }
+            }
 
-                _logger.LogOperationSuccess(UpdateNotificationOperation, new { notification.Id, notification.Name });
-            });
+            _logger.LogOperationSuccess(UpdateNotificationOperation, new { notification.Id, notification.Name });
+        }
 
         await _uow.Complete();
 

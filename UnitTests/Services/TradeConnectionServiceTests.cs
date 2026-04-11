@@ -1,3 +1,4 @@
+using API.Constants;
 using API.Dtos.Binders;
 using API.Dtos.Cards;
 using API.Dtos.Trades;
@@ -493,6 +494,10 @@ public class TradeConnectionServiceTests : IDisposable
             .Returns(Task.CompletedTask)
             .Verifiable();
 
+        var notifRepoMock = new Mock<ICompositeRepository<Notification>>();
+        notifRepoMock.Setup(r => r.Query).Returns(_identityDbContext.Notifications.AsQueryable());
+        _unitOfWorkMock.Setup(x => x.CompositeRepository<Notification>()).Returns(notifRepoMock.Object);
+
         var userManager = CreateUserManagerMock();
         var service = CreateService(userManager.Object);
 
@@ -501,6 +506,123 @@ public class TradeConnectionServiceTests : IDisposable
 
         // Assert
         _sessionStoreMock.Verify();
+    }
+
+    [Fact]
+    public async Task CancelConnectionAsync_SetsTradeNotificationsApprovalToFalse()
+    {
+        // Arrange
+        var tradeRequestNotif = new Notification
+        {
+            Name = NotificationConstants.TradeRequest,
+            Message = "Trade request",
+            Origin = "trade_request.init",
+            ObjectId = "init",
+            AppUserId = "partner",
+            Approval = true,
+            CreationDateTime = DateTime.UtcNow,
+            AppUser = null!
+        };
+        var commitRequestNotif = new Notification
+        {
+            Name = NotificationConstants.TradeCommitRequest,
+            Message = "Commit request",
+            Origin = "trade-cancel-notif.init",
+            ObjectId = "trade-cancel-notif",
+            AppUserId = "partner",
+            Approval = true,
+            CreationDateTime = DateTime.UtcNow,
+            AppUser = null!
+        };
+        _identityDbContext.Notifications.AddRange(tradeRequestNotif, commitRequestNotif);
+        await _identityDbContext.SaveChangesAsync();
+        _identityDbContext.ChangeTracker.Clear();
+
+        var connection = new TradeConnectionDto
+        {
+            TradeId = "trade-cancel-notif",
+            Initiator = new TradeParticipantDto { UserId = "init" },
+            Partner = new TradeParticipantDto { UserId = "partner" },
+            InitiatorMatches = [],
+            PartnerMatches = []
+        };
+        _sessionStoreMock.Setup(s => s.GetAsync("trade-cancel-notif", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(connection);
+        _sessionStoreMock.Setup(s => s.DeleteAsync("trade-cancel-notif", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var userManager = CreateUserManagerMock();
+        var service = CreateService(userManager.Object, _notificationUow);
+
+        // Act
+        await service.CancelConnectionAsync("trade-cancel-notif", "init", CancellationToken.None);
+
+        // Assert
+        _identityDbContext.ChangeTracker.Clear();
+        var notifications = await _identityDbContext.Notifications
+            .Where(n => n.Id == tradeRequestNotif.Id || n.Id == commitRequestNotif.Id)
+            .ToListAsync();
+        notifications.Should().HaveCount(2);
+        notifications.Should().AllSatisfy(n => n.Approval.Should().BeFalse());
+    }
+
+    [Fact]
+    public async Task CancelConnectionAsync_DoesNotAffectUnrelatedNotifications()
+    {
+        // Arrange
+        // Notification for a different trade's commit request
+        var otherTradeCommitNotif = new Notification
+        {
+            Name = NotificationConstants.TradeCommitRequest,
+            Message = "Other trade commit",
+            Origin = "other-trade.init",
+            ObjectId = "other-trade-id",
+            AppUserId = "partner",
+            Approval = true,
+            CreationDateTime = DateTime.UtcNow,
+            AppUser = null!
+        };
+        // trade_request between two completely unrelated users
+        var unrelatedUserNotif = new Notification
+        {
+            Name = NotificationConstants.TradeRequest,
+            Message = "Unrelated trade request",
+            Origin = "trade_request.stranger",
+            ObjectId = "stranger",
+            AppUserId = "other-user",
+            Approval = true,
+            CreationDateTime = DateTime.UtcNow,
+            AppUser = null!
+        };
+        _identityDbContext.Notifications.AddRange(otherTradeCommitNotif, unrelatedUserNotif);
+        await _identityDbContext.SaveChangesAsync();
+        _identityDbContext.ChangeTracker.Clear();
+
+        var connection = new TradeConnectionDto
+        {
+            TradeId = "trade-cancel-unrelated",
+            Initiator = new TradeParticipantDto { UserId = "init" },
+            Partner = new TradeParticipantDto { UserId = "partner" },
+            InitiatorMatches = [],
+            PartnerMatches = []
+        };
+        _sessionStoreMock.Setup(s => s.GetAsync("trade-cancel-unrelated", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(connection);
+        _sessionStoreMock.Setup(s => s.DeleteAsync("trade-cancel-unrelated", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var userManager = CreateUserManagerMock();
+        var service = CreateService(userManager.Object, _notificationUow);
+
+        // Act
+        await service.CancelConnectionAsync("trade-cancel-unrelated", "init", CancellationToken.None);
+
+        // Assert
+        _identityDbContext.ChangeTracker.Clear();
+        var notifications = await _identityDbContext.Notifications
+            .Where(n => n.Id == otherTradeCommitNotif.Id || n.Id == unrelatedUserNotif.Id)
+            .ToListAsync();
+        notifications.Should().AllSatisfy(n => n.Approval.Should().BeTrue());
     }
 
     [Fact]

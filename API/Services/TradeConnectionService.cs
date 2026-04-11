@@ -201,6 +201,7 @@ public sealed class TradeConnectionService : ITradeConnectionService
 
         var userIds = new[] { connection.Initiator.UserId, connection.Partner.UserId };
         var notificationIds = await _unitOfWork.CompositeRepository<Notification>().Query
+            .AsNoTracking()
             .Where(n =>
                 (n.Name == NotificationConstants.TradeCommitRequest && n.ObjectId == tradeId) ||
                 (n.Name == NotificationConstants.TradeRequest && userIds.Contains(n.AppUserId) && userIds.Contains(n.ObjectId)))

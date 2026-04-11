@@ -681,6 +681,30 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
 
+    [Fact]
+    public async Task CancelTradeSession_SetsTradeNotificationsApprovalToFalse()
+    {
+        var (initiator, partner, trade) = await PrepareTradeSessionAsync();
+
+        await CreateApprovedTradeNotificationAsync(initiator.Id, partner.Id);
+        await CreateCommitNotificationAsync(trade.TradeId, initiator.Id, partner.Id, approval: true);
+
+        using var client = CreateClientWithUser(_factory, initiator);
+        var response = await client.DeleteAsync($"/api/trades/{trade.TradeId}");
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<MainContext>();
+        var tradeNotifications = await context.Notifications
+            .Where(n =>
+                (n.Name == "trade_commit_request" && n.ObjectId == trade.TradeId) ||
+                (n.Name == "trade_request" && n.ObjectId == initiator.Id && n.AppUserId == partner.Id))
+            .ToListAsync();
+
+        tradeNotifications.Should().HaveCount(2);
+        tradeNotifications.Should().AllSatisfy(n => n.Approval.Should().BeFalse());
+    }
+
     private async Task<AppUser> CreateTestUserAsync(string email, string userName, IServiceProvider? services = null) =>
         await TestUserFactory.CreateAsync(services ?? _factory.Services, _testDataBuilder, email, userName, requirePassword: true);
 
