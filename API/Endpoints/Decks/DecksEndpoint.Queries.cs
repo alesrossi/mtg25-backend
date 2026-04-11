@@ -107,15 +107,10 @@ public static partial class DecksEndpoint
         CancellationToken cancellationToken)
     {
         const string operation = "DeckCards.Get";
-        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId == null)
-        {
-            logger.LogOperationWarning(operation, "Missing user identifier", new { deckId, id });
-            return Results.Unauthorized();
-        }
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
 
         using var scope = logger.BeginOperationScope(operation, id);
-        logger.LogOperationStart(operation, new { deckId, id });
+        logger.LogOperationStart(operation, new { deckId, id, IsAnonymous = string.IsNullOrEmpty(userId) });
 
         try
         {
@@ -205,15 +200,10 @@ public static partial class DecksEndpoint
         CancellationToken cancellationToken)
     {
         const string operation = "Decks.Branches";
-        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId == null)
-        {
-            logger.LogOperationWarning(operation, "Missing user identifier", new { deckId });
-            return Results.Unauthorized();
-        }
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
 
         using var scope = logger.BeginOperationScope(operation, deckId);
-        logger.LogOperationStart(operation, new { deckId });
+        logger.LogOperationStart(operation, new { deckId, IsAnonymous = string.IsNullOrEmpty(userId) });
 
         try
         {
@@ -238,15 +228,10 @@ public static partial class DecksEndpoint
         CancellationToken cancellationToken)
     {
         const string operation = "Decks.Commits";
-        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId == null)
-        {
-            logger.LogOperationWarning(operation, "Missing user identifier", new { deckId });
-            return Results.Unauthorized();
-        }
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
 
         using var scope = logger.BeginOperationScope(operation, deckId);
-        logger.LogOperationStart(operation, new { deckId });
+        logger.LogOperationStart(operation, new { deckId, IsAnonymous = string.IsNullOrEmpty(userId) });
 
         try
         {
@@ -273,15 +258,10 @@ public static partial class DecksEndpoint
         CancellationToken cancellationToken)
     {
         const string operation = "Decks.Diff";
-        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId == null)
-        {
-            logger.LogOperationWarning(operation, "Missing user identifier", new { deckId });
-            return Results.Unauthorized();
-        }
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
 
         using var scope = logger.BeginOperationScope(operation, deckId);
-        logger.LogOperationStart(operation, new { deckId, fromCommitId, toCommitId });
+        logger.LogOperationStart(operation, new { deckId, fromCommitId, toCommitId, IsAnonymous = string.IsNullOrEmpty(userId) });
 
         try
         {

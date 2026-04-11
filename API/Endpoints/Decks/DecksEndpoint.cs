@@ -46,7 +46,7 @@ public static partial class DecksEndpoint
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/{deckId:int}/cards/{id:int}", GetDeckCardByIdAsync)
-            .RequireAuthorization()
+            .RequireAuthorization("OptionalAuth")
             .WithSummary("Get deck card by ID")
             .WithDescription("Retrieves specific deck card by ID")
             .Produces<DeckCardDto>()
@@ -73,7 +73,7 @@ public static partial class DecksEndpoint
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/{deckId:int}/branches", GetDeckBranchesAsync)
-            .RequireAuthorization()
+            .RequireAuthorization("OptionalAuth")
             .WithSummary("Get deck branches")
             .WithDescription("Lists all branches for a deck")
             .Produces<IEnumerable<DeckBranchDto>>()
@@ -82,7 +82,7 @@ public static partial class DecksEndpoint
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/{deckId:int}/commits", GetDeckCommitsAsync)
-            .RequireAuthorization()
+            .RequireAuthorization("OptionalAuth")
             .WithSummary("Get deck commits")
             .WithDescription("Lists commit history for a deck")
             .Produces<IEnumerable<DeckCommitDto>>()
@@ -91,7 +91,7 @@ public static partial class DecksEndpoint
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/{deckId:int}/diff", GetDeckDiffAsync)
-            .RequireAuthorization()
+            .RequireAuthorization("OptionalAuth")
             .WithSummary("Diff two commits")
             .WithDescription("Compares two commits and returns added, removed, and modified cards")
             .Produces<DeckDiffDto>()

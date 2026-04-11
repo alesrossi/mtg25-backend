@@ -123,15 +123,16 @@ public sealed class DeckService : IDeckService
 
     public async Task<DeckCardDto> GetDeckCardByIdAsync(int deckId, int id, string userId, CancellationToken cancellationToken = default)
     {
-        if (userId is null)
-        {
-            throw DeckServiceException.Unauthorized("Errors.Decks.MissingUserId");
-        }
-
         var deck = await _unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
-        if (deck == null || deck.OwnerId != userId)
+        if (deck == null)
         {
             throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
+        }
+
+        var isOwner = !string.IsNullOrEmpty(userId) && deck.OwnerId == userId;
+        if (!isOwner && !deck.IsPublic)
+        {
+            throw DeckServiceException.Unauthorized("Errors.Decks.Unauthorized");
         }
 
         var deckCard = await _deckCardService.GetDeckCardByIdAsync(id);

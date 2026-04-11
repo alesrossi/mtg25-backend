@@ -424,13 +424,14 @@ public sealed class DeckHistoryService : IDeckHistoryService
 
     private async Task<Deck> RequireDeckAsync(int deckId, string userId)
     {
-        if (string.IsNullOrWhiteSpace(userId))
+        var deck = await _unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
+        if (deck == null)
         {
-            throw DeckHistoryServiceException.Unauthorized("Errors.Decks.MissingUserId");
+            throw DeckHistoryServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
         }
 
-        var deck = await _unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
-        if (deck == null || deck.OwnerId != userId)
+        var isOwner = !string.IsNullOrEmpty(userId) && deck.OwnerId == userId;
+        if (!isOwner && !deck.IsPublic)
         {
             throw DeckHistoryServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
         }
@@ -441,7 +442,13 @@ public sealed class DeckHistoryService : IDeckHistoryService
     private async Task EnsureDeckOwnershipAsync(int deckId, string userId)
     {
         var deck = await _unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
-        if (deck == null || deck.OwnerId != userId)
+        if (deck == null)
+        {
+            throw DeckHistoryServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
+        }
+
+        var isOwner = !string.IsNullOrEmpty(userId) && deck.OwnerId == userId;
+        if (!isOwner && !deck.IsPublic)
         {
             throw DeckHistoryServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
         }
