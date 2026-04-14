@@ -163,7 +163,8 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         var createRequest = new CreateDeckDto
         {
             Name = "New Test Deck",
-            Format = DeckFormat.Standard
+            Format = DeckFormat.Standard,
+            IsPublic = false
         };
 
         var json = JsonSerializer.Serialize(createRequest, JsonContentHelper.DefaultOptions);
@@ -198,7 +199,8 @@ public class DecksControllerTests : IClassFixture<CustomWebApplicationFactory>
         var createRequest = new CreateDeckDto
         {
             Name = "Unauthorized Deck",
-            Format = DeckFormat.Modern
+            Format = DeckFormat.Modern,
+            IsPublic = false
         };
 
         var response = await client.PostAsync("/api/decks",
