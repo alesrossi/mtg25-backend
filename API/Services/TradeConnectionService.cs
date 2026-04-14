@@ -19,6 +19,7 @@ public interface ITradeConnectionService
 {
     Task<TradeConnectionDto> PrepareConnectionAsync(string initiatorUserId, string partnerUserId, bool liveTrading, CancellationToken cancellationToken = default);
     Task<TradeConnectionDto> GetConnectionAsync(string tradeId, string requesterUserId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<TradeConnectionDto>> GetUserTradesAsync(string userId, CancellationToken cancellationToken = default);
     Task<TradeConnectionDto> UpdateConnectionAsync(string tradeId, string requesterUserId, UpdateTradeRequest request, CancellationToken cancellationToken = default);
     Task CancelConnectionAsync(string tradeId, string requesterUserId, CancellationToken cancellationToken = default);
     Task CommitTradeAsync(string tradeId, string requesterUserId, CancellationToken cancellationToken = default);
@@ -133,6 +134,16 @@ public sealed class TradeConnectionService : ITradeConnectionService
                             || string.Equals(connection.Partner.UserId, requesterUserId, StringComparison.Ordinal);
 
         return !isParticipant ? throw new UnauthorizedAccessException("User is not part of this trade session.") : connection;
+    }
+
+    public Task<IReadOnlyList<TradeConnectionDto>> GetUserTradesAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            throw new ArgumentException("User identifier is required.", nameof(userId));
+        }
+
+        return _sessionStore.GetAllForUserAsync(userId, cancellationToken);
     }
 
     public async Task<TradeConnectionDto> UpdateConnectionAsync(

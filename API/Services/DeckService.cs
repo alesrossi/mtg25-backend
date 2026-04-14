@@ -196,7 +196,7 @@ public sealed class DeckService : IDeckService
             NumberOfCards = 0,
             TotalPrice = 0.0,
             DeckList = string.Empty,
-            IsPublic = true
+            IsPublic = createDto.IsPublic
         };
 
         _unitOfWork.Repository<Deck>().Add(deck);

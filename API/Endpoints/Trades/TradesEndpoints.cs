@@ -18,6 +18,13 @@ public partial class TradesEndpoints
     
     private static void MapTradesQueries(RouteGroupBuilder group)
     {
+        group.MapGet("/", GetUserTradesAsync)
+            .RequireAuthorization()
+            .WithSummary("Get active trades for current user")
+            .WithDescription("Returns all active trade sessions where the logged-in user is a participant")
+            .Produces<IReadOnlyList<TradeConnectionDto>>()
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json");
+
         group.MapGet("/match", MatchUsersTradesAsync)
             .RequireAuthorization()
             .WithSummary("Check if users have compatible items")

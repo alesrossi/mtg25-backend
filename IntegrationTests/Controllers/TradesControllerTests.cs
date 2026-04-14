@@ -908,6 +908,11 @@ public class TradesControllerTests : IClassFixture<CustomWebApplicationFactory>
             return Task.FromException<TradeConnectionDto>(new InvalidOperationException("This stub only supports PrepareConnectionAsync."));
         }
 
+        public Task<IReadOnlyList<TradeConnectionDto>> GetUserTradesAsync(string userId, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<TradeConnectionDto>>([]);
+        }
+
         public Task<TradeConnectionDto> PrepareConnectionAsync(string initiatorUserId, string partnerUserId, bool liveTrading, CancellationToken cancellationToken = default)
         {
             return Task.FromException<TradeConnectionDto>(new KeyNotFoundException("Trade connection missing."));

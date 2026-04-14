@@ -102,6 +102,25 @@ public static partial class TradesEndpoints
         }
     }
 
+    private static async Task<IResult> GetUserTradesAsync(
+        HttpContext context,
+        [FromServices] ITradeConnectionService tradeConnectionService,
+        [FromServices] ILogger<TradesEndpointLogCategory> logger,
+        CancellationToken cancellationToken)
+    {
+        const string operation = "Trades.GetUserTrades";
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            logger.LogOperationWarning(operation, "Missing user id");
+            return Results.Unauthorized();
+        }
+
+        var trades = await tradeConnectionService.GetUserTradesAsync(userId, cancellationToken);
+        logger.LogOperationSuccess(operation, new { userId, count = trades.Count });
+        return Results.Ok(trades);
+    }
+
     private static async Task<IResult> GetTradeConnectionAsync(
         string tradeId,
         HttpContext context,
