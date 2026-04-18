@@ -494,6 +494,86 @@ public class AccountsControllerTests : IClassFixture<CustomWebApplicationFactory
             "because Google accounts must use the /google endpoint, not password login");
     }
 
+    // ── Avatar ───────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task UpdateSettings_WithAvatar_PersistsAvatarUrl()
+    {
+        var email = $"avatar_{Guid.NewGuid():N}@test.com";
+        var user = await CreateTestUserAsync(email, "avataruser");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        const string avatarUrl = "https://cards.scryfall.io/art_crop/front/a/b/abc123.jpg";
+        var updateDto = new UpdateSettingsDto { Avatar = avatarUrl };
+        var content = new StringContent(JsonSerializer.Serialize(updateDto), Encoding.UTF8, "application/json");
+
+        var response = await client.PutAsync("/api/accounts/settings", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var dto = JsonSerializer.Deserialize<SettingsForUserDto>(
+            await response.Content.ReadAsStringAsync(), JsonContentHelper.DefaultOptions);
+        dto!.AppUser.Avatar.Should().Be(avatarUrl);
+    }
+
+    [Fact]
+    public async Task UpdateSettings_AvatarThenGet_ReturnsPersistedAvatar()
+    {
+        var email = $"avatar_get_{Guid.NewGuid():N}@test.com";
+        var user = await CreateTestUserAsync(email, "avatargetuser");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        const string avatarUrl = "https://cards.scryfall.io/art_crop/front/c/d/def456.jpg";
+        var updateDto = new UpdateSettingsDto { Avatar = avatarUrl };
+        var content = new StringContent(JsonSerializer.Serialize(updateDto), Encoding.UTF8, "application/json");
+        await client.PutAsync("/api/accounts/settings", content);
+
+        var getResponse = await client.GetAsync("/api/accounts/settings");
+
+        getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var dto = JsonSerializer.Deserialize<SettingsForUserDto>(
+            await getResponse.Content.ReadAsStringAsync(), JsonContentHelper.DefaultOptions);
+        dto!.AppUser.Avatar.Should().Be(avatarUrl);
+    }
+
+    [Fact]
+    public async Task UpdateSettings_AvatarDoesNotAffectOtherFields()
+    {
+        var email = $"avatar_isolation_{Guid.NewGuid():N}@test.com";
+        var user = await CreateTestUserAsync(email, "avatarisolationuser");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var setupDto = new UpdateSettingsDto { CompanionName = "Skullclamp" };
+        var setupContent = new StringContent(JsonSerializer.Serialize(setupDto), Encoding.UTF8, "application/json");
+        await client.PutAsync("/api/accounts/settings", setupContent);
+
+        var avatarDto = new UpdateSettingsDto { Avatar = "https://cards.scryfall.io/art_crop/front/e/f/ef789.jpg" };
+        var avatarContent = new StringContent(JsonSerializer.Serialize(avatarDto), Encoding.UTF8, "application/json");
+        var response = await client.PutAsync("/api/accounts/settings", avatarContent);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var dto = JsonSerializer.Deserialize<SettingsForUserDto>(
+            await response.Content.ReadAsStringAsync(), JsonContentHelper.DefaultOptions);
+        dto!.AppUser.CompanionName.Should().Be("Skullclamp");
+        dto.AppUser.Avatar.Should().Be("https://cards.scryfall.io/art_crop/front/e/f/ef789.jpg");
+    }
+
+    [Fact]
+    public async Task UpdateSettings_WithoutAvatar_LeavesAvatarNull()
+    {
+        var email = $"avatar_null_{Guid.NewGuid():N}@test.com";
+        var user = await CreateTestUserAsync(email, "avatarnulluser");
+        using var client = _factory.CreateClientWithUser(user.Id, user.UserName!, user.Email!);
+
+        var updateDto = new UpdateSettingsDto { CompanionName = "Jace" };
+        var content = new StringContent(JsonSerializer.Serialize(updateDto), Encoding.UTF8, "application/json");
+        var response = await client.PutAsync("/api/accounts/settings", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var dto = JsonSerializer.Deserialize<SettingsForUserDto>(
+            await response.Content.ReadAsStringAsync(), JsonContentHelper.DefaultOptions);
+        dto!.AppUser.Avatar.Should().BeNull();
+    }
+
     #region Helper Methods
     private Task<AppUser> CreateTestUserAsync(string baseEmail, string baseUserName) =>
         TestUserFactory.CreateAsync(_factory.Services, _testDataBuilder, baseEmail, baseUserName);

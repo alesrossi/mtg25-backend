@@ -196,7 +196,7 @@ public class CardsServiceTests
         var cardDataService = CardDataServiceTestHelper.CreateWithCards([match, other]);
         var service = CreateService(unitOfWork, cardDataService);
 
-        var result = await service.GetCardImagesByNameAsync("Lightning Bolt", "user-1");
+        var result = await service.GetCardImagesByNameAsync("Lightning Bolt");
 
         result.Should().HaveCount(1);
         result[0].ScryfallId.Should().Be("sf-1");
@@ -214,7 +214,7 @@ public class CardsServiceTests
         var cardDataService = CardDataServiceTestHelper.CreateWithCards([match]);
         var service = CreateService(unitOfWork, cardDataService);
 
-        var result = await service.GetCardImagesByNameAsync("Bjornsson", "user-1");
+        var result = await service.GetCardImagesByNameAsync("Bjornsson");
 
         result.Should().HaveCount(1);
         result[0].ScryfallId.Should().Be("sf-3");
@@ -231,7 +231,7 @@ public class CardsServiceTests
         var cardDataService = CardDataServiceTestHelper.CreateWithCards([match]);
         var service = CreateService(unitOfWork, cardDataService);
 
-        var result = await service.GetCardImagesByNameAsync("Fulmine", "user-1");
+        var result = await service.GetCardImagesByNameAsync("Fulmine");
 
         result.Should().HaveCount(1);
         result[0].ScryfallId.Should().Be("sf-4");
@@ -247,7 +247,7 @@ public class CardsServiceTests
         var cardDataService = CardDataServiceTestHelper.CreateWithCards([card]);
         var service = CreateService(unitOfWork, cardDataService);
 
-        var result = await service.GetCardImagesByNameAsync("Unknown Card", "user-1");
+        var result = await service.GetCardImagesByNameAsync("Unknown Card");
 
         result.Should().BeEmpty();
     }
@@ -266,7 +266,7 @@ public class CardsServiceTests
         var cardDataService = CardDataServiceTestHelper.CreateWithCards([v1, v2, other]);
         var service = CreateService(unitOfWork, cardDataService);
 
-        var result = await service.GetCardImagesByNameAsync("Lightning Bolt", "user-1");
+        var result = await service.GetCardImagesByNameAsync("Lightning Bolt");
 
         result.Should().HaveCount(2);
         result.Select(r => r.ScryfallId).Should().BeEquivalentTo(["sf-6a", "sf-6b"]);

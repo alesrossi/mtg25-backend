@@ -12,15 +12,15 @@ public interface ICardsService
 {
     Task<ExtensiveCardDto> GetCardByIdAsync(int id, string userId, CancellationToken cancellationToken = default);
     Task<List<MinimalCardDto>> SearchCardsAsync(string find, string userId, CancellationToken cancellationToken = default);
-    Task<List<KeyValuePair<string, ScryfallCardDto>>> GetCardVersionsAsync(string name, string userId, CancellationToken cancellationToken = default);
-    Task<ScryfallCardDto> GetCardFromExactNameAsync(string name, string userId, CancellationToken cancellationToken = default);
-    Task<ScryfallCardDto> GetCardFromScryfallIdAsync(string id, string userId, CancellationToken cancellationToken = default);
+    Task<List<KeyValuePair<string, ScryfallCardDto>>> GetCardVersionsAsync(string name, CancellationToken cancellationToken = default);
+    Task<ScryfallCardDto> GetCardFromExactNameAsync(string name, CancellationToken cancellationToken = default);
+    Task<ScryfallCardDto> GetCardFromScryfallIdAsync(string id, CancellationToken cancellationToken = default);
     Task<Card> UpdateCardAsync(int id, UpdateCollectionCardDto updateDto, string userId, CancellationToken cancellationToken = default);
     Task<Card> UpdateCardVersionAsync(int id, UpdateCollectionCardWithSfIdDto updateDto, string userId, CancellationToken cancellationToken = default);
     Task DeleteCardAsync(int id, string userId, CancellationToken cancellationToken = default);
     Task<Card> AddNewCardAsync(InternalCardDto cardDto, string userId, CancellationToken cancellationToken = default);
     Task<LinkedList<ScryfallCardDto>> AddCardListAsync(CardListDto cardListDto, string userId, CancellationToken cancellationToken = default);
-    Task<List<CardImageDto>> GetCardImagesByNameAsync(string name, string userId, CancellationToken cancellationToken = default);
+    Task<List<CardImageDto>> GetCardImagesByNameAsync(string name, CancellationToken cancellationToken = default);
 }
 
 public sealed class CardsService : ICardsService
@@ -115,13 +115,8 @@ public sealed class CardsService : ICardsService
         return Task.FromResult(result);
     }
 
-    public Task<List<KeyValuePair<string, ScryfallCardDto>>> GetCardVersionsAsync(string name, string userId, CancellationToken cancellationToken = default)
+    public Task<List<KeyValuePair<string, ScryfallCardDto>>> GetCardVersionsAsync(string name, CancellationToken cancellationToken = default)
     {
-        if (userId is null)
-        {
-            throw CardsServiceException.Unauthorized("Errors.Cards.MissingUserId");
-        }
-
         if (!_cardDataService.CardDataByName.ContainsKey(name))
         {
             throw CardsServiceException.NotFound("Errors.Cards.NotFound");
@@ -134,13 +129,8 @@ public sealed class CardsService : ICardsService
         return Task.FromResult(versions);
     }
 
-    public Task<ScryfallCardDto> GetCardFromExactNameAsync(string name, string userId, CancellationToken cancellationToken = default)
+    public Task<ScryfallCardDto> GetCardFromExactNameAsync(string name, CancellationToken cancellationToken = default)
     {
-        if (userId is null)
-        {
-            throw CardsServiceException.Unauthorized("Errors.Cards.MissingUserId");
-        }
-
         if (_cardDataService.CardDataByName.TryGetValue(name, out var card))
         {
             return Task.FromResult(card);
@@ -149,13 +139,8 @@ public sealed class CardsService : ICardsService
         throw CardsServiceException.NotFound("Errors.Cards.NotFound");
     }
 
-    public Task<ScryfallCardDto> GetCardFromScryfallIdAsync(string id, string userId, CancellationToken cancellationToken = default)
+    public Task<ScryfallCardDto> GetCardFromScryfallIdAsync(string id, CancellationToken cancellationToken = default)
     {
-        if (userId is null)
-        {
-            throw CardsServiceException.Unauthorized("Errors.Cards.MissingUserId");
-        }
-
         if (_cardDataService.CardDataById.TryGetValue(id, out var card))
         {
             return Task.FromResult(card);
@@ -164,13 +149,8 @@ public sealed class CardsService : ICardsService
         throw CardsServiceException.NotFound("Errors.Cards.NotFound");
     }
 
-    public Task<List<CardImageDto>> GetCardImagesByNameAsync(string name, string userId, CancellationToken cancellationToken = default)
+    public Task<List<CardImageDto>> GetCardImagesByNameAsync(string name, CancellationToken cancellationToken = default)
     {
-        if (userId is null)
-        {
-            throw CardsServiceException.Unauthorized("Errors.Cards.MissingUserId");
-        }
-
         var results = _cardDataService.CardDataById.Values
             .Where(c =>
                 c.Name.Contains(name, StringComparison.OrdinalIgnoreCase) ||

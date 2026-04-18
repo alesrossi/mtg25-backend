@@ -38,7 +38,7 @@ public static partial class CardsEndpoints
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/{name}/versions", GetCardVersionsAsync)
-            .RequireAuthorization()
+            .RequireAuthorization("OptionalAuth")
             .WithSummary("Retrieves all versions of a card")
             .WithDescription("Returns all card dtos for a given exact card name")
             .Produces<List<KeyValuePair<string, ScryfallCardDto>>>()
@@ -47,7 +47,7 @@ public static partial class CardsEndpoints
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/sf/name/{name}", GetCardFromExactName)
-            .RequireAuthorization()
+            .RequireAuthorization("OptionalAuth")
             .WithSummary("Returns Scryfall card from name")
             .WithDescription("Returns Scryfall card with all fields, from exact name")
             .Produces<ScryfallCardDto>()
@@ -56,7 +56,7 @@ public static partial class CardsEndpoints
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/sf/id/{id}", GetCardFromScryfallId)
-            .RequireAuthorization()
+            .RequireAuthorization("OptionalAuth")
             .WithSummary("Returns Scryfall card from id")
             .WithDescription("Returns Scryfall card with all fields, from id")
             .Produces<ScryfallCardDto>()
@@ -65,7 +65,7 @@ public static partial class CardsEndpoints
             .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError, contentType: "application/problem+json");
 
         group.MapGet("/sf/images/{name}", GetCardImagesByName)
-            .RequireAuthorization()
+            .RequireAuthorization("OptionalAuth")
             .WithSummary("Returns card images by name")
             .WithDescription("Returns list of ScryfallId and ArtCrop for all cards matching the given name, flavor name, or printed name")
             .Produces<List<CardImageDto>>()

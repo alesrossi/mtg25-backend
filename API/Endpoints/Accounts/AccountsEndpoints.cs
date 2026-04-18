@@ -23,9 +23,9 @@ public static partial class AccountsEndpoints
             .WithDescription("Verifies if an email address is already registered in the system")
             .Produces<bool>();
         group.MapGet("/settings", GetSettingsAsync)
-            .WithSummary("Check if email exists")
-            .WithDescription("Verifies if an email address is already registered in the system")
-            .Produces<bool>();
+            .WithSummary("Return user settings")
+            .WithDescription("Returns the user settings Dto")
+            .Produces<SettingsForUserDto>();
     }
     
     private static void MapAccountCommands(RouteGroupBuilder group)

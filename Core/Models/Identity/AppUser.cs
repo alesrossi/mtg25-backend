@@ -14,6 +14,8 @@ public class AppUser : IdentityUser
     public required string LastName { get; set; }
     [MaxLength(100)]
     public string? CompanionName { get; set; }
+    [MaxLength(2048)]
+    public string? Avatar { get; set; }
     public bool IsGoogleAccount { get; set; } = false;
     [JsonIgnore]
     public ICollection<AppUserLeague> UserLeagues { get; set; } = new List<AppUserLeague>();

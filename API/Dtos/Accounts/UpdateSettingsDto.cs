@@ -12,4 +12,5 @@ public class UpdateSettingsDto
     public Language? LanguageCards { get; set; }
     public bool? EnabledLocation { get; set; }
     public string? CompanionName { get; set; }
+    public string? Avatar { get; set; }
 }

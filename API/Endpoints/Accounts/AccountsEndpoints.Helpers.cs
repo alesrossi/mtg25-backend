@@ -37,7 +37,8 @@ public static partial class AccountsEndpoints
             DisplayName = user.DisplayName,
             FirstName = user.FirstName,
             LastName = user.LastName,
-            CompanionName = user.CompanionName
+            CompanionName = user.CompanionName,
+            Avatar = user.Avatar
         };
     }
 }

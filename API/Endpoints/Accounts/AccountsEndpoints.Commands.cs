@@ -363,6 +363,15 @@ public static partial class AccountsEndpoints
         if (updateDto.CompanionName is not null)
         {
             user.CompanionName = updateDto.CompanionName;
+        }
+
+        if (updateDto.Avatar is not null)
+        {
+            user.Avatar = updateDto.Avatar;
+        }
+
+        if (updateDto.CompanionName is not null || updateDto.Avatar is not null)
+        {
             await userManager.UpdateAsync(user);
         }
 

@@ -72,22 +72,17 @@ public static partial class CardsEndpoints
         [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
         const string operation = "Cards.Versions";
-        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null)
-        {
-            logger.LogOperationWarning(operation, "Missing user id", new { name });
-            return Results.Unauthorized();
-        }
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
 
         try
         {
-            var versions = await cardsService.GetCardVersionsAsync(name, userId);
-            logger.LogOperationSuccess(operation, new { name, versions.Count });
+            var versions = await cardsService.GetCardVersionsAsync(name);
+            logger.LogOperationSuccess(operation, new { name, versions.Count, IsAnonymous = string.IsNullOrEmpty(userId) });
             return Results.Ok(versions);
         }
         catch (CardsServiceException ex)
         {
-            logger.LogOperationWarning(operation, ex.Message, new { name, userId });
+            logger.LogOperationWarning(operation, ex.Message, new { name });
             return await MapCardsServiceException(ex, context, messageLocalizer, userId);
         }
     }
@@ -100,22 +95,17 @@ public static partial class CardsEndpoints
         [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
         const string operation = "Cards.ScryfallByName";
-        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null)
-        {
-            logger.LogOperationWarning(operation, "Missing user id", new { name });
-            return Results.Unauthorized();
-        }
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
 
         try
         {
-            var card = await cardsService.GetCardFromExactNameAsync(name, userId);
-            logger.LogOperationSuccess(operation, new { name });
+            var card = await cardsService.GetCardFromExactNameAsync(name);
+            logger.LogOperationSuccess(operation, new { name, IsAnonymous = string.IsNullOrEmpty(userId) });
             return Results.Ok(card);
         }
         catch (CardsServiceException ex)
         {
-            logger.LogOperationWarning(operation, ex.Message, new { name, userId });
+            logger.LogOperationWarning(operation, ex.Message, new { name });
             return await MapCardsServiceException(ex, context, messageLocalizer, userId);
         }
     }
@@ -128,22 +118,17 @@ public static partial class CardsEndpoints
         [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
         const string operation = "Cards.ScryfallById";
-        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null)
-        {
-            logger.LogOperationWarning(operation, "Missing user id", new { id });
-            return Results.Unauthorized();
-        }
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
 
         try
         {
-            var card = await cardsService.GetCardFromScryfallIdAsync(id, userId);
-            logger.LogOperationSuccess(operation, new { id });
+            var card = await cardsService.GetCardFromScryfallIdAsync(id);
+            logger.LogOperationSuccess(operation, new { id, IsAnonymous = string.IsNullOrEmpty(userId) });
             return Results.Ok(card);
         }
         catch (CardsServiceException ex)
         {
-            logger.LogOperationWarning(operation, ex.Message, new { id, userId });
+            logger.LogOperationWarning(operation, ex.Message, new { id });
             return await MapCardsServiceException(ex, context, messageLocalizer, userId);
         }
     }
@@ -156,22 +141,17 @@ public static partial class CardsEndpoints
         [FromServices] ILogger<CardsEndpointsLogCategory> logger)
     {
         const string operation = "Cards.ImagesByName";
-        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId is null)
-        {
-            logger.LogOperationWarning(operation, "Missing user id", new { name });
-            return Results.Unauthorized();
-        }
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
 
         try
         {
-            var images = await cardsService.GetCardImagesByNameAsync(name, userId);
-            logger.LogOperationSuccess(operation, new { name, images.Count });
+            var images = await cardsService.GetCardImagesByNameAsync(name);
+            logger.LogOperationSuccess(operation, new { name, images.Count, IsAnonymous = string.IsNullOrEmpty(userId) });
             return Results.Ok(images);
         }
         catch (CardsServiceException ex)
         {
-            logger.LogOperationWarning(operation, ex.Message, new { name, userId });
+            logger.LogOperationWarning(operation, ex.Message, new { name });
             return await MapCardsServiceException(ex, context, messageLocalizer, userId);
         }
     }
