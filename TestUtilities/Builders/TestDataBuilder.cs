@@ -49,6 +49,7 @@ public class TestDataBuilder
             .Without(u => u.Notifications)
             .Without(u => u.Friendships)
             .Without(u => u.FriendshipsReceived)
+            .Without(u => u.Avatar)
             .Without(u => u.Id)  // Let Identity/EF generate the ID
             .Create();
 

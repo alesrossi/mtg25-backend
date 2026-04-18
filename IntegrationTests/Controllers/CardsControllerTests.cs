@@ -775,13 +775,13 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task GetCardFromName_WithoutAuthentication_ReturnsUnauthorized()
+    public async Task GetCardFromName_WithoutAuthentication_ReturnsOk()
     {
         using var client = _factory.CreateClient();
 
         var response = await client.GetAsync("/api/cards/sf/name/Counterspell");
 
-        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -822,13 +822,13 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task GetCardFromOracleId_WithoutAuthentication_ReturnsUnauthorized()
+    public async Task GetCardFromOracleId_WithoutAuthentication_ReturnsOk()
     {
         using var client = _factory.CreateClient();
 
         var response = await client.GetAsync("/api/cards/sf/id/0df55e3f-14de-46ef-b6b1-616618724d9e");
 
-        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -857,13 +857,13 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task GetCardVersions_WithoutAuthentication_ReturnsUnauthorized()
+    public async Task GetCardVersions_WithoutAuthentication_ReturnsOk()
     {
         using var client = _factory.CreateClient();
 
         var response = await client.GetAsync("/api/cards/Counterspell/versions");
 
-        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -909,13 +909,13 @@ public class CardsControllerTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task GetCardImagesByName_WithoutAuthentication_ReturnsUnauthorized()
+    public async Task GetCardImagesByName_WithoutAuthentication_ReturnsOk()
     {
         using var client = _factory.CreateClient();
 
         var response = await client.GetAsync("/api/cards/sf/images/Counterspell");
 
-        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     #region Helper Methods

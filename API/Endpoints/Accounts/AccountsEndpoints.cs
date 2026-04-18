@@ -23,9 +23,12 @@ public static partial class AccountsEndpoints
             .WithDescription("Verifies if an email address is already registered in the system")
             .Produces<bool>();
         group.MapGet("/settings", GetSettingsAsync)
-            .WithSummary("Return user settings")
-            .WithDescription("Returns the user settings Dto")
-            .Produces<SettingsForUserDto>();
+            .RequireAuthorization()
+            .WithSummary("Get user settings")
+            .WithDescription("Returns the authenticated user's settings")
+            .Produces<SettingsForUserDto>()
+            .Produces<ProblemDetails>(StatusCodes.Status401Unauthorized, contentType: "application/problem+json")
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound, contentType: "application/problem+json");
     }
     
     private static void MapAccountCommands(RouteGroupBuilder group)
