@@ -52,6 +52,7 @@ public class Program
             });
             builder.Services.AddJwtAuthentication(builder.Configuration, builder.Environment);
             builder.Services.AddScoped<ITeamService, TeamService>();
+            builder.Services.AddScoped<ITeamCollectionService, TeamCollectionService>();
         
             var app = builder.Build();
         
@@ -72,6 +73,7 @@ public class Program
             app.UseCors("DefaultCors");
 
             app.MapApiEndpoints();
+            app.MapTeamsEndpoints();
         
         
             await app.RunAsync();
