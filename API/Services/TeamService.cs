@@ -137,8 +137,8 @@ public sealed class TeamService : ITeamService
 
     public async Task<TeamDto> UpdateTeamAsync(int teamId, UpdateTeamDto dto, string userId)
     {
-        if (!await HasTeamAccessAsync(teamId, userId, TeamRole.Admin))
-            throw TeamServiceException.Problem(403, "Forbidden", "Admin access required.");
+        if (!await HasTeamAccessAsync(teamId, userId, TeamRole.Owner))
+            throw TeamServiceException.Problem(403, "Forbidden", "Owner access required.");
 
         var team = await _unitOfWork.Repository<Team>().Query
             .FirstOrDefaultAsync(t => t.Id == teamId);
