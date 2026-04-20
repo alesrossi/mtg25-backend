@@ -3,6 +3,7 @@ using Core.Models;
 using Core.Models.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace Infrastructure.Data;
 
@@ -36,6 +37,9 @@ public class MainContext : IdentityDbContext<AppUser>
     public DbSet<AppUserRound> UserRounds { get; set; }
     public DbSet<RoundParticipant> RoundParticipants { get; set; }
     
+    public DbSet<Team> Teams { get; set; }
+    public DbSet<TeamCollectionView> TeamCollectionViews { get; set; }
+    
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -53,6 +57,11 @@ public class MainContext : IdentityDbContext<AppUser>
 
             entity.Property(d => d.DeckList)
                 .HasDefaultValue(string.Empty);
+
+            entity.HasOne(d => d.Team)
+                .WithMany()
+                .HasForeignKey(d => d.TeamId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Collection>(entity =>
@@ -82,6 +91,11 @@ public class MainContext : IdentityDbContext<AppUser>
                 .WithOne(c => c.Wishlist)
                 .HasForeignKey(c => c.WishlistId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(w => w.Team)
+                .WithMany()
+                .HasForeignKey(w => w.TeamId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<WishlistCard>(entity =>
@@ -279,6 +293,11 @@ public class MainContext : IdentityDbContext<AppUser>
                 .WithOne(bc => bc.TradeBinder)
                 .HasForeignKey(bc => bc.TradeBinderId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(tb => tb.Team)
+                .WithMany()
+                .HasForeignKey(tb => tb.TeamId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<BinderCard>(entity =>
@@ -467,5 +486,45 @@ public class MainContext : IdentityDbContext<AppUser>
             .WithMany(r => r.Participants)
             .HasForeignKey(rp => rp.RoundId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<TeamMember>(entity =>
+        {
+            entity.HasKey(e => new { e.UserId, e.TeamId });
+
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Team)
+                .WithMany(t => t.Members)
+                .HasForeignKey(e => e.TeamId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.InvitedBy)
+                .WithMany()
+                .HasForeignKey(e => e.InvitedById)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.TeamId, e.UserId });
+        });
+
+        modelBuilder.Entity<TeamCollectionView>(entity =>
+        {
+            entity.HasOne(e => e.Team)
+                .WithMany(t => t.CollectionViews)
+                .HasForeignKey(e => e.TeamId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.CreatedBy)
+                .WithMany()
+                .HasForeignKey(e => e.CreatedById)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.Property(e => e.CollectionIds)
+                .HasConversion(
+                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                    v => JsonSerializer.Deserialize<List<int>>(v, (JsonSerializerOptions?)null) ?? new List<int>());
+        });
     }
 }

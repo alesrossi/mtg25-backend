@@ -14,4 +14,7 @@ public class Wishlist : BaseModel
     public double TotalPrice { get; set; }
     public Currency? TotalPriceCurrency { get; set; }
     public ICollection<WishlistCard> WishlistCards { get; set; } = new List<WishlistCard>();
+
+    public int? TeamId { get; set; }
+    public Team? Team { get; set; }
 }

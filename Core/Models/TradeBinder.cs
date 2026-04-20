@@ -11,4 +11,7 @@ public class TradeBinder : BaseModel
     [MaxLength(100)]
     public required string OwnerId { get; set; }
     public ICollection<BinderCard> BinderCards { get; set; } = new List<BinderCard>();
+
+    public int? TeamId { get; set; }
+    public Team? Team { get; set; }
 }

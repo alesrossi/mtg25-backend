@@ -30,4 +30,7 @@ public class Deck : BaseModel
 
     public ICollection<DeckCommit> Commits { get; set; } = new List<DeckCommit>();
     public ICollection<DeckBranch> Branches { get; set; } = new List<DeckBranch>();
+
+    public int? TeamId { get; set; }
+    public Team? Team { get; set; }
 }
