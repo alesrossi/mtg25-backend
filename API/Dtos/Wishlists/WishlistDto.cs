@@ -14,4 +14,6 @@ public class WishlistDto
     public int CardsCount { get; set; }
     public int IndividualCardsCount { get; set; }
     public IReadOnlyList<WishlistCardDto> Cards { get; set; } = [];
+    public int? TeamId { get; set; }
+    public string? TeamName { get; set; }
 }

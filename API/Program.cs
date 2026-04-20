@@ -1,5 +1,6 @@
 using API.Extensions;
 using API.Logging;
+using API.Services;
 using Serilog;
 
 namespace API;
@@ -50,6 +51,7 @@ public class Program
                 });
             });
             builder.Services.AddJwtAuthentication(builder.Configuration, builder.Environment);
+            builder.Services.AddScoped<ITeamService, TeamService>();
         
             var app = builder.Build();
         

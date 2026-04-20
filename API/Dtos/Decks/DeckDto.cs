@@ -18,4 +18,6 @@ public class DeckDto
     public required string OwnerId { get; set; }
     public int? CurrentBranchId { get; set; }
     public int? CurrentCommitId { get; set; }
+    public int? TeamId { get; set; }
+    public string? TeamName { get; set; }
 }
