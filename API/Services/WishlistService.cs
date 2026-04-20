@@ -1,8 +1,9 @@
 using API.Dtos.Wishlists;
+using Core.Enums;
 using Core.Interfaces;
 using Core.Models;
 using Core.Specifications;
-using Core.Enums;
+using Microsoft.EntityFrameworkCore;
 
 namespace API.Services;
 
@@ -26,17 +27,20 @@ public sealed class WishlistService : IWishlistService
     private readonly IValidationService _validationService;
     private readonly CardDataService _cardDataService;
     private readonly WishlistPricingService _wishlistPricingService;
+    private readonly ITeamService _teamService;
 
     public WishlistService(
         IUnitOfWork unitOfWork,
         IValidationService validationService,
         CardDataService cardDataService,
-        WishlistPricingService wishlistPricingService)
+        WishlistPricingService wishlistPricingService,
+        ITeamService teamService)
     {
         _unitOfWork = unitOfWork;
         _validationService = validationService;
         _cardDataService = cardDataService;
         _wishlistPricingService = wishlistPricingService;
+        _teamService = teamService;
     }
 
     public async Task<IReadOnlyList<WishlistSummaryDto>> GetWishlistsAsync(string userId, CancellationToken cancellationToken = default)
@@ -54,15 +58,20 @@ public sealed class WishlistService : IWishlistService
 
     public async Task<WishlistDto> GetWishlistByIdAsync(int id, string userId, CancellationToken cancellationToken = default)
     {
-        var spec = new WishlistByIdWithCardsSpecification(id);
-        var wishlist = await _unitOfWork.Repository<Wishlist>().GetEntityWithSpec(spec, tracking: false);
+        var wishlist = await _unitOfWork.Repository<Wishlist>().Query
+            .AsNoTracking()
+            .Include(w => w.Team)
+            .Include(w => w.WishlistCards)
+            .FirstOrDefaultAsync(w => w.Id == id, cancellationToken);
+
         if (wishlist == null)
         {
             throw WishlistServiceException.NotFound("Errors.Wishlists.NotFound");
         }
 
         var isOwner = !string.IsNullOrEmpty(userId) && wishlist.OwnerId == userId;
-        if (!isOwner && !wishlist.IsPublic)
+        var hasTeamAccess = wishlist.TeamId.HasValue && await _teamService.HasTeamAccessAsync(wishlist.TeamId.Value, userId, TeamRole.Member);
+        if (!isOwner && !hasTeamAccess && !wishlist.IsPublic)
         {
             throw WishlistServiceException.Unauthorized("Errors.Wishlists.Unauthorized");
         }
@@ -110,6 +119,14 @@ public sealed class WishlistService : IWishlistService
             throw WishlistServiceException.Unauthorized("Errors.Wishlists.MissingUserId");
         }
 
+        if (createDto.TeamId.HasValue)
+        {
+            if (!await _teamService.HasTeamAccessAsync(createDto.TeamId.Value, userId, TeamRole.Admin))
+            {
+                throw WishlistServiceException.Unauthorized("Errors.Wishlists.Unauthorized");
+            }
+        }
+
         var (isValid, errors) = _validationService.ValidateModel(createDto);
         if (!isValid)
         {
@@ -121,13 +138,20 @@ public sealed class WishlistService : IWishlistService
             Name = createDto.Name.Trim(),
             Description = string.IsNullOrWhiteSpace(createDto.Description) ? null : createDto.Description.Trim(),
             IsPublic = createDto.IsPublic,
-            OwnerId = userId
+            OwnerId = userId,
+            TeamId = createDto.TeamId
         };
 
         _unitOfWork.Repository<Wishlist>().Add(wishlist);
         await _unitOfWork.Complete();
 
-        return MapToDto(wishlist);
+        var createdWishlist = await _unitOfWork.Repository<Wishlist>().Query
+            .AsNoTracking()
+            .Include(w => w.Team)
+            .Include(w => w.WishlistCards)
+            .FirstOrDefaultAsync(w => w.Id == wishlist.Id, cancellationToken);
+
+        return MapToDto(createdWishlist ?? wishlist);
     }
 
     public async Task<WishlistDto> UpdateWishlistAsync(int id, UpdateWishlistDto updateDto, string userId, CancellationToken cancellationToken = default)
@@ -148,7 +172,15 @@ public sealed class WishlistService : IWishlistService
         {
             throw WishlistServiceException.NotFound("Errors.Wishlists.NotFound");
         }
-        if (wishlist.OwnerId != userId)
+
+        if (wishlist.TeamId.HasValue)
+        {
+            if (!await _teamService.HasTeamAccessAsync(wishlist.TeamId.Value, userId, TeamRole.Admin))
+            {
+                throw WishlistServiceException.Unauthorized("Errors.Wishlists.Unauthorized");
+            }
+        }
+        else if (wishlist.OwnerId != userId)
         {
             throw WishlistServiceException.Unauthorized("Errors.Wishlists.Unauthorized");
         }
@@ -160,8 +192,11 @@ public sealed class WishlistService : IWishlistService
         _unitOfWork.Repository<Wishlist>().Update(wishlist);
         await _unitOfWork.Complete();
 
-        var spec = new WishlistWithCardsSpecification(id, userId);
-        var updated = await _unitOfWork.Repository<Wishlist>().GetEntityWithSpec(spec) ?? wishlist;
+        var updated = await _unitOfWork.Repository<Wishlist>().Query
+            .AsNoTracking()
+            .Include(w => w.Team)
+            .Include(w => w.WishlistCards)
+            .FirstOrDefaultAsync(w => w.Id == id, cancellationToken) ?? wishlist;
 
         return MapToDto(updated);
     }
@@ -178,7 +213,15 @@ public sealed class WishlistService : IWishlistService
         {
             throw WishlistServiceException.NotFound("Errors.Wishlists.NotFound");
         }
-        if (wishlist.OwnerId != userId)
+
+        if (wishlist.TeamId.HasValue)
+        {
+            if (!await _teamService.HasTeamAccessAsync(wishlist.TeamId.Value, userId, TeamRole.Admin))
+            {
+                throw WishlistServiceException.Unauthorized("Errors.Wishlists.Unauthorized");
+            }
+        }
+        else if (wishlist.OwnerId != userId)
         {
             throw WishlistServiceException.Unauthorized("Errors.Wishlists.Unauthorized");
         }
@@ -364,7 +407,9 @@ public sealed class WishlistService : IWishlistService
             TotalPriceCurrency = wishlist.TotalPriceCurrency,
             CardsCount = cards.Sum(c => c.DesiredQuantity),
             IndividualCardsCount = cards.Count,
-            Cards = cards
+            Cards = cards,
+            TeamId = wishlist.TeamId,
+            TeamName = wishlist.Team?.Name
         };
     }
 

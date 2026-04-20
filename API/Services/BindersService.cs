@@ -2,11 +2,12 @@ using System.Globalization;
 using API.Dtos.Binders;
 using API.Dtos.Cards;
 using API.Helpers;
+using Core.Enums;
 using Core.Interfaces;
 using Core.Models;
 using Core.Models.Identity;
 using Core.Specifications;
-using Core.Enums;
+using Microsoft.EntityFrameworkCore;
 
 namespace API.Services;
 
@@ -30,17 +31,20 @@ public sealed class BindersService : IBindersService
     private readonly IValidationService _validationService;
     private readonly IUserSettingsService _userSettingsService;
     private readonly CardDataService _cardDataService;
+    private readonly ITeamService _teamService;
 
     public BindersService(
         IUnitOfWork unitOfWork,
         IValidationService validationService,
         IUserSettingsService userSettingsService,
-        CardDataService cardDataService)
+        CardDataService cardDataService,
+        ITeamService teamService)
     {
         _unitOfWork = unitOfWork;
         _validationService = validationService;
         _userSettingsService = userSettingsService;
         _cardDataService = cardDataService;
+        _teamService = teamService;
     }
 
     public async Task<IReadOnlyList<BinderSummaryDto>> GetBindersAsync(string userId, CancellationToken cancellationToken = default)
@@ -76,15 +80,20 @@ public sealed class BindersService : IBindersService
 
     public async Task<BinderDto> GetBinderByIdAsync(int id, string userId, CancellationToken cancellationToken = default)
     {
-        var spec = new TradeBinderWithCardsSpecification(id);
-        var binder = await _unitOfWork.Repository<TradeBinder>().GetEntityWithSpec(spec, tracking: false);
+        var binder = await _unitOfWork.Repository<TradeBinder>().Query
+            .AsNoTracking()
+            .Include(b => b.Team)
+            .Include(b => b.BinderCards)
+            .FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
+
         if (binder == null)
         {
             throw BindersServiceException.NotFound("Errors.Binders.NotFound");
         }
 
         var isOwner = !string.IsNullOrEmpty(userId) && binder.OwnerId == userId;
-        if (!isOwner && !binder.IsPublic)
+        var hasTeamAccess = binder.TeamId.HasValue && await _teamService.HasTeamAccessAsync(binder.TeamId.Value, userId, TeamRole.Member);
+        if (!isOwner && !hasTeamAccess && !binder.IsPublic)
         {
             throw BindersServiceException.Unauthorized("Errors.Binders.Unauthorized");
         }
@@ -162,6 +171,14 @@ public sealed class BindersService : IBindersService
             throw BindersServiceException.Unauthorized("Errors.Binders.MissingUserId");
         }
 
+        if (createDto.TeamId.HasValue)
+        {
+            if (!await _teamService.HasTeamAccessAsync(createDto.TeamId.Value, userId, TeamRole.Admin))
+            {
+                throw BindersServiceException.Unauthorized("Errors.Binders.Unauthorized");
+            }
+        }
+
         var (isValid, errors) = _validationService.ValidateModel(createDto);
         if (!isValid)
         {
@@ -173,13 +190,19 @@ public sealed class BindersService : IBindersService
             Name = createDto.Name.Trim(),
             Description = string.IsNullOrWhiteSpace(createDto.Description) ? null : createDto.Description.Trim(),
             IsPublic = createDto.IsPublic,
-            OwnerId = userId
+            OwnerId = userId,
+            TeamId = createDto.TeamId
         };
 
         _unitOfWork.Repository<TradeBinder>().Add(binder);
         await _unitOfWork.Complete();
 
-        return MapToDto(binder, []);
+        var createdBinder = await _unitOfWork.Repository<TradeBinder>().Query
+            .AsNoTracking()
+            .Include(b => b.Team)
+            .FirstOrDefaultAsync(b => b.Id == binder.Id, cancellationToken);
+
+        return MapToDto(createdBinder ?? binder, []);
     }
 
     public async Task<BinderDto> UpdateBinderAsync(int id, UpdateBinderDto updateDto, string userId, CancellationToken cancellationToken = default)
@@ -200,7 +223,15 @@ public sealed class BindersService : IBindersService
         {
             throw BindersServiceException.NotFound("Errors.Binders.NotFound");
         }
-        if (binder.OwnerId != userId)
+
+        if (binder.TeamId.HasValue)
+        {
+            if (!await _teamService.HasTeamAccessAsync(binder.TeamId.Value, userId, TeamRole.Admin))
+            {
+                throw BindersServiceException.Unauthorized("Errors.Binders.Unauthorized");
+            }
+        }
+        else if (binder.OwnerId != userId)
         {
             throw BindersServiceException.Unauthorized("Errors.Binders.Unauthorized");
         }
@@ -212,7 +243,11 @@ public sealed class BindersService : IBindersService
         _unitOfWork.Repository<TradeBinder>().Update(binder);
         await _unitOfWork.Complete();
 
-        var updated = await _unitOfWork.Repository<TradeBinder>().GetEntityWithSpec(new TradeBinderWithCardsSpecification(id)) ?? binder;
+        var updated = await _unitOfWork.Repository<TradeBinder>().Query
+            .AsNoTracking()
+            .Include(b => b.Team)
+            .Include(b => b.BinderCards)
+            .FirstOrDefaultAsync(b => b.Id == id, cancellationToken) ?? binder;
         var cards = await _unitOfWork.Repository<BinderCard>()
             .ListAsync(new BinderCardsWithBinderIdSpecification(binder.Id)) ?? [];
 
@@ -231,7 +266,15 @@ public sealed class BindersService : IBindersService
         {
             throw BindersServiceException.NotFound("Errors.Binders.NotFound");
         }
-        if (binder.OwnerId != userId)
+
+        if (binder.TeamId.HasValue)
+        {
+            if (!await _teamService.HasTeamAccessAsync(binder.TeamId.Value, userId, TeamRole.Admin))
+            {
+                throw BindersServiceException.Unauthorized("Errors.Binders.Unauthorized");
+            }
+        }
+        else if (binder.OwnerId != userId)
         {
             throw BindersServiceException.Unauthorized("Errors.Binders.Unauthorized");
         }
@@ -415,7 +458,9 @@ public sealed class BindersService : IBindersService
             OwnerId = binder.OwnerId,
             CardsCount = cardDtos.Count,
             TotalPrice = CalculateBinderTotalPrice(cards),
-            Cards = cardDtos
+            Cards = cardDtos,
+            TeamId = binder.TeamId,
+            TeamName = binder.Team?.Name
         };
     }
 

@@ -1,11 +1,13 @@
 using System.Globalization;
 using API.Dtos.Decks;
 using API.Helpers;
+using Core.Enums;
 using Core.Interfaces;
 using Core.Models;
 using Core.Models.Identity;
 using Core.Specifications;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace API.Services;
 
@@ -37,6 +39,7 @@ public sealed class DeckService : IDeckService
     private readonly CardDataService _cardDataService;
     private readonly IUserSettingsService _userSettingsService;
     private readonly IDeckHistoryService _deckHistoryService;
+    private readonly ITeamService _teamService;
 
     public DeckService(
         IUnitOfWork unitOfWork,
@@ -46,7 +49,8 @@ public sealed class DeckService : IDeckService
         IDecklistParserService decklistParserService,
         CardDataService cardDataService,
         IUserSettingsService userSettingsService,
-        IDeckHistoryService deckHistoryService)
+        IDeckHistoryService deckHistoryService,
+        ITeamService teamService)
     {
         _unitOfWork = unitOfWork;
         _userManager = userManager;
@@ -56,6 +60,7 @@ public sealed class DeckService : IDeckService
         _cardDataService = cardDataService;
         _userSettingsService = userSettingsService;
         _deckHistoryService = deckHistoryService;
+        _teamService = teamService;
     }
 
     public async Task<IReadOnlyList<DeckDto>> GetDecksForUserAsync(string userId, CancellationToken cancellationToken = default)
@@ -71,7 +76,12 @@ public sealed class DeckService : IDeckService
             throw DeckServiceException.Unauthorized("Errors.Decks.UserNotFound");
         }
 
-        var decks = await _unitOfWork.Repository<Deck>().ListAsync(new DecksWIthOwnerSpecification(user.Id), tracking: false);
+        var decks = await _unitOfWork.Repository<Deck>().Query
+            .AsNoTracking()
+            .Include(d => d.Team)
+            .Where(d => d.OwnerId == user.Id)
+            .ToListAsync(cancellationToken);
+
         if (decks is null || decks.Count <= 0)
         {
             throw DeckServiceException.NotFound("Errors.Decks.NoneFound", includeBody: true, body: "Errors.Decks.NoneFound");
@@ -82,14 +92,19 @@ public sealed class DeckService : IDeckService
 
     public async Task<DeckDto> GetDeckByIdAsync(int id, string userId, CancellationToken cancellationToken = default)
     {
-        var deck = await _unitOfWork.Repository<Deck>().GetByIdAsync(id, tracking: false);
+        var deck = await _unitOfWork.Repository<Deck>().Query
+            .AsNoTracking()
+            .Include(d => d.Team)
+            .FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
+
         if (deck == null)
         {
             throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
         }
 
         var isOwner = !string.IsNullOrEmpty(userId) && deck.OwnerId == userId;
-        if (!isOwner && !deck.IsPublic)
+        var hasTeamAccess = deck.TeamId.HasValue && await _teamService.HasTeamAccessAsync(deck.TeamId.Value, userId, TeamRole.Member);
+        if (!isOwner && !hasTeamAccess && !deck.IsPublic)
         {
             throw DeckServiceException.Unauthorized("Errors.Decks.Unauthorized");
         }
@@ -188,6 +203,14 @@ public sealed class DeckService : IDeckService
             throw DeckServiceException.Unauthorized("Errors.Decks.MissingUserId");
         }
 
+        if (createDto.TeamId.HasValue)
+        {
+            if (!await _teamService.HasTeamAccessAsync(createDto.TeamId.Value, userId, TeamRole.Admin))
+            {
+                throw DeckServiceException.Unauthorized("Errors.Decks.Unauthorized");
+            }
+        }
+
         var deck = new Deck
         {
             Name = createDto.Name,
@@ -196,7 +219,8 @@ public sealed class DeckService : IDeckService
             NumberOfCards = 0,
             TotalPrice = 0.0,
             DeckList = string.Empty,
-            IsPublic = createDto.IsPublic
+            IsPublic = createDto.IsPublic,
+            TeamId = createDto.TeamId
         };
 
         _unitOfWork.Repository<Deck>().Add(deck);
@@ -204,7 +228,12 @@ public sealed class DeckService : IDeckService
 
         await _deckHistoryService.InitializeDeckHistoryAsync(deck.Id, userId, cancellationToken: cancellationToken);
 
-        return MapToDto(deck);
+        var createdDeck = await _unitOfWork.Repository<Deck>().Query
+            .AsNoTracking()
+            .Include(d => d.Team)
+            .FirstOrDefaultAsync(d => d.Id == deck.Id, cancellationToken);
+
+        return MapToDto(createdDeck ?? deck);
     }
 
     public async Task<UpdateDeckResultDto> UpdateDeckAsync(int id, UpdateDeckDto updateDto, string userId, CancellationToken cancellationToken = default)
@@ -215,7 +244,19 @@ public sealed class DeckService : IDeckService
         }
 
         var deck = await _unitOfWork.Repository<Deck>().GetByIdAsync(id);
-        if (deck == null || deck.OwnerId != userId)
+        if (deck == null)
+        {
+            throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
+        }
+
+        if (deck.TeamId.HasValue)
+        {
+            if (!await _teamService.HasTeamAccessAsync(deck.TeamId.Value, userId, TeamRole.Admin))
+            {
+                throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
+            }
+        }
+        else if (deck.OwnerId != userId)
         {
             throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
         }
@@ -238,7 +279,12 @@ public sealed class DeckService : IDeckService
         _unitOfWork.Repository<Deck>().Update(deck);
         await _unitOfWork.Complete();
 
-        return new UpdateDeckResultDto(MapToDto(deck), errors, skippedLines);
+        var updatedDeck = await _unitOfWork.Repository<Deck>().Query
+            .AsNoTracking()
+            .Include(d => d.Team)
+            .FirstOrDefaultAsync(d => d.Id == deck.Id, cancellationToken);
+
+        return new UpdateDeckResultDto(MapToDto(updatedDeck ?? deck), errors, skippedLines);
     }
 
     public async Task DeleteDeckAsync(int id, string userId, CancellationToken cancellationToken = default)
@@ -249,7 +295,19 @@ public sealed class DeckService : IDeckService
         }
 
         var deck = await _unitOfWork.Repository<Deck>().GetByIdAsync(id);
-        if (deck == null || deck.OwnerId != userId)
+        if (deck == null)
+        {
+            throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
+        }
+
+        if (deck.TeamId.HasValue)
+        {
+            if (!await _teamService.HasTeamAccessAsync(deck.TeamId.Value, userId, TeamRole.Admin))
+            {
+                throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
+            }
+        }
+        else if (deck.OwnerId != userId)
         {
             throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
         }
@@ -517,7 +575,12 @@ public sealed class DeckService : IDeckService
         
         await _unitOfWork.Complete();
 
-        return new ImportDeckDto(MapToDto(deck), createdCards.ToList(), allErrors, skippedLines);
+        var finalDeck = await _unitOfWork.Repository<Deck>().Query
+            .AsNoTracking()
+            .Include(d => d.Team)
+            .FirstOrDefaultAsync(d => d.Id == deck.Id, cancellationToken);
+
+        return new ImportDeckDto(MapToDto(finalDeck ?? deck), createdCards.ToList(), allErrors, skippedLines);
     }
 
     private async Task<(List<DeckCardDto> CreatedCards, IReadOnlyList<string> Errors, int SkippedLines)> ReplaceDeckCardsFromDecklistAsync(
@@ -665,8 +728,9 @@ public sealed class DeckService : IDeckService
             IsPublic = deck.IsPublic,
             OwnerId = deck.OwnerId,
             CurrentBranchId = deck.CurrentBranchId,
-            CurrentCommitId = deck.CurrentCommitId
-            
+            CurrentCommitId = deck.CurrentCommitId,
+            TeamId = deck.TeamId,
+            TeamName = deck.Team?.Name
         };
     }
 

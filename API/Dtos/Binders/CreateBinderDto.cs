@@ -12,4 +12,5 @@ public class CreateBinderDto
     public string? Description { get; set; }
 
     public bool IsPublic { get; set; }
+    public int? TeamId { get; set; }
 }
