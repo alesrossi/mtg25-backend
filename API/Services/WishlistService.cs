@@ -88,7 +88,8 @@ public sealed class WishlistService : IWishlistService
         }
 
         var isOwner = !string.IsNullOrEmpty(userId) && wishlist.OwnerId == userId;
-        if (!isOwner && !wishlist.IsPublic)
+        var hasTeamAccess = wishlist.TeamId.HasValue && await _teamService.HasTeamAccessAsync(wishlist.TeamId.Value, userId, TeamRole.Member);
+        if (!isOwner && !hasTeamAccess && !wishlist.IsPublic)
         {
             throw WishlistServiceException.Unauthorized("Errors.Wishlists.Unauthorized");
         }
@@ -101,7 +102,7 @@ public sealed class WishlistService : IWishlistService
 
     public async Task<WishlistCardDto> GetWishlistCardByIdAsync(int wishlistId, int cardId, string userId, CancellationToken cancellationToken = default)
     {
-        await EnsureWishlistOwnershipAsync(wishlistId, userId, tracking: false);
+        await EnsureWishlistAccessAsync(wishlistId, userId, requireAdmin: false, tracking: false);
 
         var wishlistCard = await _unitOfWork.Repository<WishlistCard>().GetByIdAsync(cardId, tracking: false);
         if (wishlistCard == null)
@@ -236,7 +237,7 @@ public sealed class WishlistService : IWishlistService
         string userId,
         CancellationToken cancellationToken = default)
     {
-        await EnsureWishlistOwnershipAsync(wishlistId, userId);
+        await EnsureWishlistAccessAsync(wishlistId, userId, requireAdmin: true);
 
         var (isValid, errors) = _validationService.ValidateModel(newWishlistCardList);
         if (!isValid)
@@ -288,7 +289,7 @@ public sealed class WishlistService : IWishlistService
         string userId,
         CancellationToken cancellationToken = default)
     {
-        await EnsureWishlistOwnershipAsync(wishlistId, userId);
+        await EnsureWishlistAccessAsync(wishlistId, userId, requireAdmin: true);
 
         var (isValid, errors) = _validationService.ValidateModel(updateDto);
         if (!isValid)
@@ -341,7 +342,7 @@ public sealed class WishlistService : IWishlistService
 
     public async Task DeleteWishlistCardAsync(int wishlistId, int cardId, string userId, CancellationToken cancellationToken = default)
     {
-        await EnsureWishlistOwnershipAsync(wishlistId, userId);
+        await EnsureWishlistAccessAsync(wishlistId, userId, requireAdmin: true);
 
         var wishlistCard = await _unitOfWork.Repository<WishlistCard>().GetByIdAsync(cardId);
         if (wishlistCard == null || wishlistCard.WishlistId != wishlistId)
@@ -355,7 +356,7 @@ public sealed class WishlistService : IWishlistService
         await _wishlistPricingService.RecalculateTotalsAsync(wishlistId);
     }
 
-    private async Task<Wishlist> EnsureWishlistOwnershipAsync(int wishlistId, string userId, bool tracking = true)
+    private async Task<Wishlist> EnsureWishlistAccessAsync(int wishlistId, string userId, bool requireAdmin, bool tracking = true)
     {
         if (string.IsNullOrEmpty(userId))
         {
@@ -367,7 +368,16 @@ public sealed class WishlistService : IWishlistService
         {
             throw WishlistServiceException.NotFound("Errors.Wishlists.NotFound");
         }
-        if (wishlist.OwnerId != userId)
+
+        if (wishlist.TeamId.HasValue)
+        {
+            var requiredRole = requireAdmin ? TeamRole.Admin : TeamRole.Member;
+            if (!await _teamService.HasTeamAccessAsync(wishlist.TeamId.Value, userId, requiredRole))
+            {
+                throw WishlistServiceException.Unauthorized("Errors.Wishlists.Unauthorized");
+            }
+        }
+        else if (wishlist.OwnerId != userId)
         {
             throw WishlistServiceException.Unauthorized("Errors.Wishlists.Unauthorized");
         }

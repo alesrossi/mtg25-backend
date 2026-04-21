@@ -120,7 +120,8 @@ public sealed class BindersService : IBindersService
         }
 
         var isOwner = !string.IsNullOrEmpty(userId) && binder.OwnerId == userId;
-        if (!isOwner && !binder.IsPublic)
+        var hasTeamAccess = binder.TeamId.HasValue && await _teamService.HasTeamAccessAsync(binder.TeamId.Value, userId, TeamRole.Member);
+        if (!isOwner && !hasTeamAccess && !binder.IsPublic)
         {
             throw BindersServiceException.Unauthorized("Errors.Binders.Unauthorized");
         }
@@ -148,7 +149,8 @@ public sealed class BindersService : IBindersService
         }
 
         var isOwner = binder.OwnerId == userId;
-        if (!isOwner && !binder.IsPublic)
+        var hasTeamAccess = binder.TeamId.HasValue && await _teamService.HasTeamAccessAsync(binder.TeamId.Value, userId, TeamRole.Member);
+        if (!isOwner && !hasTeamAccess && !binder.IsPublic)
         {
             throw BindersServiceException.Unauthorized("Errors.Binders.Unauthorized");
         }
@@ -420,10 +422,21 @@ public sealed class BindersService : IBindersService
             throw BindersServiceException.NotFound("Errors.Binders.NotFound");
         }
 
-        var isOwner = !string.IsNullOrEmpty(userId) && binder.OwnerId == userId;
-        if (requireOwner && !isOwner)
+        if (binder.TeamId.HasValue)
         {
-            throw BindersServiceException.Unauthorized("Errors.Binders.Unauthorized");
+            var requiredRole = requireOwner ? TeamRole.Admin : TeamRole.Member;
+            if (!await _teamService.HasTeamAccessAsync(binder.TeamId.Value, userId, requiredRole))
+            {
+                throw BindersServiceException.Unauthorized("Errors.Binders.Unauthorized");
+            }
+        }
+        else
+        {
+            var isOwner = !string.IsNullOrEmpty(userId) && binder.OwnerId == userId;
+            if (requireOwner && !isOwner)
+            {
+                throw BindersServiceException.Unauthorized("Errors.Binders.Unauthorized");
+            }
         }
 
         return binder;

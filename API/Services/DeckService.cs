@@ -127,7 +127,8 @@ public sealed class DeckService : IDeckService
         }
 
         var isOwner = !string.IsNullOrEmpty(userId) && deck.OwnerId == userId;
-        if (!isOwner && !deck.IsPublic)
+        var hasTeamAccess = deck.TeamId.HasValue && await _teamService.HasTeamAccessAsync(deck.TeamId.Value, userId, TeamRole.Member);
+        if (!isOwner && !hasTeamAccess && !deck.IsPublic)
         {
             throw DeckServiceException.Unauthorized("Errors.Decks.Unauthorized");
         }
@@ -145,7 +146,8 @@ public sealed class DeckService : IDeckService
         }
 
         var isOwner = !string.IsNullOrEmpty(userId) && deck.OwnerId == userId;
-        if (!isOwner && !deck.IsPublic)
+        var hasTeamAccess = deck.TeamId.HasValue && await _teamService.HasTeamAccessAsync(deck.TeamId.Value, userId, TeamRole.Member);
+        if (!isOwner && !hasTeamAccess && !deck.IsPublic)
         {
             throw DeckServiceException.Unauthorized("Errors.Decks.Unauthorized");
         }
@@ -167,7 +169,19 @@ public sealed class DeckService : IDeckService
         }
 
         var deck = await _unitOfWork.Repository<Deck>().GetByIdAsync(deckId, tracking: false);
-        if (deck == null || deck.OwnerId != userId)
+        if (deck == null)
+        {
+            throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
+        }
+
+        if (deck.TeamId.HasValue)
+        {
+            if (!await _teamService.HasTeamAccessAsync(deck.TeamId.Value, userId, TeamRole.Member))
+            {
+                throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
+            }
+        }
+        else if (deck.OwnerId != userId)
         {
             throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
         }
@@ -188,7 +202,8 @@ public sealed class DeckService : IDeckService
         }
 
         var isOwner = !string.IsNullOrEmpty(userId) && deck.OwnerId == userId;
-        if (!isOwner && !deck.IsPublic)
+        var hasTeamAccess = deck.TeamId.HasValue && await _teamService.HasTeamAccessAsync(deck.TeamId.Value, userId, TeamRole.Member);
+        if (!isOwner && !hasTeamAccess && !deck.IsPublic)
         {
             throw DeckServiceException.Unauthorized("Errors.Decks.Unauthorized");
         }
@@ -339,7 +354,14 @@ public sealed class DeckService : IDeckService
             throw DeckServiceException.NotFound("Errors.Decks.NotFound");
         }
 
-        if (deck.OwnerId != userId)
+        if (deck.TeamId.HasValue)
+        {
+            if (!await _teamService.HasTeamAccessAsync(deck.TeamId.Value, userId, TeamRole.Admin))
+            {
+                throw DeckServiceException.Unauthorized("Errors.Decks.Unauthorized");
+            }
+        }
+        else if (deck.OwnerId != userId)
         {
             throw DeckServiceException.Unauthorized("Errors.Decks.Unauthorized");
         }
@@ -368,7 +390,19 @@ public sealed class DeckService : IDeckService
         }
 
         var deck = await _unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
-        if (deck == null || deck.OwnerId != userId)
+        if (deck == null)
+        {
+            throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
+        }
+
+        if (deck.TeamId.HasValue)
+        {
+            if (!await _teamService.HasTeamAccessAsync(deck.TeamId.Value, userId, TeamRole.Admin))
+            {
+                throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
+            }
+        }
+        else if (deck.OwnerId != userId)
         {
             throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
         }
@@ -397,7 +431,19 @@ public sealed class DeckService : IDeckService
         }
 
         var deck = await _unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
-        if (deck == null || deck.OwnerId != userId)
+        if (deck == null)
+        {
+            throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
+        }
+
+        if (deck.TeamId.HasValue)
+        {
+            if (!await _teamService.HasTeamAccessAsync(deck.TeamId.Value, userId, TeamRole.Admin))
+            {
+                throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
+            }
+        }
+        else if (deck.OwnerId != userId)
         {
             throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
         }
@@ -450,7 +496,19 @@ public sealed class DeckService : IDeckService
         }
 
         var deck = await _unitOfWork.Repository<Deck>().GetByIdAsync(deckId);
-        if (deck == null || deck.OwnerId != userId)
+        if (deck == null)
+        {
+            throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
+        }
+
+        if (deck.TeamId.HasValue)
+        {
+            if (!await _teamService.HasTeamAccessAsync(deck.TeamId.Value, userId, TeamRole.Admin))
+            {
+                throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
+            }
+        }
+        else if (deck.OwnerId != userId)
         {
             throw DeckServiceException.NotFound("Errors.Decks.NotFoundOrUnauthorized");
         }

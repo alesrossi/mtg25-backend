@@ -127,7 +127,9 @@ public class TestDataBuilder
             .With(d => d.IsPublic, false)
             .With(d => d.CurrentBranchId, (int?)null)
             .With(d => d.CurrentCommitId, (int?)null)
+            .With(d => d.TeamId, (int?)null)
             .Without(d => d.Id)
+            .Without(d => d.Team)
             .Without(d => d.DeckCards) // Initialize as empty collection
             .Without(d => d.Commits)
             .Without(d => d.Branches)
@@ -166,7 +168,9 @@ public class TestDataBuilder
             .With(w => w.Name, $"Wishlist {Guid.NewGuid():N}"[..16])
             .With(w => w.TotalPrice, 0)
             .With(w => w.TotalPriceCurrency, (Currency?)null)
+            .With(w => w.TeamId, (int?)null)
             .Without(w => w.Id)
+            .Without(w => w.Team)
             .Without(w => w.WishlistCards)
             .Create();
     }
@@ -192,7 +196,9 @@ public class TestDataBuilder
             .With(tb => tb.OwnerId, ownerId)
             .With(tb => tb.IsPublic, isPublic ?? _random.Next(2) == 0)
             .With(tb => tb.Name, $"Trade Binder {Guid.NewGuid():N}"[..16])
+            .With(tb => tb.TeamId, (int?)null)
             .Without(tb => tb.Id)
+            .Without(tb => tb.Team)
             .Without(tb => tb.BinderCards)
             .Create();
     }
