@@ -258,7 +258,8 @@ public class DeckServiceTests
             new Mock<IDecklistParserService>().Object,
             cardDataService,
             settingsServiceMock.Object,
-            new Mock<IDeckHistoryService>().Object);
+            new Mock<IDeckHistoryService>().Object,
+            new Mock<ITeamService>().Object);
 
         // Act
         var result = await deckService.GetMissingDeckCardsAsync(deck.Id, user.Id);
@@ -303,7 +304,8 @@ public class DeckServiceTests
             parserService ?? new Mock<IDecklistParserService>().Object,
             cardDataService,
             settingsServiceMock.Object,
-            historyServiceMock.Object);
+            historyServiceMock.Object,
+            new Mock<ITeamService>().Object);
     }
 
     private static MainContext CreateContext()

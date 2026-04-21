@@ -16,7 +16,9 @@ public class GenericRepository<T> : IGenericRepository<T> where T : BaseModel
         _context = context;
         this._logger = logger;
     }
-        
+
+    public IQueryable<T> Query => _context.Set<T>().AsQueryable();
+
     public async Task<T?> GetByIdAsync(int id, bool tracking = true)
     {
         _logger.LogTrace("Fetching {Entity} by id {Id} tracking={Tracking}", typeof(T).Name, id, tracking);

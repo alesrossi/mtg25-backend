@@ -503,7 +503,7 @@ public sealed class DeckHistoryService : IDeckHistoryService
             SetCode = cardData.Set,
             SetName = cardData.SetName,
             TypeLine = string.IsNullOrWhiteSpace(cardData.TypeLine) ? "Card" : cardData.TypeLine,
-            ColorIdentity = cardData.ColorIdentity?.ToList() ?? [],
+            ColorIdentity = cardData.ColorIdentity?.Where(c => c != null).Select(c => c!).ToList() ?? [],
             ImageUrl = imageUrl,
             BackImageUrl = CardDataService.ResolveBackImageUrl(cardData),
             ArtCrop = imageUris.ArtCrop!,

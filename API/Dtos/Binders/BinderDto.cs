@@ -10,4 +10,6 @@ public class BinderDto
     public int CardsCount { get; set; }
     public double TotalPrice { get; set; }
     public IReadOnlyList<BinderCardDto> Cards { get; set; } = [];
+    public int? TeamId { get; set; }
+    public string? TeamName { get; set; }
 }

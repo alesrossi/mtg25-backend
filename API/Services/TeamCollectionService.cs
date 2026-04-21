@@ -151,7 +151,7 @@ public sealed class TeamCollectionService : ITeamCollectionService
         if (!await _teamService.HasTeamAccessAsync(view.TeamId, userId, TeamRole.Admin))
             throw TeamCollectionServiceException.Problem(403, "Forbidden", "Admin access required.");
 
-        _unitOfWork.Repository<TeamCollectionView>().Remove(view);
+        _unitOfWork.Repository<TeamCollectionView>().Delete(view);
         await _unitOfWork.Complete();
     }
 

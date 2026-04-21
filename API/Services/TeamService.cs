@@ -1,4 +1,5 @@
 using API.Constants;
+using API.Dtos.Notifications;
 using API.Dtos.Teams;
 using Core.Enums;
 using Core.Interfaces;
@@ -29,12 +30,12 @@ public sealed class TeamService : ITeamService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly UserManager<AppUser> _userManager;
-    private readonly INotificationService _notificationService;
+    private readonly NotificationService _notificationService;
 
     public TeamService(
         IUnitOfWork unitOfWork,
         UserManager<AppUser> userManager,
-        INotificationService notificationService)
+        NotificationService notificationService)
     {
         _unitOfWork = unitOfWork;
         _userManager = userManager;
@@ -175,7 +176,7 @@ public sealed class TeamService : ITeamService
         if (members.Count > 0)
             _unitOfWork.CompositeRepository<TeamMember>().RemoveRange(members);
 
-        _unitOfWork.Repository<Team>().Remove(team);
+        _unitOfWork.Repository<Team>().Delete(team);
         await _unitOfWork.Complete();
     }
 
@@ -202,7 +203,15 @@ public sealed class TeamService : ITeamService
         _unitOfWork.CompositeRepository<TeamMember>().Add(member);
         await _unitOfWork.Complete();
 
-        await _notificationService.SendNotificationAsync(targetUserId, NotificationConstants.TeamInviteSent);
+        await _notificationService.CreateNotificationAsync(new NewNotificationDto
+        {
+            Name = NotificationConstants.TeamInviteSent,
+            Message = NotificationConstants.TeamInviteSent,
+            MessageKey = NotificationConstants.TeamInviteSent,
+            Origin = $"{inviterUserId}.{targetUserId}",
+            ObjectId = teamId.ToString(),
+            AppUserId = targetUserId
+        });
     }
 
     public async Task AcceptInviteAsync(int teamId, string userId)
@@ -218,9 +227,15 @@ public sealed class TeamService : ITeamService
 
         if (!string.IsNullOrEmpty(member.InvitedById))
         {
-            await _notificationService.SendNotificationAsync(
-                member.InvitedById,
-                NotificationConstants.TeamInviteAccepted);
+            await _notificationService.CreateNotificationAsync(new NewNotificationDto
+            {
+                Name = NotificationConstants.TeamInviteAccepted,
+                Message = NotificationConstants.TeamInviteAccepted,
+                MessageKey = NotificationConstants.TeamInviteAccepted,
+                Origin = $"{userId}.{member.InvitedById}",
+                ObjectId = teamId.ToString(),
+                AppUserId = member.InvitedById
+            });
         }
     }
 
@@ -239,9 +254,15 @@ public sealed class TeamService : ITeamService
 
         if (!string.IsNullOrEmpty(inviterId))
         {
-            await _notificationService.SendNotificationAsync(
-                inviterId,
-                NotificationConstants.TeamInviteRejected);
+            await _notificationService.CreateNotificationAsync(new NewNotificationDto
+            {
+                Name = NotificationConstants.TeamInviteRejected,
+                Message = NotificationConstants.TeamInviteRejected,
+                MessageKey = NotificationConstants.TeamInviteRejected,
+                Origin = $"{userId}.{inviterId}",
+                ObjectId = teamId.ToString(),
+                AppUserId = inviterId
+            });
         }
     }
 
@@ -265,9 +286,15 @@ public sealed class TeamService : ITeamService
         _unitOfWork.CompositeRepository<TeamMember>().RemoveRange(new[] { targetMember });
         await _unitOfWork.Complete();
 
-        await _notificationService.SendNotificationAsync(
-            targetUserId,
-            NotificationConstants.TeamMemberRemoved);
+        await _notificationService.CreateNotificationAsync(new NewNotificationDto
+        {
+            Name = NotificationConstants.TeamMemberRemoved,
+            Message = NotificationConstants.TeamMemberRemoved,
+            MessageKey = NotificationConstants.TeamMemberRemoved,
+            Origin = $"{adminUserId}.{targetUserId}",
+            ObjectId = teamId.ToString(),
+            AppUserId = targetUserId
+        });
     }
 
     public async Task UpdateMemberRoleAsync(
@@ -297,9 +324,15 @@ public sealed class TeamService : ITeamService
         targetMember.Role = newRole;
         await _unitOfWork.Complete();
 
-        await _notificationService.SendNotificationAsync(
-            targetUserId,
-            NotificationConstants.TeamRoleUpdated);
+        await _notificationService.CreateNotificationAsync(new NewNotificationDto
+        {
+            Name = NotificationConstants.TeamRoleUpdated,
+            Message = NotificationConstants.TeamRoleUpdated,
+            MessageKey = NotificationConstants.TeamRoleUpdated,
+            Origin = $"{adminUserId}.{targetUserId}",
+            ObjectId = teamId.ToString(),
+            AppUserId = targetUserId
+        });
     }
 
     public async Task<IReadOnlyList<TeamMemberDto>> GetTeamMembersAsync(int teamId, string requestingUserId)

@@ -88,3 +88,4 @@ out/
 *.tfstate
 
 # nuget settings related Network
+.aider*

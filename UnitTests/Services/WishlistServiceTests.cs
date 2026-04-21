@@ -56,7 +56,8 @@ public class WishlistServiceTests
             unitOfWork,
             new ValidationService(),
             cardDataService,
-            pricingService);
+            pricingService,
+            new Mock<ITeamService>().Object);
 
         var created = await service.CreateWishlistCardsAsync(
             wishlist.Id,
@@ -134,7 +135,8 @@ public class WishlistServiceTests
             unitOfWork,
             new ValidationService(),
             cardDataService,
-            pricingService);
+            pricingService,
+            new Mock<ITeamService>().Object);
 
         Func<Task> act = () => service.UpdateWishlistCardAsync(
             wishlist.Id,
@@ -173,7 +175,8 @@ public class WishlistServiceTests
                 unitOfWork,
                 CardDataServiceTestHelper.CreateWithCards(Array.Empty<ScryfallCardDto>()),
                 new Mock<IUserSettingsService>().Object,
-                NullLogger<WishlistPricingService>.Instance));
+                NullLogger<WishlistPricingService>.Instance),
+            new Mock<ITeamService>().Object);
 
         Func<Task> act = () => service.GetWishlistCardByIdAsync(wishlist.Id, 1, "other");
 

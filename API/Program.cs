@@ -1,3 +1,4 @@
+using API.Endpoints.Teams;
 using API.Extensions;
 using API.Logging;
 using API.Services;
