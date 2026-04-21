@@ -14,6 +14,7 @@ public static class NotificationConstants
     public const string PromotedToLeagueAdmin = "promoted_to_league_admin";
 
     // Team notifications
+    public const string TeamInvite = "team_invite";
     public const string TeamInviteSent = "team_invite_sent";
     public const string TeamInviteAccepted = "team_invite_accepted";
     public const string TeamInviteRejected = "team_invite_rejected";

@@ -81,14 +81,14 @@ public sealed class TeamService : ITeamService
 
     public async Task<TeamDto> GetTeamByIdAsync(int teamId, string userId)
     {
-        if (!await HasTeamAccessAsync(teamId, userId, TeamRole.Member))
-            throw TeamServiceException.Problem(403, "Forbidden", "You do not have access to this team.");
-
         var team = await _unitOfWork.Repository<Team>().Query
             .FirstOrDefaultAsync(t => t.Id == teamId);
 
         if (team is null)
             throw TeamServiceException.Problem(404, "Not Found", "Team not found.");
+
+        if (!await HasTeamAccessAsync(teamId, userId, TeamRole.Member))
+            throw TeamServiceException.Problem(403, "Forbidden", "You do not have access to this team.");
 
         var membership = await _unitOfWork.CompositeRepository<TeamMember>().Query
             .FirstOrDefaultAsync(m => m.TeamId == teamId && m.UserId == userId);
