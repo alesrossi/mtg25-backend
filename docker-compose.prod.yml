@@ -123,6 +123,9 @@ services:
       - "80:80"
       - "443:443"
       - "443:443/udp"
+    environment:
+      - ADMINER_USER=${ADMINER_USER}
+      - ADMINER_BASIC_AUTH_HASH=${ADMINER_BASIC_AUTH_HASH}
     volumes:
       - ./config/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
