@@ -1,0 +1,150 @@
+version: '3.8'
+
+services:
+  postgres-int:
+    image: postgres:15-alpine
+    container_name: postgres-int
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${INT_POSTGRES_PASSWORD}
+      POSTGRES_USER: root
+      POSTGRES_DB: main_int
+    volumes:
+      - postgres-int-data:/var/lib/postgresql/data
+    networks:
+      - mtg-int-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d main_int"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis-int:
+    image: redis:7-alpine
+    container_name: redis-int
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-int-data:/data
+    networks:
+      - mtg-int-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api-int:
+    image: ${DOCKER_USERNAME:-alesrossi}/mtg-api:${IMAGE_TAG:-int-latest}
+    container_name: api-int
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Integration
+      - ConnectionStrings__DefaultConnection=Server=postgres-int;Port=5432;Database=main_int;User Id=root;Password=${INT_POSTGRES_PASSWORD};
+      - ConnectionStrings__Redis=redis-int:6379
+      - JWT__SecretKey=${INT_JWT_SECRET}
+      - JWT__Issuer=MTG25API
+      - JWT__Audience=MTG25Users
+      - JWT__ExpiryMinutes=60
+      - Scryfall__BasePath=https://api.scryfall.com/
+      - Paths__Bulk=/tmp/mtg25-bulk
+      - Google__ClientId=${GOOGLE_CLIENT_ID:-}
+      # Disable Elasticsearch logging — no ES on this host
+      - ElasticsearchLogging__NodeUris=
+      # CORS for production domains
+      - Cors__AllowedOrigins__0=https://surveyl.top
+      - Cors__AllowedOrigins__1=https://www.surveyl.top
+      - Cors__AllowedOrigins__2=https://app.surveyl.top
+    depends_on:
+      postgres-int:
+        condition: service_healthy
+      redis-int:
+        condition: service_healthy
+    networks:
+      - mtg-int-network
+    volumes:
+      - ./charts/mtg-int/files/appsettings.Integration.json:/app/appsettings.Integration.json:ro
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  frontend-int:
+    image: ${FRONTEND_REGISTRY:-alesrossi}/mtgfe-frontend:${FRONTEND_TAG:-latest}
+    container_name: frontend-int
+    restart: unless-stopped
+    depends_on:
+      api-int:
+        condition: service_started
+    mem_limit: 128m
+    networks:
+      - mtg-int-network
+
+  info-site:
+    image: nginx:1.27-alpine
+    container_name: info-site
+    restart: unless-stopped
+    volumes:
+      - ./charts/mtg-int/files/info:/usr/share/nginx/html:ro
+    mem_limit: 64m
+    networks:
+      - mtg-int-network
+
+  privacy-site:
+    image: nginx:1.27-alpine
+    container_name: privacy-site
+    restart: unless-stopped
+    volumes:
+      - ./charts/mtg-int/files/privacy:/usr/share/nginx/html:ro
+    mem_limit: 64m
+    networks:
+      - mtg-int-network
+
+  adminer-int:
+    image: adminer:4
+    container_name: adminer-int
+    restart: unless-stopped
+    environment:
+      - ADMINER_DEFAULT_SERVER=postgres-int
+    depends_on:
+      - postgres-int
+    mem_limit: 128m
+    networks:
+      - mtg-int-network
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy-int
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./config/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    mem_limit: 128m
+    networks:
+      - mtg-int-network
+    depends_on:
+      - api-int
+      - frontend-int
+
+volumes:
+  postgres-int-data:
+    name: mtg-postgres-int-data
+  redis-int-data:
+    name: mtg-redis-int-data
+  caddy-data:
+    name: mtg-caddy-data
+  caddy-config:
+    name: mtg-caddy-config
+
+networks:
+  mtg-int-network:
+    name: mtg-int-network
+    driver: bridge
