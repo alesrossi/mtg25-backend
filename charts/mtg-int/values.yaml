@@ -59,7 +59,7 @@ elasticsearch:
 
 kibana:
   enabled: true
-  replicas: 2
+  replicas: 1
   fullnameOverride: kibana-int
   elasticsearchHosts: "https://elasticsearch-int:9200"
   elasticsearchCertificateSecret: elasticsearch-int-certs
@@ -79,7 +79,7 @@ kibana:
     enabled: false
 
 api:
-  replicas: 2
+  replicas: 1
   cors:
     allowedOrigins: []
   image:
@@ -155,7 +155,7 @@ api:
           topologyKey: "kubernetes.io/hostname"
  
 frontend:
-  replicas: 2
+  replicas: 1
   image:
     repository: alesrossi/mtgfe-frontend
     tag: latest
@@ -198,7 +198,7 @@ adminer:
     ADMINER_DEFAULT_SERVER: postgres-int
 
 nginx:
-  replicas: 2
+  replicas: 1
   image:
     repository: nginx
     tag: 1.27-alpine
