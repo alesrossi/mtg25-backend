@@ -36,7 +36,7 @@ public sealed class DeckService : IDeckService
     private readonly DeckCardService _deckCardService;
     private readonly IValidationService _validationService;
     private readonly IDecklistParserService _decklistParserService;
-    private readonly CardDataService _cardDataService;
+    private readonly ICardDataService _cardDataService;
     private readonly IUserSettingsService _userSettingsService;
     private readonly IDeckHistoryService _deckHistoryService;
     private readonly ITeamService _teamService;
@@ -47,7 +47,7 @@ public sealed class DeckService : IDeckService
         DeckCardService deckCardService,
         IValidationService validationService,
         IDecklistParserService decklistParserService,
-        CardDataService cardDataService,
+        ICardDataService cardDataService,
         IUserSettingsService userSettingsService,
         IDeckHistoryService deckHistoryService,
         ITeamService teamService)
@@ -454,7 +454,8 @@ public sealed class DeckService : IDeckService
             throw DeckServiceException.NotFound("Errors.Decks.CardNotFoundOrMismatched");
         }
 
-        if (!_cardDataService.CardDataById.TryGetValue(updateDto.ScryfallId, out var scryfallCard))
+        var scryfallCard = await _cardDataService.GetByIdAsync(updateDto.ScryfallId, cancellationToken);
+        if (scryfallCard is null)
         {
             throw DeckServiceException.BadRequest("Errors.Decks.InvalidScryfallId", new { errors = new[] { "Invalid Scryfall ID provided." } }, includeBody: true);
         }
@@ -552,7 +553,8 @@ public sealed class DeckService : IDeckService
                 continue;
             }
 
-            if (!_cardDataService.CardDataByName.TryGetValue(trimmedName, out var cardData))
+            var cardData = await _cardDataService.GetByNameAsync(trimmedName, cancellationToken);
+            if (cardData is null)
             {
                 legalityErrors.Add($"Card '{trimmedName}' was not found in the card database.");
                 continue;
@@ -834,13 +836,11 @@ public sealed class DeckService : IDeckService
                 continue;
             }
 
-            if (_cardDataService.CardDataByName.TryGetValue(name.Trim(), out var cardData))
+            if (_cardDataService.TryGetIdByName(name.Trim(), out var nameCardId) &&
+                _cardDataService.TryGetMeta(nameCardId, out var nameMeta) &&
+                !string.IsNullOrWhiteSpace(nameMeta.OracleId))
             {
-                var oracleId = CardDataService.ResolveOracleId(cardData);
-                if (!string.IsNullOrWhiteSpace(oracleId))
-                {
-                    oracleIdSet.Add(oracleId);
-                }
+                oracleIdSet.Add(nameMeta.OracleId);
             }
         }
 
@@ -889,21 +889,15 @@ public sealed class DeckService : IDeckService
         return lookup;
     }
 
-    private static double ResolveCardMarketPrice(CardDataService cardDataService, string scryfallId, MarketProvider provider)
+    private static double ResolveCardMarketPrice(ICardDataService cardDataService, string scryfallId, MarketProvider provider)
     {
-        if (!cardDataService.CardDataById.TryGetValue(scryfallId, out var cardData) || cardData.Prices is null)
-        {
+        if (!cardDataService.TryGetMeta(scryfallId, out var meta))
             return 0;
-        }
 
-        var priceText = provider == MarketProvider.Mkm
-            ? cardData.Prices.Eur
-            : cardData.Prices.Usd;
+        var priceText = provider == MarketProvider.Mkm ? meta.PriceEur : meta.PriceUsd;
 
         if (string.IsNullOrWhiteSpace(priceText))
-        {
             return 0;
-        }
 
         return double.TryParse(priceText, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
             ? parsed

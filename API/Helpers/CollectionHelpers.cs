@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using API.Dtos.Cards;
 using API.Dtos.Collections;
@@ -14,7 +13,7 @@ public static class CollectionHelpers
 {
     public static async Task<CollectionImportResult> ProcessCsvFIle(
         IFormFile file,
-        CardDataService cds,
+        ICardDataService cds,
         int collectionId,
         MarketProvider marketProvider,
         Currency userCurrency)
@@ -56,7 +55,8 @@ public static class CollectionHelpers
                 continue;
             }
 
-            if (!cds.CardDataById.TryGetValue(record.ScryfallId, out var ocd))
+            var ocd = await cds.GetByIdAsync(record.ScryfallId);
+            if (ocd is null)
             {
                 skippedLines++;
                 errors.Add($"Line {csv.Context.Parser!.Row}: Card with Scryfall ID '{record.ScryfallId}' was not found.");
@@ -126,7 +126,7 @@ public static class CollectionHelpers
 
     public static async Task<CollectionImportResult> ProcessMoxfieldCsvFile(
         IFormFile file,
-        CardDataService cds,
+        ICardDataService cds,
         int collectionId,
         MarketProvider marketProvider,
         Currency userCurrency)
@@ -166,7 +166,8 @@ public static class CollectionHelpers
                 continue;
             }
 
-            if (!TryResolveCardByPrinting(cds, normalizedName, normalizedSet, normalizedCollector, out var ocd, out var lookupError))
+            var (ocd, lookupError) = await TryResolveCardByPrintingAsync(cds, normalizedName, normalizedSet, normalizedCollector);
+            if (ocd is null)
             {
                 skippedLines++;
                 errors.Add($"Line {csv.Context.Parser!.Row}: {lookupError}");
@@ -233,7 +234,7 @@ public static class CollectionHelpers
 
     public static async Task<CollectionImportResult> ProcessGoldfishCsvFile(
         IFormFile file,
-        CardDataService cds,
+        ICardDataService cds,
         int collectionId,
         MarketProvider marketProvider,
         Currency userCurrency)
@@ -269,7 +270,8 @@ public static class CollectionHelpers
 
             if (!string.IsNullOrWhiteSpace(normalizedScryfallId))
             {
-                if (!cds.CardDataById.TryGetValue(normalizedScryfallId, out ocd))
+                ocd = await cds.GetByIdAsync(normalizedScryfallId);
+                if (ocd is null)
                 {
                     skippedLines++;
                     errors.Add($"Line {csv.Context.Parser!.Row}: Card with Scryfall ID '{normalizedScryfallId}' was not found.");
@@ -287,7 +289,8 @@ public static class CollectionHelpers
                     continue;
                 }
 
-                if (!TryResolveCardByPrinting(cds, normalizedName, normalizedSet, normalizedCollector, out ocd, out var lookupError))
+                (ocd, var lookupError) = await TryResolveCardByPrintingAsync(cds, normalizedName, normalizedSet, normalizedCollector);
+                if (ocd is null)
                 {
                     skippedLines++;
                     errors.Add($"Line {csv.Context.Parser!.Row}: {lookupError}");
@@ -353,7 +356,7 @@ public static class CollectionHelpers
 
     public static async Task<CollectionImportResult> ProcessArchidektCsvFile(
         IFormFile file,
-        CardDataService cds,
+        ICardDataService cds,
         int collectionId,
         MarketProvider marketProvider,
         Currency userCurrency)
@@ -385,7 +388,8 @@ public static class CollectionHelpers
 
             if (!string.IsNullOrWhiteSpace(scryfallId))
             {
-                if (!cds.CardDataById.TryGetValue(scryfallId, out ocd))
+                ocd = await cds.GetByIdAsync(scryfallId);
+                if (ocd is null)
                 {
                     skippedLines++;
                     errors.Add($"Line {csv.Context.Parser!.Row}: Card with Scryfall ID '{scryfallId}' was not found.");
@@ -407,7 +411,8 @@ public static class CollectionHelpers
                     continue;
                 }
 
-                if (!TryResolveCardByPrinting(cds, normalizedName, normalizedSet, normalizedCollector, out ocd, out var lookupError))
+                (ocd, var lookupError) = await TryResolveCardByPrintingAsync(cds, normalizedName, normalizedSet, normalizedCollector);
+                if (ocd is null)
                 {
                     skippedLines++;
                     errors.Add($"Line {csv.Context.Parser!.Row}: {lookupError}");
@@ -479,7 +484,7 @@ public static class CollectionHelpers
 
     public static async Task<CollectionImportResult> ProcessDragonshieldCsvFile(
         IFormFile file,
-        CardDataService cds,
+        ICardDataService cds,
         int collectionId,
         MarketProvider marketProvider,
         Currency userCurrency)
@@ -534,7 +539,8 @@ public static class CollectionHelpers
                 continue;
             }
 
-            if (!TryResolveCardByPrinting(cds, normalizedName, normalizedSet, normalizedCollector, out var ocd, out var lookupError))
+            var (ocd, lookupError) = await TryResolveCardByPrintingAsync(cds, normalizedName, normalizedSet, normalizedCollector);
+            if (ocd is null)
             {
                 skippedLines++;
                 errors.Add($"Line {csv.Context.Parser!.Row}: {lookupError}");
@@ -602,7 +608,7 @@ public static class CollectionHelpers
 
     public static async Task<CollectionImportResult> ProcessDelverCsvFile(
         IFormFile file,
-        CardDataService cds,
+        ICardDataService cds,
         int collectionId,
         MarketProvider marketProvider,
         Currency userCurrency)
@@ -629,7 +635,8 @@ public static class CollectionHelpers
                 continue;
             }
 
-            if (!cds.CardDataById.TryGetValue(record.ScryfallId, out var ocd))
+            var ocd = await cds.GetByIdAsync(record.ScryfallId);
+            if (ocd is null)
             {
                 skippedLines++;
                 errors.Add($"Line {csv.Context.Parser!.Row}: Card with Scryfall ID '{record.ScryfallId}' was not found.");
@@ -697,35 +704,26 @@ public static class CollectionHelpers
         return new CollectionImportResult(importedCards, errors, skippedLines);
     }
 
-    private static bool TryResolveCardByPrinting(
-        CardDataService cds,
+    private static async Task<(ScryfallCardDto? Card, string? Error)> TryResolveCardByPrintingAsync(
+        ICardDataService cds,
         string name,
         string setCode,
-        string collectorNumber,
-        [NotNullWhen(true)] out ScryfallCardDto? card,
-        out string? errorMessage)
+        string collectorNumber)
     {
-        card = null;
-        errorMessage = null;
+        var matchingIds = cds.FindIdsByPrinting(name, setCode, collectorNumber);
 
-        var matches = cds.CardDataById.Values
-            .Where(c =>
-                string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(c.Set, setCode, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(c.CollectorNumber ?? string.Empty, collectorNumber, StringComparison.OrdinalIgnoreCase))
-            .Take(2)
-            .ToList();
-
-        if (matches.Count != 1)
+        if (matchingIds.Count != 1)
         {
-            errorMessage = matches.Count == 0
+            var error = matchingIds.Count == 0
                 ? $"Card '{name}' with set '{setCode}' and collector number '{collectorNumber}' was not found."
                 : $"Multiple cards matched '{name}' with set '{setCode}' and collector number '{collectorNumber}'.";
-            return false;
+            return (null, error);
         }
 
-        card = matches[0];
-        return true;
+        var card = await cds.GetByIdAsync(matchingIds[0]);
+        return card is not null
+            ? (card, null)
+            : (null, $"Card '{name}' with set '{setCode}' and collector number '{collectorNumber}' was not found.");
     }
 
     private static (double price, Currency currency) ResolvePurchasePrice(

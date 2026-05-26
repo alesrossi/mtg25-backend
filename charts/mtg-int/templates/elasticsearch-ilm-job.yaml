@@ -1,4 +1,4 @@
-{{- if .Values.loggingRetention.enabled }}
+{{- if and .Values.elk.enabled .Values.loggingRetention.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:

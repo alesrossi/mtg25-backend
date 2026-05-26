@@ -1,5 +1,8 @@
 # Umbrella values for MTG integration environment
 
+elk:
+  enabled: true
+
 postgresql:
   fullnameOverride: postgres-int
   image:
@@ -98,6 +101,7 @@ api:
   env:
     ASPNETCORE_ENVIRONMENT: Integration
     ConnectionStrings__Redis: "redis-int:6379"
+    CardData__UseRedisCache: "true"
     JWT__Issuer: MTG25API
     JWT__Audience: MTG25Users
     JWT__ExpiryMinutes: "60"

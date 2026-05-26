@@ -1,4 +1,4 @@
-{{- if and .Values.kibana.enabled .Values.kibana.esTokenInit.enabled }}
+{{- if and .Values.elk.enabled .Values.kibana.enabled .Values.kibana.esTokenInit.enabled }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:

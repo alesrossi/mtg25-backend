@@ -47,7 +47,7 @@ public static class WebApplicationExtensions
                 return;
             }
 
-            var cardDataService = app.Services.GetRequiredService<CardDataService>();
+            var cardDataService = app.Services.GetRequiredService<ICardDataService>();
             await cardDataService.LoadCardDataAsync();
         }
 

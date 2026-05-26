@@ -34,7 +34,7 @@ public sealed class CollectionService : ICollectionService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IValidationService _validationService;
-    private readonly CardDataService _cardDataService;
+    private readonly ICardDataService _cardDataService;
     private readonly IUserSettingsService _userSettingsService;
     private readonly UserManager<AppUser> _userManager;
     private static readonly string[] body = new[] { "Binder ID must be provided." };
@@ -42,7 +42,7 @@ public sealed class CollectionService : ICollectionService
     public CollectionService(
         IUnitOfWork unitOfWork,
         IValidationService validationService,
-        CardDataService cardDataService,
+        ICardDataService cardDataService,
         IUserSettingsService userSettingsService,
         UserManager<AppUser> userManager)
     {
@@ -519,15 +519,16 @@ public sealed class CollectionService : ICollectionService
     private string ResolveCardName(Card card)
     {
         if (!string.IsNullOrWhiteSpace(card.ScryfallId) &&
-            _cardDataService.CardDataById.TryGetValue(card.ScryfallId, out var byId))
+            _cardDataService.TryGetMeta(card.ScryfallId, out var metaById))
         {
-            return byId.Name;
+            return metaById.Name;
         }
 
         if (!string.IsNullOrWhiteSpace(card.Name) &&
-            _cardDataService.CardDataByName.TryGetValue(card.Name, out var byName))
+            _cardDataService.TryGetIdByName(card.Name, out var nameId) &&
+            _cardDataService.TryGetMeta(nameId, out var metaByName))
         {
-            return byName.Name;
+            return metaByName.Name;
         }
 
         return card.Name;
@@ -546,19 +547,18 @@ public sealed class CollectionService : ICollectionService
             : ordered.ThenBy(c => c.Price ?? double.MaxValue);
     }
 
-    private static (double? price, MarketProvider? provider) ResolveMarketPrice(Card card, CardDataService cds, MarketProvider preferredProvider)
+    private static (double? price, MarketProvider? provider) ResolveMarketPrice(Card card, ICardDataService cds, MarketProvider preferredProvider)
     {
-        if (!cds.CardDataById.TryGetValue(card.ScryfallId, out var marketData) || marketData?.Prices is null)
+        if (!cds.TryGetMeta(card.ScryfallId, out var meta))
         {
             return (null, preferredProvider);
         }
 
-        var prices = marketData.Prices;
         foreach (var provider in EnumerateProviders(preferredProvider))
         {
             var selected = provider == MarketProvider.Mkm
-                ? (card.IsFoil ? prices.EurFoil : prices.Eur)
-                : (card.IsFoil ? prices.UsdFoil : prices.Usd);
+                ? (card.IsFoil ? meta.PriceEurFoil : meta.PriceEur)
+                : (card.IsFoil ? meta.PriceUsdFoil : meta.PriceUsd);
 
             var parsed = TryParsePrice(selected);
             if (parsed.HasValue)

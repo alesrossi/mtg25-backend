@@ -26,12 +26,12 @@ public interface ICardsService
 public sealed class CardsService : ICardsService
 {
     private readonly IUnitOfWork _unitOfWork;
-    private readonly CardDataService _cardDataService;
+    private readonly ICardDataService _cardDataService;
     private readonly IUserSettingsService _userSettingsService;
 
     public CardsService(
         IUnitOfWork unitOfWork,
-        CardDataService cardDataService,
+        ICardDataService cardDataService,
         IUserSettingsService userSettingsService)
     {
         _unitOfWork = unitOfWork;
@@ -61,11 +61,11 @@ public sealed class CardsService : ICardsService
         var marketProvider = await _userSettingsService.GetMarketProviderAsync(userId);
 
         double? price = null;
-        if (_cardDataService.CardDataById.TryGetValue(card.ScryfallId, out var marketData) && marketData?.Prices is not null)
+        if (_cardDataService.TryGetMeta(card.ScryfallId, out var meta))
         {
             var priceText = marketProvider == MarketProvider.Mkm
-                ? (card.IsFoil ? marketData.Prices.EurFoil : marketData.Prices.Eur)
-                : (card.IsFoil ? marketData.Prices.UsdFoil : marketData.Prices.Usd);
+                ? (card.IsFoil ? meta.PriceEurFoil : meta.PriceEur)
+                : (card.IsFoil ? meta.PriceUsdFoil : meta.PriceUsd);
 
             if (!string.IsNullOrWhiteSpace(priceText) &&
                 double.TryParse(priceText, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
@@ -77,91 +77,81 @@ public sealed class CardsService : ICardsService
         return MapToDto(card, price, marketProvider);
     }
 
-    public Task<List<MinimalCardDto>> SearchCardsAsync(string find, string userId, CancellationToken cancellationToken = default)
+    public async Task<List<MinimalCardDto>> SearchCardsAsync(string find, string userId, CancellationToken cancellationToken = default)
     {
         if (userId is null)
         {
             throw CardsServiceException.Unauthorized("Errors.Cards.MissingUserId");
         }
 
-        var cardList = _cardDataService.CardDataById
-            .Where(x => x.Value.Name.Contains(find, StringComparison.OrdinalIgnoreCase))
-            .GroupBy(x => x.Value.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.First())
-            .ToList();
-
-        var result = cardList.Select(card =>
+        var ids = _cardDataService.FindIdsByNameContains(find);
+        if (ids.Count == 0)
         {
-            var imageUris = CardDataService.ResolveImageUris(card.Value);
-            var imageUrl = imageUris?.Normal ?? imageUris?.Large ?? imageUris?.Png;
-            var backImageUrl = CardDataService.ResolveBackImageUrl(card.Value);
+            throw CardsServiceException.NotFound("Errors.Cards.NotFound", includeBody: true, body: "Errors.Cards.NotFound");
+        }
 
-            var oracleId = CardDataService.ResolveOracleId(card.Value) ?? string.Empty;
-            return new MinimalCardDto
+        var cards = await _cardDataService.GetManyByIdAsync(ids, cancellationToken);
+
+        var result = cards
+            .GroupBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(g =>
             {
-                Name = card.Value.Name,
-                ScryfallId = card.Key,
-                OracleId = oracleId,
-                ImageUrl = imageUrl,
-                BackImageUrl = backImageUrl
-            };
-        }).ToList();
+                var card = g.First();
+                var imageUris = CardDataService.ResolveImageUris(card);
+                var imageUrl = imageUris?.Normal ?? imageUris?.Large ?? imageUris?.Png;
+                var backImageUrl = CardDataService.ResolveBackImageUrl(card);
+                var oracleId = CardDataService.ResolveOracleId(card) ?? string.Empty;
+                return new MinimalCardDto
+                {
+                    Name = card.Name,
+                    ScryfallId = card.Id,
+                    OracleId = oracleId,
+                    ImageUrl = imageUrl,
+                    BackImageUrl = backImageUrl
+                };
+            }).ToList();
 
         if (result.Count == 0)
         {
             throw CardsServiceException.NotFound("Errors.Cards.NotFound", includeBody: true, body: "Errors.Cards.NotFound");
         }
 
-        return Task.FromResult(result);
+        return result;
     }
 
-    public Task<List<KeyValuePair<string, ScryfallCardDto>>> GetCardVersionsAsync(string name, CancellationToken cancellationToken = default)
+    public async Task<List<KeyValuePair<string, ScryfallCardDto>>> GetCardVersionsAsync(string name, CancellationToken cancellationToken = default)
     {
-        if (!_cardDataService.CardDataByName.ContainsKey(name))
+        if (!_cardDataService.ContainsName(name))
         {
             throw CardsServiceException.NotFound("Errors.Cards.NotFound");
         }
 
-        var versions = _cardDataService.CardDataById
-            .Where(x => x.Value.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        return Task.FromResult(versions);
+        var ids = _cardDataService.FindIdsByName(name);
+        var cards = await _cardDataService.GetManyByIdAsync(ids, cancellationToken);
+        return cards.Select(c => new KeyValuePair<string, ScryfallCardDto>(c.Id, c)).ToList();
     }
 
-    public Task<ScryfallCardDto> GetCardFromExactNameAsync(string name, CancellationToken cancellationToken = default)
+    public async Task<ScryfallCardDto> GetCardFromExactNameAsync(string name, CancellationToken cancellationToken = default)
     {
-        if (_cardDataService.CardDataByName.TryGetValue(name, out var card))
-        {
-            return Task.FromResult(card);
-        }
-
-        throw CardsServiceException.NotFound("Errors.Cards.NotFound");
+        var card = await _cardDataService.GetByNameAsync(name, cancellationToken);
+        return card ?? throw CardsServiceException.NotFound("Errors.Cards.NotFound");
     }
 
-    public Task<ScryfallCardDto> GetCardFromScryfallIdAsync(string id, CancellationToken cancellationToken = default)
+    public async Task<ScryfallCardDto> GetCardFromScryfallIdAsync(string id, CancellationToken cancellationToken = default)
     {
-        if (_cardDataService.CardDataById.TryGetValue(id, out var card))
-        {
-            return Task.FromResult(card);
-        }
-
-        throw CardsServiceException.NotFound("Errors.Cards.NotFound");
+        var card = await _cardDataService.GetByIdAsync(id, cancellationToken);
+        return card ?? throw CardsServiceException.NotFound("Errors.Cards.NotFound");
     }
 
-    public Task<List<CardImageDto>> GetCardImagesByNameAsync(string name, CancellationToken cancellationToken = default)
+    public async Task<List<CardImageDto>> GetCardImagesByNameAsync(string name, CancellationToken cancellationToken = default)
     {
-        var results = _cardDataService.CardDataById.Values
-            .Where(c =>
-                c.Name.Contains(name, StringComparison.OrdinalIgnoreCase) ||
-                (!string.IsNullOrEmpty(c.FlavorName) && c.FlavorName.Contains(name, StringComparison.OrdinalIgnoreCase)) ||
-                (!string.IsNullOrEmpty(c.PrintedName) && c.PrintedName.Contains(name, StringComparison.OrdinalIgnoreCase)))
+        var ids = _cardDataService.FindIdsByNameContains(name);
+        var cards = await _cardDataService.GetManyByIdAsync(ids, cancellationToken);
+        return cards
             .Select(c => new CardImageDto(
                 c.Id,
                 c.ImageUris?.ArtCrop ?? c.CardFaces?.FirstOrDefault()?.ImageUris?.ArtCrop))
             .ToList();
-
-        return Task.FromResult(results);
     }
 
     public async Task<Card> UpdateCardAsync(int id, UpdateCollectionCardDto updateDto, string userId, CancellationToken cancellationToken = default)
@@ -321,7 +311,8 @@ public sealed class CardsService : ICardsService
                     "card-invalid-condition");
             }
 
-            if (!_cardDataService.CardDataById.TryGetValue(updateDto.ScryfallId, out var scryfallCardDto))
+            var scryfallCardDto = await _cardDataService.GetByIdAsync(updateDto.ScryfallId, cancellationToken);
+            if (scryfallCardDto is null)
             {
                 throw CardsServiceException.Problem(
                     StatusCodes.Status400BadRequest,
@@ -470,7 +461,8 @@ public sealed class CardsService : ICardsService
             throw CardsServiceException.BadRequest("Errors.Cards.CollectionInvalidForUser", includeBody: true);
         }
 
-        if (!_cardDataService.CardDataById.TryGetValue(cardDto.ScryfallId, out var scryfallCardDto))
+        var scryfallCardDto = await _cardDataService.GetByIdAsync(cardDto.ScryfallId, cancellationToken);
+        if (scryfallCardDto is null)
         {
             throw CardsServiceException.BadRequest("Errors.Cards.ScryfallNotFound", includeBody: true);
         }
@@ -526,7 +518,7 @@ public sealed class CardsService : ICardsService
         return card;
     }
 
-    public Task<LinkedList<ScryfallCardDto>> AddCardListAsync(CardListDto cardListDto, string userId, CancellationToken cancellationToken = default)
+    public async Task<LinkedList<ScryfallCardDto>> AddCardListAsync(CardListDto cardListDto, string userId, CancellationToken cancellationToken = default)
     {
         if (userId is null)
         {
@@ -535,17 +527,16 @@ public sealed class CardsService : ICardsService
 
         var scryfallCardList = new LinkedList<ScryfallCardDto>();
 
-        var cardList = cardListDto.CardList.Trim().Split('\n').Select(p => p.Trim());
-        foreach (var inputCard in cardList)
+        var cardNames = cardListDto.CardList.Trim().Split('\n').Select(p => p.Trim());
+        foreach (var inputCard in cardNames)
         {
-            if (!_cardDataService.CardDataByName.TryGetValue(inputCard, out var card))
-            {
+            var card = await _cardDataService.GetByNameAsync(inputCard, cancellationToken);
+            if (card is null)
                 continue;
-            }
             scryfallCardList.AddLast(card);
         }
 
-        return Task.FromResult(scryfallCardList);
+        return scryfallCardList;
     }
 
     private static ExtensiveCardDto MapToDto(Card card, double? price, MarketProvider? priceCurrency)

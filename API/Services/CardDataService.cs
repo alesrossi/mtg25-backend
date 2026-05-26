@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using API.Configuration;
 using API.Dtos.Cards;
@@ -8,7 +9,7 @@ using Microsoft.Extensions.Options;
 
 namespace API.Services;
 
-public class CardDataService
+public class CardDataService : ICardDataService
 {
     private readonly PathsConfig _pathsConfig;
     private readonly ScryfallConfig _scryfallConfig;
@@ -157,18 +158,79 @@ public class CardDataService
         }
     }
 
-    private static double? GetNonFoilEuroPrice(ScryfallCardDto card)
+    // ICardDataService — full card async lookups (wraps the in-memory dicts)
+
+    public Task<ScryfallCardDto?> GetByIdAsync(string id, CancellationToken cancellationToken = default) =>
+        Task.FromResult(CardDataById.GetValueOrDefault(id));
+
+    public Task<ScryfallCardDto?> GetByNameAsync(string name, CancellationToken cancellationToken = default) =>
+        Task.FromResult(CardDataByName.GetValueOrDefault(name));
+
+    public Task<List<ScryfallCardDto>> GetManyByIdAsync(IEnumerable<string> ids, CancellationToken cancellationToken = default)
     {
-        var priceText = card.Prices?.Eur;
-        if (string.IsNullOrWhiteSpace(priceText))
+        var result = ids
+            .Select(id => CardDataById.GetValueOrDefault(id))
+            .OfType<ScryfallCardDto>()
+            .ToList();
+        return Task.FromResult(result);
+    }
+
+    // ICardDataService — thin-index sync access (derived from in-memory dicts)
+
+    public bool ContainsId(string id) => CardDataById.ContainsKey(id);
+
+    public bool ContainsName(string name) => CardDataByName.ContainsKey(name);
+
+    public bool TryGetMeta(string id, [MaybeNullWhen(false)] out CardMeta meta)
+    {
+        if (!CardDataById.TryGetValue(id, out var card))
         {
-            return null;
+            meta = null;
+            return false;
         }
 
-        return double.TryParse(priceText, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
-            ? parsed
-            : null;
+        meta = BuildMeta(card);
+        return true;
     }
+
+    public bool TryGetIdByName(string name, [MaybeNullWhen(false)] out string id)
+    {
+        if (CardDataByName.TryGetValue(name, out var card))
+        {
+            id = card.Id;
+            return true;
+        }
+
+        id = null;
+        return false;
+    }
+
+    public IReadOnlyList<string> FindIdsByNameContains(string find) =>
+        CardDataById
+            .Where(kv =>
+                kv.Value.Name.Contains(find, StringComparison.OrdinalIgnoreCase) ||
+                (!string.IsNullOrEmpty(kv.Value.FlavorName) && kv.Value.FlavorName.Contains(find, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(kv.Value.PrintedName) && kv.Value.PrintedName.Contains(find, StringComparison.OrdinalIgnoreCase)))
+            .Select(kv => kv.Key)
+            .ToList();
+
+    public IReadOnlyList<string> FindIdsByName(string name) =>
+        CardDataById
+            .Where(kv => kv.Value.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+            .Select(kv => kv.Key)
+            .ToList();
+
+    public IReadOnlyList<string> FindIdsByPrinting(string name, string setCode, string collectorNumber) =>
+        CardDataById
+            .Where(kv =>
+                string.Equals(kv.Value.Name, name, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(kv.Value.Set, setCode, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(kv.Value.CollectorNumber ?? string.Empty, collectorNumber, StringComparison.OrdinalIgnoreCase))
+            .Take(2)
+            .Select(kv => kv.Key)
+            .ToList();
+
+    // Static helpers
 
     public static ImageUris ResolveImageUris(ScryfallCardDto card)
     {
@@ -232,5 +294,30 @@ public class CardDataService
             : card.ManaCost;
 
         return string.IsNullOrWhiteSpace(cost) ? null : cost.Trim();
+    }
+
+    private static CardMeta BuildMeta(ScryfallCardDto card) => new(
+        Name: card.Name,
+        OracleId: ResolveOracleId(card) ?? string.Empty,
+        Set: card.Set,
+        CollectorNumber: card.CollectorNumber,
+        FlavorName: card.FlavorName,
+        PrintedName: card.PrintedName,
+        PriceUsd: card.Prices?.Usd,
+        PriceUsdFoil: card.Prices?.UsdFoil,
+        PriceEur: card.Prices?.Eur,
+        PriceEurFoil: card.Prices?.EurFoil);
+
+    private static double? GetNonFoilEuroPrice(ScryfallCardDto card)
+    {
+        var priceText = card.Prices?.Eur;
+        if (string.IsNullOrWhiteSpace(priceText))
+        {
+            return null;
+        }
+
+        return double.TryParse(priceText, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : null;
     }
 }

@@ -25,14 +25,14 @@ public sealed class WishlistService : IWishlistService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IValidationService _validationService;
-    private readonly CardDataService _cardDataService;
+    private readonly ICardDataService _cardDataService;
     private readonly WishlistPricingService _wishlistPricingService;
     private readonly ITeamService _teamService;
 
     public WishlistService(
         IUnitOfWork unitOfWork,
         IValidationService validationService,
-        CardDataService cardDataService,
+        ICardDataService cardDataService,
         WishlistPricingService wishlistPricingService,
         ITeamService teamService)
     {
@@ -245,34 +245,36 @@ public sealed class WishlistService : IWishlistService
             throw WishlistServiceException.ValidationFailed(errors, "Errors.Wishlists.ValidationFailed");
         }
 
-        var cardList = newWishlistCardList
-            .Where(x => _cardDataService.CardDataById.ContainsKey(x.ScryfallId))
-            .Select(x =>
+        var cardList = new List<WishlistCard>(newWishlistCardList.Count);
+        foreach (var x in newWishlistCardList)
+        {
+            var card = await _cardDataService.GetByIdAsync(x.ScryfallId);
+            if (card is null)
+                continue;
+
+            var imageUris = CardDataService.ResolveImageUris(card);
+            var imageUrl = imageUris?.Large ?? imageUris?.Normal ?? imageUris?.Png ?? imageUris?.Small;
+            var artCrop = imageUris!.ArtCrop;
+            var backImageUrl = CardDataService.ResolveBackImageUrl(card);
+            var oracleId = CardDataService.ResolveOracleId(card) ?? string.Empty;
+            cardList.Add(new WishlistCard
             {
-                var card = _cardDataService.CardDataById[x.ScryfallId];
-                var imageUris = CardDataService.ResolveImageUris(card);
-                var imageUrl = imageUris?.Large ?? imageUris?.Normal ?? imageUris?.Png ?? imageUris?.Small;
-                var artCrop = imageUris!.ArtCrop;
-                var backImageUrl = CardDataService.ResolveBackImageUrl(card);
-                var oracleId = CardDataService.ResolveOracleId(card) ?? string.Empty;
-                return new WishlistCard
-                {
-                    WishlistId = wishlistId,
-                    DesiredQuantity = x.DesiredQuantity,
-                    IsFoil = x.IsFoil,
-                    Language = x.Language,
-                    MinimumCondition = x.MinimumCondition,
-                    Name = card.Name,
-                    ScryfallId = x.ScryfallId,
-                    OracleId = oracleId,
-                    ExactVersion = x.ExactVersion,
-                    Notes = x.Notes,
-                    OriginalDeckId = x.OriginalDeckId,
-                    ImageUrl = imageUrl,
-                    BackImageUrl = backImageUrl,
-                    ArtCrop = artCrop
-                };
-            }).ToList();
+                WishlistId = wishlistId,
+                DesiredQuantity = x.DesiredQuantity,
+                IsFoil = x.IsFoil,
+                Language = x.Language,
+                MinimumCondition = x.MinimumCondition,
+                Name = card.Name,
+                ScryfallId = x.ScryfallId,
+                OracleId = oracleId,
+                ExactVersion = x.ExactVersion,
+                Notes = x.Notes,
+                OriginalDeckId = x.OriginalDeckId,
+                ImageUrl = imageUrl,
+                BackImageUrl = backImageUrl,
+                ArtCrop = artCrop
+            });
+        }
 
         _unitOfWork.Repository<WishlistCard>().Add(cardList);
         await _unitOfWork.Complete();
@@ -305,7 +307,9 @@ public sealed class WishlistService : IWishlistService
 
         if (updateDto.ScryfallId is not null)
         {
-            var card = _cardDataService.CardDataById[updateDto.ScryfallId];
+            var card = await _cardDataService.GetByIdAsync(updateDto.ScryfallId);
+            if (card is null)
+                throw WishlistServiceException.BadRequest("Errors.Wishlists.InvalidVersion", includeBody: true);
             var oracleId = CardDataService.ResolveOracleId(card) ?? string.Empty;
             if (string.Equals(oracleId, wishlistCard.OracleId, StringComparison.OrdinalIgnoreCase))
             {

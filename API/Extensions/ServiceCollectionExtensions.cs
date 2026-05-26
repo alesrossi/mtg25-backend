@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using StackExchange.Redis;
 
 namespace API.Extensions;
 
@@ -109,9 +110,15 @@ public static class ServiceCollectionExtensions
 
         public IServiceCollection AddCaching(IConfiguration configuration)
         {
+            var redisConnection = configuration.GetConnectionString("Redis")!;
+            var useRedisCache = configuration.GetValue<bool>("CardData:UseRedisCache");
+            if (useRedisCache)
+            {
+                services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisConnection));
+            }
             services.AddStackExchangeRedisCache(options =>
             {
-                options.Configuration = configuration.GetConnectionString("Redis");
+                options.Configuration = redisConnection;
                 options.InstanceName = "MTG25";
             });
 
@@ -168,7 +175,16 @@ public static class ServiceCollectionExtensions
             services.AddScoped<IValidationService, ValidationService>();
             services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
             services.AddScoped<IGoogleAuthService, GoogleAuthService>();
-            services.AddSingleton<CardDataService>();
+            var useRedisCache = configuration.GetValue<bool>("CardData:UseRedisCache");
+            if (useRedisCache)
+            {
+                services.AddSingleton<ICardDataService, RedisCardDataService>();
+            }
+            else
+            {
+                services.AddSingleton<CardDataService>();
+                services.AddSingleton<ICardDataService>(sp => sp.GetRequiredService<CardDataService>());
+            }
             services.AddScoped<ProblemDetailsEndpointFilter>();
             services.AddScoped<IJwtService, JwtService>();
             services.AddScoped<DeckCardService>();

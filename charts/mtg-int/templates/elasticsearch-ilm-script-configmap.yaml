@@ -1,4 +1,4 @@
-{{- if and .Values.loggingRetention.enabled .Values.loggingRetention.manageScriptConfigMap }}
+{{- if and .Values.elk.enabled .Values.loggingRetention.enabled .Values.loggingRetention.manageScriptConfigMap }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

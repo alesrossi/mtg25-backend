@@ -31,7 +31,7 @@ public sealed class TradeConnectionService : ITradeConnectionService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ITradeSessionStore _sessionStore;
     private readonly NotificationService _notificationService;
-    private readonly CardDataService _cardDataService;
+    private readonly ICardDataService _cardDataService;
     private readonly IUserSettingsService _userSettingsService;
 
     public TradeConnectionService(
@@ -39,7 +39,7 @@ public sealed class TradeConnectionService : ITradeConnectionService
         IUnitOfWork unitOfWork,
         ITradeSessionStore sessionStore,
         NotificationService notificationService,
-        CardDataService cardDataService,
+        ICardDataService cardDataService,
         IUserSettingsService userSettingsService)
     {
         _userManager = userManager;
@@ -412,54 +412,44 @@ public sealed class TradeConnectionService : ITradeConnectionService
 
     private (double? Price, MarketProvider? Provider) ResolveMarketPrice(BinderCard card, MarketProvider preferredProvider)
     {
-        var marketData = TryResolveCardData(card);
-        if (marketData?.Prices is null)
-        {
+        var meta = TryResolveCardMeta(card);
+        if (meta is null)
             return (null, null);
-        }
 
         var isFoil = card.Card?.IsFoil ?? false;
 
         foreach (var provider in EnumerateProviders(preferredProvider))
         {
             var selected = provider == MarketProvider.Mkm
-                ? (isFoil ? marketData.Prices.EurFoil : marketData.Prices.Eur)
-                : (isFoil ? marketData.Prices.UsdFoil : marketData.Prices.Usd);
+                ? (isFoil ? meta.PriceEurFoil : meta.PriceEur)
+                : (isFoil ? meta.PriceUsdFoil : meta.PriceUsd);
 
             var parsed = TryParsePrice(selected);
             if (parsed.HasValue)
-            {
                 return (parsed.Value, provider);
-            }
         }
 
         return (null, null);
     }
 
-    private ScryfallCardDto? TryResolveCardData(BinderCard card)
+    private CardMeta? TryResolveCardMeta(BinderCard card)
     {
         if (card.Card is null)
-        {
             return null;
-        }
 
-        if (!string.IsNullOrWhiteSpace(card.Card.ScryfallId)
-            && _cardDataService.CardDataById.TryGetValue(card.Card.ScryfallId, out var byId))
-        {
-            return byId;
-        }
+        if (!string.IsNullOrWhiteSpace(card.Card.ScryfallId) &&
+            _cardDataService.TryGetMeta(card.Card.ScryfallId, out var metaById))
+            return metaById;
 
-        if (!string.IsNullOrWhiteSpace(card.Card.Name)
-            && _cardDataService.CardDataByName.TryGetValue(card.Card.Name, out var byName))
-        {
-            return byName;
-        }
+        if (!string.IsNullOrWhiteSpace(card.Card.Name) &&
+            _cardDataService.TryGetIdByName(card.Card.Name, out var nameId1) &&
+            _cardDataService.TryGetMeta(nameId1, out var metaByName))
+            return metaByName;
 
-        if (!string.IsNullOrWhiteSpace(card.Name)
-            && _cardDataService.CardDataByName.TryGetValue(card.Name, out var byBinderName))
-        {
-            return byBinderName;
-        }
+        if (!string.IsNullOrWhiteSpace(card.Name) &&
+            _cardDataService.TryGetIdByName(card.Name, out var nameId2) &&
+            _cardDataService.TryGetMeta(nameId2, out var metaByBinderName))
+            return metaByBinderName;
 
         return null;
     }
@@ -467,21 +457,16 @@ public sealed class TradeConnectionService : ITradeConnectionService
     private string? ResolveOracleId(BinderCardDto binderCard)
     {
         if (!string.IsNullOrWhiteSpace(binderCard.Card?.OracleId))
-        {
             return binderCard.Card.OracleId;
-        }
 
-        if (!string.IsNullOrWhiteSpace(binderCard.Card?.ScryfallId)
-            && _cardDataService.CardDataById.TryGetValue(binderCard.Card.ScryfallId, out var byId))
-        {
-            return CardDataService.ResolveOracleId(byId);
-        }
+        if (!string.IsNullOrWhiteSpace(binderCard.Card?.ScryfallId) &&
+            _cardDataService.TryGetMeta(binderCard.Card.ScryfallId, out var metaById))
+            return metaById.OracleId;
 
-        if (!string.IsNullOrWhiteSpace(binderCard.Name)
-            && _cardDataService.CardDataByName.TryGetValue(binderCard.Name, out var byName))
-        {
-            return CardDataService.ResolveOracleId(byName);
-        }
+        if (!string.IsNullOrWhiteSpace(binderCard.Name) &&
+            _cardDataService.TryGetIdByName(binderCard.Name, out var nameId) &&
+            _cardDataService.TryGetMeta(nameId, out var metaByName))
+            return metaByName.OracleId;
 
         return null;
     }
@@ -947,20 +932,18 @@ public sealed class TradeConnectionService : ITradeConnectionService
 
     private double? ResolveWishlistMarketPrice(string scryfallId, bool isFoil, MarketProvider marketProvider)
     {
-        if (!_cardDataService.CardDataById.TryGetValue(scryfallId, out var marketData) || marketData?.Prices is null)
-        {
+        if (!_cardDataService.TryGetMeta(scryfallId, out var meta))
             return null;
-        }
 
         var priceText = marketProvider == MarketProvider.Mkm
-            ? (isFoil ? marketData.Prices.EurFoil : marketData.Prices.Eur)
-            : (isFoil ? marketData.Prices.UsdFoil : marketData.Prices.Usd);
+            ? (isFoil ? meta.PriceEurFoil : meta.PriceEur)
+            : (isFoil ? meta.PriceUsdFoil : meta.PriceUsd);
 
         if (string.IsNullOrWhiteSpace(priceText) && isFoil)
         {
             priceText = marketProvider == MarketProvider.Mkm
-                ? marketData.Prices.Eur
-                : marketData.Prices.Usd;
+                ? meta.PriceEur
+                : meta.PriceUsd;
         }
 
         if (string.IsNullOrWhiteSpace(priceText))

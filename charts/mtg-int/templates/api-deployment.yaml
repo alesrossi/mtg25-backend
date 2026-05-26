@@ -114,6 +114,7 @@ spec:
                 secretKeyRef:
                   name: api-int-secrets
                   key: googleClientId
+{{- if .Values.elk.enabled }}
             - name: ElasticsearchLogging__Username
               valueFrom:
                 secretKeyRef:
@@ -126,6 +127,7 @@ spec:
                   key: {{ .Values.api.elasticsearch.credentialsPasswordKey }}
             - name: SerilogSelfLog__Enabled
               value: "true"
+{{- end }}
 {{- if .Values.api.extraEnv }}
 {{ toYaml .Values.api.extraEnv | indent 12 }}
 {{- end }}
@@ -151,10 +153,12 @@ spec:
               mountPath: /app/appsettings.Integration.json
               subPath: appsettings.Integration.json
 {{- end }}
+{{- if .Values.elk.enabled }}
             - name: elasticsearch-certs
               mountPath: {{ .Values.api.elasticsearch.caMountPath }}
               subPath: elastic-ca.crt
               readOnly: true
+{{- end }}
 {{- if .Values.api.persistence.logs.enabled }}
             - name: logs
               mountPath: /app/logs
@@ -167,12 +171,14 @@ spec:
           configMap:
             name: {{ .Values.api.config.appsettingsIntegrationConfigMap }}
 {{- end }}
+{{- if .Values.elk.enabled }}
         - name: elasticsearch-certs
           secret:
             secretName: {{ .Values.api.elasticsearch.caSecretName }}
             items:
               - key: {{ .Values.api.elasticsearch.caSecretKey }}
                 path: elastic-ca.crt
+{{- end }}
 {{- if .Values.api.persistence.logs.enabled }}
         - name: logs
           persistentVolumeClaim:
