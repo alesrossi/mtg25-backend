@@ -1,0 +1,27 @@
+# TLS is automatic via Let's Encrypt — Caddy handles cert issuance and renewal.
+# All HTTP traffic is redirected to HTTPS by Caddy's default behaviour.
+
+surveyl.top, www.surveyl.top, app.surveyl.top {
+    reverse_proxy frontend-int:80
+}
+
+api.surveyl.top {
+    reverse_proxy api-int:8080
+}
+
+info.surveyl.top {
+    reverse_proxy info-site:80
+}
+
+privacy.surveyl.top {
+    reverse_proxy privacy-site:80
+}
+
+# Adminer is protected by basic auth — keep ADMINER_BASIC_AUTH_HASH in .env.
+# Generate hash: caddy hash-password --plaintext yourpassword
+adminer.surveyl.top {
+    basicauth {
+        {$ADMINER_USER} {$ADMINER_BASIC_AUTH_HASH}
+    }
+    reverse_proxy adminer-int:8080
+}
