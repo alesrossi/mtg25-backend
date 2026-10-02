@@ -1,0 +1,136 @@
+# Standalone server deployment — no domain required.
+# Exposes only the frontend (port 80) and the API (port 8080); Postgres and
+# Redis stay on the internal network.
+#
+# The API and frontend are built from source on `up`; the frontend repo must be
+# cloned next to this one (override with FRONTEND_CONTEXT).
+#
+# Usage:
+#   1. cp .env.example .env and fill in SERVER_IP + secrets.
+#   2. docker compose -f docker-compose.server.yml up -d --build
+#
+# Frontend: http://<SERVER_IP>/          API: http://<SERVER_IP>:8080/api/health
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres-srv
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${INT_POSTGRES_PASSWORD:?set INT_POSTGRES_PASSWORD in .env}
+      POSTGRES_USER: root
+      POSTGRES_DB: main_int
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - mtg-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d main_int"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis-srv
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    networks:
+      - mtg-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host
+    image: mtg25/api:local
+    pull_policy: build
+    container_name: api-srv
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Integration
+      - ConnectionStrings__DefaultConnection=Server=postgres;Port=5432;Database=main_int;User Id=root;Password=${INT_POSTGRES_PASSWORD};
+      - ConnectionStrings__Redis=redis:6379
+      - JWT__SecretKey=${INT_JWT_SECRET:?set INT_JWT_SECRET in .env}
+      - JWT__Issuer=MTG25API
+      - JWT__Audience=MTG25Users
+      - JWT__ExpiryMinutes=60
+      - Scryfall__BasePath=https://api.scryfall.com/
+      - Paths__Bulk=/tmp/mtg25-bulk
+      - CardData__UseRedisCache=true
+      - Google__ClientId=${GOOGLE_CLIENT_ID:-}
+      - Cors__AllowedOrigins__0=http://${SERVER_IP:?set SERVER_IP in .env}
+      - Cors__AllowedOrigins__1=http://${SERVER_IP}:80
+      - DOTNET_SYSTEM_NET_DISABLEIPV6=true
+      - DOTNET_SYSTEM_NET_HTTP_USESOCKETSHTTPHANDLER=0
+      - DOTNET_SYSTEM_NET_HTTP_DISABLEHTTP2=1
+      - DOTNET_SYSTEM_NET_HTTP_DISABLEHTTP3=1
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mtg-network
+    volumes:
+      - bulk-data:/tmp/mtg25-bulk
+    # The aspnet base image has no curl/wget, so use bash's /dev/tcp for the
+    # HTTP check instead.
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -c
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/8080 &&
+          printf 'GET /api/health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          head -1 <&3 | grep -q '200'
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 300s
+
+  # EXPO_PUBLIC_* values are inlined into the JS bundle at build time, so the
+  # API URL has to be a build arg, not a runtime environment variable.
+  frontend:
+    build:
+      context: ${FRONTEND_CONTEXT:-../mtgfe25-frontend}
+      dockerfile: Dockerfile.frontend
+      network: host
+      args:
+        EXPO_PUBLIC_API_URL: http://${SERVER_IP}:8080/api
+        EXPO_PUBLIC_ENV: prod
+        EXPO_PUBLIC_APP_NAME: Surveyl.top
+    image: mtg25/frontend:local
+    pull_policy: build
+    container_name: frontend-srv
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - mtg-network
+
+volumes:
+  postgres-data:
+    name: mtg-postgres-data
+  redis-data:
+    name: mtg-redis-data
+  bulk-data:
+    name: mtg-bulk-data
+
+networks:
+  mtg-network:
+    name: mtg-network
+    driver: bridge

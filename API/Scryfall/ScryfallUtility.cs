@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO.Compression;
 using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -9,6 +10,9 @@ namespace API.Scryfall;
 
 public static class ScryfallUtility
 {
+    private const string JsonExtension = ".json";
+    private const string JsonlExtension = ".jsonl";
+
     public static async IAsyncEnumerable<ScryfallCardDto> FetchCardListStreamAsync(
         string bulkBasePath,
         string endpoint,
@@ -48,7 +52,9 @@ public static class ScryfallUtility
         while (true)
         {
             await using var stream = OpenBulkFileStream(currentPath, bulkBasePath);
-            var asyncEnumerable = JsonSerializer.DeserializeAsyncEnumerable<ScryfallCardDto>(stream, options, cancellationToken);
+            var asyncEnumerable = IsJsonl(currentPath)
+                ? DeserializeJsonLinesAsync(stream, options, cancellationToken)
+                : JsonSerializer.DeserializeAsyncEnumerable<ScryfallCardDto>(stream, options, cancellationToken);
             await using var enumerator = asyncEnumerable.GetAsyncEnumerator(cancellationToken);
 
             bool restartWithFallback;
@@ -99,6 +105,26 @@ public static class ScryfallUtility
         }
     }
 
+    private static async IAsyncEnumerable<ScryfallCardDto?> DeserializeJsonLinesAsync(
+        Stream stream,
+        JsonSerializerOptions options,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        using var reader = new StreamReader(stream);
+        while (await reader.ReadLineAsync(cancellationToken) is { } line)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                continue;
+            }
+
+            yield return JsonSerializer.Deserialize<ScryfallCardDto>(line, options);
+        }
+    }
+
+    private static bool IsJsonl(string filePath) =>
+        string.Equals(Path.GetExtension(filePath), JsonlExtension, StringComparison.OrdinalIgnoreCase);
+
     private static void TryDeleteCorruptedFile(string filePath)
     {
         try
@@ -119,7 +145,8 @@ public static class ScryfallUtility
         var currentDate = TryParseDateFromFileName(currentPath);
 
         var previousFile = Directory
-            .EnumerateFiles(resolvedBasePath, "*.json", SearchOption.TopDirectoryOnly)
+            .EnumerateFiles(resolvedBasePath, "*.json*", SearchOption.TopDirectoryOnly)
+            .Where(candidate => Path.GetExtension(candidate) is JsonExtension or JsonlExtension)
             .Where(candidate => !string.Equals(candidate, currentPath, StringComparison.OrdinalIgnoreCase))
             .Select(candidate => new { candidate, date = TryParseDateFromFileName(candidate) })
             .Where(tuple => tuple.date is not null && (currentDate is null || tuple.date < currentDate))
@@ -132,10 +159,7 @@ public static class ScryfallUtility
             return previousFile;
         }
 
-        var previousDayPath = BuildFallbackFilePath(resolvedBasePath);
-        return File.Exists(previousDayPath)
-            ? previousDayPath
-            : null;
+        return BuildFallbackFilePath(resolvedBasePath);
     }
 
     private static DateTime? TryParseDateFromFileName(string filePath)
@@ -159,14 +183,13 @@ public static class ScryfallUtility
     {
         Directory.CreateDirectory(resolvedBasePath);
 
-        var fileName = DateTime.Now.ToString("yyyyMMdd") + ".json";
-        var destinationPath = Path.Combine(resolvedBasePath, fileName);
-        var fallbackPath = BuildFallbackFilePath(resolvedBasePath);
-
-        if (File.Exists(destinationPath))
+        var todayPath = FindExistingBulkFile(resolvedBasePath, DateTime.Now);
+        if (todayPath is not null)
         {
-            return destinationPath;
+            return todayPath;
         }
+
+        var fallbackPath = BuildFallbackFilePath(resolvedBasePath);
 
         try
         {
@@ -180,13 +203,28 @@ public static class ScryfallUtility
                 throw new InvalidOperationException("BulkDto is null");
             }
 
+            var downloadUri = bulkDto.JsonlDownloadUri ?? bulkDto.DownloadUri
+                ?? throw new InvalidOperationException("Scryfall bulk data response has no download URI");
+            var extension = bulkDto.JsonlDownloadUri is not null ? JsonlExtension : JsonExtension;
+            var destinationPath = Path.Combine(resolvedBasePath, DateTime.Now.ToString("yyyyMMdd") + extension);
+            var tempPath = destinationPath + ".download";
+
             using var fileClient = new HttpClient();
-            var responseFile = await fileClient.GetAsync(bulkDto.DownloadUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            var responseFile = await fileClient.GetAsync(downloadUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             responseFile.EnsureSuccessStatusCode();
 
-            await using var fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None);
-            await using var stream = await responseFile.Content.ReadAsStreamAsync(cancellationToken);
-            await stream.CopyToAsync(fileStream, cancellationToken);
+            // Download to a temp file first so an interrupted download never
+            // leaves a truncated file that looks like today's data.
+            await using (var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                await using var stream = await responseFile.Content.ReadAsStreamAsync(cancellationToken);
+                await using var source = new Uri(downloadUri).AbsolutePath.EndsWith(".gz", StringComparison.OrdinalIgnoreCase)
+                    ? new GZipStream(stream, CompressionMode.Decompress)
+                    : stream;
+                await source.CopyToAsync(fileStream, cancellationToken);
+            }
+
+            File.Move(tempPath, destinationPath, overwrite: true);
 
             Console.WriteLine($@"File downloaded successfully to {destinationPath}");
 
@@ -194,7 +232,7 @@ public static class ScryfallUtility
         }
         catch (Exception ex)
         {
-            if (!string.IsNullOrWhiteSpace(fallbackPath) && File.Exists(fallbackPath))
+            if (fallbackPath is not null)
             {
                 Console.WriteLine($@"Failed to download latest Scryfall data ({ex.Message}). Using fallback file {fallbackPath}.");
                 return fallbackPath;
@@ -215,7 +253,7 @@ public static class ScryfallUtility
             var resolvedBasePath = ResolveBasePath(basePath);
             var fallbackPath = BuildFallbackFilePath(resolvedBasePath);
 
-            if (!string.IsNullOrWhiteSpace(fallbackPath) && !string.Equals(primaryPath, fallbackPath, StringComparison.OrdinalIgnoreCase) && File.Exists(fallbackPath))
+            if (fallbackPath is not null && !string.Equals(primaryPath, fallbackPath, StringComparison.OrdinalIgnoreCase))
             {
                 try
                 {
@@ -247,10 +285,13 @@ public static class ScryfallUtility
         return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, basePath));
     }
 
-    private static string BuildFallbackFilePath(string resolvedBasePath)
+    private static string? BuildFallbackFilePath(string resolvedBasePath) =>
+        FindExistingBulkFile(resolvedBasePath, DateTime.Now.AddDays(-1));
+
+    private static string? FindExistingBulkFile(string resolvedBasePath, DateTime date)
     {
-        var previousDay = DateTime.Now.AddDays(-1).ToString("yyyyMMdd");
-        return Path.Combine(resolvedBasePath, previousDay + ".json");
+        var baseName = Path.Combine(resolvedBasePath, date.ToString("yyyyMMdd"));
+        return new[] { baseName + JsonlExtension, baseName + JsonExtension }.FirstOrDefault(File.Exists);
     }
     
     private static HttpClient GetClient(string endpoint)

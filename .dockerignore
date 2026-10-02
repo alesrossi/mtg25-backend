@@ -25,3 +25,7 @@ LICENSE
 README.md
 **/TestResults/
 **/*.trx
+**/bulk-data
+**/logs
+**/tmp
+*.md

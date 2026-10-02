@@ -42,8 +42,8 @@ EXPOSE 8080
 ENV ASPNETCORE_URLS=http://+:8080
 ENV ASPNETCORE_ENVIRONMENT=Integration
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:8080/health || exit 1
+# Health check (the aspnet image has no curl/wget, so use bash's /dev/tcp)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=300s --retries=3 \
+  CMD bash -c "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /api/health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && head -1 <&3 | grep -q 200"
 
 ENTRYPOINT ["dotnet", "API.dll"]

@@ -20,7 +20,7 @@ privacy.surveyl.top {
 # Adminer is protected by basic auth — keep ADMINER_BASIC_AUTH_HASH in .env.
 # Generate hash: caddy hash-password --plaintext yourpassword
 adminer.surveyl.top {
-    basicauth {
+    basic_auth {
         {$ADMINER_USER} {$ADMINER_BASIC_AUTH_HASH}
     }
     reverse_proxy adminer-int:8080
