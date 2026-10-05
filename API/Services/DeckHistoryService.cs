@@ -21,9 +21,9 @@ public interface IDeckHistoryService
 public sealed class DeckHistoryService : IDeckHistoryService
 {
     private readonly IUnitOfWork _unitOfWork;
-    private readonly CardDataService _cardDataService;
+    private readonly ICardDataService _cardDataService;
 
-    public DeckHistoryService(IUnitOfWork unitOfWork, CardDataService cardDataService)
+    public DeckHistoryService(IUnitOfWork unitOfWork, ICardDataService cardDataService)
     {
         _unitOfWork = unitOfWork;
         _cardDataService = cardDataService;
@@ -208,7 +208,7 @@ public sealed class DeckHistoryService : IDeckHistoryService
 
         foreach (var entry in entryLookup.Values.Where(entry => !applied.Contains(entry.ScryfallId)))
         {
-            var deckCard = CreateDeckCardFromEntry(deck.Id, entry);
+            var deckCard = await CreateDeckCardFromEntryAsync(deck.Id, entry);
             _unitOfWork.Repository<DeckCard>().Add(deckCard);
         }
 
@@ -479,9 +479,10 @@ public sealed class DeckHistoryService : IDeckHistoryService
             .Where(entry => entry.TotalQuantity > 0);
     }
 
-    private DeckCard CreateDeckCardFromEntry(int deckId, DeckTreeEntry entry)
+    private async Task<DeckCard> CreateDeckCardFromEntryAsync(int deckId, DeckTreeEntry entry)
     {
-        if (!_cardDataService.CardDataById.TryGetValue(entry.ScryfallId, out var cardData))
+        var cardData = await _cardDataService.GetByIdAsync(entry.ScryfallId);
+        if (cardData is null)
         {
             throw DeckHistoryServiceException.BadRequest("Errors.Decks.CardDataMissing", entry.ScryfallId);
         }
@@ -529,7 +530,7 @@ public sealed class DeckHistoryService : IDeckHistoryService
             .Where(entry => entry.TotalQuantity > 0)
             .Select(entry =>
             {
-                if (!_cardDataService.CardDataById.TryGetValue(entry.ScryfallId, out var cardData))
+                if (!_cardDataService.TryGetMeta(entry.ScryfallId, out var meta))
                 {
                     throw DeckHistoryServiceException.BadRequest("Errors.Decks.CardDataMissing", entry.ScryfallId);
                 }
@@ -538,7 +539,7 @@ public sealed class DeckHistoryService : IDeckHistoryService
                 {
                     entry.MaindeckQuantity,
                     entry.SideboardQuantity,
-                    Name = cardData.Name
+                    meta.Name
                 };
             })
             .ToList();

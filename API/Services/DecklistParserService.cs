@@ -6,19 +6,19 @@ namespace API.Services;
 
 public class DecklistParserService : IDecklistParserService
 {
-    private readonly CardDataService _cardDataService;
+    private readonly ICardDataService _cardDataService;
     private readonly IValidationService _validationService;
     private readonly ILogger<DecklistParserService> _logger;
     private const string ParseOperation = "Decklist.Parse";
 
-    public DecklistParserService(CardDataService cardDataService, IValidationService validationService, ILogger<DecklistParserService> logger)
+    public DecklistParserService(ICardDataService cardDataService, IValidationService validationService, ILogger<DecklistParserService> logger)
     {
         _cardDataService = cardDataService;
         _validationService = validationService;
         _logger = logger;
     }
 
-    public Task<DecklistParseResult> ParseAsync(IEnumerable<string> decklistLines)
+    public async Task<DecklistParseResult> ParseAsync(IEnumerable<string> decklistLines)
     {
         var errors = new List<string>();
         var deckCards = new Dictionary<string, CreateDeckCardDto>(StringComparer.OrdinalIgnoreCase);
@@ -26,8 +26,7 @@ public class DecklistParserService : IDecklistParserService
         if (decklistLines is null)
         {
             _logger.LogOperationWarning(ParseOperation, "Decklist null");
-            return Task.FromResult(new DecklistParseResult(Array.Empty<CreateDeckCardDto>(), ["Decklist cannot be null."
-            ]));
+            return new DecklistParseResult(Array.Empty<CreateDeckCardDto>(), ["Decklist cannot be null."]);
         }
 
         var decklistArray = decklistLines as string[] ?? decklistLines.ToArray();
@@ -52,9 +51,7 @@ public class DecklistParserService : IDecklistParserService
                 continue;
             }
 
-            if (!TryParseLine(line, lineNumber, inSideboard, deckCards, errors))
-            {
-            }
+            await TryParseLineAsync(line, lineNumber, inSideboard, deckCards, errors);
         }
 
         var validDeckCards = new List<CreateDeckCardDto>();
@@ -81,10 +78,10 @@ public class DecklistParserService : IDecklistParserService
         }
 
         _logger.LogOperationSuccess(ParseOperation, new { ValidCards = validDeckCards.Count, ErrorCount = errors.Count });
-        return Task.FromResult(new DecklistParseResult(validDeckCards, errors));
+        return new DecklistParseResult(validDeckCards, errors);
     }
 
-    private bool TryParseLine(
+    private async Task<bool> TryParseLineAsync(
         string line,
         int lineNumber,
         bool inSideboard,
@@ -120,7 +117,8 @@ public class DecklistParserService : IDecklistParserService
             return false;
         }
 
-        if (!_cardDataService.CardDataByName.TryGetValue(cardName, out var cardData))
+        var cardData = await _cardDataService.GetByNameAsync(cardName);
+        if (cardData is null)
         {
             errors.Add($"Line {lineNumber}: Card '{cardName}' was not found in the card database.");
             _logger.LogOperationStep(ParseOperation, "Card not found", new { lineNumber, cardName });

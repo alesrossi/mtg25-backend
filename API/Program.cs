@@ -52,8 +52,6 @@ public class Program
                 });
             });
             builder.Services.AddJwtAuthentication(builder.Configuration, builder.Environment);
-            builder.Services.AddScoped<ITeamService, TeamService>();
-            builder.Services.AddScoped<ITeamCollectionService, TeamCollectionService>();
         
             var app = builder.Build();
         

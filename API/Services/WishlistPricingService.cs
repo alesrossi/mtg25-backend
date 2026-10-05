@@ -9,13 +9,13 @@ namespace API.Services;
 public class WishlistPricingService
 {
     private readonly IUnitOfWork _unitOfWork;
-    private readonly CardDataService _cardDataService;
+    private readonly ICardDataService _cardDataService;
     private readonly IUserSettingsService _userSettingsService;
     private readonly ILogger<WishlistPricingService> _logger;
 
     public WishlistPricingService(
         IUnitOfWork unitOfWork,
-        CardDataService cardDataService,
+        ICardDataService cardDataService,
         IUserSettingsService userSettingsService,
         ILogger<WishlistPricingService> logger)
     {
@@ -66,21 +66,21 @@ public class WishlistPricingService
 
     private double? ResolveMarketPrice(string scryfallId, bool isFoil, MarketProvider marketProvider)
     {
-        if (!_cardDataService.CardDataById.TryGetValue(scryfallId, out var marketData) || marketData?.Prices is null)
+        if (!_cardDataService.TryGetMeta(scryfallId, out var meta))
         {
             return null;
         }
 
         var priceText = marketProvider == MarketProvider.Mkm
-            ? (isFoil ? marketData.Prices.EurFoil : marketData.Prices.Eur)
-            : (isFoil ? marketData.Prices.UsdFoil : marketData.Prices.Usd);
+            ? (isFoil ? meta.PriceEurFoil : meta.PriceEur)
+            : (isFoil ? meta.PriceUsdFoil : meta.PriceUsd);
 
         if (string.IsNullOrWhiteSpace(priceText) && isFoil)
         {
             // Fall back to non-foil pricing when foil price is unavailable
             priceText = marketProvider == MarketProvider.Mkm
-                ? marketData.Prices.Eur
-                : marketData.Prices.Usd;
+                ? meta.PriceEur
+                : meta.PriceUsd;
         }
 
         if (string.IsNullOrWhiteSpace(priceText))

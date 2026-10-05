@@ -14,7 +14,7 @@ public class DeckCardService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<DeckCardService> _logger;
-    private readonly CardDataService _cardDataService;
+    private readonly ICardDataService _cardDataService;
     private readonly IUserSettingsService _userSettingsService;
 
     private const string GetDeckCardsOperation = "DeckCards.Fetch";
@@ -23,7 +23,7 @@ public class DeckCardService
     private const string UpdateDeckCardOperation = "DeckCards.Update";
     private const string DeleteDeckCardOperation = "DeckCards.Delete";
 
-    public DeckCardService(IUnitOfWork unitOfWork, ILogger<DeckCardService> logger, CardDataService cardDataService, IUserSettingsService userSettingsService)
+    public DeckCardService(IUnitOfWork unitOfWork, ILogger<DeckCardService> logger, ICardDataService cardDataService, IUserSettingsService userSettingsService)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
@@ -194,7 +194,8 @@ public class DeckCardService
         }
 
         var trimmedName = createDto.Name.Trim();
-        if (!_cardDataService.CardDataByName.TryGetValue(trimmedName, out var namedCardData))
+        var namedCardData = await _cardDataService.GetByNameAsync(trimmedName);
+        if (namedCardData is null)
         {
             _logger.LogOperationWarning(CreateDeckCardOperation, "Card not found in Scryfall data", new { deckId, Name = trimmedName });
             throw new InvalidOperationException($"Card '{trimmedName}' was not found in the card database.");
@@ -231,10 +232,7 @@ public class DeckCardService
             collectorNumber = ownedCard.CollectorNumber;
             ownedCardId = ownedCard.Id;
 
-            if (!_cardDataService.CardDataById.TryGetValue(ownedCard.ScryfallId, out scryfallCard))
-            {
-                scryfallCard = namedCardData;
-            }
+            scryfallCard = await _cardDataService.GetByIdAsync(ownedCard.ScryfallId) ?? namedCardData;
         }
         else
         {
@@ -340,7 +338,8 @@ public class DeckCardService
             }
 
             var trimmedName = createDto.Name.Trim();
-            if (!_cardDataService.CardDataByName.TryGetValue(trimmedName, out var namedCardData))
+            var namedCardData = await _cardDataService.GetByNameAsync(trimmedName);
+            if (namedCardData is null)
             {
                 _logger.LogOperationWarning(ImportDeckCardsOperation, "Card not found in Scryfall data", new { deck.Id, Name = trimmedName });
                 throw new InvalidOperationException($"Card '{trimmedName}' was not found in the card database.");
@@ -378,10 +377,7 @@ public class DeckCardService
                 collectorNumber = ownedCard.CollectorNumber;
                 ownedCardId = ownedCard.Id;
 
-                if (!_cardDataService.CardDataById.TryGetValue(ownedCard.ScryfallId, out scryfallCard))
-                {
-                    scryfallCard = namedCardData;
-                }
+                scryfallCard = await _cardDataService.GetByIdAsync(ownedCard.ScryfallId) ?? namedCardData;
             }
             else
             {
@@ -941,14 +937,14 @@ public class DeckCardService
 
     private double? ResolveMarketPrice(string scryfallId, MarketProvider marketProvider)
     {
-        if (!_cardDataService.CardDataById.TryGetValue(scryfallId, out var marketData) || marketData?.Prices is null)
+        if (!_cardDataService.TryGetMeta(scryfallId, out var meta))
         {
             return null;
         }
 
         var priceText = marketProvider == MarketProvider.Mkm
-            ? marketData.Prices.Eur
-            : marketData.Prices.Usd;
+            ? meta.PriceEur
+            : meta.PriceUsd;
 
         if (string.IsNullOrWhiteSpace(priceText))
         {

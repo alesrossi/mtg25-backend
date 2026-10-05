@@ -30,14 +30,14 @@ public sealed class BindersService : IBindersService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IValidationService _validationService;
     private readonly IUserSettingsService _userSettingsService;
-    private readonly CardDataService _cardDataService;
+    private readonly ICardDataService _cardDataService;
     private readonly ITeamService _teamService;
 
     public BindersService(
         IUnitOfWork unitOfWork,
         IValidationService validationService,
         IUserSettingsService userSettingsService,
-        CardDataService cardDataService,
+        ICardDataService cardDataService,
         ITeamService teamService)
     {
         _unitOfWork = unitOfWork;
@@ -520,7 +520,7 @@ public sealed class BindersService : IBindersService
         IEnumerable<BinderCard> cards,
         MarketProvider preferredProvider,
         IUserSettingsService userSettingsService,
-        CardDataService cardDataService)
+        ICardDataService cardDataService)
     {
         var pricedCards = new List<BinderCardDto>();
         foreach (var card in cards)
@@ -542,11 +542,11 @@ public sealed class BindersService : IBindersService
 
     private static (double? Price, MarketProvider? Provider) ResolveMarketPrice(
         BinderCard card,
-        CardDataService cardDataService,
+        ICardDataService cardDataService,
         MarketProvider preferredProvider)
     {
-        var marketData = TryResolveCardData(card, cardDataService);
-        if (marketData?.Prices is null)
+        var meta = TryResolveMeta(card, cardDataService);
+        if (meta is null)
         {
             return (null, null);
         }
@@ -555,8 +555,8 @@ public sealed class BindersService : IBindersService
         foreach (var provider in EnumerateProviders(preferredProvider))
         {
             var selected = provider == MarketProvider.Mkm
-                ? (isFoil ? marketData.Prices.EurFoil : marketData.Prices.Eur)
-                : (isFoil ? marketData.Prices.UsdFoil : marketData.Prices.Usd);
+                ? (isFoil ? meta.PriceEurFoil : meta.PriceEur)
+                : (isFoil ? meta.PriceUsdFoil : meta.PriceUsd);
 
             var parsed = TryParsePrice(selected);
             if (parsed.HasValue)
@@ -568,25 +568,27 @@ public sealed class BindersService : IBindersService
         return (null, null);
     }
 
-    private static ScryfallCardDto? TryResolveCardData(BinderCard card, CardDataService cardDataService)
+    private static CardMeta? TryResolveMeta(BinderCard card, ICardDataService cardDataService)
     {
         if (card.Card is not null)
         {
             if (!string.IsNullOrWhiteSpace(card.Card.ScryfallId)
-                && cardDataService.CardDataById.TryGetValue(card.Card.ScryfallId, out var byId))
+                && cardDataService.TryGetMeta(card.Card.ScryfallId, out var byId))
             {
                 return byId;
             }
 
             if (!string.IsNullOrWhiteSpace(card.Card.Name)
-                && cardDataService.CardDataByName.TryGetValue(card.Card.Name, out var byName))
+                && cardDataService.TryGetIdByName(card.Card.Name, out var nameId)
+                && cardDataService.TryGetMeta(nameId, out var byName))
             {
                 return byName;
             }
         }
 
         if (!string.IsNullOrWhiteSpace(card.Name)
-            && cardDataService.CardDataByName.TryGetValue(card.Name, out var byBinderName))
+            && cardDataService.TryGetIdByName(card.Name, out var binderNameId)
+            && cardDataService.TryGetMeta(binderNameId, out var byBinderName))
         {
             return byBinderName;
         }
